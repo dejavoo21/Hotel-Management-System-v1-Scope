@@ -371,7 +371,7 @@ export default function ReportsPage() {
                       borderRadius: '8px',
                       color: '#fff',
                     }}
-                    formatter={(value: number) => [formatCurrency(value), 'Revenue']}
+                    formatter={(value) => [formatCurrency(Number(value) || 0), 'Revenue']}
                     labelFormatter={(label) => `Date: ${label}`}
                   />
                   <Area
@@ -431,7 +431,7 @@ export default function ReportsPage() {
                       borderRadius: '8px',
                       color: '#fff',
                     }}
-                    formatter={(value: number) => [`${value.toFixed(1)}%`, 'Occupancy']}
+                    formatter={(value) => [`${(Number(value) || 0).toFixed(1)}%`, 'Occupancy']}
                     labelFormatter={(label) => `Date: ${label}`}
                   />
                   <Legend />
