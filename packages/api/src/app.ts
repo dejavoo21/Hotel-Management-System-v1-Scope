@@ -110,6 +110,29 @@ export function createApp(): Application {
     }));
   }
 
+  // Root route - API info
+  app.get('/', (_req, res) => {
+    res.json({
+      success: true,
+      data: {
+        name: 'LaFlo Hotel Management System API',
+        version: '1.0.0',
+        status: 'running',
+        mode: isDemoMode ? 'demo' : 'production',
+        endpoints: {
+          health: '/health',
+          auth: '/api/auth',
+          dashboard: '/api/dashboard',
+          rooms: '/api/rooms',
+          bookings: '/api/bookings',
+          guests: '/api/guests',
+          accessRequests: '/api/access-requests',
+        },
+        documentation: 'https://github.com/dejavoo21/Hotel-Management-System-v1-Scope',
+      },
+    });
+  });
+
   // Health check endpoint
   app.get('/health', (_req, res) => {
     res.json({
