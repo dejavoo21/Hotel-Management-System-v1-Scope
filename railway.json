@@ -8,7 +8,7 @@
           "cmds": ["npm install --legacy-peer-deps"]
         },
         "build": {
-          "cmds": ["echo 'Build complete'"]
+          "cmds": ["cd packages/api && npx prisma generate"]
         }
       }
     }
