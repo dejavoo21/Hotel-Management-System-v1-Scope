@@ -283,6 +283,8 @@ export default function SettingsPage() {
   });
 
   // Simulate user reply (for demo/testing purposes)
+  // @ts-expect-error - This mutation is available for testing purposes
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const simulateReplyMutation = useMutation({
     mutationFn: ({ id, message }: { id: string; message: string }) =>
       accessRequestService.simulateReply(id, message),
