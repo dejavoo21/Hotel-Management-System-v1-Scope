@@ -1,5 +1,17 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
 import { useAuthStore } from '@/stores/authStore';
 import api from '@/services/api';
 import { reportService, bookingService, roomService } from '@/services';
@@ -324,33 +336,53 @@ export default function ReportsPage() {
           {revenueLoading ? (
             <div className="h-64 animate-shimmer rounded" />
           ) : revenueSeries.length > 0 ? (
-            <div className="h-64">
-              {/* Simple bar chart representation */}
-              <div className="flex h-full items-end gap-1">
-                {revenueSeries.slice(-30).map((data, index) => {
-                  const maxRevenueRaw = Math.max(...revenueSeries.map((d) => d.revenue));
-                  const maxRevenue = Number.isFinite(maxRevenueRaw) && maxRevenueRaw > 0 ? maxRevenueRaw : 1;
-                  const heightRaw = (Number(data.revenue) / maxRevenue) * 100;
-                  const height = Number.isFinite(heightRaw) ? heightRaw : 0;
-                    return (
-                      <div
-                        key={index}
-                        className="group relative flex-1 cursor-pointer"
-                      title={`${new Date(data.date).toLocaleDateString()}: ${formatCurrency(
-                        data.revenue
-                      )}`}
-                    >
-                        <div
-                          className="w-full rounded-t bg-primary-500 transition-colors hover:bg-primary-600"
-                          style={{ height: `${Math.max(height, 6)}%` }}
-                        />
-                      <div className="absolute bottom-full left-1/2 mb-2 hidden -translate-x-1/2 rounded bg-slate-900 px-2 py-1 text-xs text-white group-hover:block">
-                        {formatCurrency(data.revenue)}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={revenueSeries.slice(-30).map((d) => ({
+                    ...d,
+                    displayDate: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                  }))}
+                  margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#84cc16" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#84cc16" stopOpacity={0.1} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis
+                    dataKey="displayDate"
+                    tick={{ fontSize: 12, fill: '#64748b' }}
+                    tickLine={false}
+                    axisLine={{ stroke: '#e2e8f0' }}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 12, fill: '#64748b' }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#1e293b',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#fff',
+                    }}
+                    formatter={(value: number) => [formatCurrency(value), 'Revenue']}
+                    labelFormatter={(label) => `Date: ${label}`}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#84cc16"
+                    strokeWidth={2}
+                    fill="url(#revenueGradient)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           ) : (
             <div className="flex h-64 items-center justify-center text-slate-500">
@@ -369,29 +401,48 @@ export default function ReportsPage() {
           {occupancyLoading ? (
             <div className="h-64 animate-shimmer rounded" />
           ) : occupancySeries.length > 0 ? (
-            <div className="h-64">
-              {/* Simple line chart representation */}
-              <div className="flex h-full items-end gap-1">
-                {occupancySeries.slice(-30).map((data, index) => (
-                  <div
-                    key={index}
-                    className="group relative flex-1 cursor-pointer"
-                    title={`${new Date(data.date).toLocaleDateString()}: ${data.occupancy.toFixed(
-                      1
-                    )}%`}
-                  >
-                      <div
-                        className="w-full rounded-t bg-emerald-500 transition-colors hover:bg-emerald-600"
-                        style={{
-                          height: `${Math.max(Number.isFinite(data.occupancy) ? data.occupancy : 0, 6)}%`,
-                        }}
-                      />
-                    <div className="absolute bottom-full left-1/2 mb-2 hidden -translate-x-1/2 rounded bg-slate-900 px-2 py-1 text-xs text-white group-hover:block">
-                      {data.occupancy.toFixed(1)}%
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={occupancySeries.slice(-30).map((d) => ({
+                    ...d,
+                    displayDate: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                  }))}
+                  margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis
+                    dataKey="displayDate"
+                    tick={{ fontSize: 12, fill: '#64748b' }}
+                    tickLine={false}
+                    axisLine={{ stroke: '#e2e8f0' }}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 12, fill: '#64748b' }}
+                    tickLine={false}
+                    axisLine={false}
+                    domain={[0, 100]}
+                    tickFormatter={(value) => `${value}%`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#1e293b',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#fff',
+                    }}
+                    formatter={(value: number) => [`${value.toFixed(1)}%`, 'Occupancy']}
+                    labelFormatter={(label) => `Date: ${label}`}
+                  />
+                  <Legend />
+                  <Bar
+                    dataKey="occupancy"
+                    name="Occupancy %"
+                    fill="#10b981"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           ) : (
             <div className="flex h-64 items-center justify-center text-slate-500">
