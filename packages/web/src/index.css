@@ -1,0 +1,424 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom base styles */
+@layer base {
+  html {
+    font-family: 'Inter var', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-gray-50 text-slate-900;
+  }
+
+  body[data-bg='mist'] {
+    background: radial-gradient(circle at top left, #f0fdf4 0%, #f8fafc 35%, #eef2ff 100%);
+  }
+
+  body[data-bg='linen'] {
+    background-color: #f8fafc;
+    background-image: radial-gradient(#e2e8f0 0.5px, transparent 0.5px);
+    background-size: 16px 16px;
+  }
+
+  body[data-bg='glow'] {
+    background: linear-gradient(135deg, #f8fafc 0%, #ecfccb 55%, #fefce8 100%);
+  }
+
+  body[data-bg='dusk'] {
+    background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 45%, #fef3c7 100%);
+  }
+
+  body[data-bg='sand'] {
+    background: linear-gradient(135deg, #fef3c7 0%, #f8fafc 45%, #fffbeb 100%);
+  }
+
+  body[data-bg='tide'] {
+    background-color: #f8fafc;
+    background-image: radial-gradient(circle at 20% 20%, #e0f2fe 0%, transparent 45%),
+      radial-gradient(circle at 80% 0%, #f0fdf4 0%, transparent 50%);
+  }
+
+  body[data-theme='laflo'] .btn-primary {
+    background-color: #65a30d;
+  }
+
+  body[data-theme='laflo'] .btn-primary:hover {
+    background-color: #4d7c0f;
+  }
+
+  body[data-theme='ocean'] .btn-primary {
+    background-color: #0ea5e9;
+  }
+
+  body[data-theme='ocean'] .btn-primary:hover {
+    background-color: #0284c7;
+  }
+
+  body[data-theme='sunset'] .btn-primary {
+    background-color: #f97316;
+  }
+
+  body[data-theme='sunset'] .btn-primary:hover {
+    background-color: #ea580c;
+  }
+
+  body[data-theme='forest'] .btn-primary {
+    background-color: #16a34a;
+  }
+
+  body[data-theme='forest'] .btn-primary:hover {
+    background-color: #15803d;
+  }
+
+  body[data-theme='cobalt'] .btn-primary {
+    background-color: #2563eb;
+  }
+
+  body[data-theme='cobalt'] .btn-primary:hover {
+    background-color: #1d4ed8;
+  }
+
+  body[data-theme='sand'] .btn-primary {
+    background-color: #d97706;
+  }
+
+  body[data-theme='sand'] .btn-primary:hover {
+    background-color: #b45309;
+  }
+
+  body[data-theme='ocean'] .text-primary-600,
+  body[data-theme='ocean'] .text-primary-700,
+  body[data-theme='ocean'] .text-primary-800 {
+    color: #0284c7 !important;
+  }
+
+  body[data-theme='sunset'] .text-primary-600,
+  body[data-theme='sunset'] .text-primary-700,
+  body[data-theme='sunset'] .text-primary-800 {
+    color: #ea580c !important;
+  }
+
+  body[data-theme='forest'] .text-primary-600,
+  body[data-theme='forest'] .text-primary-700,
+  body[data-theme='forest'] .text-primary-800 {
+    color: #15803d !important;
+  }
+
+  body[data-theme='cobalt'] .text-primary-600,
+  body[data-theme='cobalt'] .text-primary-700,
+  body[data-theme='cobalt'] .text-primary-800 {
+    color: #1d4ed8 !important;
+  }
+
+  body[data-theme='sand'] .text-primary-600,
+  body[data-theme='sand'] .text-primary-700,
+  body[data-theme='sand'] .text-primary-800 {
+    color: #b45309 !important;
+  }
+
+  body[data-theme='ocean'] .bg-primary-50 {
+    background-color: #f0f9ff !important;
+  }
+
+  body[data-theme='ocean'] .bg-primary-100 {
+    background-color: #e0f2fe !important;
+  }
+
+  body[data-theme='ocean'] .bg-primary-500 {
+    background-color: #0ea5e9 !important;
+  }
+
+  body[data-theme='ocean'] .bg-primary-600 {
+    background-color: #0284c7 !important;
+  }
+
+  body[data-theme='ocean'] .bg-primary-700 {
+    background-color: #0369a1 !important;
+  }
+
+  body[data-theme='sunset'] .bg-primary-50 {
+    background-color: #fff7ed !important;
+  }
+
+  body[data-theme='sunset'] .bg-primary-100 {
+    background-color: #ffedd5 !important;
+  }
+
+  body[data-theme='sunset'] .bg-primary-500 {
+    background-color: #f97316 !important;
+  }
+
+  body[data-theme='sunset'] .bg-primary-600 {
+    background-color: #ea580c !important;
+  }
+
+  body[data-theme='sunset'] .bg-primary-700 {
+    background-color: #c2410c !important;
+  }
+
+  body[data-theme='forest'] .bg-primary-50 {
+    background-color: #f0fdf4 !important;
+  }
+
+  body[data-theme='forest'] .bg-primary-100 {
+    background-color: #dcfce7 !important;
+  }
+
+  body[data-theme='forest'] .bg-primary-500 {
+    background-color: #22c55e !important;
+  }
+
+  body[data-theme='forest'] .bg-primary-600 {
+    background-color: #16a34a !important;
+  }
+
+  body[data-theme='forest'] .bg-primary-700 {
+    background-color: #15803d !important;
+  }
+
+  body[data-theme='cobalt'] .bg-primary-50 {
+    background-color: #eff6ff !important;
+  }
+
+  body[data-theme='cobalt'] .bg-primary-100 {
+    background-color: #dbeafe !important;
+  }
+
+  body[data-theme='cobalt'] .bg-primary-500 {
+    background-color: #3b82f6 !important;
+  }
+
+  body[data-theme='cobalt'] .bg-primary-600 {
+    background-color: #2563eb !important;
+  }
+
+  body[data-theme='cobalt'] .bg-primary-700 {
+    background-color: #1d4ed8 !important;
+  }
+
+  body[data-theme='sand'] .bg-primary-50 {
+    background-color: #fffbeb !important;
+  }
+
+  body[data-theme='sand'] .bg-primary-100 {
+    background-color: #fef3c7 !important;
+  }
+
+  body[data-theme='sand'] .bg-primary-500 {
+    background-color: #f59e0b !important;
+  }
+
+  body[data-theme='sand'] .bg-primary-600 {
+    background-color: #d97706 !important;
+  }
+
+  body[data-theme='sand'] .bg-primary-700 {
+    background-color: #b45309 !important;
+  }
+
+  body[data-theme='ocean'] .border-primary-500,
+  body[data-theme='ocean'] .ring-primary-500 {
+    border-color: #0ea5e9 !important;
+    --tw-ring-color: #0ea5e9 !important;
+  }
+
+  body[data-theme='sunset'] .border-primary-500,
+  body[data-theme='sunset'] .ring-primary-500 {
+    border-color: #f97316 !important;
+    --tw-ring-color: #f97316 !important;
+  }
+
+  body[data-theme='forest'] .border-primary-500,
+  body[data-theme='forest'] .ring-primary-500 {
+    border-color: #16a34a !important;
+    --tw-ring-color: #16a34a !important;
+  }
+
+  body[data-theme='cobalt'] .border-primary-500,
+  body[data-theme='cobalt'] .ring-primary-500 {
+    border-color: #2563eb !important;
+    --tw-ring-color: #2563eb !important;
+  }
+
+  body[data-theme='sand'] .border-primary-500,
+  body[data-theme='sand'] .ring-primary-500 {
+    border-color: #d97706 !important;
+    --tw-ring-color: #d97706 !important;
+  }
+
+  /* Focus styles */
+  :focus-visible {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2;
+  }
+}
+
+/* Laflo-style scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Custom component styles */
+@layer components {
+  /* Card styles */
+  .card {
+    @apply rounded-xl bg-white p-4 shadow-card ring-1 ring-slate-200;
+  }
+
+  .card-hover {
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover;
+  }
+
+  /* Button styles */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary-600 text-white hover:bg-primary-700 focus-visible:ring-primary-500;
+  }
+
+  .btn-secondary {
+    @apply btn bg-slate-100 text-slate-700 hover:bg-slate-200 focus-visible:ring-slate-400;
+  }
+
+  .btn-outline {
+    @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus-visible:ring-slate-400;
+  }
+
+  .btn-ghost {
+    @apply btn text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:ring-slate-400;
+  }
+
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500;
+  }
+
+  .btn-success {
+    @apply btn bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-500;
+  }
+
+  /* Input styles */
+  .input {
+    @apply block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition-colors focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500;
+  }
+
+  .input-error {
+    @apply border-red-300 focus:border-red-500 focus:ring-red-500;
+  }
+
+  .label {
+    @apply mb-1 block text-sm font-medium text-slate-700;
+  }
+
+  /* Status pills */
+  .status-pill {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  .status-available {
+    @apply status-pill bg-emerald-50 text-emerald-700;
+  }
+
+  .status-occupied {
+    @apply status-pill bg-blue-50 text-blue-700;
+  }
+
+  .status-dirty {
+    @apply status-pill bg-amber-50 text-amber-700;
+  }
+
+  .status-oos {
+    @apply status-pill bg-slate-100 text-slate-700;
+  }
+
+  .status-confirmed {
+    @apply status-pill bg-blue-50 text-blue-700;
+  }
+
+  .status-checked-in {
+    @apply status-pill bg-emerald-50 text-emerald-700;
+  }
+
+  .status-checked-out {
+    @apply status-pill bg-slate-100 text-slate-700;
+  }
+
+  .status-cancelled {
+    @apply status-pill bg-red-50 text-red-700;
+  }
+
+  /* Table styles */
+  .table-container {
+    @apply overflow-x-auto rounded-xl bg-white shadow-card ring-1 ring-slate-200;
+  }
+
+  .table {
+    @apply min-w-full divide-y divide-slate-200;
+  }
+
+  .table thead {
+    @apply bg-slate-50;
+  }
+
+  .table th {
+    @apply px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500;
+  }
+
+  .table td {
+    @apply whitespace-nowrap px-4 py-3 text-sm text-slate-700;
+  }
+
+  .table tbody tr {
+    @apply transition-colors hover:bg-slate-50;
+  }
+}
+
+/* Custom utilities */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Animation for loading states */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s infinite;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+}

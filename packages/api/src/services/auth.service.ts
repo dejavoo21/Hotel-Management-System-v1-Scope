@@ -1,0 +1,730 @@
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
+import { authenticator } from 'otplib';
+import qrcode from 'qrcode';
+import { v4 as uuidv4 } from 'uuid';
+import { prisma } from '../config/database.js';
+import { config } from '../config/index.js';
+import { logger } from '../config/logger.js';
+import { sendEmail } from './email.service.js';
+import { TokenPayload, RefreshTokenPayload } from '../types/index.js';
+import { UnauthorizedError, NotFoundError, ForbiddenError } from '../middleware/errorHandler.js';
+
+interface LoginResult {
+  user?: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    hotelId: string;
+    hotel: {
+      id: string;
+      name: string;
+    };
+  };
+  accessToken?: string;
+  refreshToken?: string;
+  expiresIn?: string;
+  requiresTwoFactor?: boolean;
+  requiresPasswordChange?: boolean;
+}
+
+/**
+ * Login user with email and password
+ */
+export async function login(
+  email: string,
+  password: string,
+  ipAddress?: string,
+  userAgent?: string,
+  twoFactorCode?: string
+): Promise<LoginResult> {
+  // Find user by email
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+    include: {
+      hotel: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  });
+
+  if (!user) {
+    logger.warn(`Login attempt with unknown email: ${email}`);
+    throw new UnauthorizedError('Invalid email or password');
+  }
+
+  if (!user.isActive) {
+    logger.warn(`Login attempt for inactive user: ${email}`);
+    throw new UnauthorizedError('Account is disabled');
+  }
+
+  // Verify password
+  const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+  if (!isValidPassword) {
+    logger.warn(`Invalid password attempt for user: ${email}`);
+    throw new UnauthorizedError('Invalid email or password');
+  }
+
+  if (user.mustChangePassword) {
+    return { requiresPasswordChange: true };
+  }
+
+  if (user.twoFactorEnabled) {
+    if (!twoFactorCode) {
+      return { requiresTwoFactor: true };
+    }
+
+    if (!user.twoFactorSecret) {
+      throw new UnauthorizedError('2FA is not configured');
+    }
+
+    const isValidCode = authenticator.verify({
+      token: twoFactorCode,
+      secret: user.twoFactorSecret,
+    });
+
+    if (!isValidCode) {
+      throw new UnauthorizedError('Invalid 2FA code');
+    }
+  }
+
+  // Generate tokens
+  const accessToken = generateAccessToken({
+    userId: user.id,
+    email: user.email,
+    role: user.role,
+    hotelId: user.hotelId,
+  });
+
+  const refreshToken = await generateRefreshToken(user.id);
+
+  // Update last login
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastLoginAt: new Date() },
+  });
+
+  // Log activity
+  await prisma.activityLog.create({
+    data: {
+      userId: user.id,
+      action: 'LOGIN',
+      entity: 'user',
+      entityId: user.id,
+      details: { ipAddress, userAgent },
+      ipAddress,
+      userAgent,
+    },
+  });
+
+  logger.info(`User logged in: ${email}`);
+
+  return {
+    user: {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      hotelId: user.hotelId,
+      hotel: user.hotel,
+    },
+    accessToken,
+    refreshToken,
+    expiresIn: config.jwt.expiresIn,
+  };
+}
+
+/**
+ * Logout user by invalidating refresh token
+ */
+export async function logout(refreshToken: string): Promise<void> {
+  await prisma.refreshToken.deleteMany({
+    where: { token: refreshToken },
+  });
+}
+
+/**
+ * Refresh access token using refresh token
+ */
+export async function refreshAccessToken(refreshToken: string): Promise<{
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: string;
+}> {
+  try {
+    // Verify refresh token
+    const decoded = jwt.verify(refreshToken, config.jwt.refreshSecret) as RefreshTokenPayload;
+
+    // Check if refresh token exists in database
+    const storedToken = await prisma.refreshToken.findUnique({
+      where: { token: refreshToken },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            hotelId: true,
+            isActive: true,
+          },
+        },
+      },
+    });
+
+    if (!storedToken) {
+      throw new UnauthorizedError('Invalid refresh token');
+    }
+
+    if (storedToken.expiresAt < new Date()) {
+      await prisma.refreshToken.delete({ where: { id: storedToken.id } });
+      throw new UnauthorizedError('Refresh token expired');
+    }
+
+    if (!storedToken.user.isActive) {
+      throw new UnauthorizedError('Account is disabled');
+    }
+
+    // Delete old refresh token
+    await prisma.refreshToken.delete({ where: { id: storedToken.id } });
+
+    // Generate new tokens
+    const accessToken = generateAccessToken({
+      userId: storedToken.user.id,
+      email: storedToken.user.email,
+      role: storedToken.user.role,
+      hotelId: storedToken.user.hotelId,
+    });
+
+    const newRefreshToken = await generateRefreshToken(storedToken.user.id);
+
+    return {
+      accessToken,
+      refreshToken: newRefreshToken,
+      expiresIn: config.jwt.expiresIn,
+    };
+  } catch (error) {
+    if (error instanceof jwt.JsonWebTokenError) {
+      throw new UnauthorizedError('Invalid refresh token');
+    }
+    throw error;
+  }
+}
+
+export async function setup2FA(userId: string, email: string) {
+  const secret = authenticator.generateSecret();
+  const issuer = 'LaFlo HotelOS';
+  const otpauth = authenticator.keyuri(email, issuer, secret);
+  const qrCode = await qrcode.toDataURL(otpauth);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      twoFactorSecret: secret,
+      twoFactorEnabled: false,
+    },
+  });
+
+  return { secret, qrCode };
+}
+
+export async function verify2FA(userId: string, code: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { twoFactorSecret: true },
+  });
+
+  if (!user?.twoFactorSecret) {
+    throw new UnauthorizedError('2FA is not configured');
+  }
+
+  const isValidCode = authenticator.verify({
+    token: code,
+    secret: user.twoFactorSecret,
+  });
+
+  if (!isValidCode) {
+    throw new UnauthorizedError('Invalid 2FA code');
+  }
+
+  const backupCodes = await generateBackupCodes(userId);
+  await prisma.user.update({
+    where: { id: userId },
+    data: { twoFactorEnabled: true },
+  });
+
+  return { backupCodes };
+}
+
+export async function disable2FA(userId: string, code: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { twoFactorSecret: true, twoFactorEnabled: true },
+  });
+
+  if (!user?.twoFactorSecret || !user.twoFactorEnabled) {
+    throw new UnauthorizedError('2FA is not enabled');
+  }
+
+  const isValidCode = authenticator.verify({
+    token: code,
+    secret: user.twoFactorSecret,
+  });
+
+  if (!isValidCode) {
+    throw new UnauthorizedError('Invalid 2FA code');
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { twoFactorEnabled: false, twoFactorSecret: null, twoFactorBackupCodes: [] },
+  });
+}
+
+export async function generateBackupCodes(userId: string) {
+  const codes = Array.from({ length: 8 }, () =>
+    crypto.randomBytes(4).toString('hex').toUpperCase()
+  );
+
+  const hashed = await Promise.all(
+    codes.map(async (code) => bcrypt.hash(code, 10))
+  );
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { twoFactorBackupCodes: hashed },
+  });
+
+  return codes;
+}
+
+export async function loginWithBackupCode(
+  email: string,
+  backupCode: string,
+  ipAddress?: string,
+  userAgent?: string
+): Promise<LoginResult> {
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+    include: {
+      hotel: { select: { id: true, name: true } },
+    },
+  });
+
+  if (!user || !user.isActive) {
+    throw new UnauthorizedError('Invalid email or backup code');
+  }
+
+  const matchIndex = await findMatchingBackupCode(user.twoFactorBackupCodes, backupCode);
+  if (matchIndex < 0) {
+    throw new UnauthorizedError('Invalid email or backup code');
+  }
+
+  const remaining = user.twoFactorBackupCodes.filter((_, index) => index !== matchIndex);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { twoFactorBackupCodes: remaining, lastLoginAt: new Date() },
+  });
+
+  await prisma.activityLog.create({
+    data: {
+      userId: user.id,
+      action: 'LOGIN_BACKUP_CODE',
+      entity: 'user',
+      entityId: user.id,
+      details: { ipAddress, userAgent },
+      ipAddress,
+      userAgent,
+    },
+  });
+
+  const accessToken = generateAccessToken({
+    userId: user.id,
+    email: user.email,
+    role: user.role,
+    hotelId: user.hotelId,
+  });
+  const refreshToken = await generateRefreshToken(user.id);
+
+  return {
+    user: {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      hotelId: user.hotelId,
+      hotel: user.hotel,
+    },
+    accessToken,
+    refreshToken,
+    expiresIn: config.jwt.expiresIn,
+  };
+}
+
+export async function requestPasswordReset(email: string) {
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+    select: { id: true, firstName: true, email: true },
+  });
+
+  if (!user) {
+    return;
+  }
+
+  const token = crypto.randomBytes(32).toString('hex');
+  const tokenHash = hashToken(token);
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+  await prisma.passwordResetToken.create({
+    data: {
+      userId: user.id,
+      tokenHash,
+      expiresAt,
+    },
+  });
+
+  const resetUrl = `${config.appUrl}/reset-password?token=${token}`;
+  await sendEmail({
+    to: user.email,
+    subject: 'Reset your LaFlo password',
+    html: `
+      <p>Hello ${user.firstName},</p>
+      <p>Use the link below to reset your password:</p>
+      <p><a href="${resetUrl}">Reset password</a></p>
+      <p>This link expires in 60 minutes.</p>
+    `,
+    text: `Reset your password: ${resetUrl}`,
+  });
+}
+
+export async function resetPassword(token: string, newPassword: string) {
+  const tokenHash = hashToken(token);
+
+  const stored = await prisma.passwordResetToken.findFirst({
+    where: {
+      tokenHash,
+      usedAt: null,
+      expiresAt: { gte: new Date() },
+    },
+    include: { user: true },
+  });
+
+  if (!stored) {
+    throw new ForbiddenError('Reset link is invalid or expired');
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: stored.userId },
+      data: { passwordHash, mustChangePassword: false },
+    }),
+    prisma.passwordResetToken.update({
+      where: { id: stored.id },
+      data: { usedAt: new Date() },
+    }),
+    prisma.refreshToken.deleteMany({ where: { userId: stored.userId } }),
+  ]);
+
+  logger.info(`Password reset for user: ${stored.user.email}`);
+}
+
+export async function requestEmailOtp(email: string, purpose: string) {
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+    select: { id: true, firstName: true, email: true, isActive: true },
+  });
+
+  if (!user || !user.isActive) {
+    throw new UnauthorizedError('Invalid email');
+  }
+
+  const code = `${Math.floor(100000 + Math.random() * 900000)}`;
+  const codeHash = await bcrypt.hash(code, 10);
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+  await prisma.emailOtp.create({
+    data: {
+      userId: user.id,
+      email: user.email,
+      purpose,
+      codeHash,
+      expiresAt,
+    },
+  });
+
+  await sendEmail({
+    to: user.email,
+    subject: 'Your LaFlo verification code',
+    html: `
+      <p>Hello ${user.firstName},</p>
+      <p>Your verification code is <strong>${code}</strong>.</p>
+      <p>This code expires in 10 minutes.</p>
+    `,
+    text: `Your verification code is ${code}`,
+  });
+}
+
+export async function loginWithEmailOtp(email: string, code: string, purpose: string) {
+  const otp = await prisma.emailOtp.findFirst({
+    where: {
+      email: email.toLowerCase(),
+      purpose,
+      usedAt: null,
+      expiresAt: { gte: new Date() },
+    },
+    orderBy: { createdAt: 'desc' },
+    include: { user: true },
+  });
+
+  if (!otp || !otp.user) {
+    throw new UnauthorizedError('Invalid verification code');
+  }
+
+  const isValid = await bcrypt.compare(code, otp.codeHash);
+  if (!isValid) {
+    throw new UnauthorizedError('Invalid verification code');
+  }
+
+  await prisma.emailOtp.update({
+    where: { id: otp.id },
+    data: { usedAt: new Date() },
+  });
+
+  if (!otp.user.isActive) {
+    throw new UnauthorizedError('Account is disabled');
+  }
+
+  const accessToken = generateAccessToken({
+    userId: otp.user.id,
+    email: otp.user.email,
+    role: otp.user.role,
+    hotelId: otp.user.hotelId,
+  });
+
+  const refreshToken = await generateRefreshToken(otp.user.id);
+
+  await prisma.user.update({
+    where: { id: otp.user.id },
+    data: { lastLoginAt: new Date() },
+  });
+
+  return {
+    user: {
+      id: otp.user.id,
+      email: otp.user.email,
+      firstName: otp.user.firstName,
+      lastName: otp.user.lastName,
+      role: otp.user.role,
+      hotelId: otp.user.hotelId,
+      hotel: otp.user.hotel as any,
+    },
+    accessToken,
+    refreshToken,
+    expiresIn: config.jwt.expiresIn,
+  };
+}
+
+/**
+ * Get user by ID
+ */
+export async function getUserById(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+      role: true,
+      hotelId: true,
+      isActive: true,
+      lastLoginAt: true,
+      createdAt: true,
+      hotel: {
+        select: {
+          id: true,
+          name: true,
+          currency: true,
+          timezone: true,
+        },
+      },
+    },
+  });
+
+  if (!user) {
+    throw new NotFoundError('User');
+  }
+
+  return user;
+}
+
+/**
+ * Change user password
+ */
+export async function changePassword(
+  userId: string,
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, passwordHash: true, email: true },
+  });
+
+  if (!user) {
+    throw new NotFoundError('User');
+  }
+
+  // Verify current password
+  const isValidPassword = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!isValidPassword) {
+    throw new UnauthorizedError('Current password is incorrect');
+  }
+
+  // Hash new password
+  const newPasswordHash = await bcrypt.hash(newPassword, 12);
+
+  // Update password
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash: newPasswordHash, mustChangePassword: false },
+  });
+
+  // Invalidate all refresh tokens for security
+  await prisma.refreshToken.deleteMany({
+    where: { userId },
+  });
+
+  // Log activity
+  await prisma.activityLog.create({
+    data: {
+      userId,
+      action: 'PASSWORD_CHANGED',
+      entity: 'user',
+      entityId: userId,
+    },
+  });
+
+  logger.info(`Password changed for user: ${user.email}`);
+}
+
+/**
+ * Generate access token
+ */
+function generateAccessToken(payload: TokenPayload): string {
+  return jwt.sign(payload, config.jwt.secret, {
+    expiresIn: config.jwt.expiresIn,
+  });
+}
+
+/**
+ * Generate and store refresh token
+ */
+async function generateRefreshToken(userId: string): Promise<string> {
+  const tokenId = uuidv4();
+
+  // Calculate expiry
+  const expiresIn = config.jwt.refreshExpiresIn;
+  const expiresInMs = parseExpiry(expiresIn);
+  const expiresAt = new Date(Date.now() + expiresInMs);
+
+  const token = jwt.sign(
+    { userId, tokenId } as RefreshTokenPayload,
+    config.jwt.refreshSecret,
+    { expiresIn }
+  );
+
+  // Store in database
+  await prisma.refreshToken.create({
+    data: {
+      userId,
+      token,
+      expiresAt,
+    },
+  });
+
+  // Clean up old tokens (keep last 5)
+  const tokens = await prisma.refreshToken.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    skip: 5,
+  });
+
+  if (tokens.length > 0) {
+    await prisma.refreshToken.deleteMany({
+      where: {
+        id: { in: tokens.map((t) => t.id) },
+      },
+    });
+  }
+
+  return token;
+}
+
+/**
+ * Parse expiry string to milliseconds
+ */
+function parseExpiry(expiry: string): number {
+  const match = expiry.match(/^(\d+)([smhd])$/);
+  if (!match) {
+    return 7 * 24 * 60 * 60 * 1000; // Default to 7 days
+  }
+
+  const value = parseInt(match[1], 10);
+  const unit = match[2];
+
+  switch (unit) {
+    case 's':
+      return value * 1000;
+    case 'm':
+      return value * 60 * 1000;
+    case 'h':
+      return value * 60 * 60 * 1000;
+    case 'd':
+      return value * 24 * 60 * 60 * 1000;
+    default:
+      return 7 * 24 * 60 * 60 * 1000;
+  }
+}
+
+async function findMatchingBackupCode(hashedCodes: string[], code: string) {
+  for (let index = 0; index < hashedCodes.length; index += 1) {
+    const matches = await bcrypt.compare(code, hashedCodes[index]);
+    if (matches) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+export async function createPasswordResetToken(userId: string) {
+  const token = crypto.randomBytes(32).toString('hex');
+  const tokenHash = hashToken(token);
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+  await prisma.passwordResetToken.create({
+    data: { userId, tokenHash, expiresAt },
+  });
+
+  return token;
+}
+
+function hashToken(token: string) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+/**
+ * Hash password for user creation
+ */
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 12);
+}

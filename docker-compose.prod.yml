@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database (Production)
+  postgres:
+    image: postgres:16-alpine
+    container_name: hotelos-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-hotelos}
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hotelos-internal
+
+  # Redis (Production)
+  redis:
+    image: redis:7-alpine
+    container_name: hotelos-redis-prod
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data_prod:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hotelos-internal
+
+  # API Server (Production)
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+      target: production
+    container_name: hotelos-api-prod
+    restart: always
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-hotelos}?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      EMAIL_FROM: ${EMAIL_FROM}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hotelos-internal
+      - hotelos-external
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Web Frontend (Production - served by nginx)
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      target: production
+    container_name: hotelos-web-prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      VITE_API_URL: ${API_URL}
+      VITE_WS_URL: ${WS_URL}
+    depends_on:
+      - api
+    networks:
+      - hotelos-external
+    volumes:
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+
+volumes:
+  postgres_data_prod:
+  redis_data_prod:
+
+networks:
+  hotelos-internal:
+    driver: bridge
+  hotelos-external:
+    driver: bridge

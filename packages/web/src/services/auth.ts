@@ -1,0 +1,60 @@
+import api from './api';
+import type { LoginCredentials, LoginResponse, User } from '@/types';
+
+export const authService = {
+  async login(credentials: LoginCredentials): Promise<LoginResponse> {
+    const response = await api.post('/auth/login', credentials);
+    return response.data.data;
+  },
+
+  async logout(refreshToken: string): Promise<void> {
+    await api.post('/auth/logout', { refreshToken });
+  },
+
+  async refreshToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+    const response = await api.post('/auth/refresh', { refreshToken });
+    return response.data.data;
+  },
+
+  async getCurrentUser(): Promise<User> {
+    const response = await api.get('/auth/me');
+    return response.data.data;
+  },
+
+  async setup2FA(): Promise<{ secret: string; qrCode: string }> {
+    const response = await api.post('/auth/2fa/setup');
+    return response.data.data;
+  },
+
+  async enable2FA(code: string): Promise<{ backupCodes: string[] }> {
+    const response = await api.post('/auth/2fa/verify', { code });
+    return response.data.data;
+  },
+
+  async disable2FA(code: string): Promise<void> {
+    await api.post('/auth/2fa/disable', { code });
+  },
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await api.patch('/auth/password', { currentPassword, newPassword });
+  },
+
+  async requestPasswordReset(email: string): Promise<void> {
+    await api.post('/auth/password/request', { email });
+  },
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    await api.post('/auth/password/reset', { token, newPassword });
+  },
+
+  async requestOtp(email: string): Promise<void> {
+    await api.post('/auth/otp/request', { email });
+  },
+
+  async verifyOtp(email: string, code: string): Promise<LoginResponse> {
+    const response = await api.post('/auth/otp/verify', { email, code });
+    return response.data.data;
+  },
+};
+
+export default authService;

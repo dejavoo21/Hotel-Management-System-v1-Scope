@@ -1,0 +1,1633 @@
+2. App #1 – Hotel Management System (v1 scope)
+
+Goal: Small hotel can manage bookings & stays without Excel.
+
+Core roles
+
+Receptionist
+
+Front Office Manager
+
+Hotel Admin/Owner
+
+v1 features
+
+Rooms & Room Types
+
+Create room types (Standard, Deluxe, Suite)
+
+Create rooms (101, 102, 201, etc.)
+
+Fields: status (Available, Occupied, Out of Service)
+
+Bookings
+
+Create booking (name, dates, room type, number of guests, source)
+
+See a simple calendar/availability view
+
+Assign a specific room at check-in
+
+Check-in / Check-out
+
+Check-in: change room status to Occupied
+
+Check-out: set room to Dirty and calculate charges
+
+Guest Billing (very basic)
+
+Nightly rate × nights
+
+Add extras (early check-in, late check-out)
+
+Produce a simple invoice/receipt PDF or screen view
+
+Housekeeping view
+
+List of rooms with status: Clean / Dirty / Out Of Service
+
+Mark room as “Clean” after cleaning
+
+Simple dashboard
+
+Today’s arrivals / departures
+
+Current occupancy %
+
+Total revenue today / this month
+
+Very small data model (HMS)
+
+hotels
+
+room_types
+
+rooms
+
+bookings
+
+guests
+
+charges (optional)
+
+users / roles
+
+2. App #1 – Hotel Management System (v1 scope)
+
+Goal: Small hotel can manage bookings & stays without Excel.
+
+Core roles
+
+Receptionist
+
+Front Office Manager
+
+Hotel Admin/Owner
+
+v1 features
+
+Rooms & Room Types
+
+Create room types (Standard, Deluxe, Suite)
+
+Create rooms (101, 102, 201, etc.)
+
+Fields: status (Available, Occupied, Out of Service)
+
+Bookings
+
+Create booking (name, dates, room type, number of guests, source)
+
+See a simple calendar/availability view
+
+Assign a specific room at check-in
+
+Check-in / Check-out
+
+Check-in: change room status to Occupied
+
+Check-out: set room to Dirty and calculate charges
+
+Guest Billing (very basic)
+
+Nightly rate × nights
+
+Add extras (early check-in, late check-out)
+
+Produce a simple invoice/receipt PDF or screen view
+
+Housekeeping view
+
+List of rooms with status: Clean / Dirty / Out Of Service
+
+Mark room as “Clean” after cleaning
+
+Simple dashboard
+
+Today’s arrivals / departures
+
+Current occupancy %
+
+Total revenue today / this month
+
+Very small data model (HMS)
+
+hotels
+
+room_types
+
+rooms
+
+bookings
+
+guests
+
+charges (optional)
+
+users / roles
+
+============================================================
+1. Product vision (for us + future marketing)
+
+HotelOS – Modern Hotel Front-Office in your browser
+For boutique & mid-sized hotels who want:
+
+Fast check-in / check-out
+
+Clear room & housekeeping status
+
+Simple billing & reports
+
+A UI that staff can learn in 1 day
+
+We optimise for:
+
+Speed at the front desk (fewest clicks, keyboard-friendly)
+
+Clarity (at-a-glance status, strong use of colour and icons)
+
+Low training (labels in plain language, tooltips, no jargon)
+
+2. Core user roles (v1)
+
+We design screens specifically for these:
+
+Receptionist
+
+Create bookings, check in/out, take payments
+
+Front Office Manager
+
+See occupancy, rates, adjust bookings, see daily reports
+
+Housekeeping lead
+
+See clean/dirty/out-of-service, mark rooms, see priorities
+
+Hotel Owner / Admin
+
+View revenue, occupancy, configure rooms & users
+
+3. V1 feature set (competitive but realistic)
+
+We’ll build a clean, core HMS, not everything big players do:
+
+3.1 Dashboard (Home)
+
+Purpose: When someone logs in, they should understand the day in 5 seconds.
+
+Cards across the top:
+
+Today’s arrivals (e.g. 12) – “View arrivals list”
+
+Today’s departures – “View departures list”
+
+Current occupancy – % and colour (green/amber/red)
+
+Rooms out of service – quick link
+
+Balance in-house (optional later)
+
+Plus:
+
+Mini “Today’s timeline”: Now → night, showing arrival/departure spikes
+
+Alerts strip (e.g. “3 overbookings”, “2 rooms not yet cleaned”)
+
+UX: Use colour & icons, but very minimal text. Everything clickable for drill-down.
+
+3.2 Room & Availability View (competitive piece)
+
+This is usually where products stand out.
+
+We’ll have two views:
+
+Grid View (Rooms status today)
+
+List of rooms vertically
+
+Status pill: Available / Occupied / Dirty / Out of service
+
+Small icon if maintenance, VIP guest, late checkout etc.
+
+“Check in” / “Check out” button on each row where appropriate.
+
+Timeline View (Simplified Gantt / Tape chart)
+
+Horizontal days for next 14–30 days
+
+Bars representing bookings per room
+
+Colour by status: Confirmed, In-house, Checked-out, Tentative
+
+Click a bar → open booking side panel
+
+Design: Think “Notion + calendar”, soft card UI, lots of white space.
+Functionally competitive with many budget PMS systems.
+
+3.3 Bookings
+
+New booking form:
+
+Guest name, email, phone
+
+Check-in / check-out dates
+
+Room type (Standard / Deluxe / Suite)
+
+Number of guests
+
+Source (Direct / Booking.com / Walk-in)
+
+Special requests textarea
+
+Booking list & search:
+
+Search by name, date, booking reference
+
+Filters by status (Confirmed / Cancelled / No-show / In-house / Checked-out)
+
+Booking details drawer (slide-in from right):
+
+Guest info
+
+Stay dates, room/room type
+
+Charges summary
+
+Notes & activity log (who changed what)
+
+3.4 Check-in / Check-out flow (must be super smooth)
+
+Check-in flow (from dashboard or booking):
+
+Click Check in on booking
+
+Modal shows:
+
+Confirm dates, assigned room (auto-suggest next available, but editable)
+
+Number of guests
+
+Option: “Print registration card” (future)
+
+Click Confirm → booking becomes In-house, room status becomes Occupied
+
+Check-out flow:
+
+Click Check out
+
+Show bill preview:
+
+Room charges (rate × nights)
+
+Taxes
+
+Extras
+
+Any previous payments
+
+Balance due
+
+Choose payment method (Cash, Card, Bank / POS ref)
+
+Confirm → generate invoice number + mark stay Checked-out, room status Dirty
+
+Everything should fit in one modal with clear steps – no jumping between pages.
+
+3.5 Housekeeping Board
+
+Separate view optimised for housekeeping:
+
+Group rooms by floor or building
+
+Each room card:
+
+Room number
+
+Status: Clean / Dirty / Inspection / Out of service
+
+Expected: Arrival today? Stayover? Departure just done?
+
+Filters:
+
+“Show only Dirty / Inspection”
+
+“Show only my assigned rooms”
+
+Quick actions:
+
+Click card → small menu: Mark as Clean, Mark as Out of service, Report maintenance issue
+
+This can be used on tablet or mobile later – so keep simple, big buttons.
+
+3.6 Guest & Billing (simple but professional)
+
+We won’t do full accounting, but we’ll look professional:
+
+Guests list
+
+Show name, contact info, last stay, total nights
+
+Invoices
+
+Each check-out generates an invoice record:
+
+Invoice number, date, guest, amount, status (Paid / Partially paid / Unpaid)
+
+Ability to re-open invoice for view / print / PDF (later)
+
+UX tip: Put a small “Print / Download” icon on invoice pages. Branding with hotel logo for a premium feel.
+
+4. Visual style & UX guidelines
+
+To make it attractive & modern, let’s define some design rules you can follow in React:
+
+Palette (example)
+
+Primary: #2563EB (blue-600) – buttons, highlights
+
+Accent: #F97316 (orange-500) – warnings / special statuses
+
+Success: #16A34A (green-600)
+
+Error: #DC2626 (red-600)
+
+Background: #F9FAFB (very light gray)
+
+Cards: white with subtle shadow
+
+Components style
+
+Card-based layout, rounded corners, soft shadow (box-shadow: 0 10px 25px rgba(15,23,42,0.06)).
+
+Use icons for room status, arrivals/departures, housekeeping (Heroicons or Lucide).
+
+Top navigation bar with:
+
+Logo / app name
+
+Main sections: Dashboard · Rooms · Bookings · Housekeeping · Reports · Settings
+
+User avatar / role at right
+
+Use right-side drawers for details instead of full page reloads.
+
+Keep forms two-column for wider screens, stacking on mobile.
+
+5. Technical structure (React + Node)
+API (Node + Express, v1)
+
+Main endpoints:
+
+POST /auth/login
+
+GET /dashboard/summary
+
+GET /rooms / PATCH /rooms/:id (status updates)
+
+GET /availability (for timeline)
+
+GET /bookings, POST /bookings, PATCH /bookings/:id
+
+POST /bookings/:id/checkin
+
+POST /bookings/:id/checkout
+
+GET /housekeeping/rooms
+
+GET /guests, GET /invoices
+
+Database: Postgres or SQLite to start; tables:
+
+users, roles
+
+rooms, room_types
+
+bookings
+
+guests
+
+stays (optional – split from booking)
+
+charges, payments
+
+housekeeping_status_history (later, for audit trails)
+
+Frontend structure
+
+/src/pages
+
+DashboardPage.tsx
+
+RoomsPage.tsx (status & timeline tabs)
+
+BookingsPage.tsx
+
+HousekeepingPage.tsx
+
+GuestsPage.tsx
+
+SettingsPage.tsx
+
+/src/components
+
+DashboardCards/…
+
+RoomStatusGrid.tsx
+
+AvailabilityTimeline.tsx
+
+BookingForm.tsx
+
+BookingDrawer.tsx
+
+HousekeepingBoard.tsx
+
+InvoiceView.tsx
+
+This keeps things modular and ready for future growth.
+
+6. What we should do next
+
+To keep moving and stay practical, I suggest:
+
+Lock the v1 screen list and navigation.
+
+Design one key screen in detail first – either:
+
+Dashboard, or
+
+Rooms & Availability (big differentiator)
+
+Then I can:
+
+Sketch the exact layout + components for that screen
+
+Give you a React component skeleton with modern styling using Tailwind (or plain CSS, your choice).
+=========================================================================================================
+
+1. Dashboard layout (what users see)
+Top bar
+
+App / hotel name on the left.
+
+On the right:
+
+Date range filter (Today / Next 7 days / This month)
+
+Property selector (if multi-hotel later)
+
+User avatar / role.
+
+Section A – Today’s priorities (alert strip)
+
+Horizontal row of 2–3 “priority cards”:
+
+High-risk rooms (overbooked / VIP arrivals not assigned)
+
+Rooms not yet cleaned but needed for today’s arrivals
+
+Late check-out requests
+
+Each card is clickable and coloured (red/amber/green) so staff see what to act on right now.
+
+Section B – KPI cards
+
+A row of 5 cards:
+
+Today’s Arrivals
+
+Today’s Departures
+
+Current Occupancy
+
+Rooms Out of Service
+
+In-house Guests
+
+Each card:
+
+Big number
+
+Small label (e.g. “+3 vs yesterday”)
+
+Icon
+
+Entire card clickable → drill-down page.
+
+Section C – Occupancy & revenue snapshot
+
+Two cards side-by-side:
+
+Today’s Occupancy Trend
+
+Simple horizontal bar with occupancy percentage and colour.
+
+Booking mix
+
+Tiny donut-style legend listing sources:
+
+Direct, OTA (Booking.com, etc), Corporate
+
+(For now, we’ll fake these with simple bars/legends – no chart library needed yet.)
+
+Section D – Tables (action lists)
+
+Two columns:
+
+Left: “Arrivals & Departures today”
+
+Tabs: Arrivals | Departures
+
+Small table:
+
+Time, Guest name, Room/Type, Status (Confirmed, Checked in, No-show)
+
+Action button: Check in / Check out / View
+
+Right: “Housekeeping snapshot”
+
+List:
+
+Clean rooms
+
+Dirty rooms
+
+In inspection
+
+Out of service
+
+Plus a mini list: “Next rooms to clean” with room + reason.
+
+2. Basic data shapes (for now, dummy data)
+
+We’ll use simple arrays:
+
+type PriorityItem = {
+  id: string;
+  level: "high" | "medium" | "low";
+  title: string;
+  description: string;
+  actionLabel: string;
+};
+
+type KpiCard = {
+  id: string;
+  label: string;
+  value: string;
+  delta?: string; // e.g. "+3 vs yesterday"
+};
+
+type ArrivalDeparture = {
+  id: string;
+  time: string;
+  guestName: string;
+  roomType: string;
+  roomNumber?: string;
+  status: string;
+};
+
+type HousekeepingSummary = {
+  clean: number;
+  dirty: number;
+  inspection: number;
+  outOfService: number;
+};
+
+3. React dashboard component (with Tailwind)
+
+✅ This assumes you already have Tailwind wired into your Vite/React project.
+If you don’t, keep this file; we can set up Tailwind next, or I can convert this to plain CSS later.
+
+Create src/pages/DashboardPage.tsx:
+
+import React, { useState } from "react";
+
+type PriorityItem = {
+  id: string;
+  level: "high" | "medium" | "low";
+  title: string;
+  description: string;
+  actionLabel: string;
+};
+
+type KpiCard = {
+  id: string;
+  label: string;
+  value: string;
+  delta?: string;
+};
+
+type ArrivalDeparture = {
+  id: string;
+  time: string;
+  guestName: string;
+  roomType: string;
+  roomNumber?: string;
+  status: string;
+};
+
+type HousekeepingSummary = {
+  clean: number;
+  dirty: number;
+  inspection: number;
+  outOfService: number;
+};
+
+const priorities: PriorityItem[] = [
+  {
+    id: "p1",
+    level: "high",
+    title: "3 rooms needed for arrivals are still dirty",
+    description: "Housekeeping needs to clean before 2pm check-in.",
+    actionLabel: "View rooms",
+  },
+  {
+    id: "p2",
+    level: "medium",
+    title: "2 VIP arrivals today",
+    description: "No welcome notes added yet.",
+    actionLabel: "Prepare welcome",
+  },
+  {
+    id: "p3",
+    level: "low",
+    title: "1 room out of service",
+    description: "Leaking tap – maintenance scheduled.",
+    actionLabel: "View maintenance",
+  },
+];
+
+const kpiCards: KpiCard[] = [
+  { id: "arrivals", label: "Today’s arrivals", value: "18", delta: "+3 vs yesterday" },
+  { id: "departures", label: "Today’s departures", value: "12", delta: "-1 vs yesterday" },
+  { id: "occupancy", label: "Current occupancy", value: "76%", delta: "Target 80%" },
+  { id: "oos", label: "Rooms out of service", value: "2", delta: "1 due today" },
+  { id: "inhouse", label: "In-house guests", value: "43", delta: "Avg stay 2.4 nights" },
+];
+
+const arrivals: ArrivalDeparture[] = [
+  { id: "a1", time: "11:00", guestName: "Anna Roberts", roomType: "Deluxe King", status: "Confirmed" },
+  { id: "a2", time: "13:30", guestName: "James & Laura", roomType: "Family Suite", status: "Checked-in" },
+  { id: "a3", time: "16:00", guestName: "Corporate – ACME Ltd", roomType: "3x Standard", status: "Confirmed" },
+];
+
+const departures: ArrivalDeparture[] = [
+  { id: "d1", time: "10:00", guestName: "Michael Smith", roomType: "Standard", roomNumber: "204", status: "Checked-out" },
+  { id: "d2", time: "11:00", guestName: "Sara Khan", roomType: "Deluxe Twin", roomNumber: "311", status: "Bill pending" },
+  { id: "d3", time: "12:00", guestName: "Group – Green Corp", roomType: "5x Standard", status: "In-house" },
+];
+
+const housekeeping: HousekeepingSummary = {
+  clean: 28,
+  dirty: 7,
+  inspection: 3,
+  outOfService: 2,
+};
+
+const DashboardPage: React.FC = () => {
+  const [adTab, setAdTab] = useState<"arrivals" | "departures">("arrivals");
+
+  const occupancyValue = 76; // percent for bar
+  const coverageScore = 85;
+  const evidenceScore = 78;
+  const riskScore = 83;
+
+  const bookingMix = [
+    { label: "Direct", value: 42 },
+    { label: "OTAs", value: 38 },
+    { label: "Corporate", value: 20 },
+  ];
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      {/* Top navigation / header */}
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">HotelOS Dashboard</h1>
+            <p className="text-xs text-slate-500">
+              Today’s snapshot for <span className="font-medium text-slate-700">City View Hotel</span>
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <select className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs">
+              <option>Last 7 days</option>
+              <option>Today</option>
+              <option>This month</option>
+            </select>
+            <select className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs">
+              <option>All properties</option>
+              <option>City View</option>
+              <option>Seaside Inn</option>
+            </select>
+            <div className="flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1">
+              <span className="h-6 w-6 rounded-full bg-blue-600 text-center text-xs font-semibold text-white">
+                SA
+              </span>
+              <span className="text-xs text-slate-700">Sarah • Front Office</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main content */}
+      <main className="mx-auto max-w-6xl px-4 pb-10 pt-4">
+        {/* Last updated */}
+        <p className="mb-3 text-xs text-slate-500">Last updated: 09:19 AM</p>
+
+        {/* Section A – Priorities */}
+        <section className="mb-5">
+          <h2 className="mb-2 text-sm font-semibold text-slate-800">Today’s priorities</h2>
+          <div className="grid gap-3 md:grid-cols-3">
+            {priorities.map((p) => {
+              const border =
+                p.level === "high"
+                  ? "border-red-300 bg-red-50"
+                  : p.level === "medium"
+                  ? "border-amber-300 bg-amber-50"
+                  : "border-emerald-300 bg-emerald-50";
+
+              return (
+                <button
+                  key={p.id}
+                  className={`flex h-full flex-col items-start rounded-xl border px-4 py-3 text-left text-xs shadow-sm transition hover:shadow-md ${border}`}
+                >
+                  <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-700">
+                    {p.level === "high" && <span className="h-2 w-2 rounded-full bg-red-500" />}
+                    {p.level === "medium" && <span className="h-2 w-2 rounded-full bg-amber-500" />}
+                    {p.level === "low" && <span className="h-2 w-2 rounded-full bg-emerald-500" />}
+                    {p.title}
+                  </div>
+                  <p className="mb-2 text-[11px] text-slate-600">{p.description}</p>
+                  <span className="inline-flex items-center text-[11px] font-semibold text-blue-700">
+                    {p.actionLabel}
+                    <span className="ml-1 text-xs">→</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Section B – KPI cards */}
+        <section className="mb-6">
+          <h2 className="mb-2 text-sm font-semibold text-slate-800">Key metrics</h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {kpiCards.map((k) => (
+              <button
+                key={k.id}
+                className="flex flex-col rounded-xl bg-white px-4 py-3 text-left text-xs shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <span className="mb-1 text-[11px] font-medium text-slate-500">{k.label}</span>
+                <span className="text-2xl font-semibold text-slate-900">{k.value}</span>
+                {k.delta && (
+                  <span className="mt-1 text-[11px] text-slate-500">
+                    {k.delta}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Section C – Occupancy & mix */}
+        <section className="mb-6 grid gap-4 lg:grid-cols-[2fr,1.4fr]">
+          {/* Occupancy card */}
+          <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-800">Today’s occupancy</h3>
+              <span className="text-[11px] text-slate-500">Target 80% • Yesterday 74%</span>
+            </div>
+            <p className="mb-2 text-3xl font-semibold text-slate-900">
+              {occupancyValue}
+              <span className="ml-1 text-base font-normal text-slate-500">%</span>
+            </p>
+
+            {/* Simple bar */}
+            <div className="mb-2 h-3 w-full rounded-full bg-slate-100">
+              <div
+                className={`h-3 rounded-full ${
+                  occupancyValue >= 80 ? "bg-emerald-500" : occupancyValue >= 60 ? "bg-amber-400" : "bg-red-400"
+                }`}
+                style={{ width: `${occupancyValue}%` }}
+              />
+            </div>
+
+            <p className="text-[11px] text-slate-500">
+              Based on <span className="font-medium">36 / 48</span> sellable rooms.
+            </p>
+          </div>
+
+          {/* Score breakdown / booking mix */}
+          <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+            <h3 className="mb-2 text-sm font-semibold text-slate-800">Booking mix</h3>
+            <ul className="space-y-1 text-xs text-slate-600">
+              {bookingMix.map((b, i) => {
+                const colors = ["bg-blue-500", "bg-emerald-500", "bg-amber-500"];
+                return (
+                  <li key={b.label} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`h-2.5 w-2.5 rounded-full ${colors[i]}`} />
+                      <span>{b.label}</span>
+                    </div>
+                    <span className="font-semibold">{b.value}%</span>
+                  </li>
+                );
+              })}
+            </ul>
+
+            <div className="mt-4 border-t border-slate-100 pt-3">
+              <h4 className="mb-1 text-xs font-semibold text-slate-700">Data quality scores</h4>
+              <div className="space-y-1 text-[11px] text-slate-600">
+                <ScoreBar label="Coverage" value={coverageScore} />
+                <ScoreBar label="Evidence" value={evidenceScore} />
+                <ScoreBar label="Risk" value={riskScore} />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Section D – Lists */}
+        <section className="grid gap-4 lg:grid-cols-2">
+          {/* Arrivals / Departures */}
+          <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-800">Arrivals & departures today</h3>
+              <div className="inline-flex overflow-hidden rounded-full border border-slate-200 bg-slate-50 text-xs">
+                <button
+                  onClick={() => setAdTab("arrivals")}
+                  className={`px-3 py-1 ${
+                    adTab === "arrivals" ? "bg-white font-medium text-slate-900" : "text-slate-500"
+                  }`}
+                >
+                  Arrivals
+                </button>
+                <button
+                  onClick={() => setAdTab("departures")}
+                  className={`px-3 py-1 ${
+                    adTab === "departures" ? "bg-white font-medium text-slate-900" : "text-slate-500"
+                  }`}
+                >
+                  Departures
+                </button>
+              </div>
+            </div>
+
+            <table className="w-full table-fixed border-separate border-spacing-y-1 text-xs">
+              <thead>
+                <tr className="text-[11px] text-slate-500">
+                  <th className="w-16 text-left">Time</th>
+                  <th className="text-left">Guest</th>
+                  <th className="w-32 text-left">Room / Type</th>
+                  <th className="w-24 text-left">Status</th>
+                  <th className="w-20 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(adTab === "arrivals" ? arrivals : departures).map((row) => (
+                  <tr key={row.id}>
+                    <td className="rounded-l-lg bg-slate-50 px-2 py-1 text-[11px] text-slate-600">
+                      {row.time}
+                    </td>
+                    <td className="bg-slate-50 px-2 py-1 text-[11px]">
+                      <span className="font-medium text-slate-800">{row.guestName}</span>
+                    </td>
+                    <td className="bg-slate-50 px-2 py-1 text-[11px] text-slate-600">
+                      {row.roomNumber ? `${row.roomNumber} • ${row.roomType}` : row.roomType}
+                    </td>
+                    <td className="bg-slate-50 px-2 py-1 text-[11px]">
+                      <StatusPill status={row.status} />
+                    </td>
+                    <td className="rounded-r-lg bg-slate-50 px-2 py-1 text-right">
+                      <button className="rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-blue-700">
+                        {adTab === "arrivals" ? "Check in" : "Check out"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <button className="mt-3 text-[11px] font-semibold text-blue-700">
+              View full arrivals & departures →
+            </button>
+          </div>
+
+          {/* Housekeeping snapshot */}
+          <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-800">Housekeeping snapshot</h3>
+              <span className="text-[11px] text-slate-500">Updated 5 mins ago</span>
+            </div>
+
+            <dl className="grid grid-cols-2 gap-3 text-xs">
+              <CardStat label="Clean" value={housekeeping.clean} color="text-emerald-600" />
+              <CardStat label="Dirty" value={housekeeping.dirty} color="text-red-600" />
+              <CardStat label="Inspection" value={housekeeping.inspection} color="text-amber-600" />
+              <CardStat label="Out of service" value={housekeeping.outOfService} color="text-slate-700" />
+            </dl>
+
+            <div className="mt-4 border-t border-slate-100 pt-3">
+              <h4 className="mb-1 text-xs font-semibold text-slate-700">Next rooms to clean</h4>
+              <ul className="space-y-1 text-[11px] text-slate-600">
+                <li>• 203 – Departure just completed (needed by 14:00)</li>
+                <li>• 307 – Stayover, VIP guest</li>
+                <li>• 404 – Long-stay, weekly deep clean</li>
+              </ul>
+
+              <button className="mt-3 text-[11px] font-semibold text-blue-700">
+                Open housekeeping board →
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+};
+
+const StatusPill: React.FC<{ status: string }> = ({ status }) => {
+  let color = "bg-slate-100 text-slate-700";
+  if (status.toLowerCase().includes("checked")) color = "bg-emerald-50 text-emerald-700";
+  else if (status.toLowerCase().includes("bill")) color = "bg-amber-50 text-amber-700";
+  else if (status.toLowerCase().includes("no-show")) color = "bg-red-50 text-red-700";
+
+  return (
+    <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${color}`}>
+      {status}
+    </span>
+  );
+};
+
+const CardStat: React.FC<{ label: string; value: number; color?: string }> = ({
+  label,
+  value,
+  color = "text-slate-800",
+}) => (
+  <div className="rounded-lg bg-slate-50 px-3 py-2">
+    <dt className="text-[11px] text-slate-500">{label}</dt>
+    <dd className={`text-lg font-semibold ${color}`}>{value}</dd>
+  </div>
+);
+
+const ScoreBar: React.FC<{ label: string; value: number }> = ({ label, value }) => (
+  <div className="flex items-center gap-2">
+    <span className="w-20 text-[11px] text-slate-500">{label}</span>
+    <div className="h-2 flex-1 rounded-full bg-slate-100">
+      <div
+        className="h-2 rounded-full bg-blue-500"
+        style={{ width: `${value}%` }}
+      />
+    </div>
+    <span className="w-10 text-right text-[11px] font-semibold text-slate-700">{value}%</span>
+  </div>
+);
+
+export default DashboardPage;
+
+
+To show this in your app, you can use it in App.tsx:
+
+import DashboardPage from "./pages/DashboardPage";
+
+function App() {
+  return <DashboardPage />;
+}
+
+export default App;
+
+
+If you don’t have Tailwind yet, you’ll see unstyled HTML. In that case, next step can be:
+
+I walk you through adding Tailwind to your existing Vite + React project, or
+
+I convert this layout to plain CSS modules.
+
+For the HMS project, I’d strongly recommend Tailwind because it lets us iterate on UI much faster and keep everything consistent.
+
+If you’re happy with this layout, the next step after this dashboard is usually the Rooms & Availability view, since that’s the heart of daily operations.
+
+========================================================================================
+Nice, then let’s keep going and add the **Rooms & Availability** screen – this is the “heart” of the HMS.
+
+I’ll:
+
+1. Explain the layout (so you know what you’re getting)
+2. Give you a **full React component** (`RoomsPage.tsx`) using Tailwind, like the dashboard
+
+You can then switch between `DashboardPage` and `RoomsPage` later with simple routing.
+
+---
+
+## 1. Rooms & Availability – layout
+
+We’ll do **two tabs** inside one page:
+
+### A. “Status Today” tab
+
+* **Filters bar** at top:
+
+  * Floor (All / 1 / 2 / 3…)
+  * Status (All / Available / Occupied / Dirty / Out of service)
+  * Room type (All / Standard / Deluxe / Suite)
+
+* **Room grid**
+
+  * Card per room:
+
+    * Room number + type
+    * Status pill (color-coded)
+    * Guest name if occupied
+    * Badge for: VIP, Late checkout, Maintenance
+    * Small actions: “Check in” / “Check out” / “Mark clean”
+
+This is what front desk and housekeeping will use most.
+
+### B. “Timeline” tab (next 14 days)
+
+* **Mini legend**: colors for Confirmed / In-house / Checked-out / OOS, etc.
+* **Simple timeline**:
+
+  * Rooms listed vertically
+  * For each room, a row with **blocks representing bookings** across the next 14 days
+  * Blocks are just coloured `<div>` elements sized with `width: X%` (no chart library needed)
+
+---
+
+## 2. React component: `RoomsPage.tsx`
+
+Create `src/pages/RoomsPage.tsx`:
+
+```tsx
+import React, { useMemo, useState } from "react";
+
+type RoomStatus = "available" | "occupied" | "dirty" | "oos";
+
+type Room = {
+  id: string;
+  number: string;
+  floor: number;
+  type: "Standard" | "Deluxe" | "Suite";
+  status: RoomStatus;
+  currentGuest?: string;
+  notes?: string;
+  flags?: ("vip" | "late_checkout" | "maintenance")[];
+};
+
+type BookingBlock = {
+  id: string;
+  roomNumber: string;
+  guestName: string;
+  startOffset: number; // days from today (0 = today)
+  length: number; // number of days
+  status: "confirmed" | "inhouse" | "checkedout";
+};
+
+const ALL_ROOMS: Room[] = [
+  {
+    id: "r101",
+    number: "101",
+    floor: 1,
+    type: "Standard",
+    status: "occupied",
+    currentGuest: "Anna Roberts",
+    flags: ["vip"],
+    notes: "Late checkout requested",
+  },
+  {
+    id: "r102",
+    number: "102",
+    floor: 1,
+    type: "Standard",
+    status: "dirty",
+    notes: "Departure just completed",
+  },
+  {
+    id: "r103",
+    number: "103",
+    floor: 1,
+    type: "Deluxe",
+    status: "available",
+  },
+  {
+    id: "r201",
+    number: "201",
+    floor: 2,
+    type: "Standard",
+    status: "oos",
+    notes: "Bathroom maintenance",
+    flags: ["maintenance"],
+  },
+  {
+    id: "r202",
+    number: "202",
+    floor: 2,
+    type: "Deluxe",
+    status: "available",
+  },
+  {
+    id: "r301",
+    number: "301",
+    floor: 3,
+    type: "Suite",
+    status: "occupied",
+    currentGuest: "Green Corp – meeting",
+  },
+];
+
+const BOOKING_BLOCKS: BookingBlock[] = [
+  {
+    id: "b1",
+    roomNumber: "101",
+    guestName: "Anna Roberts",
+    startOffset: 0,
+    length: 3,
+    status: "inhouse",
+  },
+  {
+    id: "b2",
+    roomNumber: "103",
+    guestName: "James & Laura",
+    startOffset: 2,
+    length: 4,
+    status: "confirmed",
+  },
+  {
+    id: "b3",
+    roomNumber: "202",
+    guestName: "Walk-in guest",
+    startOffset: 1,
+    length: 2,
+    status: "confirmed",
+  },
+  {
+    id: "b4",
+    roomNumber: "301",
+    guestName: "Green Corp",
+    startOffset: -1,
+    length: 5,
+    status: "inhouse",
+  },
+];
+
+const DAYS_VISIBLE = 14;
+
+const RoomsPage: React.FC = () => {
+  const [tab, setTab] = useState<"status" | "timeline">("status");
+  const [floorFilter, setFloorFilter] = useState<"all" | "1" | "2" | "3">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | RoomStatus>("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "Standard" | "Deluxe" | "Suite">("all");
+
+  const filteredRooms = useMemo(() => {
+    return ALL_ROOMS.filter((room) => {
+      if (floorFilter !== "all" && room.floor !== Number(floorFilter)) return false;
+      if (statusFilter !== "all" && room.status !== statusFilter) return false;
+      if (typeFilter !== "all" && room.type !== typeFilter) return false;
+      return true;
+    });
+  }, [floorFilter, statusFilter, typeFilter]);
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Rooms & Availability</h1>
+            <p className="text-xs text-slate-500">
+              Live room status and upcoming stays for <span className="font-medium">City View Hotel</span>.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-slate-600">
+            <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+            Live data (demo)
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl px-4 pb-10 pt-4">
+        {/* Tabs */}
+        <div className="mb-4 flex items-center gap-2">
+          <button
+            onClick={() => setTab("status")}
+            className={`rounded-full px-3 py-1 text-xs font-medium ${
+              tab === "status"
+                ? "bg-slate-900 text-white"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            Status today
+          </button>
+          <button
+            onClick={() => setTab("timeline")}
+            className={`rounded-full px-3 py-1 text-xs font-medium ${
+              tab === "timeline"
+                ? "bg-slate-900 text-white"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            14-day timeline
+          </button>
+        </div>
+
+        {tab === "status" ? (
+          <StatusTodayView
+            rooms={filteredRooms}
+            floorFilter={floorFilter}
+            statusFilter={statusFilter}
+            typeFilter={typeFilter}
+            setFloorFilter={setFloorFilter}
+            setStatusFilter={setStatusFilter}
+            setTypeFilter={setTypeFilter}
+          />
+        ) : (
+          <TimelineView
+            rooms={filteredRooms}
+            allRooms={ALL_ROOMS}
+            bookings={BOOKING_BLOCKS}
+          />
+        )}
+      </main>
+    </div>
+  );
+};
+
+// ---------------- Status Today view ----------------
+
+interface StatusTodayProps {
+  rooms: Room[];
+  floorFilter: "all" | "1" | "2" | "3";
+  statusFilter: "all" | RoomStatus;
+  typeFilter: "all" | "Standard" | "Deluxe" | "Suite";
+  setFloorFilter: (value: "all" | "1" | "2" | "3") => void;
+  setStatusFilter: (value: "all" | RoomStatus) => void;
+  setTypeFilter: (value: "all" | "Standard" | "Deluxe" | "Suite") => void;
+}
+
+const StatusTodayView: React.FC<StatusTodayProps> = ({
+  rooms,
+  floorFilter,
+  statusFilter,
+  typeFilter,
+  setFloorFilter,
+  setStatusFilter,
+  setTypeFilter,
+}) => {
+  return (
+    <>
+      {/* Filters */}
+      <section className="mb-4 rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          <div>
+            <span className="mb-1 block text-[11px] font-medium text-slate-500">
+              Floor
+            </span>
+            <select
+              value={floorFilter}
+              onChange={(e) =>
+                setFloorFilter(e.target.value as "all" | "1" | "2" | "3")
+              }
+              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
+            >
+              <option value="all">All floors</option>
+              <option value="1">Floor 1</option>
+              <option value="2">Floor 2</option>
+              <option value="3">Floor 3</option>
+            </select>
+          </div>
+
+          <div>
+            <span className="mb-1 block text-[11px] font-medium text-slate-500">
+              Status
+            </span>
+            <select
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(
+                  e.target.value as "all" | RoomStatus
+                )
+              }
+              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
+            >
+              <option value="all">All statuses</option>
+              <option value="available">Available</option>
+              <option value="occupied">Occupied</option>
+              <option value="dirty">Dirty</option>
+              <option value="oos">Out of service</option>
+            </select>
+          </div>
+
+          <div>
+            <span className="mb-1 block text-[11px] font-medium text-slate-500">
+              Room type
+            </span>
+            <select
+              value={typeFilter}
+              onChange={(e) =>
+                setTypeFilter(
+                  e.target.value as "all" | "Standard" | "Deluxe" | "Suite"
+                )
+              }
+              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
+            >
+              <option value="all">All types</option>
+              <option value="Standard">Standard</option>
+              <option value="Deluxe">Deluxe</option>
+              <option value="Suite">Suite</option>
+            </select>
+          </div>
+
+          <div className="ml-auto text-[11px] text-slate-500">
+            Showing <span className="font-semibold">{rooms.length}</span> rooms
+          </div>
+        </div>
+      </section>
+
+      {/* Rooms grid */}
+      <section>
+        {rooms.length === 0 ? (
+          <p className="text-xs text-slate-500">
+            No rooms match these filters.
+          </p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+            {rooms.map((room) => (
+              <RoomCard key={room.id} room={room} />
+            ))}
+          </div>
+        )}
+      </section>
+    </>
+  );
+};
+
+const RoomCard: React.FC<{ room: Room }> = ({ room }) => {
+  const statusLabel = {
+    available: "Available",
+    occupied: "Occupied",
+    dirty: "Dirty",
+    oos: "Out of service",
+  }[room.status];
+
+  const statusColor =
+    room.status === "available"
+      ? "bg-emerald-50 text-emerald-700"
+      : room.status === "occupied"
+      ? "bg-blue-50 text-blue-700"
+      : room.status === "dirty"
+      ? "bg-amber-50 text-amber-700"
+      : "bg-slate-100 text-slate-700";
+
+  return (
+    <div className="flex flex-col rounded-xl bg-white p-3 text-xs shadow-sm ring-1 ring-slate-200">
+      <div className="mb-1 flex items-center justify-between">
+        <div>
+          <div className="text-[11px] text-slate-500">
+            Room <span className="font-semibold text-slate-800">{room.number}</span>
+          </div>
+          <div className="text-[11px] text-slate-500">
+            Floor {room.floor} • {room.type}
+          </div>
+        </div>
+        <span
+          className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${statusColor}`}
+        >
+          {statusLabel}
+        </span>
+      </div>
+
+      {room.currentGuest && (
+        <div className="mt-1 text-[11px] text-slate-700">
+          Guest: <span className="font-semibold">{room.currentGuest}</span>
+        </div>
+      )}
+
+      {room.flags && room.flags.length > 0 && (
+        <div className="mt-1 flex flex-wrap gap-1">
+          {room.flags.includes("vip") && (
+            <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-medium text-purple-700">
+              VIP
+            </span>
+          )}
+          {room.flags.includes("late_checkout") && (
+            <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-700">
+              Late checkout
+            </span>
+          )}
+          {room.flags.includes("maintenance") && (
+            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-700">
+              Maintenance
+            </span>
+          )}
+        </div>
+      )}
+
+      {room.notes && (
+        <p className="mt-2 text-[11px] text-slate-500">{room.notes}</p>
+      )}
+
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {room.status === "available" && (
+          <button className="rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-blue-700">
+            Check in
+          </button>
+        )}
+        {room.status === "occupied" && (
+          <button className="rounded-full border border-blue-600 px-2 py-0.5 text-[11px] font-medium text-blue-700 hover:bg-blue-50">
+            Check out
+          </button>
+        )}
+        {room.status === "dirty" && (
+          <button className="rounded-full bg-emerald-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-emerald-700">
+            Mark clean
+          </button>
+        )}
+        {room.status === "oos" && (
+          <button className="rounded-full border border-slate-400 px-2 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50">
+            View issue
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ---------------- Timeline view ----------------
+
+interface TimelineProps {
+  rooms: Room[];
+  allRooms: Room[];
+  bookings: BookingBlock[];
+}
+
+const TimelineView: React.FC<TimelineProps> = ({ rooms, allRooms, bookings }) => {
+  const roomsToShow = rooms.length > 0 ? rooms : allRooms;
+
+  const daysLabels = Array.from({ length: DAYS_VISIBLE }, (_, i) => {
+    if (i === 0) return "Today";
+    if (i === 1) return "Tomorrow";
+    return `+${i}d`;
+  });
+
+  return (
+    <section className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+      <div className="mb-3 flex items-center justify-between text-xs">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-800">
+            14-day room timeline
+          </h2>
+          <p className="text-[11px] text-slate-500">
+            Quick view of which rooms are booked and when.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-[11px] text-slate-600">
+          <LegendDot color="bg-blue-500" label="In-house" />
+          <LegendDot color="bg-emerald-500" label="Confirmed" />
+          <LegendDot color="bg-slate-400" label="Checked-out" />
+        </div>
+      </div>
+
+      {/* Timeline header */}
+      <div className="mb-1 grid grid-cols-[80px,1fr] text-[10px] text-slate-500">
+        <div />
+        <div className="flex justify-between">
+          {daysLabels.map((label, idx) => (
+            <span key={idx} className="w-[calc(100%/14)] text-center">
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Rows */}
+      <div className="space-y-1.5">
+        {roomsToShow.map((room) => {
+          const roomBlocks = bookings.filter(
+            (b) => b.roomNumber === room.number
+          );
+
+          return (
+            <div
+              key={room.id}
+              className="grid grid-cols-[80px,1fr] items-center gap-1 text-[11px]"
+            >
+              <div className="text-right text-slate-600">
+                <span className="font-semibold">{room.number}</span>
+                <span className="ml-1 text-slate-400">
+                  · {room.type[0]}
+                  {room.type === "Suite" ? "S" : "R"}
+                </span>
+              </div>
+              <div className="relative h-6 rounded-full bg-slate-100">
+                {roomBlocks.map((block) => {
+                  const start = Math.max(block.startOffset, 0);
+                  const end = Math.min(
+                    block.startOffset + block.length,
+                    DAYS_VISIBLE
+                  );
+                  if (end <= 0 || start >= DAYS_VISIBLE) return null;
+
+                  const leftPercent = (start / DAYS_VISIBLE) * 100;
+                  const widthPercent =
+                    ((end - start) / DAYS_VISIBLE) * 100;
+
+                  let color = "bg-slate-400";
+                  if (block.status === "inhouse") color = "bg-blue-500";
+                  if (block.status === "confirmed") color = "bg-emerald-500";
+
+                  return (
+                    <div
+                      key={block.id}
+                      className={`absolute flex h-6 items-center justify-center rounded-full ${color} text-[10px] text-white`}
+                      style={{
+                        left: `${leftPercent}%`,
+                        width: `${Math.max(widthPercent, 8)}%`,
+                      }}
+                      title={`${block.guestName}`}
+                    >
+                      <span className="truncate px-1">
+                        {block.guestName}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
+
+const LegendDot: React.FC<{ color: string; label: string }> = ({
+  color,
+  label,
+}) => (
+  <div className="flex items-center gap-1">
+    <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
+    <span>{label}</span>
+  </div>
+);
+
+export default RoomsPage;
+```
+
+---
+
+## 3. How to use this with your existing dashboard
+
+In `App.tsx`, you could temporarily swap pages:
+
+```tsx
+import DashboardPage from "./pages/DashboardPage";
+import RoomsPage from "./pages/RoomsPage";
+
+function App() {
+  // for now just switch manually:
+  return <RoomsPage />;
+}
+
+export default App;
+```
+
+Later we can:
+
+* Add a **top navigation** and simple routing (e.g. React Router)
+* Hook the rooms & bookings to a **real API** instead of dummy arrays.
+
+---
+
+If you like this, the next steps could be:
+
+* Wire a **minimal Node backend** for `/api/rooms` and `/api/bookings`
+* Or design the **Bookings page** UI so the flows tie together.
+
+Tell me which you’d like to do next: **backend endpoints for rooms**, or **Bookings page UI**.
+====================================================================================================
+
+
+

@@ -1,0 +1,252 @@
+## 1. HMS Dashboard – Product + UI Spec
+
+### Overall style
+
+* Clean, light theme similar to the Lodgify shots:
+
+  * Background: `#F5F7FA` or very light grey.
+  * Card background: white with soft shadow and 12–16px border radius.
+  * Primary accent: soft lime/green (e.g. `#C8F36A` or `#A7E163`).
+  * Secondary accent: teal or mint (e.g. `#37B9A6`).
+  * Text: dark slate (`#111827` / `#4B5563`).
+* Use plenty of **white space**, rounded corners, subtle drop shadows.
+* All cards should be **clickable** with hover elevation.
+
+---
+
+### Layout (desktop)
+
+**Top bar**
+
+* Left: app logo + title: `Dashboard`.
+* Center: **global search**: “Search room, guest, booking, etc.”
+* Right: user avatar, role (e.g. “Front Desk Manager”), notifications bell, settings gear.
+
+**Filter row (under top bar)**
+
+* Time period dropdown: `Today | Last 7 Days | Last 30 Days | Custom`.
+* Property selector (if multi-hotel).
+* Channel filter: `All channels, Direct, Booking.com, Airbnb, Expedia…`.
+
+---
+
+### Section A – KPI Strip (top cards)
+
+Row of small cards (like Lodgify):
+
+1. **New Bookings**
+
+   * Big number, % vs last week.
+   * Mini green/red trend badge.
+
+2. **Check-ins Today**
+
+3. **Check-outs Today**
+
+4. **Total Revenue (period filter)**
+
+Each card:
+
+* Title (small text)
+* Main value
+* Subtext: “+x% vs last week”
+* Icon in corner (calendar, key, dollar, etc.)
+
+---
+
+### Section B – Room Overview & Occupancy
+
+**B1. Room Availability card (left)**
+
+* Horizontal stacked bar: `Occupied | Reserved | Available | Out of Service`.
+* Show counts:
+
+  * Occupied: 286
+  * Reserved: 87
+  * Available: 32
+  * Not Ready: 13
+* On click → navigate to Rooms page filtered by current day.
+
+**B2. Occupancy graph (center)**
+
+* Line or area chart:
+
+  * X-axis: days (last 7 or 30).
+  * Y-axis: occupancy %.
+* Show:
+
+  * “Avg occupancy this period”
+  * “Peak day”
+* Toggle: `Last 7 Days | Last 30 Days | Last 12 Months`.
+
+**B3. Guest Rating / Reputation (right)**
+
+* Overall rating: big number (e.g. 4.6 / 5 “Impressive”).
+* Horizontal bars for:
+
+  * Cleanliness, Service, Comfort, Location, Food, Wi-Fi.
+* On click → open Reviews page.
+
+---
+
+### Section C – Reservations & Booking Mix
+
+**C1. Reservations (last 7 days)**
+
+* Bar chart: `Booked | Cancelled | No-show`.
+* Under chart: small pills showing:
+
+  * Total bookings
+  * Cancellation rate
+  * No-show rate
+
+**C2. Booking by Platform (pie/donut)**
+
+* Segments for:
+
+  * Direct website
+  * OTA (Booking.com, Expedia, Airbnb…)
+  * Corporate / Travel Agent
+* Legend with percentages and counts.
+
+---
+
+### Section D – Operational Panels
+
+**D1. Today’s Tasks / Alerts (right column or bottom row)**
+
+* Scrollable list:
+
+  * Example items:
+
+    * “Room 305: Clean & inspect – due 11:30”
+    * “VIP arrival: Ms. Smith – welcome package ready?”
+    * “Late checkout approved: Room 212 – 14:00”
+* Each entry has:
+
+  * Status pill: `Pending | In progress | Done`
+  * Type icon: housekeeping, front desk, maintenance.
+* “Add task” button opens small modal.
+
+**D2. Housekeeping Status**
+
+* Mini table or donut like in screenshots:
+
+  * Clean
+  * Cleaning
+  * Dirty
+  * Out of service
+* Click any label → show filtered list of rooms in sidebar.
+
+**D3. Booking List (compact table)**
+Columns:
+
+* Booking ID
+* Guest name
+* Room
+* Room type
+* Check-in → Check-out
+* Status: `Checked-in | Due-in | Due-out | Cancelled`
+* Total amount
+* CTA buttons: `View`, `Check in`, `Check out`.
+
+---
+
+### Section E – Revenue & Expenses
+
+**E1. Revenue chart**
+
+* Bar chart by day/month with:
+
+  * Revenue
+  * Refunds (optional)
+* Toggle tabs: `Revenue | ADR | RevPAR`.
+
+**E2. Quick finance KPIs**
+
+* Cards: `This month revenue`, `This month expenses`, `Gross profit`, `RevPAR`.
+
+---
+
+### Behaviour & UX
+
+* Cards and charts should:
+
+  * Show **tooltips** on hover.
+  * Support **click to drill-down** (navigates to filtered lists).
+* All sections must be **responsive**:
+
+  * On tablet: 2-column layout.
+  * On mobile: stacked cards, charts simplified.
+
+---
+
+## 2. Prompt to Give Your Coding Agent / Tool
+
+You can literally copy-paste and adapt this:
+
+> You are building a **Hotel Management System dashboard** in React + TypeScript with a Node/Express backend.
+> Style and layout should closely follow modern examples like Lodgify and the screenshots I provided: light pastel UI, rounded cards, lots of white space, subtle shadows and green/mint accent colors.
+>
+> ### Tech requirements
+>
+> * Frontend: React + Vite, TypeScript, using TailwindCSS for styling.
+> * Component structure: Dashboard page composed of reusable `Card` components, `KpiCard`, `ChartCard`, `TableCard`.
+> * Charts: Use Recharts.
+> * Layout: fixed left sidebar navigation, main content scrolls, max-width 1400px and centered.
+>
+> ### Dashboard layout
+>
+> 1. **Top bar** with:
+>
+>    * App logo + “Dashboard” title
+>    * Global search input (“Search room, guest, booking, etc.”)
+>    * Right side: notification bell, user avatar, dropdown.
+> 2. **Filter row** below top bar:
+>
+>    * Time period dropdown (`Today | Last 7 Days | Last 30 Days | Custom`)
+>    * Property selector and channel selector.
+> 3. **KPI cards row**:
+>
+>    * New Bookings, Check-ins Today, Check-outs Today, Total Revenue.
+>    * Each card shows current value, % change vs last period, and a small icon.
+> 4. **Room & occupancy section**:
+>
+>    * Left: Room Availability card with stacked bar showing Occupied, Reserved, Available, Out of Service.
+>    * Center: Occupancy line/area chart (last 7/30 days) with toggle and summary text.
+>    * Right: Guest Rating card with overall rating and category bars (Cleanliness, Service, Comfort, Location, Food, Wi-Fi).
+> 5. **Reservations & booking mix section**:
+>
+>    * Bar chart “Reservations – Last 7 days” by status (Booked, Cancelled, No-show).
+>    * Donut chart “Booking by Platform” (Direct, OTAs, Corporate, Other).
+> 6. **Operations section**:
+>
+>    * Today’s Tasks list with type, due time, and status pills plus “Add task” button.
+>    * Housekeeping status donut (Clean, Cleaning, Dirty, Out of Service) with click-to-filter.
+>    * Compact Booking List table with ID, guest name, room, stay dates, status, total and action buttons.
+> 7. **Revenue section**:
+>
+>    * Revenue bar chart with tabs for `Revenue | ADR | RevPAR`.
+>    * Finance KPI cards for “This month revenue”, “This month expenses”, “Gross profit”, “RevPAR”.
+>
+> ### Data
+>
+> * For now, use **mock data** in the frontend (JSON arrays) but keep functions easily switchable to API calls.
+> * Each card and chart must have **typed props** and be reusable.
+>
+> ### UX details
+>
+> * Cards are clickable and raise on hover.
+> * Charts show tooltips on hover.
+> * Clicking a KPI or chart segment should call a placeholder `onDrillDown` handler that we can later wire to routing.
+> * Implement responsive behaviour: 3-column layout on desktops, 2 columns on tablets, stacked on mobile.
+>
+> Please generate:
+>
+> * `DashboardPage.tsx` containing the full layout.
+> * Reusable components under `components/dashboard/` (e.g. `KpiCard.tsx`, `RoomAvailabilityCard.tsx`, `OccupancyChart.tsx`, `TasksList.tsx`, `BookingsTable.tsx`, `RevenueChart.tsx`).
+> * Tailwind utility classes directly in JSX instead of separate CSS.
+> * Mock data in `dashboardMockData.ts` file.
+
+---
+

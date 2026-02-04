@@ -1,0 +1,150 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.inputs.environment == 'staging'
+    environment:
+      name: staging
+      url: ${{ steps.deploy.outputs.url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate --workspace=@hotelos/api
+
+      - name: Build API
+        run: npm run build --workspace=@hotelos/api
+
+      - name: Build Web
+        run: npm run build --workspace=@hotelos/web
+        env:
+          VITE_API_URL: ${{ secrets.STAGING_API_URL }}
+
+      # Deploy to Railway (example)
+      - name: Deploy to Railway
+        if: false # Enable when Railway is configured
+        uses: bervProject/railway-deploy@main
+        with:
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          service: hotelos-api
+
+      # Deploy to Render (example)
+      - name: Deploy to Render
+        if: false # Enable when Render is configured
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          curl -X POST "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys" \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            -H "Content-Type: application/json"
+
+      - name: Set deployment URL
+        id: deploy
+        run: echo "url=https://staging.hotelos.app" >> $GITHUB_OUTPUT
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: github.event.inputs.environment == 'production'
+    needs: [deploy-staging]
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate --workspace=@hotelos/api
+
+      - name: Build API
+        run: npm run build --workspace=@hotelos/api
+
+      - name: Build Web
+        run: npm run build --workspace=@hotelos/web
+        env:
+          VITE_API_URL: ${{ secrets.PRODUCTION_API_URL }}
+
+      # Deploy to production platform
+      - name: Deploy to Production
+        run: echo "Deploying to production..."
+
+      - name: Set deployment URL
+        id: deploy
+        run: echo "url=https://app.hotelos.app" >> $GITHUB_OUTPUT
+
+      - name: Notify deployment
+        if: success()
+        run: |
+          echo "Production deployment completed successfully!"
+          # Add notification logic (Slack, Discord, email, etc.)
+
+  # Database migrations (separate job for safety)
+  migrate-database:
+    name: Run Database Migrations
+    runs-on: ubuntu-latest
+    if: github.event.inputs.environment == 'production'
+    environment:
+      name: production-db
+    needs: [deploy-production]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run database migrations
+        run: npx prisma migrate deploy --schema=packages/api/prisma/schema.prisma
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+
+      - name: Notify migration complete
+        run: echo "Database migrations completed successfully!"

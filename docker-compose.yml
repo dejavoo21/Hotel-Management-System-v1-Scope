@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: hotelos-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: hotelos
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis (for caching and real-time pub/sub)
+  redis:
+    image: redis:7-alpine
+    container_name: hotelos-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # API Server (development)
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+      target: development
+    container_name: hotelos-api
+    restart: unless-stopped
+    ports:
+      - "4010:4010"
+    environment:
+      NODE_ENV: development
+      PORT: 4010
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/hotelos?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-jwt-secret-do-not-use-in-production
+      JWT_REFRESH_SECRET: dev-refresh-secret-do-not-use-in-production
+    volumes:
+      - ./packages/api:/app/packages/api
+      - ./packages/shared:/app/packages/shared
+      - /app/packages/api/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: npm run dev
+
+  # Web Frontend (development)
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      target: development
+    container_name: hotelos-web
+    restart: unless-stopped
+    ports:
+      - "4212:4212"
+    environment:
+      VITE_API_URL: http://localhost:4010
+      VITE_WS_URL: ws://localhost:4010
+      VITE_PORT: 4212
+    volumes:
+      - ./packages/web:/app/packages/web
+      - ./packages/shared:/app/packages/shared
+      - /app/packages/web/node_modules
+    depends_on:
+      - api
+    command: npm run dev -- --host
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: hotelos-network
