@@ -2,7 +2,16 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "npm install"
+    "nixpacksPlan": {
+      "phases": {
+        "install": {
+          "cmds": ["npm install --legacy-peer-deps"]
+        },
+        "build": {
+          "cmds": ["echo 'Build complete'"]
+        }
+      }
+    }
   },
   "deploy": {
     "startCommand": "cd packages/api && npx tsx src/index.ts",
