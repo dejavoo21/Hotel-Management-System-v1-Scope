@@ -2988,6 +2988,68 @@ router.get('/reports/occupancy', authenticateDemo, (req: Request, res: Response)
   });
 });
 
+// Report: Room Types Performance
+router.get('/reports/room-types', authenticateDemo, (_req: Request, res: Response) => {
+  const roomTypeData = [
+    { name: 'Standard Room', bookings: 45, revenue: 6750, occupancy: 72 },
+    { name: 'Deluxe Room', bookings: 32, revenue: 7360, occupancy: 65 },
+    { name: 'Junior Suite', bookings: 18, revenue: 5940, occupancy: 58 },
+    { name: 'Executive Suite', bookings: 12, revenue: 5880, occupancy: 48 },
+    { name: 'Presidential Suite', bookings: 4, revenue: 3960, occupancy: 32 },
+  ];
+
+  res.json({
+    success: true,
+    data: roomTypeData,
+  });
+});
+
+// Report: Guest Demographics
+router.get('/reports/guests', authenticateDemo, (_req: Request, res: Response) => {
+  const guestData = {
+    totalGuests: 156,
+    newGuests: 42,
+    returningGuests: 114,
+    averageStay: 2.8,
+    guestsByCountry: [
+      { country: 'United States', count: 45, percentage: 29 },
+      { country: 'United Kingdom', count: 28, percentage: 18 },
+      { country: 'Germany', count: 22, percentage: 14 },
+      { country: 'France', count: 18, percentage: 12 },
+      { country: 'Canada', count: 15, percentage: 10 },
+      { country: 'Other', count: 28, percentage: 17 },
+    ],
+    guestsByPurpose: [
+      { purpose: 'Business', count: 68, percentage: 44 },
+      { purpose: 'Leisure', count: 52, percentage: 33 },
+      { purpose: 'Conference', count: 24, percentage: 15 },
+      { purpose: 'Other', count: 12, percentage: 8 },
+    ],
+  };
+
+  res.json({
+    success: true,
+    data: guestData,
+  });
+});
+
+// Report: Booking Sources
+router.get('/reports/sources', authenticateDemo, (_req: Request, res: Response) => {
+  const sourceData = [
+    { source: 'Direct Website', bookings: 42, revenue: 12600, percentage: 35 },
+    { source: 'Booking.com', bookings: 28, revenue: 7560, percentage: 23 },
+    { source: 'Expedia', bookings: 18, revenue: 4860, percentage: 15 },
+    { source: 'Phone/Email', bookings: 15, revenue: 5250, percentage: 13 },
+    { source: 'Walk-in', bookings: 10, revenue: 2800, percentage: 8 },
+    { source: 'Corporate', bookings: 7, revenue: 3150, percentage: 6 },
+  ];
+
+  res.json({
+    success: true,
+    data: sourceData,
+  });
+});
+
 // Middleware to authenticate demo requests
 function authenticateDemo(req: Request, res: Response, next: Function) {
   const authHeader = req.headers.authorization;

@@ -231,45 +231,82 @@ async function scanRecentEmails(client: ImapFlow): Promise<number> {
   return processed;
 }
 
+let imapClient: ImapFlow | null = null;
+let imapConnected = false;
+let imapErrorCount = 0;
+const MAX_IMAP_ERRORS = 3; // Stop logging after this many consecutive errors
+
 export async function startImapPolling(): Promise<void> {
   if (!config.imap.host || !config.imap.user || !config.imap.pass) {
     logger.warn('IMAP configuration missing; skipping inbox polling.');
     return;
   }
 
-  const client = new ImapFlow({
-    host: config.imap.host,
-    port: config.imap.port,
-    secure: config.imap.secure,
-    auth: {
-      user: config.imap.user,
-      pass: config.imap.pass,
-    },
-  });
+  try {
+    imapClient = new ImapFlow({
+      host: config.imap.host,
+      port: config.imap.port,
+      secure: config.imap.secure,
+      auth: {
+        user: config.imap.user,
+        pass: config.imap.pass,
+      },
+      logger: false, // Disable verbose IMAP logging
+    });
 
-  client.on('error', (error) => {
-    logger.error('IMAP connection error', error);
-  });
-
-  await client.connect();
-  logger.info('IMAP polling connected');
-
-  // On startup, scan recent emails to catch any missed replies
-  if (config.demoMode) {
-    await scanRecentEmails(client);
-  }
-
-  const poll = async () => {
-    try {
-      const processed = await fetchNewMessages(client);
-      if (processed > 0) {
-        logger.info(`Processed ${processed} access request replies.`);
+    imapClient.on('error', (error) => {
+      imapConnected = false;
+      imapErrorCount++;
+      if (imapErrorCount <= MAX_IMAP_ERRORS) {
+        logger.error('IMAP connection error', error);
+        if (imapErrorCount === MAX_IMAP_ERRORS) {
+          logger.warn('IMAP errors suppressed - will retry silently. Check your IMAP credentials.');
+        }
       }
-    } catch (error) {
-      logger.error('IMAP polling error', error);
-    }
-  };
+    });
 
-  await poll();
-  setInterval(poll, config.imap.pollIntervalMs);
+    imapClient.on('close', () => {
+      imapConnected = false;
+    });
+
+    await imapClient.connect();
+    imapConnected = true;
+    imapErrorCount = 0;
+    logger.info('IMAP polling connected');
+
+    // On startup, scan recent emails to catch any missed replies
+    if (config.demoMode) {
+      await scanRecentEmails(imapClient);
+    }
+
+    const poll = async () => {
+      if (!imapClient || !imapConnected) {
+        // Silently skip polling if not connected
+        return;
+      }
+      try {
+        const processed = await fetchNewMessages(imapClient);
+        if (processed > 0) {
+          logger.info(`Processed ${processed} access request replies.`);
+        }
+        imapErrorCount = 0; // Reset on success
+      } catch (error) {
+        imapErrorCount++;
+        if (imapErrorCount <= MAX_IMAP_ERRORS) {
+          logger.error('IMAP polling error', error);
+          if (imapErrorCount === MAX_IMAP_ERRORS) {
+            logger.warn('IMAP polling errors suppressed - will retry silently.');
+          }
+        }
+      }
+    };
+
+    await poll();
+    setInterval(poll, config.imap.pollIntervalMs);
+  } catch (error) {
+    logger.warn('Failed to connect to IMAP server. Email polling disabled.', { 
+      host: config.imap.host,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
 }
