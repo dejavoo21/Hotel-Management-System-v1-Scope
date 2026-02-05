@@ -486,7 +486,7 @@ loadDemoStore();
 
 // Auth Routes
 router.post('/auth/login', async (req: Request, res: Response) => {
-  const { email, password } = req.body;
+  const { email, password, twoFactorCode } = req.body;
 
   console.log('Login attempt:', { email, password: password ? '***' : 'missing' });
   console.log('Available users:', mockUsers.map(u => u.email));
@@ -505,6 +505,33 @@ router.post('/auth/login', async (req: Request, res: Response) => {
 
   if (!validPassword) {
     return res.status(401).json({ success: false, error: 'Invalid email or password' });
+  }
+
+  // Check if 2FA is enabled
+  if (user.twoFactorEnabled && user.twoFactorSecret) {
+    if (!twoFactorCode) {
+      // Return special response indicating 2FA is required
+      return res.status(200).json({
+        success: false,
+        requiresTwoFactor: true,
+        message: 'Two-factor authentication code required'
+      });
+    }
+
+    // Verify the 2FA code
+    const timeStep = Math.floor(Date.now() / 30000);
+    let hash = 0;
+    const combined = user.twoFactorSecret + timeStep.toString();
+    for (let i = 0; i < combined.length; i++) {
+      const char = combined.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    const expectedCode = Math.abs(hash % 1000000).toString().padStart(6, '0');
+
+    if (twoFactorCode !== expectedCode) {
+      return res.status(401).json({ success: false, error: 'Invalid two-factor authentication code' });
+    }
   }
 
   // Generate tokens
@@ -806,6 +833,166 @@ router.post('/auth/reset-password', async (req: Request, res: Response) => {
   } catch (err) {
     return res.status(401).json({ success: false, error: 'Invalid or expired reset token' });
   }
+});
+
+// 2FA Store for demo (stores pending 2FA secrets before verification)
+const demo2FASecretStore: Map<string, string> = new Map();
+
+// Helper to generate TOTP code (simplified for demo - in production use a proper library like speakeasy)
+function generateTOTPCode(secret: string): string {
+  const timeStep = Math.floor(Date.now() / 30000);
+  // Simple hash for demo - creates a consistent 6-digit code based on secret and time
+  let hash = 0;
+  const combined = secret + timeStep.toString();
+  for (let i = 0; i < combined.length; i++) {
+    const char = combined.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash % 1000000).toString().padStart(6, '0');
+}
+
+// Generate a random base32 secret for demo
+function generateBase32Secret(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let secret = '';
+  for (let i = 0; i < 16; i++) {
+    secret += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return secret;
+}
+
+// 2FA Setup - Generate QR code and secret
+router.post('/auth/2fa/setup', authenticateDemo, (req: Request, res: Response) => {
+  const userId = (req as any).userId;
+  const user = mockUsers.find(u => u.id === userId);
+
+  if (!user) {
+    return res.status(404).json({ success: false, error: 'User not found' });
+  }
+
+  if (user.twoFactorEnabled) {
+    return res.status(400).json({ success: false, error: '2FA is already enabled for this account' });
+  }
+
+  // Generate a new secret
+  const secret = generateBase32Secret();
+  demo2FASecretStore.set(userId, secret);
+
+  // Generate otpauth URL for QR code
+  const issuer = 'Laflo';
+  const accountName = encodeURIComponent(user.email);
+  const otpauthUrl = `otpauth://totp/${issuer}:${accountName}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
+
+  // For demo, also return the current code so user can test without a real authenticator app
+  const currentCode = generateTOTPCode(secret);
+
+  res.json({
+    success: true,
+    data: {
+      secret,
+      otpauthUrl,
+      qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpauthUrl)}`,
+      // Demo only: provide a valid code for testing
+      demoCode: currentCode,
+      message: 'Scan the QR code with your authenticator app, or use the demo code provided'
+    }
+  });
+});
+
+// 2FA Verify - Confirm setup with a code
+router.post('/auth/2fa/verify', authenticateDemo, (req: Request, res: Response) => {
+  const userId = (req as any).userId;
+  const { code } = req.body;
+
+  if (!code || typeof code !== 'string' || code.length !== 6) {
+    return res.status(400).json({ success: false, error: 'A valid 6-digit code is required' });
+  }
+
+  const user = mockUsers.find(u => u.id === userId);
+  if (!user) {
+    return res.status(404).json({ success: false, error: 'User not found' });
+  }
+
+  // Get the pending secret
+  const pendingSecret = demo2FASecretStore.get(userId);
+  if (!pendingSecret) {
+    return res.status(400).json({ success: false, error: 'No 2FA setup in progress. Please start setup first.' });
+  }
+
+  // Verify the code
+  const expectedCode = generateTOTPCode(pendingSecret);
+  if (code !== expectedCode) {
+    return res.status(400).json({ success: false, error: 'Invalid verification code. Please try again.' });
+  }
+
+  // Enable 2FA for the user
+  user.twoFactorEnabled = true;
+  user.twoFactorSecret = pendingSecret;
+  demo2FASecretStore.delete(userId);
+
+  // Save to persistent store
+  saveDemoStore();
+
+  res.json({
+    success: true,
+    message: '2FA has been enabled successfully. You will need to enter a code on your next login.'
+  });
+});
+
+// 2FA Disable - Turn off 2FA with verification
+router.post('/auth/2fa/disable', authenticateDemo, (req: Request, res: Response) => {
+  const userId = (req as any).userId;
+  const { code } = req.body;
+
+  if (!code || typeof code !== 'string' || code.length !== 6) {
+    return res.status(400).json({ success: false, error: 'A valid 6-digit code is required' });
+  }
+
+  const user = mockUsers.find(u => u.id === userId);
+  if (!user) {
+    return res.status(404).json({ success: false, error: 'User not found' });
+  }
+
+  if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+    return res.status(400).json({ success: false, error: '2FA is not enabled for this account' });
+  }
+
+  // Verify the code
+  const expectedCode = generateTOTPCode(user.twoFactorSecret);
+  if (code !== expectedCode) {
+    return res.status(400).json({ success: false, error: 'Invalid verification code. Please try again.' });
+  }
+
+  // Disable 2FA
+  user.twoFactorEnabled = false;
+  user.twoFactorSecret = null;
+
+  // Save to persistent store
+  saveDemoStore();
+
+  res.json({
+    success: true,
+    message: '2FA has been disabled successfully.'
+  });
+});
+
+// 2FA Status - Check if 2FA is enabled for current user
+router.get('/auth/2fa/status', authenticateDemo, (req: Request, res: Response) => {
+  const userId = (req as any).userId;
+  const user = mockUsers.find(u => u.id === userId);
+
+  if (!user) {
+    return res.status(404).json({ success: false, error: 'User not found' });
+  }
+
+  res.json({
+    success: true,
+    data: {
+      enabled: user.twoFactorEnabled || false,
+      setupPending: demo2FASecretStore.has(userId)
+    }
+  });
 });
 
 // Dashboard Routes

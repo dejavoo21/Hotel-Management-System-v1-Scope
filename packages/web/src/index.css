@@ -8,10 +8,22 @@
     font-family: 'Inter var', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Prevent text size adjustment on orientation change */
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
     @apply bg-gray-50 text-slate-900;
+    /* Safe area insets for notched devices (iPhone X+) */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    /* Prevent pull-to-refresh on mobile */
+    overscroll-behavior-y: contain;
+    /* Optimize touch interactions */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   body[data-bg='mist'] {
