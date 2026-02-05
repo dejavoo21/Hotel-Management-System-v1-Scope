@@ -39,7 +39,10 @@ let demoCalendarExtras: any[] = [];
 let demoPurchaseOrders: any[] = [];
 let demoFloors = [...mockFloors]; // Mutable copy for adding/removing floors
 
-const demoStorePath = path.resolve(__dirname, '..', '..', 'data', 'demo-store.json');
+// Use Railway volume if available, otherwise use local data folder
+const demoStorePath = process.env.NODE_ENV === 'production' 
+  ? '/app/data/demo-store.json'
+  : path.resolve(__dirname, '..', '..', 'data', 'demo-store.json');
 
 const hydrateArray = <T>(target: T[], source?: T[]) => {
   if (!Array.isArray(source)) return;
