@@ -592,6 +592,219 @@ router.post('/auth/refresh', (req: Request, res: Response) => {
   }
 });
 
+// OTP Store for demo
+const demoOtpStore: Map<string, { code: string; expiresAt: Date; userId?: string }> = new Map();
+const demoResetTokenStore: Map<string, { userId: string; expiresAt: Date }> = new Map();
+
+// Email OTP Login - Request OTP
+router.post('/auth/otp/request', async (req: Request, res: Response) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ success: false, error: 'Email is required' });
+  }
+
+  const user = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+  if (!user) {
+    // For security, don't reveal if user exists
+    return res.json({ success: true, message: 'If an account exists, a verification code has been sent' });
+  }
+
+  // Generate 6-digit OTP
+  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+  demoOtpStore.set(email.toLowerCase(), { code: otpCode, expiresAt, userId: user.id });
+
+  // Send OTP email
+  try {
+    await sendEmail({
+      to: email,
+      subject: 'Your LaFlo Login Code',
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #84cc16;">LaFlo Hotel Management</h2>
+          <p>Your verification code is:</p>
+          <h1 style="font-size: 36px; letter-spacing: 8px; color: #1e293b; background: #f1f5f9; padding: 20px; text-align: center; border-radius: 8px;">${otpCode}</h1>
+          <p>This code expires in 10 minutes.</p>
+          <p style="color: #64748b; font-size: 12px;">If you didn't request this code, please ignore this email.</p>
+        </div>
+      `,
+    });
+  } catch (err) {
+    console.error('Failed to send OTP email:', err);
+  }
+
+  console.log(`[Demo OTP] Code for ${email}: ${otpCode}`);
+
+  res.json({ success: true, message: 'If an account exists, a verification code has been sent' });
+});
+
+// Email OTP Login - Verify OTP
+router.post('/auth/otp/verify', async (req: Request, res: Response) => {
+  const { email, code } = req.body;
+
+  if (!email || !code) {
+    return res.status(400).json({ success: false, error: 'Email and code are required' });
+  }
+
+  const storedOtp = demoOtpStore.get(email.toLowerCase());
+
+  if (!storedOtp) {
+    return res.status(401).json({ success: false, error: 'No verification code found. Please request a new one.' });
+  }
+
+  if (new Date() > storedOtp.expiresAt) {
+    demoOtpStore.delete(email.toLowerCase());
+    return res.status(401).json({ success: false, error: 'Verification code expired. Please request a new one.' });
+  }
+
+  if (storedOtp.code !== code) {
+    return res.status(401).json({ success: false, error: 'Invalid verification code' });
+  }
+
+  // OTP is valid - log the user in
+  const user = mockUsers.find(u => u.id === storedOtp.userId);
+  if (!user) {
+    return res.status(401).json({ success: false, error: 'User not found' });
+  }
+
+  // Clear used OTP
+  demoOtpStore.delete(email.toLowerCase());
+
+  // Generate tokens
+  const accessToken = jwt.sign(
+    { userId: user.id, email: user.email, role: user.role, hotelId: user.hotelId },
+    config.jwt.secret,
+    { expiresIn: config.jwt.expiresIn }
+  );
+
+  const refreshToken = jwt.sign(
+    { userId: user.id },
+    config.jwt.refreshSecret,
+    { expiresIn: config.jwt.refreshExpiresIn }
+  );
+
+  demoRefreshTokens.push(refreshToken);
+
+  res.json({
+    success: true,
+    data: {
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        hotelId: user.hotelId,
+        hotel: mockHotel,
+      },
+      accessToken,
+      refreshToken,
+      expiresIn: config.jwt.expiresIn,
+    },
+  });
+});
+
+// Forgot Password - Request Reset
+router.post('/auth/forgot-password', async (req: Request, res: Response) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ success: false, error: 'Email is required' });
+  }
+
+  const user = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+  
+  // Always return success for security (don't reveal if user exists)
+  if (!user) {
+    return res.json({ success: true, message: 'If an account exists, a password reset link has been sent' });
+  }
+
+  // Generate reset token
+  const resetToken = jwt.sign(
+    { userId: user.id, type: 'password-reset' },
+    config.jwt.secret,
+    { expiresIn: '1h' }
+  );
+
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+  demoResetTokenStore.set(resetToken, { userId: user.id, expiresAt });
+
+  // Build reset URL
+  const resetUrl = `${config.appUrl || 'https://laflo-web-production.up.railway.app'}/reset-password?token=${resetToken}`;
+
+  // Send reset email
+  try {
+    await sendEmail({
+      to: email,
+      subject: 'Reset Your LaFlo Password',
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #84cc16;">LaFlo Hotel Management</h2>
+          <p>You requested to reset your password. Click the button below to set a new password:</p>
+          <a href="${resetUrl}" style="display: inline-block; background: #84cc16; color: #1e293b; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0;">Reset Password</a>
+          <p style="color: #64748b; font-size: 12px;">This link expires in 1 hour. If you didn't request this, please ignore this email.</p>
+          <p style="color: #64748b; font-size: 12px;">Or copy this link: ${resetUrl}</p>
+        </div>
+      `,
+    });
+  } catch (err) {
+    console.error('Failed to send password reset email:', err);
+  }
+
+  console.log(`[Demo Reset] Token for ${email}: ${resetToken}`);
+
+  res.json({ success: true, message: 'If an account exists, a password reset link has been sent' });
+});
+
+// Reset Password - Verify Token and Set New Password
+router.post('/auth/reset-password', async (req: Request, res: Response) => {
+  const { token, password } = req.body;
+
+  if (!token) {
+    return res.status(400).json({ success: false, error: 'Reset token is missing' });
+  }
+
+  if (!password) {
+    return res.status(400).json({ success: false, error: 'New password is required' });
+  }
+
+  // Verify token
+  try {
+    const decoded = jwt.verify(token, config.jwt.secret) as any;
+    
+    if (decoded.type !== 'password-reset') {
+      return res.status(401).json({ success: false, error: 'Invalid reset token' });
+    }
+
+    const storedReset = demoResetTokenStore.get(token);
+    if (!storedReset || new Date() > storedReset.expiresAt) {
+      demoResetTokenStore.delete(token);
+      return res.status(401).json({ success: false, error: 'Reset token has expired. Please request a new one.' });
+    }
+
+    const user = mockUsers.find(u => u.id === decoded.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    // Update password
+    const newPasswordHash = await bcrypt.hash(password, 10);
+    user.passwordHash = newPasswordHash;
+
+    // Clear used token
+    demoResetTokenStore.delete(token);
+
+    // Save updated user
+    saveDemoStore();
+
+    res.json({ success: true, message: 'Password has been reset successfully. You can now sign in.' });
+  } catch (err) {
+    return res.status(401).json({ success: false, error: 'Invalid or expired reset token' });
+  }
+});
+
 // Dashboard Routes
 router.get('/dashboard/summary', authenticateDemo, (req: Request, res: Response) => {
   const totalRooms = mockRooms.length;
@@ -1093,7 +1306,7 @@ router.post('/access-requests/:id/approve', authenticateDemo, async (req: Reques
             <p><strong>Temporary Password:</strong> ${tempPassword}</p>
           </div>
           <p>Please log in and change your password upon first login.</p>
-          <p><a href="${config.appUrl || 'http://localhost:4212'}/login" style="background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Log In Now</a></p>
+          <p><a href="${config.appUrl || 'https://laflo-web-production.up.railway.app'}/login" style="background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Log In Now</a></p>
           <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">If you have any questions, please contact your administrator.</p>
         </div>
       `,
