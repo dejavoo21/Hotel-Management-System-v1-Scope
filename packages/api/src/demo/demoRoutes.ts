@@ -2819,6 +2819,267 @@ function authenticateDemo(req: Request, res: Response, next: Function) {
   }
 }
 
+// ==================== REVIEWS ====================
+const mockReviews = [
+  {
+    id: 'rev-1',
+    guestId: 'guest-1',
+    guestName: 'John Smith',
+    bookingId: 'booking-1',
+    rating: 5,
+    title: 'Exceptional Stay!',
+    comment: 'The staff went above and beyond. Room was spotless and the amenities were fantastic. Will definitely return!',
+    source: 'DIRECT',
+    response: 'Thank you so much for your kind words! We look forward to welcoming you back.',
+    respondedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+    updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+  },
+  {
+    id: 'rev-2',
+    guestId: 'guest-2',
+    guestName: 'Sarah Johnson',
+    bookingId: 'booking-2',
+    rating: 4,
+    title: 'Great location, minor issues',
+    comment: 'Loved the central location and helpful front desk. AC was a bit noisy but overall a pleasant stay.',
+    source: 'BOOKING_COM',
+    response: null,
+    respondedAt: null,
+    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+    updatedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+  },
+  {
+    id: 'rev-3',
+    guestId: 'guest-3',
+    guestName: 'Michael Chen',
+    bookingId: 'booking-3',
+    rating: 5,
+    title: 'Perfect Business Trip',
+    comment: 'Fast WiFi, quiet room, great breakfast. Everything a business traveler needs.',
+    source: 'EXPEDIA',
+    response: 'Thank you for choosing us for your business trip! Safe travels.',
+    respondedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+    updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+  },
+  {
+    id: 'rev-4',
+    guestId: 'guest-4',
+    guestName: 'Emma Wilson',
+    bookingId: 'booking-4',
+    rating: 4,
+    title: 'Romantic Getaway',
+    comment: 'Beautiful suite with city views. The spa was relaxing. Would recommend for couples.',
+    source: 'TRIPADVISOR',
+    response: null,
+    respondedAt: null,
+    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+    updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+  },
+  {
+    id: 'rev-5',
+    guestId: 'guest-5',
+    guestName: 'David Brown',
+    bookingId: 'booking-5',
+    rating: 3,
+    title: 'Average Experience',
+    comment: 'Room was clean but dated. Check-in took longer than expected. Breakfast options were limited.',
+    source: 'GOOGLE',
+    response: 'We appreciate your feedback and are working to improve our check-in process.',
+    respondedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
+    createdAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000),
+    updatedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
+  },
+  {
+    id: 'rev-6',
+    guestId: 'guest-6',
+    guestName: 'Lisa Martinez',
+    bookingId: 'booking-6',
+    rating: 5,
+    title: 'Best Hotel in Town!',
+    comment: 'From the warm welcome to the comfy bed, everything was perfect. The rooftop bar is a must-visit!',
+    source: 'AIRBNB',
+    response: null,
+    respondedAt: null,
+    createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
+    updatedAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
+  },
+];
+
+router.get('/reviews', authenticateDemo, (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    data: mockReviews,
+  });
+});
+
+router.patch('/reviews/:id/response', authenticateDemo, (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { response } = req.body;
+
+  const review = mockReviews.find(r => r.id === id);
+  if (!review) {
+    return res.status(404).json({ success: false, error: 'Review not found' });
+  }
+
+  review.response = response;
+  review.respondedAt = new Date();
+  review.updatedAt = new Date();
+
+  res.json({ success: true, data: review });
+});
+
+// ==================== CONCIERGE ====================
+const mockConciergeRequests = [
+  {
+    id: 'conc-1',
+    guestId: 'guest-1',
+    guestName: 'John Smith',
+    roomNumber: '301',
+    title: 'Restaurant Reservation',
+    details: 'Please book a table for 2 at the rooftop restaurant for 7:30 PM tonight.',
+    priority: 'MEDIUM',
+    status: 'COMPLETED',
+    assignedTo: 'user-2',
+    assignedToName: 'Front Desk Manager',
+    dueAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+    completedAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
+    createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000),
+    updatedAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
+  },
+  {
+    id: 'conc-2',
+    guestId: 'guest-2',
+    guestName: 'Sarah Johnson',
+    roomNumber: '205',
+    title: 'Airport Transfer',
+    details: 'Need a car to the airport tomorrow at 6 AM. Flight is at 9 AM.',
+    priority: 'HIGH',
+    status: 'IN_PROGRESS',
+    assignedTo: 'user-3',
+    assignedToName: 'Receptionist',
+    dueAt: new Date(Date.now() + 12 * 60 * 60 * 1000),
+    completedAt: null,
+    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+    updatedAt: new Date(Date.now() - 30 * 60 * 1000),
+  },
+  {
+    id: 'conc-3',
+    guestId: 'guest-3',
+    guestName: 'Michael Chen',
+    roomNumber: '412',
+    title: 'Extra Pillows',
+    details: 'Could I please get 2 extra pillows delivered to my room?',
+    priority: 'LOW',
+    status: 'PENDING',
+    assignedTo: null,
+    assignedToName: null,
+    dueAt: new Date(Date.now() + 1 * 60 * 60 * 1000),
+    completedAt: null,
+    createdAt: new Date(Date.now() - 30 * 60 * 1000),
+    updatedAt: new Date(Date.now() - 30 * 60 * 1000),
+  },
+  {
+    id: 'conc-4',
+    guestId: 'guest-4',
+    guestName: 'Emma Wilson',
+    roomNumber: '501',
+    title: 'Spa Appointment',
+    details: 'Would like to book a couples massage for this afternoon around 3 PM.',
+    priority: 'MEDIUM',
+    status: 'IN_PROGRESS',
+    assignedTo: 'user-2',
+    assignedToName: 'Front Desk Manager',
+    dueAt: new Date(Date.now() + 3 * 60 * 60 * 1000),
+    completedAt: null,
+    createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
+    updatedAt: new Date(Date.now() - 45 * 60 * 1000),
+  },
+  {
+    id: 'conc-5',
+    guestId: 'guest-5',
+    guestName: 'David Brown',
+    roomNumber: '102',
+    title: 'Late Checkout Request',
+    details: 'Can I get a late checkout until 2 PM? My flight is not until evening.',
+    priority: 'URGENT',
+    status: 'PENDING',
+    assignedTo: null,
+    assignedToName: null,
+    dueAt: new Date(Date.now() + 30 * 60 * 1000),
+    completedAt: null,
+    createdAt: new Date(Date.now() - 15 * 60 * 1000),
+    updatedAt: new Date(Date.now() - 15 * 60 * 1000),
+  },
+  {
+    id: 'conc-6',
+    guestId: 'guest-6',
+    guestName: 'Lisa Martinez',
+    roomNumber: '308',
+    title: 'City Tour Booking',
+    details: 'Interested in the half-day city tour for tomorrow. 2 adults.',
+    priority: 'MEDIUM',
+    status: 'COMPLETED',
+    assignedTo: 'user-3',
+    assignedToName: 'Receptionist',
+    dueAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
+    completedAt: new Date(Date.now() - 5 * 60 * 60 * 1000),
+    createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000),
+    updatedAt: new Date(Date.now() - 5 * 60 * 60 * 1000),
+  },
+];
+
+router.get('/concierge/requests', authenticateDemo, (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    data: mockConciergeRequests,
+  });
+});
+
+router.patch('/concierge/requests/:id', authenticateDemo, (req: Request, res: Response) => {
+  const { id } = req.params;
+  const updates = req.body;
+
+  const request = mockConciergeRequests.find(r => r.id === id);
+  if (!request) {
+    return res.status(404).json({ success: false, error: 'Request not found' });
+  }
+
+  Object.assign(request, updates, { updatedAt: new Date() });
+
+  if (updates.status === 'COMPLETED') {
+    request.completedAt = new Date();
+  }
+
+  res.json({ success: true, data: request });
+});
+
+router.post('/concierge/requests', authenticateDemo, (req: Request, res: Response) => {
+  const { title, details, priority, dueAt, guestId, roomNumber } = req.body;
+
+  const newRequest = {
+    id: `conc-${Date.now()}`,
+    guestId: guestId || 'guest-new',
+    guestName: 'Walk-in Guest',
+    roomNumber: roomNumber || 'N/A',
+    title,
+    details,
+    priority: priority || 'MEDIUM',
+    status: 'PENDING',
+    assignedTo: null,
+    assignedToName: null,
+    dueAt: dueAt ? new Date(dueAt) : new Date(Date.now() + 2 * 60 * 60 * 1000),
+    completedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  mockConciergeRequests.unshift(newRequest);
+
+  res.status(201).json({ success: true, data: newRequest });
+});
+
 // Broadcast function for access requests (placeholder - can be enhanced with WebSocket later)
 function broadcastAccessRequests() {
   console.log('[BROADCAST] Access requests updated, clients should refresh');
