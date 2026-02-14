@@ -520,96 +520,14 @@ export default function DashboardLayout() {
               </div>
             </div>
 
-            {/* Right side */}
+            {/* Right side (match reference ordering: avatar/name then icons) */}
             <div className="flex items-center justify-end gap-2">
-            {/* Notifications */}
-            <div className="relative">
-              <button
-                onClick={() => setShowNotifications((prev) => !prev)}
-                className="relative rounded-xl p-2 text-slate-600 hover:bg-slate-100 transition-colors"
-                aria-label="Notifications"
-              >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-              {isAdmin && pendingAccessCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-semibold text-white">
-                  {pendingAccessCount}
-                </span>
-              )}
-              </button>
-              {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 rounded-xl border border-slate-200 bg-white shadow-lg">
-                  <div className="border-b border-slate-100 px-4 py-3">
-                    <p className="text-sm font-semibold text-slate-900">Notifications</p>
-                    <p className="text-xs text-slate-500">
-                      {pendingAccessCount > 0
-                        ? `${pendingAccessCount} pending access requests`
-                        : 'No new access requests'}
-                    </p>
-                  </div>
-                  <div className="max-h-72 overflow-y-auto">
-                    {pendingAccessRequests.length > 0 ? (
-                      <div className="divide-y divide-slate-100">
-                        {pendingAccessRequests.map((request) => (
-                          <button
-                            key={request.id}
-                            onClick={() => {
-                              setShowNotifications(false);
-                              navigate('/settings?tab=access-requests');
-                            }}
-                            className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-slate-50"
-                          >
-                            <div className="mt-1 h-2 w-2 rounded-full bg-amber-400" />
-                            <div>
-                              <p className="text-sm font-medium text-slate-900">{request.fullName}</p>
-                              <p className="text-xs text-slate-500">{request.email}</p>
-                              <p className="text-xs text-slate-500">
-                                Company: {request.company || '-'}
-                              </p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="px-4 py-6 text-center text-sm text-slate-500">
-                        You are all caught up.
-                      </div>
-                    )}
-                  </div>
-                  <div className="border-t border-slate-100 px-4 py-3">
-                    <button
-                      onClick={() => {
-                        setShowNotifications(false);
-                        navigate('/settings?tab=access-requests');
-                      }}
-                      className="w-full text-sm font-medium text-primary-600 hover:text-primary-700"
-                    >
-                      View access requests
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Settings */}
-            <button
-              className="rounded-xl p-2 text-slate-600 hover:bg-slate-100 transition-colors"
-              onClick={() => navigate('/settings')}
-              title="Settings"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </button>
-
             {/* User avatar */}
-            <div ref={userMenuRef} className="relative flex items-center gap-3 pl-3 border-l border-slate-200">
+            <div ref={userMenuRef} className="relative flex items-center">
               <button
                 type="button"
                 onClick={() => setShowUserMenu((prev) => !prev)}
-                className="flex items-center gap-3 rounded-xl p-1.5 hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="flex items-center gap-3 rounded-2xl px-2 py-1.5 hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500"
                 aria-haspopup="menu"
                 aria-expanded={showUserMenu}
               >
@@ -665,6 +583,85 @@ export default function DashboardLayout() {
                   </button>
                 </div>
               )}
+            </div>
+
+            <div className="flex items-center gap-1 pl-1">
+              {/* Settings */}
+              <button
+                className="rounded-xl p-2 text-slate-600 hover:bg-slate-100 transition-colors"
+                onClick={() => navigate('/settings')}
+                title="Settings"
+                aria-label="Settings"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+
+              {/* Notifications */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowNotifications((prev) => !prev)}
+                  className="relative rounded-xl p-2 text-slate-600 hover:bg-slate-100 transition-colors"
+                  aria-label="Notifications"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  {isAdmin && pendingAccessCount > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-semibold text-white">
+                      {pendingAccessCount}
+                    </span>
+                  )}
+                </button>
+                {showNotifications && (
+                  <div className="absolute right-0 mt-2 w-80 rounded-xl border border-slate-200 bg-white shadow-lg">
+                    <div className="border-b border-slate-100 px-4 py-3">
+                      <p className="text-sm font-semibold text-slate-900">Notifications</p>
+                      <p className="text-xs text-slate-500">
+                        {pendingAccessCount > 0 ? `${pendingAccessCount} pending access requests` : 'No new access requests'}
+                      </p>
+                    </div>
+                    <div className="max-h-72 overflow-y-auto">
+                      {pendingAccessRequests.length > 0 ? (
+                        <div className="divide-y divide-slate-100">
+                          {pendingAccessRequests.map((request) => (
+                            <button
+                              key={request.id}
+                              onClick={() => {
+                                setShowNotifications(false);
+                                navigate('/settings?tab=access-requests');
+                              }}
+                              className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-slate-50"
+                            >
+                              <div className="mt-1 h-2 w-2 rounded-full bg-amber-400" />
+                              <div>
+                                <p className="text-sm font-medium text-slate-900">{request.fullName}</p>
+                                <p className="text-xs text-slate-500">{request.email}</p>
+                                <p className="text-xs text-slate-500">Company: {request.company || '-'}</p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="px-4 py-6 text-center text-sm text-slate-500">You are all caught up.</div>
+                      )}
+                    </div>
+                    <div className="border-t border-slate-100 px-4 py-3">
+                      <button
+                        onClick={() => {
+                          setShowNotifications(false);
+                          navigate('/settings?tab=access-requests');
+                        }}
+                        className="w-full text-sm font-medium text-primary-600 hover:text-primary-700"
+                      >
+                        View access requests
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             </div>
           </div>
