@@ -18,6 +18,47 @@ type NavigationGroupItem = NavigationItem & {
   roles?: UserRole[];
 };
 
+type GlobalSearchTarget = {
+  id: string;
+  name: string;
+  href: string;
+  section: string;
+  permission?: PermissionId;
+  roles?: UserRole[];
+  keywords?: string[];
+};
+
+const normalizeSearch = (value: string) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ');
+
+const scoreTarget = (query: string, target: GlobalSearchTarget) => {
+  const q = normalizeSearch(query);
+  if (!q) return -1;
+
+  const name = normalizeSearch(target.name);
+  const href = normalizeSearch(target.href);
+  const section = normalizeSearch(target.section);
+  const keywords = (target.keywords || []).map(normalizeSearch).join(' ');
+  const haystack = `${name} ${href} ${section} ${keywords}`;
+
+  const tokens = q.split(' ').filter(Boolean);
+  if (!tokens.every((t) => haystack.includes(t))) return -1;
+
+  // Prefer clearer matches first.
+  if (name === q) return 100;
+  if (href === q) return 98;
+  if (name.startsWith(q)) return 90;
+  if ((target.keywords || []).some((k) => normalizeSearch(k).startsWith(q))) return 85;
+  if (name.includes(q)) return 75;
+  if (keywords.includes(q)) return 70;
+  if (section.includes(q)) return 60;
+  if (href.includes(q)) return 55;
+  return 50;
+};
+
 const navigation: NavigationItem[] = [
   {
     name: 'Dashboard',
@@ -163,6 +204,9 @@ export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+  const [globalSearchActiveIndex, setGlobalSearchActiveIndex] = useState(0);
   const [openSections, setOpenSections] = useState({
     operations: true,
     guest: true,
@@ -192,6 +236,7 @@ export default function DashboardLayout() {
   const lastPendingCount = useRef<number | null>(null);
   const lastInfoReceivedCount = useRef<number | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const globalSearchRef = useRef<HTMLDivElement | null>(null);
 
   const { data: accessRequests } = useQuery({
     queryKey: ['accessRequests', 'badge'],
@@ -270,6 +315,25 @@ export default function DashboardLayout() {
     };
   }, [showUserMenu]);
 
+  useEffect(() => {
+    if (!showGlobalSearch) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (globalSearchRef.current && globalSearchRef.current.contains(target)) return;
+      setShowGlobalSearch(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowGlobalSearch(false);
+    };
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [showGlobalSearch]);
+
   const NavItem = ({ item, onClick }: { item: NavigationItem; onClick?: () => void }) => {
     const isActive = location.pathname === item.href ||
       (item.href !== '/' && location.pathname.startsWith(item.href));
@@ -330,6 +394,86 @@ export default function DashboardLayout() {
   const guestItems = mainItems.filter((item) => ['Guests', 'Messages'].includes(item.name));
   const financialItem = bottomNavigation.find((item) => item.name === 'Financials');
   const experienceItems = bottomNavigation.filter((item) => item.name !== 'Financials');
+
+  const globalSearchTargets = useMemo<GlobalSearchTarget[]>(() => {
+    const targets: GlobalSearchTarget[] = [];
+
+    for (const item of navigation) {
+      targets.push({
+        id: `nav:${item.href}`,
+        name: item.name,
+        href: item.href,
+        section: item.name === 'Dashboard' ? 'Dashboard' : 'Navigation',
+        permission: item.permission,
+        keywords:
+          item.name === 'Reservation'
+            ? ['booking', 'bookings', 'reservation', 'reservations', 'check-in', 'check out', 'stay']
+            : undefined,
+      });
+    }
+
+    for (const item of bottomNavigation) {
+      targets.push({
+        id: `bottom:${item.href}`,
+        name: item.name,
+        href: item.href,
+        section: item.name === 'Financials' ? 'Back Office' : 'Experience',
+        permission: item.permission,
+        roles: item.roles,
+        keywords: item.name === 'Financials' ? ['finance', 'financial', 'reports', 'analytics'] : undefined,
+      });
+    }
+
+    // Back office sub-pages (explicit routes).
+    targets.push({
+      id: 'finance:invoices',
+      name: 'Invoicing',
+      href: '/invoices',
+      section: 'Back Office',
+      permission: 'financials',
+      keywords: ['invoice', 'invoices', 'billing', 'bill', 'charge', 'charges'],
+    });
+    targets.push({
+      id: 'finance:expenses',
+      name: 'Expenses',
+      href: '/expenses',
+      section: 'Back Office',
+      permission: 'financials',
+      keywords: ['expense', 'expenses', 'spend', 'spending', 'cost', 'costs', 'transactions'],
+    });
+
+    for (const item of adminNavigation) {
+      targets.push({
+        id: `admin:${item.href}`,
+        name: item.name,
+        href: item.href,
+        section: 'Admin',
+        permission: item.permission,
+        keywords: item.name === 'Settings' ? ['security', 'access requests', '2fa', 'profile'] : undefined,
+      });
+    }
+
+    // De-dupe by href and apply access filters.
+    const seen = new Set<string>();
+    return targets.filter((t) => {
+      if (seen.has(t.href)) return false;
+      seen.add(t.href);
+      if (t.roles && !t.roles.includes((user?.role || '') as UserRole)) return false;
+      if (t.permission && !hasAccess(t.permission)) return false;
+      return true;
+    });
+  }, [hasAccess, user?.role]);
+
+  const globalSearchResults = useMemo(() => {
+    const q = globalSearchQuery.trim();
+    if (!q) return [];
+    return globalSearchTargets
+      .map((t) => ({ target: t, score: scoreTarget(q, t) }))
+      .filter((x) => x.score >= 0)
+      .sort((a, b) => b.score - a.score || a.target.name.localeCompare(b.target.name))
+      .slice(0, 8)
+      .map((x) => x.target);
+  }, [globalSearchQuery, globalSearchTargets]);
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -505,7 +649,7 @@ export default function DashboardLayout() {
             {/* Search (centered like reference) */}
             <div className="flex justify-center">
               <div className="w-full max-w-xl">
-                <div className="relative">
+                <div ref={globalSearchRef} className="relative">
                   <label htmlFor="global-search" className="sr-only">Search</label>
                   <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -514,8 +658,81 @@ export default function DashboardLayout() {
                     id="global-search"
                     type="text"
                     placeholder="Search room, guest, book, etc"
+                    value={globalSearchQuery}
+                    onChange={(e) => {
+                      setGlobalSearchQuery(e.target.value);
+                      setShowGlobalSearch(true);
+                      setGlobalSearchActiveIndex(0);
+                    }}
+                    onFocus={() => setShowGlobalSearch(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        setShowGlobalSearch(false);
+                        return;
+                      }
+                      if (!showGlobalSearch) return;
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        setGlobalSearchActiveIndex((idx) =>
+                          Math.min(idx + 1, Math.max(0, globalSearchResults.length - 1))
+                        );
+                        return;
+                      }
+                      if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        setGlobalSearchActiveIndex((idx) => Math.max(0, idx - 1));
+                        return;
+                      }
+                      if (e.key === 'Enter') {
+                        const pick = globalSearchResults[globalSearchActiveIndex] || globalSearchResults[0];
+                        if (!pick) return;
+                        e.preventDefault();
+                        setShowGlobalSearch(false);
+                        setGlobalSearchQuery('');
+                        navigate(pick.href);
+                      }
+                    }}
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm placeholder-slate-400 focus:bg-white focus:border-primary-500 focus:ring-primary-500 transition-colors"
                   />
+
+                  {showGlobalSearch && globalSearchQuery.trim().length > 0 && (
+                    <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+                      {globalSearchResults.length > 0 ? (
+                        <div className="py-2">
+                          {globalSearchResults.map((item, idx) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onMouseDown={(ev) => ev.preventDefault()}
+                              onClick={() => {
+                                setShowGlobalSearch(false);
+                                setGlobalSearchQuery('');
+                                navigate(item.href);
+                              }}
+                              className={`flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
+                                idx === globalSearchActiveIndex
+                                  ? 'bg-primary-50 text-slate-900'
+                                  : 'text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              <div className="min-w-0">
+                                <div className="truncate font-medium">{item.name}</div>
+                                <div className="truncate text-xs text-slate-500">{item.section}</div>
+                              </div>
+                              <div className="shrink-0 text-xs font-medium text-slate-400">
+                                {item.href}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="px-4 py-4 text-sm text-slate-500">No matches found.</div>
+                      )}
+                      <div className="border-t border-slate-100 px-4 py-2 text-[11px] text-slate-500">
+                        Tip: use ↑ ↓ then Enter to jump
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
