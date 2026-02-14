@@ -25,6 +25,27 @@ type SourcePoint = { name: string; value: number };
 type DailyBookingsPoint = { day: string; booked: number };
 type Trend = { pct: number | null; label: string; tone: 'emerald' | 'rose' | 'slate' };
 
+const TrendPill = ({ trend }: { trend: Trend }) => {
+  const pct = trend.pct == null ? null : Number(trend.pct) || 0;
+  const sign = pct == null ? '' : pct >= 0 ? '+' : '';
+  const text = pct == null ? 'No trend' : `${sign}${pct}%`;
+  const bg =
+    trend.tone === 'emerald'
+      ? 'bg-emerald-100 text-emerald-800'
+      : trend.tone === 'rose'
+        ? 'bg-rose-100 text-rose-800'
+        : 'bg-slate-100 text-slate-700';
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${bg}`}>
+      <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path d="M10 3a1 1 0 01.707.293l4.5 4.5a1 1 0 11-1.414 1.414L11 6.414V16a1 1 0 11-2 0V6.414L6.207 9.207A1 1 0 014.793 7.793l4.5-4.5A1 1 0 0110 3z" />
+      </svg>
+      <span>{text}</span>
+      <span className="hidden sm:inline text-slate-500 font-semibold">{trend.label}</span>
+    </span>
+  );
+};
+
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
@@ -271,6 +292,16 @@ export default function DashboardPage() {
     return { pct, label: 'from last week', tone: pct >= 0 ? 'emerald' : 'rose' };
   }, [last14Series]);
 
+  const arrivalsTrend: Trend = useMemo(() => {
+    // We only have "today" arrivals from the API; show a safe placeholder trend for now.
+    return { pct: 0, label: 'from last week', tone: 'slate' };
+  }, []);
+
+  const departuresTrend: Trend = useMemo(() => {
+    // We only have "today" departures from the API; show a safe placeholder trend for now.
+    return { pct: 0, label: 'from last week', tone: 'slate' };
+  }, []);
+
   const todayRange = useMemo(() => {
     const d = new Date();
     const iso = d.toISOString().split('T')[0];
@@ -283,6 +314,11 @@ export default function DashboardPage() {
   });
 
   const bookingsToday: Booking[] = useMemo(() => bookingsTodayRaw?.data ?? [], [bookingsTodayRaw]);
+
+  const maxRevenuePoint = useMemo(() => {
+    if (!revenueByMonth.length) return null;
+    return revenueByMonth.reduce((best, p) => (p.revenue > best.revenue ? p : best), revenueByMonth[0]);
+  }, [revenueByMonth]);
 
   const reviewCategories = useMemo(() => {
     const base = Number(reviewStats.average) || 0;
@@ -358,9 +394,9 @@ export default function DashboardPage() {
             </div>
           </div>
           <p className="mt-4 text-3xl font-extrabold text-slate-900">{bookingsToday.length}</p>
-          <p className="mt-2 text-xs font-semibold text-slate-500">
-            {bookingTrend.pct == null ? 'No trend yet' : `${bookingTrend.pct >= 0 ? '+' : ''}${bookingTrend.pct}%`} {bookingTrend.label}
-          </p>
+          <div className="mt-3">
+            <TrendPill trend={bookingTrend} />
+          </div>
         </div>
 
         <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
@@ -373,7 +409,9 @@ export default function DashboardPage() {
             </div>
           </div>
           <p className="mt-4 text-3xl font-extrabold text-slate-900">{summary?.todayArrivals ?? 0}</p>
-          <p className="mt-2 text-xs font-semibold text-slate-500">Arrivals today</p>
+          <div className="mt-3">
+            <TrendPill trend={arrivalsTrend} />
+          </div>
         </div>
 
         <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
@@ -386,7 +424,9 @@ export default function DashboardPage() {
             </div>
           </div>
           <p className="mt-4 text-3xl font-extrabold text-slate-900">{summary?.todayDepartures ?? 0}</p>
-          <p className="mt-2 text-xs font-semibold text-slate-500">Departures today</p>
+          <div className="mt-3">
+            <TrendPill trend={departuresTrend} />
+          </div>
         </div>
 
         <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
@@ -399,9 +439,9 @@ export default function DashboardPage() {
             </div>
           </div>
           <p className="mt-4 text-3xl font-extrabold text-slate-900">{formatCurrency(summary?.monthRevenue || 0)}</p>
-          <p className="mt-2 text-xs font-semibold text-slate-500">
-            {revenueTrend.pct == null ? 'No trend yet' : `${revenueTrend.pct >= 0 ? '+' : ''}${revenueTrend.pct}%`} {revenueTrend.label}
-          </p>
+          <div className="mt-3">
+            <TrendPill trend={revenueTrend} />
+          </div>
         </div>
       </div>
 
@@ -420,12 +460,36 @@ export default function DashboardPage() {
 
             <div className="mt-5 rounded-2xl bg-slate-50 p-4">
               <div className="h-6 w-full overflow-hidden rounded-full bg-white ring-1 ring-slate-200">
-                <div
-                  className="h-full bg-emerald-200"
-                  style={{
-                    width: `${summary && summary.totalRooms ? Math.round((summary.occupiedRooms / summary.totalRooms) * 100) : 0}%`,
-                  }}
-                />
+                <div className="flex h-full w-full">
+                  <div
+                    className="h-full bg-emerald-200"
+                    style={{
+                      width: `${summary?.totalRooms ? Math.round((Number(summary.occupiedRooms || 0) / Number(summary.totalRooms)) * 100) : 0}%`,
+                    }}
+                    title="Occupied"
+                  />
+                  <div
+                    className="h-full bg-lime-200"
+                    style={{
+                      width: `${summary?.totalRooms ? Math.round((Number(reservedRooms || 0) / Number(summary.totalRooms)) * 100) : 0}%`,
+                    }}
+                    title="Reserved"
+                  />
+                  <div
+                    className="h-full bg-slate-200"
+                    style={{
+                      width: `${summary?.totalRooms ? Math.round((Number(summary.availableRooms || 0) / Number(summary.totalRooms)) * 100) : 0}%`,
+                    }}
+                    title="Available"
+                  />
+                  <div
+                    className="h-full bg-amber-200"
+                    style={{
+                      width: `${summary?.totalRooms ? Math.round((((housekeeping?.dirty || 0) + (housekeeping?.inspection || 0)) / Number(summary.totalRooms)) * 100) : 0}%`,
+                    }}
+                    title="Not ready"
+                  />
+                </div>
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-4">
@@ -457,9 +521,21 @@ export default function DashboardPage() {
                 <h2 className="text-lg font-bold text-slate-900">Reservations</h2>
                 <p className="text-sm text-slate-500">Last 7 days</p>
               </div>
-              <Link to="/bookings" className="text-sm font-semibold text-slate-700 hover:text-slate-900">
-                View all
-              </Link>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-full bg-lime-200 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-lime-300"
+                  aria-label="Last 7 days"
+                >
+                  Last 7 Days
+                  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                <Link to="/bookings" className="text-sm font-semibold text-slate-700 hover:text-slate-900">
+                  View all
+                </Link>
+              </div>
             </div>
             <div className="mt-4 h-56">
               <ResponsiveContainer width="100%" height="100%">
@@ -482,12 +558,30 @@ export default function DashboardPage() {
                 <h2 className="text-lg font-bold text-slate-900">Revenue</h2>
                 <p className="text-sm text-slate-500">Last 6 months</p>
               </div>
-              <Link to="/reports" className="text-sm font-semibold text-slate-700 hover:text-slate-900">
-                Financials
-              </Link>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-full bg-lime-200 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-lime-300"
+                  aria-label="Last 6 months"
+                >
+                  Last 6 Months
+                  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                <Link to="/reports" className="text-sm font-semibold text-slate-700 hover:text-slate-900">
+                  Financials
+                </Link>
+              </div>
             </div>
 
-            <div className="mt-4 h-64">
+            <div className="relative mt-4 h-64">
+              {maxRevenuePoint ? (
+                <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded-2xl border border-lime-200 bg-lime-50 px-4 py-2 text-center shadow-sm">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total Revenue</div>
+                  <div className="text-sm font-extrabold text-slate-900">{formatCurrency(maxRevenuePoint.revenue || 0)}</div>
+                </div>
+              ) : null}
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={revenueByMonth}>
                   <defs>
@@ -641,6 +735,37 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {(housekeeping?.priorityRooms ?? []).length > 0 ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-extrabold text-amber-900">Priority rooms need attention</h3>
+                  <p className="mt-1 text-xs font-semibold text-amber-800">
+                    {(housekeeping?.priorityRooms ?? []).length} room(s) need cleaning before arrivals.
+                  </p>
+                </div>
+                <Link
+                  to="/housekeeping"
+                  className="shrink-0 rounded-xl bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700"
+                >
+                  Manage
+                </Link>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {(housekeeping?.priorityRooms ?? []).slice(0, 6).map((room) => (
+                  <Link
+                    key={room.roomNumber}
+                    to={`/housekeeping?room=${room.roomNumber}`}
+                    className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200 hover:bg-amber-100"
+                  >
+                    <span>Room {room.roomNumber}</span>
+                    <span className="text-amber-600">Floor {room.floor}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <p className="text-lg font-bold text-slate-900">Recent activities</p>
@@ -759,42 +884,6 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
-
-      {housekeeping?.priorityRooms && housekeeping.priorityRooms.length > 0 && (
-        <div className="rounded-2xl border-l-4 border-l-amber-500 bg-amber-50 p-5">
-          <div className="flex items-start gap-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
-              <svg className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-amber-800">Priority rooms need attention</h3>
-              <p className="mt-1 text-sm text-amber-700">
-                {housekeeping.priorityRooms.length} room(s) need cleaning before upcoming arrivals.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {housekeeping.priorityRooms.map((room) => (
-                  <Link
-                    key={room.roomNumber}
-                    to={`/housekeeping?room=${room.roomNumber}`}
-                    className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-medium text-amber-700 shadow-sm transition-colors hover:bg-amber-100"
-                  >
-                    <span>Room {room.roomNumber}</span>
-                    <span className="text-xs text-amber-500">Floor {room.floor}</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-            <Link
-              to="/housekeeping"
-              className="rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-amber-700"
-            >
-              Manage housekeeping
-            </Link>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

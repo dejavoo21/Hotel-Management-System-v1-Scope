@@ -496,10 +496,7 @@ export default function DashboardLayout() {
         <div className="flex h-full flex-col">
           {/* Logo */}
           <div className="flex h-[86px] flex-col justify-center gap-2 px-5 border-b border-slate-100 bg-gradient-to-b from-white to-slate-50/60">
-            <img src="/laflo-logo.png" alt="LaFlo" className="h-16 w-16 object-contain" />
-            <div className="text-xs font-semibold text-slate-500">
-              {user?.hotel?.name || 'Hotel Management'}
-            </div>
+            <img src="/laflo-logo.png" alt="LaFlo" className="h-20 w-20 object-contain" />
           </div>
 
           {/* Navigation */}
@@ -612,20 +609,7 @@ export default function DashboardLayout() {
             )}
           </nav>
 
-          {/* User menu */}
-          <div className="border-t border-slate-100 p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 text-sm font-medium text-primary-800">
-                {user?.firstName?.[0]}{user?.lastName?.[0]}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="truncate text-sm font-medium text-slate-900">
-                  {user?.firstName} {user?.lastName}
-                </p>
-                <p className="truncate text-xs text-slate-500">{user?.role}</p>
-              </div>
-            </div>
-          </div>
+          <div className="border-t border-slate-100 p-4" />
         </div>
       </aside>
 
