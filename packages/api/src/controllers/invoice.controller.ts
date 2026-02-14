@@ -374,6 +374,7 @@ export async function sendInvoiceEmail(
     }
 
     const details = resolveInvoiceDetails(booking);
+    const isReceipt = invoice.status === 'PAID';
 
     const pdfBuffer = await buildInvoicePdfBuffer({
       invoiceNo: invoice.invoiceNo,
@@ -390,10 +391,14 @@ export async function sendInvoiceEmail(
     });
 
     const { html, text } = renderLafloEmail({
-      preheader: `Your invoice ${invoice.invoiceNo} is attached.`,
-      title: `Invoice ${invoice.invoiceNo}`,
+      preheader: isReceipt
+        ? `Your receipt ${invoice.invoiceNo} is attached.`
+        : `Your invoice ${invoice.invoiceNo} is attached.`,
+      title: isReceipt ? `Receipt ${invoice.invoiceNo}` : `Invoice ${invoice.invoiceNo}`,
       greeting: `Hello ${booking.guest.firstName},`,
-      intro: `Attached is your invoice for booking ${booking.bookingRef}.`,
+      intro: isReceipt
+        ? `Attached is your receipt for booking ${booking.bookingRef}.`
+        : `Attached is your invoice for booking ${booking.bookingRef}.`,
       meta: [
         { label: 'Booking', value: booking.bookingRef },
         { label: 'Invoice', value: invoice.invoiceNo },
@@ -404,7 +409,7 @@ export async function sendInvoiceEmail(
 
     await sendEmail({
       to: recipient,
-      subject: `Invoice ${invoice.invoiceNo}`,
+      subject: `${isReceipt ? 'Receipt' : 'Invoice'} ${invoice.invoiceNo}`,
       html,
       text,
       attachments: [

@@ -439,6 +439,21 @@ export async function downloadInvoicePdf(id: string) {
   return invoiceService.downloadPdf(id);
 }
 
+// POST /invoices/:id/send
+export async function sendInvoiceEmail({
+  id,
+  recipientEmail,
+}: {
+  id: string;
+  recipientEmail?: string;
+}) {
+  if (DATA_MODE === 'mock') {
+    await invoiceService.sendEmail(id, recipientEmail);
+    return;
+  }
+  await invoiceService.sendEmail(id, recipientEmail);
+}
+
 // -----------------------
 // Housekeeping
 // -----------------------
