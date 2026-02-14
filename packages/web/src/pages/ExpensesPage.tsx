@@ -149,20 +149,199 @@ function statusPillClass(status: TransactionStatus) {
   return 'bg-rose-50 text-rose-700';
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function buildMockReceiptHtml(row: TransactionRow, currency: string) {
+  const amount = formatCurrency(row.amount, currency);
+  const date = new Date(row.date).toLocaleDateString();
+  const title = 'Expense Receipt (Demo)';
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(title)}</title>
+    <style>
+      :root{
+        --bg:#F5F7FB;
+        --card:#ffffff;
+        --text:#0f172a;
+        --muted:#64748b;
+        --border:#e2e8f0;
+        --accent:#a3e635;
+        --accent2:#bbf7d0;
+      }
+      *{box-sizing:border-box}
+      body{
+        margin:0;
+        font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        color:var(--text);
+        background:var(--bg);
+        padding:32px 16px;
+      }
+      .wrap{max-width:820px;margin:0 auto}
+      .card{
+        background:var(--card);
+        border:1px solid var(--border);
+        border-radius:16px;
+        box-shadow:0 10px 25px rgba(2,6,23,.06);
+        overflow:hidden;
+      }
+      header{
+        padding:20px 24px;
+        border-bottom:1px solid var(--border);
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+      }
+      .brand{
+        display:flex;
+        align-items:center;
+        gap:10px;
+        font-weight:800;
+        letter-spacing:-.02em;
+      }
+      .mark{
+        width:34px;height:34px;border-radius:10px;
+        background:linear-gradient(135deg,var(--accent),var(--accent2));
+      }
+      .meta{
+        text-align:right;
+        font-size:12px;
+        color:var(--muted);
+        font-weight:600;
+      }
+      .body{padding:22px 24px}
+      h1{margin:0;font-size:18px;font-weight:800;letter-spacing:-.02em}
+      .sub{margin-top:6px;color:var(--muted);font-size:13px}
+      .grid{
+        margin-top:18px;
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:12px;
+      }
+      .field{
+        border:1px solid var(--border);
+        border-radius:12px;
+        padding:12px 14px;
+        background:#fff;
+      }
+      .k{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+      .v{margin-top:6px;font-size:14px;font-weight:800}
+      .pill{
+        display:inline-flex;
+        align-items:center;
+        padding:6px 10px;
+        border-radius:999px;
+        background:#ecfccb;
+        font-size:12px;
+        font-weight:800;
+      }
+      footer{
+        padding:16px 24px;
+        border-top:1px solid var(--border);
+        color:var(--muted);
+        font-size:12px;
+        font-weight:600;
+        display:flex;
+        justify-content:space-between;
+        gap:12px;
+        flex-wrap:wrap;
+      }
+      .actions{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap}
+      button{
+        appearance:none;border:0;
+        border-radius:12px;
+        padding:10px 14px;
+        font-weight:800;
+        cursor:pointer;
+      }
+      .btn{background:var(--accent);}
+      .btn2{background:#e2e8f0;}
+      @media print{
+        body{background:#fff;padding:0}
+        .actions{display:none}
+        .card{box-shadow:none}
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <header>
+          <div class="brand"><span class="mark" aria-hidden="true"></span><span>LaFlo</span></div>
+          <div class="meta">
+            <div>Receipt ID: ${escapeHtml(row.id)}</div>
+            <div>${escapeHtml(date)}</div>
+          </div>
+        </header>
+        <div class="body">
+          <h1>${escapeHtml(title)}</h1>
+          <div class="sub">This receipt was generated from demo data for preview purposes.</div>
+
+          <div class="grid">
+            <div class="field">
+              <div class="k">Expense</div>
+              <div class="v">${escapeHtml(row.expense)}</div>
+            </div>
+            <div class="field">
+              <div class="k">Category</div>
+              <div class="v">${escapeHtml(row.category)}</div>
+            </div>
+            <div class="field">
+              <div class="k">Quantity</div>
+              <div class="v">${escapeHtml(String(row.quantity))}</div>
+            </div>
+            <div class="field">
+              <div class="k">Amount</div>
+              <div class="v">${escapeHtml(amount)}</div>
+            </div>
+            <div class="field">
+              <div class="k">Status</div>
+              <div class="v"><span class="pill">${escapeHtml(row.status)}</span></div>
+            </div>
+            <div class="field">
+              <div class="k">Date</div>
+              <div class="v">${escapeHtml(date)}</div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="btn" onclick="window.print()">Print</button>
+            <button class="btn2" onclick="window.close()">Close</button>
+          </div>
+        </div>
+        <footer>
+          <span>LaFlo Hotel Management</span>
+          <span>Demo receipt. Replace with real PDF exports when live.</span>
+        </footer>
+      </div>
+    </div>
+  </body>
+</html>`;
+}
+
 function downloadMockTransaction(row: TransactionRow, currency: string) {
-  const content = [
-    'LaFlo Expense Transaction (Demo)',
-    '----------------------------',
-    `Expense: ${row.expense}`,
-    `Category: ${row.category}`,
-    `Quantity: ${row.quantity}`,
-    `Amount: ${formatCurrency(row.amount, currency)}`,
-    `Date: ${new Date(row.date).toLocaleDateString()}`,
-    `Status: ${row.status}`,
-    '',
-    'This is a demo download generated by LaFlo.',
-  ].join('\n');
-  return new Blob([content], { type: 'text/plain;charset=utf-8' });
+  return new Blob([buildMockReceiptHtml(row, currency)], { type: 'text/html;charset=utf-8' });
+}
+
+function triggerBlobDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 export default function ExpensesPage() {
@@ -173,6 +352,7 @@ export default function ExpensesPage() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'ALL' | ExpenseCategory>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | TransactionStatus>('ALL');
+  const [selectedTx, setSelectedTx] = useState<TransactionRow | null>(null);
 
   const range: Range = useMemo(() => timeRangeToDateRange(timeRange), [timeRange]);
 
@@ -375,6 +555,21 @@ export default function ExpensesPage() {
       .filter((r) => r.value > 0)
       .sort((a, b) => b.value - a.value)
       .slice(0, 6);
+
+    // Fallback so the Income tab never looks broken (until we wire real income sources).
+    if (!rows.length) {
+      const total = Math.max(0, Math.round(totals.income || mockTotalsWhenEmpty.income));
+      const fallback = [
+        { name: 'Direct Booking', pct: 52 },
+        { name: 'Booking.com', pct: 18 },
+        { name: 'Agoda', pct: 12 },
+        { name: 'Airbnb', pct: 10 },
+        { name: 'Hotels.com', pct: 6 },
+        { name: 'Other', pct: 2 },
+      ];
+      return fallback.map((r) => ({ name: r.name, pct: r.pct, value: Math.round((total * r.pct) / 100) }));
+    }
+
     const sum = rows.reduce((s, r) => s + r.value, 0) || 1;
     return rows.map((r) => ({ ...r, pct: Math.round((r.value / sum) * 100) }));
   }, [sourcesRaw]);
@@ -666,7 +861,7 @@ export default function ExpensesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {(filteredTransactions.length ? filteredTransactions : transactions).slice(0, 20).map((row) => (
+              {filteredTransactions.slice(0, 20).map((row) => (
                 <tr key={row.id} className="hover:bg-slate-50">
                   <td className="px-5 py-4 text-sm font-semibold text-slate-900">
                     {row.expense}
@@ -692,7 +887,7 @@ export default function ExpensesPage() {
                         className="rounded-xl p-2 text-slate-500 hover:bg-slate-100"
                         aria-label="View"
                         title="View"
-                        onClick={() => alert(row.expense)}
+                        onClick={() => setSelectedTx(row)}
                       >
                         <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
                           <path
@@ -709,15 +904,13 @@ export default function ExpensesPage() {
                         type="button"
                         className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-lime-300"
                         onClick={async () => {
-                          let blob: Blob;
                           if (row.purchaseOrderId) {
-                            blob = await downloadPurchaseOrderPdf(row.purchaseOrderId);
-                          } else {
-                            blob = downloadMockTransaction(row, currency);
+                            const blob = await downloadPurchaseOrderPdf(row.purchaseOrderId);
+                            triggerBlobDownload(blob, `laflo-purchase-order-${row.purchaseOrderId}.pdf`);
+                            return;
                           }
-                          const url = URL.createObjectURL(blob);
-                          window.open(url, '_blank', 'noopener,noreferrer');
-                          setTimeout(() => URL.revokeObjectURL(url), 30000);
+                          const blob = downloadMockTransaction(row, currency);
+                          triggerBlobDownload(blob, `laflo-expense-${row.id}.html`);
                         }}
                       >
                         Download
@@ -726,10 +919,106 @@ export default function ExpensesPage() {
                   </td>
                 </tr>
               ))}
+              {filteredTransactions.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-5 py-10 text-center text-sm text-slate-600">
+                    No transactions match your filters.
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Details modal */}
+      {selectedTx ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setSelectedTx(null);
+          }}
+        >
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl ring-1 ring-slate-200">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+              <div className="min-w-0">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Transaction</div>
+                <div className="mt-1 truncate text-lg font-extrabold text-slate-900">{selectedTx.expense}</div>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-700">{selectedTx.category}</span>
+                  <span className={`rounded-full px-2.5 py-1 font-semibold ${statusPillClass(selectedTx.status)}`}>
+                    {selectedTx.status}
+                  </span>
+                  {selectedTx.isMock ? (
+                    <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">demo</span>
+                  ) : null}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedTx(null)}
+                className="rounded-xl p-2 text-slate-500 hover:bg-slate-100"
+                aria-label="Close"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="px-5 py-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-xl bg-slate-50 p-3">
+                  <div className="text-xs font-semibold text-slate-500">Amount</div>
+                  <div className="mt-1 font-extrabold text-slate-900">{formatCurrency(selectedTx.amount, currency)}</div>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-3">
+                  <div className="text-xs font-semibold text-slate-500">Date</div>
+                  <div className="mt-1 font-extrabold text-slate-900">{new Date(selectedTx.date).toLocaleDateString()}</div>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-3">
+                  <div className="text-xs font-semibold text-slate-500">Quantity</div>
+                  <div className="mt-1 font-extrabold text-slate-900">{selectedTx.quantity}</div>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-3">
+                  <div className="text-xs font-semibold text-slate-500">Reference</div>
+                  <div className="mt-1 truncate font-extrabold text-slate-900">
+                    {selectedTx.purchaseOrderId ? `PO-${selectedTx.purchaseOrderId}` : selectedTx.id}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-200"
+                  onClick={() => setSelectedTx(null)}
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className="rounded-xl bg-lime-200 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-lime-300"
+                  onClick={async () => {
+                    const row = selectedTx;
+                    if (row.purchaseOrderId) {
+                      const blob = await downloadPurchaseOrderPdf(row.purchaseOrderId);
+                      triggerBlobDownload(blob, `laflo-purchase-order-${row.purchaseOrderId}.pdf`);
+                    } else {
+                      const blob = downloadMockTransaction(row, currency);
+                      triggerBlobDownload(blob, `laflo-expense-${row.id}.html`);
+                    }
+                  }}
+                >
+                  Download
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
