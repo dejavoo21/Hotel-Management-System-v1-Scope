@@ -6,6 +6,12 @@ import { accessRequestService } from '@/services';
 import { getUserPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
 import toast from 'react-hot-toast';
 import { useUiStore } from '@/stores/uiStore';
+import {
+  loadAccessRequestAckMap,
+  isAccessRequestAcked,
+  onAccessRequestAckChanged,
+  ackAccessRequest,
+} from '@/utils/accessRequestAck';
 
 type NavigationItem = {
   name: string;
@@ -100,7 +106,6 @@ const navigation: NavigationItem[] = [
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
       </svg>
     ),
-    badge: 2,
   },
   {
     name: 'Housekeeping',
@@ -239,6 +244,9 @@ export default function DashboardLayout() {
   const lastInfoReceivedCount = useRef<number | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const globalSearchRef = useRef<HTMLDivElement | null>(null);
+  const [accessRequestAck, setAccessRequestAck] = useState(() => loadAccessRequestAckMap());
+
+  useEffect(() => onAccessRequestAckChanged(() => setAccessRequestAck(loadAccessRequestAckMap())), []);
 
   const { data: accessRequests } = useQuery({
     queryKey: ['accessRequests', 'badge'],
@@ -253,9 +261,9 @@ export default function DashboardLayout() {
       (request) =>
         request.status === 'PENDING' ||
         request.status === 'NEEDS_INFO' ||
-        request.status === 'INFO_RECEIVED'
+        (request.status === 'INFO_RECEIVED' && !isAccessRequestAcked(accessRequestAck, request.id))
     ).length;
-  }, [accessRequests]);
+  }, [accessRequests, accessRequestAck]);
 
   const pendingAccessRequests = useMemo(() => {
     if (!accessRequests) return [];
@@ -264,15 +272,17 @@ export default function DashboardLayout() {
         (request) =>
           request.status === 'PENDING' ||
           request.status === 'NEEDS_INFO' ||
-          request.status === 'INFO_RECEIVED'
+          (request.status === 'INFO_RECEIVED' && !isAccessRequestAcked(accessRequestAck, request.id))
       )
       .slice(0, 5);
-  }, [accessRequests]);
+  }, [accessRequests, accessRequestAck]);
 
   const infoReceivedCount = useMemo(() => {
     if (!accessRequests) return 0;
-    return accessRequests.filter((request) => request.status === 'INFO_RECEIVED').length;
-  }, [accessRequests]);
+    return accessRequests.filter(
+      (request) => request.status === 'INFO_RECEIVED' && !isAccessRequestAcked(accessRequestAck, request.id)
+    ).length;
+  }, [accessRequests, accessRequestAck]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -836,6 +846,9 @@ export default function DashboardLayout() {
                             <button
                               key={request.id}
                               onClick={() => {
+                                if (request.status === 'INFO_RECEIVED') {
+                                  ackAccessRequest(request.id);
+                                }
                                 setShowNotifications(false);
                                 navigate('/settings?tab=access-requests');
                               }}

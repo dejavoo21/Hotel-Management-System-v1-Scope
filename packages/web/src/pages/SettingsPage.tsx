@@ -15,6 +15,7 @@ import {
 } from '@/utils/auditLog';
 import toast from 'react-hot-toast';
 import { formatEnumLabel } from '@/utils';
+import { ackAccessRequest } from '@/utils/accessRequestAck';
 
 type SettingsTab =
   | 'hotel'
@@ -375,6 +376,8 @@ export default function SettingsPage() {
         replies,
         baseUrl: api.defaults.baseURL?.replace(/\/$/, '') || '',
       });
+      // Acknowledge the response so notification badges clear.
+      ackAccessRequest(request.id);
     } catch (error) {
       toast.error('Failed to load access request response');
     } finally {

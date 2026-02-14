@@ -23,7 +23,12 @@ export const authService = {
 
   async setup2FA(): Promise<{ secret: string; qrCode: string }> {
     const response = await api.post('/auth/2fa/setup');
-    return response.data.data;
+    const data = response.data.data || {};
+    // Demo API returns `qrCodeUrl`; production returns `qrCode` (data URL).
+    return {
+      secret: data.secret,
+      qrCode: data.qrCode || data.qrCodeUrl || data.qrCodeURL || '',
+    };
   },
 
   async enable2FA(code: string): Promise<{ backupCodes: string[] }> {
