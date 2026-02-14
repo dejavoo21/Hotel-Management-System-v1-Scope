@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import api from '@/services/api';
-import { purchaseOrderService } from '@/services';
 import { useAuthStore } from '@/stores/authStore';
 import type { PurchaseOrder } from '@/types';
+import { KPI_VALUE_CLASS } from '@/styles/typography';
+import TimeRangeToggle from '@/components/ui/TimeRangeToggle';
+import type { TimeRange } from '@/data/timeRange';
+import { timeRangeToDateRange } from '@/data/timeRange';
+import { downloadPurchaseOrderPdf, getRevenueBreakdown, getSourcesBreakdown, listPurchaseOrders } from '@/data/dataSource';
 import {
   Bar,
   BarChart,
@@ -18,7 +21,6 @@ import {
 } from 'recharts';
 
 type Range = { startDate: string; endDate: string };
-type RangeMode = 'year' | '6m';
 
 type ExpenseCategory =
   | 'Salaries and Wages'
@@ -50,13 +52,6 @@ function toISODate(date: Date) {
   return date.toISOString().split('T')[0];
 }
 
-function lastNDaysRange(days: number): Range {
-  const end = new Date();
-  const start = new Date();
-  start.setDate(start.getDate() - (days - 1));
-  return { startDate: toISODate(start), endDate: toISODate(end) };
-}
-
 function monthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
@@ -73,23 +68,6 @@ function pctChange(current: number, prev: number) {
 
 function formatCurrency(value: number, currency: string) {
   return value.toLocaleString(undefined, { style: 'currency', currency });
-}
-
-function normalizeRevenueBreakdown(data: unknown): Array<{ date: string; revenue: number }> {
-  if (Array.isArray(data)) {
-    return (data as Array<{ date: string; revenue: number }>).map((row: any) => ({
-      date: String(row.date),
-      revenue: Number(row.revenue ?? row.amount) || 0,
-    }));
-  }
-  const breakdown = (data as any)?.breakdown;
-  if (Array.isArray(breakdown)) {
-    return breakdown.map((row: any) => ({
-      date: String(row.date),
-      revenue: Number(row.revenue ?? row.amount) || 0,
-    }));
-  }
-  return [];
 }
 
 function categoryFromName(name: string): ExpenseCategory {
@@ -167,34 +145,27 @@ function buildMockTransactions(startISO: string, count: number): TransactionRow[
 export default function ExpensesPage() {
   const { user } = useAuthStore();
   const currency = user?.hotel?.currency || 'USD';
-  const [rangeMode, setRangeMode] = useState<RangeMode>('year');
+  const [timeRange, setTimeRange] = useState<TimeRange>('1y');
   const [donutTab, setDonutTab] = useState<'income' | 'expense'>('expense');
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'ALL' | ExpenseCategory>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | TransactionStatus>('ALL');
 
-  const range = useMemo(() => (rangeMode === '6m' ? lastNDaysRange(180) : lastNDaysRange(365)), [rangeMode]);
+  const range: Range = useMemo(() => timeRangeToDateRange(timeRange), [timeRange]);
 
   const { data: revenueSeries, isLoading: isLoadingRevenue } = useQuery({
-    queryKey: ['expenses', 'income', range],
-    queryFn: async () => {
-      const response = await api.get('/reports/revenue', { params: range });
-      const payload = response.data?.data?.data ?? response.data?.data;
-      return normalizeRevenueBreakdown(payload);
-    },
+    queryKey: ['expenses', 'income', timeRange],
+    queryFn: () => getRevenueBreakdown({ timeRange }),
   });
 
   const { data: sourcesRaw } = useQuery({
-    queryKey: ['expenses', 'incomeSources', range],
-    queryFn: async () => {
-      const response = await api.get('/reports/sources', { params: range });
-      return response.data?.data?.data ?? response.data?.data;
-    },
+    queryKey: ['expenses', 'incomeSources', timeRange],
+    queryFn: () => getSourcesBreakdown({ timeRange }),
   });
 
   const { data: orders, isLoading: isLoadingOrders } = useQuery({
     queryKey: ['expenses', 'purchaseOrders'],
-    queryFn: purchaseOrderService.list,
+    queryFn: listPurchaseOrders,
   });
 
   const isLoading = isLoadingRevenue || isLoadingOrders;
@@ -389,30 +360,14 @@ export default function ExpensesPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Expense</h1>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setRangeMode('year')}
-            className={`rounded-xl px-3 py-2 text-sm font-semibold ring-1 transition-colors ${
-              rangeMode === 'year'
-                ? 'bg-lime-200 text-slate-900 ring-lime-200'
-                : 'bg-white text-slate-700 ring-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            This Year
-          </button>
-          <button
-            type="button"
-            onClick={() => setRangeMode('6m')}
-            className={`rounded-xl px-3 py-2 text-sm font-semibold ring-1 transition-colors ${
-              rangeMode === '6m'
-                ? 'bg-lime-200 text-slate-900 ring-lime-200'
-                : 'bg-white text-slate-700 ring-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            Last 6 Months
-          </button>
-        </div>
+        <TimeRangeToggle
+          options={[
+            { label: 'This Year', value: '1y' },
+            { label: 'Last 6 Months', value: '6m' },
+          ]}
+          value={timeRange}
+          onChange={setTimeRange}
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.1fr_1fr_1fr_1.2fr]">
@@ -433,7 +388,7 @@ export default function ExpensesPage() {
               </div>
             ) : null}
           </div>
-          <p className="mt-4 text-3xl font-extrabold text-slate-900">{formatCurrency(Math.round(totals.balance), currency)}</p>
+          <p className={`mt-4 ${KPI_VALUE_CLASS}`}>{formatCurrency(Math.round(totals.balance), currency)}</p>
           <p className="mt-1 text-xs text-slate-500">from last week</p>
         </div>
 
@@ -458,7 +413,7 @@ export default function ExpensesPage() {
               </div>
             ) : null}
           </div>
-          <p className="mt-4 text-3xl font-extrabold text-slate-900">{formatCurrency(Math.round(totals.income), currency)}</p>
+          <p className={`mt-4 ${KPI_VALUE_CLASS}`}>{formatCurrency(Math.round(totals.income), currency)}</p>
           <p className="mt-1 text-xs text-slate-500">from last week</p>
         </div>
 
@@ -483,7 +438,7 @@ export default function ExpensesPage() {
               </div>
             ) : null}
           </div>
-          <p className="mt-4 text-3xl font-extrabold text-slate-900">{formatCurrency(Math.round(totals.expenses), currency)}</p>
+          <p className={`mt-4 ${KPI_VALUE_CLASS}`}>{formatCurrency(Math.round(totals.expenses), currency)}</p>
           <p className="mt-1 text-xs text-slate-500">from last week</p>
         </div>
 
@@ -575,7 +530,7 @@ export default function ExpensesPage() {
               <p className="text-sm text-slate-500">Income vs Expense</p>
             </div>
             <div className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900">
-              {rangeMode === 'year' ? 'This Year' : 'Last 6 Months'}
+              {timeRange === '1y' ? 'This Year' : 'Last 6 Months'}
             </div>
           </div>
 
@@ -722,7 +677,7 @@ export default function ExpensesPage() {
                       className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-lime-300 disabled:opacity-50"
                       onClick={async () => {
                         if (!row.purchaseOrderId) return;
-                        const blob = await purchaseOrderService.exportPdf(row.purchaseOrderId);
+                        const blob = await downloadPurchaseOrderPdf(row.purchaseOrderId);
                         const url = URL.createObjectURL(blob);
                         window.open(url, '_blank', 'noopener,noreferrer');
                         setTimeout(() => URL.revokeObjectURL(url), 30000);

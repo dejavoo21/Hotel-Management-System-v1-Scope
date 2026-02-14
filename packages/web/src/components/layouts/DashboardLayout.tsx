@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { accessRequestService } from '@/services';
 import { getUserPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
 import toast from 'react-hot-toast';
+import { useUiStore } from '@/stores/uiStore';
 
 type NavigationItem = {
   name: string;
@@ -216,6 +217,7 @@ export default function DashboardLayout() {
     financials: true,
   });
   const { user, logout } = useAuthStore();
+  const setGlobalSearch = useUiStore((s) => s.setGlobalSearch);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -645,6 +647,7 @@ export default function DashboardLayout() {
                     value={globalSearchQuery}
                     onChange={(e) => {
                       setGlobalSearchQuery(e.target.value);
+                      setGlobalSearch(e.target.value);
                       setShowGlobalSearch(true);
                       setGlobalSearchActiveIndex(0);
                     }}
@@ -673,6 +676,7 @@ export default function DashboardLayout() {
                         e.preventDefault();
                         setShowGlobalSearch(false);
                         setGlobalSearchQuery('');
+                        setGlobalSearch('');
                         navigate(pick.href);
                       }
                     }}
@@ -691,6 +695,7 @@ export default function DashboardLayout() {
                               onClick={() => {
                                 setShowGlobalSearch(false);
                                 setGlobalSearchQuery('');
+                                setGlobalSearch('');
                                 navigate(item.href);
                               }}
                               className={`flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm transition-colors ${

@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { housekeepingService, roomService } from '@/services';
+import { housekeepingService } from '@/services';
+import { getHousekeepingFloors, getHousekeepingRooms } from '@/data/dataSource';
 import type { Room } from '@/types';
 import { formatEnumLabel } from '@/utils';
+import { useUiStore } from '@/stores/uiStore';
 
 type StatusFilter = 'all' | Room['housekeepingStatus'];
 type PriorityFilter = 'all' | 'HIGH' | 'MEDIUM' | 'LOW';
@@ -30,22 +32,23 @@ function statusPill(status: Room['housekeepingStatus']) {
 }
 
 export default function HousekeepingPage() {
-  const [query, setQuery] = useState('');
   const [status, setStatus] = useState<StatusFilter>('all');
   const [floor, setFloor] = useState<number | 'all'>('all');
   const [priority, setPriority] = useState<PriorityFilter>('all');
+  const globalSearch = useUiStore((s) => s.globalSearch);
 
   const queryClient = useQueryClient();
 
   const { data: floorsData } = useQuery({
     queryKey: ['floors'],
-    queryFn: roomService.getFloors,
+    queryFn: getHousekeepingFloors,
   });
 
   const { data: rooms, isLoading } = useQuery({
-    queryKey: ['housekeeping', 'rooms', status, floor],
+    queryKey: ['housekeeping', 'rooms', status, floor, globalSearch],
     queryFn: () =>
-      housekeepingService.getRooms({
+      getHousekeepingRooms({
+        search: globalSearch,
         status: status !== 'all' ? status : undefined,
         floor: floor !== 'all' ? floor : undefined,
       }),
@@ -68,19 +71,13 @@ export default function HousekeepingPage() {
 
   const filtered = useMemo(() => {
     const list = rooms ?? [];
-    const q = query.trim().toLowerCase();
     return list
-      .filter((r) => {
-        if (!q) return true;
-        const hay = `${r.number} ${r.roomType?.name ?? ''} ${r.notes ?? ''}`.toLowerCase();
-        return hay.includes(q);
-      })
       .filter((r) => {
         if (priority === 'all') return true;
         return derivePriority(r) === priority;
       })
       .sort((a, b) => Number(a.number) - Number(b.number));
-  }, [rooms, query, priority]);
+  }, [rooms, priority]);
 
   return (
     <div className="space-y-6">
@@ -93,18 +90,6 @@ export default function HousekeepingPage() {
 
       <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="relative w-full lg:max-w-sm">
-            <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm placeholder-slate-400 focus:border-primary-500 focus:bg-white focus:ring-primary-500"
-              placeholder="Search room, floor, notes..."
-            />
-          </div>
-
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={floor}
@@ -241,4 +226,3 @@ export default function HousekeepingPage() {
     </div>
   );
 }
-

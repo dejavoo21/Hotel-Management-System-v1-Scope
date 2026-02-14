@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -17,8 +17,12 @@ import {
 } from 'recharts';
 import { bookingService, dashboardService, reviewService } from '@/services';
 import { useAuthStore } from '@/stores/authStore';
-import api from '@/services/api';
 import type { Booking } from '@/types';
+import { KPI_VALUE_CLASS } from '@/styles/typography';
+import TimeRangeToggle from '@/components/ui/TimeRangeToggle';
+import type { TimeRange } from '@/data/timeRange';
+import { timeRangeToDateRange } from '@/data/timeRange';
+import { getRevenueBreakdown, getSourcesBreakdown } from '@/data/dataSource';
 
 type RevenuePoint = { month: string; revenue: number };
 type SourcePoint = { name: string; value: number };
@@ -49,6 +53,8 @@ const TrendPill = ({ trend }: { trend: Trend }) => {
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const [reservationsRange, setReservationsRange] = useState<TimeRange>('7d');
+  const [revenueRange, setRevenueRange] = useState<TimeRange>('6m');
 
   const buildQuery = (params?: Record<string, string>) =>
     params ? `?${new URLSearchParams(params).toString()}` : '';
@@ -128,57 +134,16 @@ export default function DashboardPage() {
     };
   }, [reviews]);
 
-  const range180 = useMemo(() => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(start.getDate() - 179);
-    const toISO = (date: Date) => date.toISOString().split('T')[0];
-    return { startDate: toISO(start), endDate: toISO(end) };
-  }, []);
-
-  const normalizeRevenueBreakdown = (data: unknown): Array<{ date: string; revenue: number; bookings?: number }> => {
-    if (Array.isArray(data)) {
-      return (data as Array<{ date: string; revenue: number; bookings?: number }>).map((row: any) => ({
-        date: String(row.date),
-        revenue: Number(row.revenue ?? row.amount) || 0,
-        bookings: row.bookings == null ? undefined : Number(row.bookings) || 0,
-      }));
-    }
-    const breakdown = (data as any)?.breakdown;
-    if (Array.isArray(breakdown)) {
-      return breakdown.map((row: any) => ({
-        date: String(row.date),
-        revenue: Number(row.revenue ?? row.amount) || 0,
-        bookings: row.bookings == null ? undefined : Number(row.bookings) || 0,
-      }));
-    }
-    return [];
-  };
-
   const { data: revenueSeries } = useQuery({
-    queryKey: ['dashboard', 'revenue', '180d'],
-    queryFn: async () => {
-      const response = await api.get('/reports/revenue', { params: range180 });
-      const payload = response.data?.data?.data ?? response.data?.data;
-      return normalizeRevenueBreakdown(payload);
-    },
+    queryKey: ['dashboard', 'revenue', revenueRange],
+    queryFn: () => getRevenueBreakdown({ timeRange: revenueRange }),
   });
 
-  const range7 = useMemo(() => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(start.getDate() - 6);
-    const toISO = (date: Date) => date.toISOString().split('T')[0];
-    return { startDate: toISO(start), endDate: toISO(end) };
-  }, []);
+  const rangeReservations = useMemo(() => timeRangeToDateRange(reservationsRange), [reservationsRange]);
 
   const { data: bookingsSeries } = useQuery({
-    queryKey: ['dashboard', 'bookings', '7d'],
-    queryFn: async () => {
-      const response = await api.get('/reports/revenue', { params: range7 });
-      const payload = response.data?.data?.data ?? response.data?.data;
-      return normalizeRevenueBreakdown(payload);
-    },
+    queryKey: ['dashboard', 'bookings', reservationsRange],
+    queryFn: () => getRevenueBreakdown({ timeRange: reservationsRange }),
   });
 
   const revenueByMonth: RevenuePoint[] = useMemo(() => {
@@ -209,8 +174,8 @@ export default function DashboardPage() {
       byDate.set(key, Number(p.bookings ?? 0) || 0);
     }
 
-    const start = new Date(range7.startDate);
-    const end = new Date(range7.endDate);
+    const start = new Date(rangeReservations.startDate);
+    const end = new Date(rangeReservations.endDate);
     const cursor = new Date(start);
     const rows: DailyBookingsPoint[] = [];
     while (cursor <= end) {
@@ -220,20 +185,11 @@ export default function DashboardPage() {
       cursor.setDate(cursor.getDate() + 1);
     }
     return rows;
-  }, [bookingsSeries, range7.endDate, range7.startDate]);
+  }, [bookingsSeries, rangeReservations.endDate, rangeReservations.startDate]);
 
   const { data: sourcesRaw } = useQuery({
     queryKey: ['dashboard', 'sources', '30d'],
-    queryFn: async () => {
-      const end = new Date();
-      const start = new Date();
-      start.setDate(start.getDate() - 29);
-      const toISO = (date: Date) => date.toISOString().split('T')[0];
-      const response = await api.get('/reports/sources', {
-        params: { startDate: toISO(start), endDate: toISO(end) },
-      });
-      return response.data?.data?.data ?? response.data?.data;
-    },
+    queryFn: () => getSourcesBreakdown({ timeRange: '30d' }),
   });
 
   const bookingSources: SourcePoint[] = useMemo(() => {
@@ -253,44 +209,34 @@ export default function DashboardPage() {
 
   const donutColors = ['#bbf7d0', '#d9f99d', '#c7d2fe', '#fde68a', '#fecaca', '#e2e8f0'];
 
-  const range14 = useMemo(() => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(start.getDate() - 13);
-    const toISO = (date: Date) => date.toISOString().split('T')[0];
-    return { startDate: toISO(start), endDate: toISO(end) };
-  }, []);
-
-  const { data: last14Series } = useQuery({
-    queryKey: ['dashboard', 'trend', '14d'],
-    queryFn: async () => {
-      const response = await api.get('/reports/revenue', { params: range14 });
-      const payload = response.data?.data?.data ?? response.data?.data;
-      return normalizeRevenueBreakdown(payload);
-    },
+  const { data: last30Series } = useQuery({
+    queryKey: ['dashboard', 'trend', '30d'],
+    queryFn: () => getRevenueBreakdown({ timeRange: '30d' }),
   });
 
   const bookingTrend: Trend = useMemo(() => {
-    const points = last14Series ?? [];
+    const points = last30Series ?? [];
     const sorted = [...points].sort((a, b) => String(a.date).localeCompare(String(b.date)));
-    const prev = sorted.slice(0, 7).reduce((sum, p) => sum + (Number(p.bookings) || 0), 0);
-    const curr = sorted.slice(-7).reduce((sum, p) => sum + (Number(p.bookings) || 0), 0);
+    const last14 = sorted.slice(Math.max(0, sorted.length - 14));
+    const prev = last14.slice(0, 7).reduce((sum, p) => sum + (Number(p.bookings) || 0), 0);
+    const curr = last14.slice(-7).reduce((sum, p) => sum + (Number(p.bookings) || 0), 0);
     if (!prev && !curr) return { pct: null, label: 'from last week', tone: 'slate' };
     if (!prev) return { pct: 100, label: 'from last week', tone: 'emerald' };
     const pct = Math.round(((curr - prev) / prev) * 100);
     return { pct, label: 'from last week', tone: pct >= 0 ? 'emerald' : 'rose' };
-  }, [last14Series]);
+  }, [last30Series]);
 
   const revenueTrend: Trend = useMemo(() => {
-    const points = last14Series ?? [];
+    const points = last30Series ?? [];
     const sorted = [...points].sort((a, b) => String(a.date).localeCompare(String(b.date)));
-    const prev = sorted.slice(0, 7).reduce((sum, p) => sum + (Number(p.revenue) || 0), 0);
-    const curr = sorted.slice(-7).reduce((sum, p) => sum + (Number(p.revenue) || 0), 0);
+    const last14 = sorted.slice(Math.max(0, sorted.length - 14));
+    const prev = last14.slice(0, 7).reduce((sum, p) => sum + (Number(p.revenue) || 0), 0);
+    const curr = last14.slice(-7).reduce((sum, p) => sum + (Number(p.revenue) || 0), 0);
     if (!prev && !curr) return { pct: null, label: 'from last week', tone: 'slate' };
     if (!prev) return { pct: 100, label: 'from last week', tone: 'emerald' };
     const pct = Math.round(((curr - prev) / prev) * 100);
     return { pct, label: 'from last week', tone: pct >= 0 ? 'emerald' : 'rose' };
-  }, [last14Series]);
+  }, [last30Series]);
 
   const arrivalsTrend: Trend = useMemo(() => {
     // We only have "today" arrivals from the API; show a safe placeholder trend for now.
@@ -393,7 +339,7 @@ export default function DashboardPage() {
               </svg>
             </div>
           </div>
-          <p className="mt-4 text-3xl font-extrabold text-slate-900">{bookingsToday.length}</p>
+          <p className={`mt-4 ${KPI_VALUE_CLASS}`}>{bookingsToday.length}</p>
           <div className="mt-3">
             <TrendPill trend={bookingTrend} />
           </div>
@@ -408,7 +354,7 @@ export default function DashboardPage() {
               </svg>
             </div>
           </div>
-          <p className="mt-4 text-3xl font-extrabold text-slate-900">{summary?.todayArrivals ?? 0}</p>
+          <p className={`mt-4 ${KPI_VALUE_CLASS}`}>{summary?.todayArrivals ?? 0}</p>
           <div className="mt-3">
             <TrendPill trend={arrivalsTrend} />
           </div>
@@ -423,7 +369,7 @@ export default function DashboardPage() {
               </svg>
             </div>
           </div>
-          <p className="mt-4 text-3xl font-extrabold text-slate-900">{summary?.todayDepartures ?? 0}</p>
+          <p className={`mt-4 ${KPI_VALUE_CLASS}`}>{summary?.todayDepartures ?? 0}</p>
           <div className="mt-3">
             <TrendPill trend={departuresTrend} />
           </div>
@@ -438,7 +384,7 @@ export default function DashboardPage() {
               </svg>
             </div>
           </div>
-          <p className="mt-4 text-3xl font-extrabold text-slate-900">{formatCurrency(summary?.monthRevenue || 0)}</p>
+          <p className={`mt-4 ${KPI_VALUE_CLASS}`}>{formatCurrency(summary?.monthRevenue || 0)}</p>
           <div className="mt-3">
             <TrendPill trend={revenueTrend} />
           </div>
@@ -495,19 +441,19 @@ export default function DashboardPage() {
               <div className="mt-4 grid grid-cols-2 gap-4">
                 <button type="button" onClick={() => navigateToRooms({ status: 'OCCUPIED' })} className="text-left">
                   <p className="text-xs font-semibold text-slate-500">Occupied</p>
-                  <p className="mt-1 text-3xl font-extrabold text-slate-900">{summary?.occupiedRooms || 0}</p>
+                  <p className={`mt-1 ${KPI_VALUE_CLASS}`}>{summary?.occupiedRooms || 0}</p>
                 </button>
                 <button type="button" onClick={() => navigateToBookings({ status: 'CONFIRMED' })} className="text-left">
                   <p className="text-xs font-semibold text-slate-500">Reserved</p>
-                  <p className="mt-1 text-3xl font-extrabold text-slate-900">{reservedRooms}</p>
+                  <p className={`mt-1 ${KPI_VALUE_CLASS}`}>{reservedRooms}</p>
                 </button>
                 <button type="button" onClick={() => navigateToRooms({ status: 'AVAILABLE' })} className="text-left">
                   <p className="text-xs font-semibold text-slate-500">Available</p>
-                  <p className="mt-1 text-3xl font-extrabold text-slate-900">{summary?.availableRooms || 0}</p>
+                  <p className={`mt-1 ${KPI_VALUE_CLASS}`}>{summary?.availableRooms || 0}</p>
                 </button>
                 <button type="button" onClick={() => navigateToHousekeeping({ status: 'DIRTY' })} className="text-left">
                   <p className="text-xs font-semibold text-slate-500">Not Ready</p>
-                  <p className="mt-1 text-3xl font-extrabold text-slate-900">
+                  <p className={`mt-1 ${KPI_VALUE_CLASS}`}>
                     {(housekeeping?.dirty || 0) + (housekeeping?.inspection || 0)}
                   </p>
                 </button>
@@ -519,19 +465,17 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Reservations</h2>
-                <p className="text-sm text-slate-500">Last 7 days</p>
+                <p className="text-sm text-slate-500">Booked vs canceled</p>
               </div>
               <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 rounded-full bg-lime-200 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-lime-300"
-                  aria-label="Last 7 days"
-                >
-                  Last 7 Days
-                  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clipRule="evenodd" />
-                  </svg>
-                </button>
+                <TimeRangeToggle
+                  options={[
+                    { label: 'Last 7 Days', value: '7d' },
+                    { label: 'Last 30 Days', value: '30d' },
+                  ]}
+                  value={reservationsRange}
+                  onChange={setReservationsRange}
+                />
                 <Link to="/bookings" className="text-sm font-semibold text-slate-700 hover:text-slate-900">
                   View all
                 </Link>
@@ -556,19 +500,17 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Revenue</h2>
-                <p className="text-sm text-slate-500">Last 6 months</p>
+                <p className="text-sm text-slate-500">Trend over time</p>
               </div>
               <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 rounded-full bg-lime-200 px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-lime-300"
-                  aria-label="Last 6 months"
-                >
-                  Last 6 Months
-                  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clipRule="evenodd" />
-                  </svg>
-                </button>
+                <TimeRangeToggle
+                  options={[
+                    { label: 'Last 6 Months', value: '6m' },
+                    { label: 'This Year', value: '1y' },
+                  ]}
+                  value={revenueRange}
+                  onChange={setRevenueRange}
+                />
                 <Link to="/reports" className="text-sm font-semibold text-slate-700 hover:text-slate-900">
                   Financials
                 </Link>
@@ -675,7 +617,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="mt-5 flex items-center gap-4">
-              <div className="text-5xl font-extrabold text-slate-900">{reviewStats.average || 0}</div>
+              <div className={KPI_VALUE_CLASS}>{reviewStats.average || 0}</div>
               <div className="text-sm text-slate-600">
                 <div className="font-semibold text-slate-900">Impressive</div>
                 <div className="text-xs text-slate-500">from {reviewStats.total || 0} reviews</div>

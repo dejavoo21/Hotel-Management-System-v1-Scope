@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { invoiceService } from '@/services';
 import type { Invoice } from '@/types';
 import { useAuthStore } from '@/stores/authStore';
 import { useNavigate } from 'react-router-dom';
+import { KPI_VALUE_CLASS } from '@/styles/typography';
+import type { TimeRange } from '@/data/timeRange';
+import TimeRangeToggle from '@/components/ui/TimeRangeToggle';
+import { downloadInvoicePdf, getInvoices } from '@/data/dataSource';
 
 const statusOptions: Array<{ label: string; value: Invoice['status'] | 'ALL' }> = [
   { label: 'All', value: 'ALL' },
@@ -16,27 +19,25 @@ const statusOptions: Array<{ label: string; value: Invoice['status'] | 'ALL' }> 
 
 export default function InvoicesPage() {
   const [status, setStatus] = useState<(typeof statusOptions)[number]['value']>('ALL');
+  const [timeRange, setTimeRange] = useState<TimeRange>('30d');
+  const [search, setSearch] = useState('');
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const currency = user?.hotel?.currency || 'USD';
 
   const { data, isLoading } = useQuery({
-    queryKey: ['invoices', { status }],
+    queryKey: ['invoices', { status, timeRange, search }],
     queryFn: async () => {
-      return invoiceService.list({
-        status: status === 'ALL' ? undefined : status,
-        page: 1,
-        limit: 50,
-      });
+      return getInvoices({ timeRange, status, search, page: 1, limit: 50 });
     },
   });
 
   const invoices = data?.data ?? [];
   const totals = useMemo(() => {
-    const total = invoices.reduce((sum, inv: any) => sum + (Number(inv.total) || 0), 0);
+    const total = invoices.reduce((sum: number, inv: any) => sum + (Number(inv.total) || 0), 0);
     const unpaid = invoices
       .filter((inv: any) => inv.status === 'UNPAID' || inv.status === 'PARTIALLY_PAID')
-      .reduce((sum, inv: any) => sum + (Number(inv.total) || 0), 0);
+      .reduce((sum: number, inv: any) => sum + (Number(inv.total) || 0), 0);
     return { total, unpaid };
   }, [invoices]);
 
@@ -48,6 +49,20 @@ export default function InvoicesPage() {
           <p className="mt-1 text-sm text-slate-600">Manage invoices, download PDFs, and email guests.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <TimeRangeToggle
+            options={[
+              { label: 'Last 30 Days', value: '30d' },
+              { label: 'This Year', value: '1y' },
+            ]}
+            value={timeRange}
+            onChange={setTimeRange}
+          />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search invoice or guest…"
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+          />
           <button
             type="button"
             className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800"
@@ -76,14 +91,14 @@ export default function InvoicesPage() {
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-2xl bg-lime-50 p-5 shadow-sm ring-1 ring-lime-100">
           <p className="text-sm font-semibold text-lime-900/70">Total invoiced</p>
-          <p className="mt-3 text-2xl font-extrabold text-lime-950">
+          <p className={`mt-3 ${KPI_VALUE_CLASS} text-lime-950`}>
             {totals.total.toLocaleString(undefined, { style: 'currency', currency })}
           </p>
           <p className="mt-1 text-xs font-medium text-lime-800">{invoices.length} invoice(s)</p>
         </div>
         <div className="rounded-2xl bg-amber-50 p-5 shadow-sm ring-1 ring-amber-100">
           <p className="text-sm font-semibold text-amber-900/70">Outstanding</p>
-          <p className="mt-3 text-2xl font-extrabold text-amber-950">
+          <p className={`mt-3 ${KPI_VALUE_CLASS} text-amber-950`}>
             {totals.unpaid.toLocaleString(undefined, { style: 'currency', currency })}
           </p>
           <p className="mt-1 text-xs font-medium text-amber-800">Unpaid / partially paid</p>
@@ -164,7 +179,7 @@ export default function InvoicesPage() {
                         type="button"
                         className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
                         onClick={async () => {
-                          const blob = await invoiceService.downloadPdf(inv.id);
+                          const blob = await downloadInvoicePdf(inv.id);
                           const url = URL.createObjectURL(blob);
                           window.open(url, '_blank', 'noopener,noreferrer');
                           setTimeout(() => URL.revokeObjectURL(url), 30000);
