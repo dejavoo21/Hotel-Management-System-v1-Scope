@@ -7,6 +7,7 @@ import { NotFoundError, ValidationError } from '../middleware/errorHandler.js';
 import { sendEmail } from '../services/email.service.js';
 import { logger } from '../config/logger.js';
 import Stripe from 'stripe';
+import { renderLafloEmail } from '../utils/emailTemplates.js';
 
 const stripe = config.stripe.secretKey ? new Stripe(config.stripe.secretKey) : null;
 
@@ -232,15 +233,24 @@ export async function emailReceipt(
       processedAt: payment.processedAt || payment.createdAt,
     });
 
+    const { html, text } = renderLafloEmail({
+      preheader: `Your payment receipt for booking ${payment.booking.bookingRef} is attached.`,
+      title: 'Payment receipt',
+      greeting: `Hello ${payment.booking.guest.firstName},`,
+      intro: 'Attached is your payment receipt.',
+      meta: [
+        { label: 'Booking', value: payment.booking.bookingRef },
+        { label: 'Payment ID', value: payment.id },
+        { label: 'Amount', value: Number(payment.amount).toFixed(2) },
+      ],
+      footerNote: 'Thank you for staying with LaFlo.',
+    });
+
     await sendEmail({
       to: recipient,
       subject: `Payment receipt for ${payment.booking.bookingRef}`,
-      html: `
-        <p>Hello ${payment.booking.guest.firstName},</p>
-        <p>Attached is your receipt for payment ${payment.id}.</p>
-        <p>Amount: ${Number(payment.amount).toFixed(2)}</p>
-      `,
-      text: `Payment receipt ${payment.id} attached.`,
+      html,
+      text,
       attachments: [
         {
           filename: `receipt-${payment.id}.pdf`,

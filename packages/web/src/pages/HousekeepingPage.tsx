@@ -1,391 +1,244 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { housekeepingService, roomService } from '@/services';
 import type { Room } from '@/types';
-import toast from 'react-hot-toast';
-import { useSearchParams } from 'react-router-dom';
 import { formatEnumLabel } from '@/utils';
 
-type StatusFilter = 'all' | 'CLEAN' | 'DIRTY' | 'INSPECTION' | 'OUT_OF_SERVICE';
+type StatusFilter = 'all' | Room['housekeepingStatus'];
+type PriorityFilter = 'all' | 'HIGH' | 'MEDIUM' | 'LOW';
+
+function derivePriority(room: Room): 'HIGH' | 'MEDIUM' | 'LOW' {
+  // No explicit priority in the Room model. This maps to a believable operational priority.
+  if (room.housekeepingStatus === 'DIRTY') return 'HIGH';
+  if (room.housekeepingStatus === 'INSPECTION') return 'MEDIUM';
+  if (room.housekeepingStatus === 'OUT_OF_SERVICE') return 'MEDIUM';
+  return 'LOW';
+}
+
+function priorityPill(priority: 'HIGH' | 'MEDIUM' | 'LOW') {
+  if (priority === 'HIGH') return 'bg-rose-100 text-rose-700';
+  if (priority === 'MEDIUM') return 'bg-amber-100 text-amber-700';
+  return 'bg-emerald-100 text-emerald-700';
+}
+
+function statusPill(status: Room['housekeepingStatus']) {
+  if (status === 'CLEAN') return 'bg-emerald-100 text-emerald-700';
+  if (status === 'DIRTY') return 'bg-rose-100 text-rose-700';
+  if (status === 'INSPECTION') return 'bg-amber-100 text-amber-700';
+  return 'bg-slate-100 text-slate-700';
+}
 
 export default function HousekeepingPage() {
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [floorFilter, setFloorFilter] = useState<number | 'all'>('all');
-  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
-  const [notes, setNotes] = useState('');
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState<StatusFilter>('all');
+  const [floor, setFloor] = useState<number | 'all'>('all');
+  const [priority, setPriority] = useState<PriorityFilter>('all');
 
   const queryClient = useQueryClient();
-  const [searchParams] = useSearchParams();
-  const validStatusFilters: StatusFilter[] = ['all', 'CLEAN', 'DIRTY', 'INSPECTION', 'OUT_OF_SERVICE'];
-  useEffect(() => {
-    const statusParam = searchParams.get('status');
-    if (statusParam && validStatusFilters.includes(statusParam as StatusFilter)) {
-      setStatusFilter(statusParam as StatusFilter);
-    }
-  }, [searchParams]);
-
-  const { data: rooms, isLoading } = useQuery({
-    queryKey: ['housekeeping', 'rooms', statusFilter, floorFilter],
-    queryFn: () =>
-      housekeepingService.getRooms({
-        status: statusFilter !== 'all' ? statusFilter : undefined,
-        floor: floorFilter !== 'all' ? floorFilter : undefined,
-      }),
-  });
 
   const { data: floorsData } = useQuery({
     queryKey: ['floors'],
     queryFn: roomService.getFloors,
   });
 
-  const updateStatusMutation = useMutation({
-    mutationFn: ({
-      roomId,
-      status,
-      notes,
-    }: {
-      roomId: string;
-      status: Room['housekeepingStatus'];
-      notes?: string;
-    }) => housekeepingService.updateRoomStatus(roomId, { housekeepingStatus: status, notes }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['housekeeping'] });
-      toast.success('Room status updated');
-      setSelectedRoom(null);
-      setNotes('');
-    },
-    onError: () => {
-      toast.error('Failed to update room status');
-    },
+  const { data: rooms, isLoading } = useQuery({
+    queryKey: ['housekeeping', 'rooms', status, floor],
+    queryFn: () =>
+      housekeepingService.getRooms({
+        status: status !== 'all' ? status : undefined,
+        floor: floor !== 'all' ? floor : undefined,
+      }),
   });
 
-  const roomsList = rooms ?? [];
-
-  const roomsByFloorNumbers = useMemo(() => {
-    const numbers = new Set<number>();
-    roomsList.forEach((room) => numbers.add(room.floor));
-    return Array.from(numbers).sort((a, b) => a - b);
-  }, [roomsList]);
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ roomId, housekeepingStatus }: { roomId: string; housekeepingStatus: Room['housekeepingStatus'] }) =>
+      housekeepingService.updateRoomStatus(roomId, { housekeepingStatus }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['housekeeping'] });
+      toast.success('Room updated');
+    },
+    onError: () => toast.error('Failed to update room'),
+  });
 
   const floorOptions = useMemo(() => {
-    const numbers = new Set<number>(roomsByFloorNumbers);
-    (floorsData ?? []).forEach((floor) => numbers.add(floor.number));
-    return Array.from(numbers).sort((a, b) => a - b);
-  }, [floorsData, roomsByFloorNumbers]);
+    const nums = (floorsData ?? []).map((f) => f.number).sort((a, b) => a - b);
+    return Array.from(new Set(nums));
+  }, [floorsData]);
 
-  const roomsByFloor = useMemo(() => {
-    return roomsList.reduce((acc, room) => {
-      acc[room.floor] = acc[room.floor] || [];
-      acc[room.floor].push(room);
-      return acc;
-    }, {} as Record<number, Room[]>);
-  }, [roomsList]);
-
-  useEffect(() => {
-    if (floorFilter !== 'all' && !floorOptions.includes(floorFilter)) {
-      setFloorFilter('all');
-    }
-  }, [floorFilter, floorOptions]);
-
-  const getStatusColor = (status: Room['housekeepingStatus']) => {
-    switch (status) {
-      case 'CLEAN':
-        return 'bg-emerald-500';
-      case 'DIRTY':
-        return 'bg-amber-500';
-      case 'INSPECTION':
-        return 'bg-blue-500';
-      case 'OUT_OF_SERVICE':
-        return 'bg-slate-400';
-    }
-  };
-
-  const getStatusBgColor = (status: Room['housekeepingStatus']) => {
-    switch (status) {
-      case 'CLEAN':
-        return 'bg-emerald-50 border-emerald-200';
-      case 'DIRTY':
-        return 'bg-amber-50 border-amber-200';
-      case 'INSPECTION':
-        return 'bg-blue-50 border-blue-200';
-      case 'OUT_OF_SERVICE':
-        return 'bg-slate-50 border-slate-200';
-    }
-  };
-
-  const counts = {
-    all: rooms?.length || 0,
-    CLEAN: rooms?.filter((r) => r.housekeepingStatus === 'CLEAN').length || 0,
-    DIRTY: rooms?.filter((r) => r.housekeepingStatus === 'DIRTY').length || 0,
-    INSPECTION: rooms?.filter((r) => r.housekeepingStatus === 'INSPECTION').length || 0,
-    OUT_OF_SERVICE: rooms?.filter((r) => r.housekeepingStatus === 'OUT_OF_SERVICE').length || 0,
-  };
+  const filtered = useMemo(() => {
+    const list = rooms ?? [];
+    const q = query.trim().toLowerCase();
+    return list
+      .filter((r) => {
+        if (!q) return true;
+        const hay = `${r.number} ${r.roomType?.name ?? ''} ${r.notes ?? ''}`.toLowerCase();
+        return hay.includes(q);
+      })
+      .filter((r) => {
+        if (priority === 'all') return true;
+        return derivePriority(r) === priority;
+      })
+      .sort((a, b) => Number(a.number) - Number(b.number));
+  }, [rooms, query, priority]);
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Housekeeping</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Manage room cleanliness and housekeeping tasks
-        </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Housekeeping</h1>
+          <p className="mt-1 text-sm text-slate-600">Manage room status, priority, and notes.</p>
+        </div>
       </div>
 
-      {/* Status summary cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <button
-          onClick={() => setStatusFilter('DIRTY')}
-          className={`card text-left transition-all ${
-            statusFilter === 'DIRTY' ? 'ring-2 ring-amber-500' : ''
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100">
-              <svg className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
+      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative w-full lg:max-w-sm">
+            <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm placeholder-slate-400 focus:border-primary-500 focus:bg-white focus:ring-primary-500"
+              placeholder="Search room, floor, notes..."
+            />
           </div>
-          <p className="mt-4 text-3xl font-bold text-amber-600">{counts.DIRTY}</p>
-          <p className="text-sm text-slate-500">Dirty Rooms</p>
-        </button>
 
-        <button
-          onClick={() => setStatusFilter('INSPECTION')}
-          className={`card text-left transition-all ${
-            statusFilter === 'INSPECTION' ? 'ring-2 ring-blue-500' : ''
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-              <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-              </svg>
-            </div>
-          </div>
-          <p className="mt-4 text-3xl font-bold text-blue-600">{counts.INSPECTION}</p>
-          <p className="text-sm text-slate-500">Ready for Inspection</p>
-        </button>
-
-        <button
-          onClick={() => setStatusFilter('CLEAN')}
-          className={`card text-left transition-all ${
-            statusFilter === 'CLEAN' ? 'ring-2 ring-emerald-500' : ''
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100">
-              <svg className="h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-          </div>
-          <p className="mt-4 text-3xl font-bold text-emerald-600">{counts.CLEAN}</p>
-          <p className="text-sm text-slate-500">Clean Rooms</p>
-        </button>
-
-        <button
-          onClick={() => setStatusFilter('all')}
-          className={`card text-left transition-all ${
-            statusFilter === 'all' ? 'ring-2 ring-primary-500' : ''
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
-              <svg className="h-5 w-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-            </div>
-          </div>
-          <p className="mt-4 text-3xl font-bold text-slate-900">{counts.all}</p>
-          <p className="text-sm text-slate-500">Total Rooms</p>
-        </button>
-      </div>
-
-      {/* Filters */}
-      <div className="card">
-        <div className="flex flex-wrap items-center gap-4">
-          <select
-            value={floorFilter}
-            onChange={(e) =>
-              setFloorFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))
-            }
-            className="input w-auto"
-          >
-            <option value="all">All Floors</option>
-            {floorOptions.map((floor) => (
-              <option key={floor} value={floor}>
-                Floor {floor}
-              </option>
-            ))}
-          </select>
-
-          {statusFilter !== 'all' && (
-            <button
-              onClick={() => setStatusFilter('all')}
-              className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700"
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={floor}
+              onChange={(e) => setFloor(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm focus:border-primary-500 focus:ring-primary-500"
             >
-              Clear filter
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Rooms by floor */}
-      {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {[...Array(10)].map((_, i) => (
-            <div key={i} className="h-24 animate-shimmer rounded-xl" />
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-8">
-          {roomsByFloorNumbers
-            .filter((floor) => floorFilter === 'all' || floor === floorFilter)
-            .map((floor) => {
-            const floorRooms = roomsByFloor[floor].filter(
-              (r) => statusFilter === 'all' || r.housekeepingStatus === statusFilter
-            );
-
-            if (floorRooms.length === 0) return null;
-
-            return (
-              <div key={floor}>
-                <h2 className="mb-4 text-lg font-semibold text-slate-900">Floor {floor}</h2>
-                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                  {floorRooms.map((room) => (
-                    <button
-                      key={room.id}
-                      onClick={() => setSelectedRoom(room)}
-                      className={`rounded-xl border p-4 text-left transition-all hover:shadow-md ${getStatusBgColor(
-                        room.housekeepingStatus
-                      )}`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-lg font-bold text-slate-900">{room.number}</p>
-                          <p className="text-sm text-slate-500">{room.roomType.name}</p>
-                        </div>
-                        <div className={`h-3 w-3 rounded-full ${getStatusColor(room.housekeepingStatus)}`} />
-                      </div>
-
-                      <div className="mt-3">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                            room.housekeepingStatus === 'CLEAN'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : room.housekeepingStatus === 'DIRTY'
-                              ? 'bg-amber-100 text-amber-700'
-                              : room.housekeepingStatus === 'INSPECTION'
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          {formatEnumLabel(room.housekeepingStatus)}
-                        </span>
-                      </div>
-
-                      {room.status === 'OCCUPIED' && (
-                        <p className="mt-2 text-xs text-slate-500">
-                          {room.currentGuest
-                            ? `${room.currentGuest.firstName} ${room.currentGuest.lastName}`
-                            : 'Occupied'}
-                        </p>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Room status update modal */}
-      {selectedRoom && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-slate-900/50"
-            onClick={() => {
-              setSelectedRoom(null);
-              setNotes('');
-            }}
-          />
-          <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <button
-              onClick={() => {
-                setSelectedRoom(null);
-                setNotes('');
-              }}
-              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-
-            <h2 className="text-xl font-bold text-slate-900">Room {selectedRoom.number}</h2>
-            <p className="text-sm text-slate-500">
-              {selectedRoom.roomType.name} • Floor {selectedRoom.floor}
-            </p>
-
-            <div className="mt-6">
-              <label className="label">Update Status</label>
-              <div className="grid grid-cols-2 gap-2">
-                {(['CLEAN', 'DIRTY', 'INSPECTION', 'OUT_OF_SERVICE'] as const).map((status) => (
-                <button
-                  key={status}
-                  onClick={() =>
-                    updateStatusMutation.mutate({
-                      roomId: selectedRoom.id,
-                      status,
-                      notes: notes || undefined,
-                    })
-                  }
-                  disabled={updateStatusMutation.isPending}
-                  className={`rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
-                    selectedRoom.housekeepingStatus === status
-                      ? 'bg-primary-600 text-white'
-                      : status === 'CLEAN'
-                      ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                      : status === 'DIRTY'
-                      ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                      : status === 'INSPECTION'
-                      ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  {formatEnumLabel(status)}
-                </button>
+              <option value="all">All Rooms</option>
+              {floorOptions.map((n) => (
+                <option key={n} value={n}>
+                  Floor {n}
+                </option>
               ))}
-            </div>
-          </div>
+            </select>
 
-            <div className="mt-4">
-              <label className="label">Notes (optional)</label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="input"
-                rows={3}
-                placeholder="Add any notes about this room..."
-              />
-            </div>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as StatusFilter)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+            >
+              <option value="all">All Status</option>
+              <option value="CLEAN">Clean</option>
+              <option value="DIRTY">Dirty</option>
+              <option value="INSPECTION">Needs inspection</option>
+              <option value="OUT_OF_SERVICE">Out of service</option>
+            </select>
 
-            {selectedRoom.status === 'OCCUPIED' && selectedRoom.currentGuest && (
-              <div className="mt-4 rounded-lg bg-blue-50 p-4">
-                <p className="text-sm font-medium text-blue-900">Currently Occupied</p>
-                <p className="text-sm text-blue-700">
-                  Guest: {selectedRoom.currentGuest.firstName} {selectedRoom.currentGuest.lastName}
-                </p>
-              </div>
-            )}
+            <select
+              value={priority}
+              onChange={(e) => setPriority(e.target.value as PriorityFilter)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+            >
+              <option value="all">All Priority</option>
+              <option value="HIGH">High</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="LOW">Low</option>
+            </select>
           </div>
         </div>
-      )}
+      </div>
+
+      <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div className="border-b border-slate-100 px-5 py-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-slate-900">Rooms</h2>
+            <div className="text-sm font-semibold text-slate-500">{filtered.length} result(s)</div>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="p-6 text-sm text-slate-600">Loading rooms...</div>
+        ) : filtered.length === 0 ? (
+          <div className="p-6 text-sm text-slate-600">No rooms match your filters.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-100">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Room
+                  </th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Room Type
+                  </th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Housekeeping Status
+                  </th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Priority
+                  </th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Floor
+                  </th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Reservation Status
+                  </th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Notes
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filtered.map((room) => {
+                  const p = derivePriority(room);
+                  const reservation =
+                    room.status === 'OCCUPIED'
+                      ? 'Checked-In'
+                      : room.status === 'OUT_OF_SERVICE'
+                        ? 'Out of service'
+                        : 'Available';
+
+                  return (
+                    <tr key={room.id} className="hover:bg-slate-50">
+                      <td className="px-5 py-4 text-sm font-bold text-slate-900">{room.number}</td>
+                      <td className="px-5 py-4 text-sm text-slate-700">{room.roomType?.name ?? '-'}</td>
+                      <td className="px-5 py-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusPill(room.housekeepingStatus)}`}>
+                            {formatEnumLabel(room.housekeepingStatus)}
+                          </span>
+                          <select
+                            value={room.housekeepingStatus}
+                            onChange={(e) =>
+                              updateStatusMutation.mutate({
+                                roomId: room.id,
+                                housekeepingStatus: e.target.value as Room['housekeepingStatus'],
+                              })
+                            }
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700"
+                            aria-label={`Update housekeeping status for room ${room.number}`}
+                          >
+                            <option value="CLEAN">Clean</option>
+                            <option value="DIRTY">Dirty</option>
+                            <option value="INSPECTION">Needs inspection</option>
+                            <option value="OUT_OF_SERVICE">Out of service</option>
+                          </select>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-sm">
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${priorityPill(p)}`}>
+                          {formatEnumLabel(p)}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-sm text-slate-700">{room.floor}</td>
+                      <td className="px-5 py-4 text-sm text-slate-700">{reservation}</td>
+                      <td className="px-5 py-4 text-sm text-slate-600">{room.notes || '-'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+

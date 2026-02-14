@@ -20,6 +20,8 @@ import BookingDetailPage from '@/pages/BookingDetailPage';
 import GuestsPage from '@/pages/GuestsPage';
 import HousekeepingPage from '@/pages/HousekeepingPage';
 import ReportsPage from '@/pages/ReportsPage';
+import InvoicesPage from '@/pages/InvoicesPage';
+import ExpensesPage from '@/pages/ExpensesPage';
 import SettingsPage from '@/pages/SettingsPage';
 import UsersPage from '@/pages/UsersPage';
 import ReviewsPage from '@/pages/ReviewsPage';
@@ -125,6 +127,8 @@ export default function App() {
         <Route path="guests" element={<GuestsPage />} />
         <Route path="housekeeping" element={<HousekeepingPage />} />
         <Route path="reports" element={<ReportsPage />} />
+        <Route path="invoices" element={<InvoicesPage />} />
+        <Route path="expenses" element={<ExpensesPage />} />
         <Route path="reviews" element={<ReviewsPage />} />
         <Route path="concierge" element={<ConciergePage />} />
         <Route path="settings" element={<SettingsPage />} />

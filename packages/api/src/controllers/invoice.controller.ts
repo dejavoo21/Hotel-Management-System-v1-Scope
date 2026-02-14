@@ -5,6 +5,7 @@ import { prisma } from '../config/database.js';
 import { NotFoundError } from '../middleware/errorHandler.js';
 import { sendEmail } from '../services/email.service.js';
 import { v4 as uuidv4 } from 'uuid';
+import { renderLafloEmail } from '../utils/emailTemplates.js';
 
 type LineItem = {
   name: string;
@@ -388,15 +389,24 @@ export async function sendInvoiceEmail(
       lineItems: details.lineItems,
     });
 
+    const { html, text } = renderLafloEmail({
+      preheader: `Your invoice ${invoice.invoiceNo} is attached.`,
+      title: `Invoice ${invoice.invoiceNo}`,
+      greeting: `Hello ${booking.guest.firstName},`,
+      intro: `Attached is your invoice for booking ${booking.bookingRef}.`,
+      meta: [
+        { label: 'Booking', value: booking.bookingRef },
+        { label: 'Invoice', value: invoice.invoiceNo },
+        { label: 'Total', value: Number(invoice.total).toFixed(2) },
+      ],
+      footerNote: 'Thank you for staying with LaFlo.',
+    });
+
     await sendEmail({
       to: recipient,
       subject: `Invoice ${invoice.invoiceNo}`,
-      html: `
-        <p>Hello ${booking.guest.firstName},</p>
-        <p>Attached is your invoice ${invoice.invoiceNo} for booking ${booking.bookingRef}.</p>
-        <p>Total amount: ${Number(invoice.total).toFixed(2)}</p>
-      `,
-      text: `Invoice ${invoice.invoiceNo} attached.`,
+      html,
+      text,
       attachments: [
         {
           filename: `invoice-${invoice.invoiceNo}.pdf`,

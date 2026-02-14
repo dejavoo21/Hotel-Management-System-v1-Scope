@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
+import { registerSW } from 'virtual:pwa-register';
 import App from './App';
 import './index.css';
 
@@ -19,12 +20,13 @@ const queryClient = new QueryClient({
 
 const isProd = import.meta.env.PROD;
 
-// Register service worker only in production builds
-if (isProd && 'serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((error) => {
-      console.log('SW registration failed:', error);
-    });
+// PWA (service worker) registration. We auto-update + reload to avoid users getting stuck on old builds.
+if (isProd) {
+  const updateSW = registerSW({
+    immediate: true,
+    onNeedRefresh() {
+      updateSW(true);
+    },
   });
 }
 

@@ -6,6 +6,7 @@ import { config } from '../config/index.js';
 import { Role } from '@prisma/client';
 import { createPasswordResetToken, hashPassword } from '../services/auth.service.js';
 import { scanAttachment } from '../services/virusScan.service.js';
+import { renderLafloEmail, escapeEmailText } from '../utils/emailTemplates.js';
 
 type AccessRequestUpdateAction = 'APPROVED' | 'REJECTED' | 'NEEDS_INFO';
 
@@ -36,31 +37,41 @@ async function sendRequesterUpdate(
   const loginUrl = `${config.appUrl}/login`;
   let subject = `Access request update [AR-${requestId}]`;
   let intro = 'Your access request has been updated.';
+  let title = 'Access request update';
 
   if (action === 'APPROVED') {
     subject = `Your LaFlo access is approved [AR-${requestId}]`;
     intro = 'Your access request has been approved.';
+    title = 'Access approved';
   } else if (action === 'REJECTED') {
     subject = `Your LaFlo access request was rejected [AR-${requestId}]`;
     intro = 'Your access request was not approved.';
+    title = 'Access request rejected';
   } else if (action === 'NEEDS_INFO') {
     subject = `Additional information needed for your access request [AR-${requestId}]`;
     intro = 'We need a bit more information to complete your access request.';
+    title = 'More information needed';
   }
+
+  const { html, text } = renderLafloEmail({
+    preheader: intro,
+    title,
+    greeting: `Hello ${fullName},`,
+    intro,
+    meta: [{ label: 'Reference', value: `AR-${requestId}` }],
+    bodyHtml: notes
+      ? `<p style="margin:0 0 10px; color:#334155;"><strong>Notes:</strong> ${escapeEmailText(
+          notes
+        )}</p>`
+      : undefined,
+    cta: { label: 'Go to login', url: loginUrl },
+  });
 
   await sendEmail({
     to: email,
     subject,
-    html: `
-      <p>Hello ${fullName},</p>
-      <p>${intro}</p>
-      ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ''}
-      <p><strong>Reference:</strong> AR-${requestId}</p>
-      <p>
-        <a href="${loginUrl}">Go to login</a>
-      </p>
-    `,
-    text: `${intro}${notes ? ` Notes: ${notes}` : ''} Reference: AR-${requestId}. Login: ${loginUrl}`,
+    html,
+    text,
   });
 }
 
@@ -86,35 +97,50 @@ export async function createAccessRequest(
       ? config.accessRequestNotifyEmails
       : [config.email.fromAddress];
 
+    const adminUrl = `${config.appUrl}/settings?tab=access-requests`;
+    const adminEmail = renderLafloEmail({
+      preheader: `New access request from ${fullName}.`,
+      title: 'New access request',
+      greeting: 'Hello,',
+      intro: 'A new access request was submitted. Review and take action in the admin console.',
+      meta: [
+        { label: 'Name', value: fullName },
+        { label: 'Email', value: email },
+        { label: 'Company', value: company || '-' },
+        { label: 'Role', value: role || '-' },
+        { label: 'Message', value: message || '-' },
+      ],
+      cta: { label: 'Open access requests', url: adminUrl },
+      footerNote: `Reference: AR-${request.id}`,
+    });
+
     await sendEmail({
       to: notifyRecipients.join(','),
       subject: 'New access request',
-      html: `
-        <p>New access request received:</p>
-        <p><strong>Name:</strong> ${fullName}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Company:</strong> ${company || '-'}</p>
-        <p><strong>Role:</strong> ${role || '-'}</p>
-        <p><strong>Message:</strong> ${message || '-'}</p>
-      `,
-      text: `New access request from ${fullName} (${email})`,
+      html: adminEmail.html,
+      text: adminEmail.text,
+    });
+
+    const requesterEmail = renderLafloEmail({
+      preheader: `We received your access request. Reference AR-${request.id}.`,
+      title: `We received your access request`,
+      greeting: `Hello ${fullName},`,
+      intro:
+        'Thanks for requesting access to LaFlo. Our team will review your request and reach out with access details.',
+      meta: [
+        { label: 'Company', value: company || '-' },
+        { label: 'Role', value: role || '-' },
+        { label: 'Reference', value: `AR-${request.id}` },
+      ],
+      cta: { label: 'Go to login', url: `${config.appUrl}/login` },
+      footerNote: 'If you did not request access, you can ignore this email.',
     });
 
     await sendEmail({
       to: email,
       subject: `We received your access request [AR-${request.id}]`,
-      html: `
-        <p>Hello ${fullName},</p>
-        <p>Thanks for requesting access to LaFlo. Our team will review your request and reach out with access details.</p>
-        <p><strong>Company:</strong> ${company || '-'}</p>
-        <p><strong>Role:</strong> ${role || '-'}</p>
-        <p><strong>Reference:</strong> AR-${request.id}</p>
-        <p>If you already have an account, you can sign in using your work email.</p>
-        <p>
-          <a href="${config.appUrl}/login">Go to login</a>
-        </p>
-      `,
-      text: `Hello ${fullName}, we received your access request. Reference: AR-${request.id}. Login: ${config.appUrl}/login`,
+      html: requesterEmail.html,
+      text: requesterEmail.text,
     });
 
     res.status(201).json({ success: true, data: request, message: 'Request submitted' });
@@ -166,17 +192,21 @@ export async function approveAccessRequest(
     const token = await createPasswordResetToken(user.id);
     const inviteUrl = `${config.appUrl}/reset-password?token=${token}`;
 
+    const inviteEmail = renderLafloEmail({
+      preheader: `Your access is approved. Set your password to get started. Reference AR-${request.id}.`,
+      title: 'Access approved',
+      greeting: `Hello ${firstName},`,
+      intro: 'Your access request has been approved. Set your password using the button below.',
+      meta: [{ label: 'Reference', value: `AR-${request.id}` }],
+      cta: { label: 'Set your password', url: inviteUrl },
+      footerNote: 'This link is personal to you. Do not share it.',
+    });
+
     await sendEmail({
       to: request.email,
       subject: `Your LaFlo access is approved [AR-${request.id}]`,
-      html: `
-        <p>Hello ${firstName},</p>
-        <p>Your access request has been approved. Set your password using the link below:</p>
-        <p><a href="${inviteUrl}">Set your password</a></p>
-        <p><strong>Reference:</strong> AR-${request.id}</p>
-        <p>After setting your password, you can sign in at <a href="${config.appUrl}/login">${config.appUrl}/login</a>.</p>
-      `,
-      text: `Set your password: ${inviteUrl} Reference: AR-${request.id}`,
+      html: inviteEmail.html,
+      text: inviteEmail.text,
     });
 
     res.json({ success: true, message: 'Access approved and invite sent' });

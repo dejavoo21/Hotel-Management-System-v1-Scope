@@ -31,6 +31,8 @@ export default function SettingsPage() {
   const [showAddRoomTypeModal, setShowAddRoomTypeModal] = useState(false);
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [qrCode, setQrCode] = useState('');
+  const [twoFASecret, setTwoFASecret] = useState('');
+  const [twoFAStep, setTwoFAStep] = useState<1 | 2>(1);
   const [selectedRoles, setSelectedRoles] = useState<Record<string, string>>({});
   const [accessRequestAction, setAccessRequestAction] = useState<{
     id: string;
@@ -45,6 +47,7 @@ export default function SettingsPage() {
   } | null>(null);
   const [replyLoading, setReplyLoading] = useState(false);
   const [actionSubmitting, setActionSubmitting] = useState(false);
+  const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null);
   const [notificationPrefs, setNotificationPrefs] = useState({
     newBookings: true,
     checkIns: true,
@@ -301,6 +304,8 @@ export default function SettingsPage() {
     mutationFn: authService.setup2FA,
     onSuccess: (data) => {
       setQrCode(data.qrCode);
+      setTwoFASecret(data.secret);
+      setTwoFAStep(1);
       setShow2FAModal(true);
     },
     onError: () => {
@@ -314,6 +319,8 @@ export default function SettingsPage() {
       toast.success('2FA enabled successfully');
       setShow2FAModal(false);
       setQrCode('');
+      setTwoFASecret('');
+      setTwoFAStep(1);
       if (user) {
         setUser({ ...user, twoFactorEnabled: true });
       }
@@ -804,6 +811,36 @@ export default function SettingsPage() {
                       </button>
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* Authentication Options (Roadmap) */}
+              <div className="card">
+                <h2 className="text-lg font-semibold text-slate-900">Authentication Options</h2>
+                <p className="text-sm text-slate-500">
+                  Additional sign-in methods (biometric/passphrase) can be added after 2FA is stable.
+                </p>
+
+                <div className="mt-6 space-y-3">
+                  <div className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
+                    <div>
+                      <p className="font-medium text-slate-900">Passkey (biometric)</p>
+                      <p className="text-sm text-slate-500">Sign in with Face ID / Touch ID (WebAuthn).</p>
+                    </div>
+                    <button type="button" className="btn-outline text-sm" disabled>
+                      Coming soon
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
+                    <div>
+                      <p className="font-medium text-slate-900">Passphrase sign-in</p>
+                      <p className="text-sm text-slate-500">Use a human-friendly passphrase instead of a password.</p>
+                    </div>
+                    <button type="button" className="btn-outline text-sm" disabled>
+                      Coming soon
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1298,15 +1335,28 @@ export default function SettingsPage() {
                                     </button>
                                     <button
                                       className="btn-primary text-sm"
-                                      disabled={approveAccessMutation.isPending}
-                                      onClick={() =>
-                                        approveAccessMutation.mutate({
-                                          id: request.id,
-                                          role: selectedRole,
-                                        })
+                                      disabled={
+                                        approveAccessMutation.isPending &&
+                                        approvingRequestId === request.id
                                       }
+                                      onClick={async () => {
+                                        setApprovingRequestId(request.id);
+                                        try {
+                                          await approveAccessMutation.mutateAsync({
+                                            id: request.id,
+                                            role: selectedRole,
+                                          });
+                                        } finally {
+                                          setApprovingRequestId((current) =>
+                                            current === request.id ? null : current
+                                          );
+                                        }
+                                      }}
                                     >
-                                      {approveAccessMutation.isPending ? 'Sending...' : 'Approve'}
+                                      {approveAccessMutation.isPending &&
+                                      approvingRequestId === request.id
+                                        ? 'Sending...'
+                                        : 'Approve'}
                                     </button>
                                     <button
                                       className="btn-outline text-sm text-rose-600"
@@ -1443,55 +1493,117 @@ export default function SettingsPage() {
           <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
             <h2 className="text-xl font-bold text-slate-900">Setup Two-Factor Authentication</h2>
             <p className="mt-2 text-sm text-slate-500">
-              Scan the QR code with your authenticator app, then enter the verification code.
+              Step {twoFAStep} of 2
             </p>
 
-            {qrCode && (
-              <div className="mt-6 flex justify-center">
-                <img src={qrCode} alt="2FA QR Code" className="h-48 w-48" />
+            {twoFAStep === 1 ? (
+              <div className="mt-6 space-y-4">
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-sm font-semibold text-slate-900">1. Scan the QR code</p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Open Google Authenticator, Microsoft Authenticator, or Authy and scan.
+                  </p>
+                  <div className="mt-4 flex justify-center">
+                    {qrCode ? (
+                      <img src={qrCode} alt="2FA QR Code" className="h-48 w-48 rounded-lg bg-white p-2" />
+                    ) : (
+                      <div className="h-48 w-48 animate-shimmer rounded-lg" />
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-sm font-semibold text-slate-900">2. Or enter the setup key manually</p>
+                  <p className="mt-1 text-sm text-slate-600">If you cannot scan, copy the secret below.</p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <input
+                      readOnly
+                      value={twoFASecret || ''}
+                      className="input font-mono text-sm"
+                      aria-label="2FA setup key"
+                      placeholder="Setup key"
+                    />
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(twoFASecret || '');
+                          toast.success('Copied');
+                        } catch {
+                          toast.error('Copy failed');
+                        }
+                      }}
+                      disabled={!twoFASecret}
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShow2FAModal(false);
+                      setQrCode('');
+                      setTwoFASecret('');
+                      setTwoFAStep(1);
+                    }}
+                    className="btn-outline flex-1"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary flex-1"
+                    onClick={() => setTwoFAStep(2)}
+                    disabled={!twoFASecret && !qrCode}
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
+            ) : (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.currentTarget);
+                  enable2FAMutation.mutate(formData.get('code') as string);
+                }}
+                className="mt-6"
+              >
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-sm font-semibold text-slate-900">Verify and enable</p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Enter the 6-digit code from your authenticator app to finish setup.
+                  </p>
+                </div>
+
+                <div className="mt-4">
+                  <label className="label">Verification Code</label>
+                  <input
+                    name="code"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    required
+                    className="input text-center text-2xl tracking-widest"
+                    placeholder="000000"
+                  />
+                </div>
+
+                <div className="mt-6 flex gap-3">
+                  <button type="button" onClick={() => setTwoFAStep(1)} className="btn-outline flex-1">
+                    Back
+                  </button>
+                  <button type="submit" disabled={enable2FAMutation.isPending} className="btn-primary flex-1">
+                    {enable2FAMutation.isPending ? 'Verifying...' : 'Enable 2FA'}
+                  </button>
+                </div>
+              </form>
             )}
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                enable2FAMutation.mutate(formData.get('code') as string);
-              }}
-              className="mt-6"
-            >
-              <label className="label">Verification Code</label>
-              <input
-                name="code"
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={6}
-                required
-                className="input text-center text-2xl tracking-widest"
-                placeholder="000000"
-              />
-
-              <div className="mt-6 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShow2FAModal(false);
-                    setQrCode('');
-                  }}
-                  className="btn-outline flex-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={enable2FAMutation.isPending}
-                  className="btn-primary flex-1"
-                >
-                  {enable2FAMutation.isPending ? 'Verifying...' : 'Enable 2FA'}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
@@ -1672,4 +1784,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-

@@ -5,16 +5,22 @@
     "nixpacksPlan": {
       "phases": {
         "install": {
-          "cmds": ["npm install --legacy-peer-deps"]
+          "cmds": [
+            "npm install --legacy-peer-deps",
+            "npm install --workspace=@hotelos/web serve"
+          ]
         },
         "build": {
-          "cmds": ["cd packages/api && npx prisma generate"]
+          "cmds": [
+            "cd packages/api && npx prisma generate",
+            "npm run build --workspace=@hotelos/web"
+          ]
         }
       }
     }
   },
   "deploy": {
-    "startCommand": "cd packages/api && npx tsx src/index.ts",
+    "startCommand": "node scripts/railway-start.js",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 60,
     "numReplicas": 1,

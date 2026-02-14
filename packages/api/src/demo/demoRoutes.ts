@@ -10,6 +10,7 @@ import fs from 'fs';
 import path from 'path';
 import { config } from '../config/index.js';
 import { sendEmail } from '../services/email.service.js';
+import { renderLafloEmail, renderOtpEmail, escapeEmailText } from '../utils/emailTemplates.js';
 import {
   mockUsers,
   mockHotel,
@@ -648,18 +649,15 @@ router.post('/auth/otp/request', async (req: Request, res: Response) => {
 
   // Send OTP email
   try {
+    const { html, text } = renderOtpEmail({
+      firstName: user.firstName || 'User',
+      code: otpCode,
+    });
     await sendEmail({
       to: email,
-      subject: 'Your LaFlo Login Code',
-      html: `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #84cc16;">LaFlo Hotel Management</h2>
-          <p>Your verification code is:</p>
-          <h1 style="font-size: 36px; letter-spacing: 8px; color: #1e293b; background: #f1f5f9; padding: 20px; text-align: center; border-radius: 8px;">${otpCode}</h1>
-          <p>This code expires in 10 minutes.</p>
-          <p style="color: #64748b; font-size: 12px;">If you didn't request this code, please ignore this email.</p>
-        </div>
-      `,
+      subject: 'Your LaFlo verification code',
+      html,
+      text,
     });
   } catch (err) {
     console.error('Failed to send OTP email:', err);
@@ -766,18 +764,19 @@ router.post('/auth/forgot-password', async (req: Request, res: Response) => {
 
   // Send reset email
   try {
+    const resetEmail = renderLafloEmail({
+      preheader: 'Use this link to reset your password (expires in 60 minutes).',
+      title: 'Reset your password',
+      greeting: `Hello ${user.firstName || 'User'},`,
+      intro: 'Use the button below to reset your password. This link expires in 60 minutes.',
+      cta: { label: 'Reset password', url: resetUrl },
+      footerNote: 'If you did not request a password reset, you can ignore this email.',
+    });
     await sendEmail({
       to: email,
-      subject: 'Reset Your LaFlo Password',
-      html: `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #84cc16;">LaFlo Hotel Management</h2>
-          <p>You requested to reset your password. Click the button below to set a new password:</p>
-          <a href="${resetUrl}" style="display: inline-block; background: #84cc16; color: #1e293b; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0;">Reset Password</a>
-          <p style="color: #64748b; font-size: 12px;">This link expires in 1 hour. If you didn't request this, please ignore this email.</p>
-          <p style="color: #64748b; font-size: 12px;">Or copy this link: ${resetUrl}</p>
-        </div>
-      `,
+      subject: 'Reset your LaFlo password',
+      html: resetEmail.html,
+      text: resetEmail.text,
     });
   } catch (err) {
     console.error('Failed to send password reset email:', err);
@@ -864,7 +863,8 @@ function generateBase32Secret(): string {
 
 // 2FA Setup - Generate QR code and secret
 router.post('/auth/2fa/setup', authenticateDemo, (req: Request, res: Response) => {
-  const userId = (req as any).userId;
+  const authUser = (req as any).user;
+  const userId = authUser?.id as string | undefined;
   const user = mockUsers.find(u => u.id === userId);
 
   if (!user) {
@@ -902,7 +902,8 @@ router.post('/auth/2fa/setup', authenticateDemo, (req: Request, res: Response) =
 
 // 2FA Verify - Confirm setup with a code
 router.post('/auth/2fa/verify', authenticateDemo, (req: Request, res: Response) => {
-  const userId = (req as any).userId;
+  const authUser = (req as any).user;
+  const userId = authUser?.id as string | undefined;
   const { code } = req.body;
 
   if (!code || typeof code !== 'string' || code.length !== 6) {
@@ -942,7 +943,8 @@ router.post('/auth/2fa/verify', authenticateDemo, (req: Request, res: Response) 
 
 // 2FA Disable - Turn off 2FA with verification
 router.post('/auth/2fa/disable', authenticateDemo, (req: Request, res: Response) => {
-  const userId = (req as any).userId;
+  const authUser = (req as any).user;
+  const userId = authUser?.id as string | undefined;
   const { code } = req.body;
 
   if (!code || typeof code !== 'string' || code.length !== 6) {
@@ -979,7 +981,8 @@ router.post('/auth/2fa/disable', authenticateDemo, (req: Request, res: Response)
 
 // 2FA Status - Check if 2FA is enabled for current user
 router.get('/auth/2fa/status', authenticateDemo, (req: Request, res: Response) => {
-  const userId = (req as any).userId;
+  const authUser = (req as any).user;
+  const userId = authUser?.id as string | undefined;
   const user = mockUsers.find(u => u.id === userId);
 
   if (!user) {
@@ -1417,6 +1420,61 @@ router.post('/access-requests', (req: Request, res: Response) => {
   mockAccessRequests.push(newRequest);
   saveDemoStore();
 
+  const notifyRecipients = config.accessRequestNotifyEmails.length
+    ? config.accessRequestNotifyEmails
+    : [config.email.fromAddress];
+
+  // Demo mode should mirror production notifications for new access requests.
+  const adminUrl = `${config.appUrl}/settings?tab=access-requests`;
+  const adminEmail = renderLafloEmail({
+    preheader: `New access request from ${fullName}.`,
+    title: 'New access request',
+    greeting: 'Hello,',
+    intro: 'A new access request was submitted. Review and take action in the admin console.',
+    meta: [
+      { label: 'Name', value: fullName },
+      { label: 'Email', value: email },
+      { label: 'Company', value: company || '-' },
+      { label: 'Role', value: role || '-' },
+      { label: 'Message', value: message || '-' },
+      { label: 'Reference', value: `AR-${newRequest.id}` },
+    ],
+    cta: { label: 'Open access requests', url: adminUrl },
+  });
+
+  sendEmail({
+    to: notifyRecipients.join(','),
+    subject: 'New access request',
+    html: adminEmail.html,
+    text: adminEmail.text,
+  }).catch((error) => {
+    console.error('[ACCESS-REQUEST] Failed to send admin notification email:', error);
+  });
+
+  const requesterEmail = renderLafloEmail({
+    preheader: `We received your access request. Reference AR-${newRequest.id}.`,
+    title: 'We received your access request',
+    greeting: `Hello ${fullName},`,
+    intro:
+      'Thanks for requesting access to LaFlo. Our team will review your request and reach out with access details.',
+    meta: [
+      { label: 'Company', value: company || '-' },
+      { label: 'Role', value: role || '-' },
+      { label: 'Reference', value: `AR-${newRequest.id}` },
+    ],
+    cta: { label: 'Go to login', url: `${config.appUrl}/login` },
+    footerNote: 'If you did not request access, you can ignore this email.',
+  });
+
+  sendEmail({
+    to: email,
+    subject: `We received your access request [AR-${newRequest.id}]`,
+    html: requesterEmail.html,
+    text: requesterEmail.text,
+  }).catch((error) => {
+    console.error('[ACCESS-REQUEST] Failed to send requester confirmation email:', error);
+  });
+
   res.status(201).json({
     success: true,
     data: newRequest,
@@ -1482,31 +1540,34 @@ router.post('/access-requests/:id/approve', authenticateDemo, async (req: Reques
 
   // Send approval email with login credentials
   try {
+    const approved = renderLafloEmail({
+      preheader: `Your access is approved. Reference AR-${accessRequest.id}.`,
+      title: 'Access approved',
+      greeting: `Hello ${firstName},`,
+      intro:
+        'Great news. Your access request to LaFlo has been approved. Use the credentials below and change your password after you sign in.',
+      meta: [
+        { label: 'Email', value: accessRequest.email },
+        { label: 'Temporary password', value: tempPassword },
+        { label: 'Reference', value: `AR-${accessRequest.id}` },
+      ],
+      cta: {
+        label: 'Log in',
+        url: `${config.appUrl || 'https://laflo-web-production.up.railway.app'}/login`,
+      },
+      footerNote: 'If you did not request access, contact an administrator.',
+    });
+
     await sendEmail({
       to: accessRequest.email,
-      subject: `Your LaFlo access has been approved!`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #10b981;">Access Approved!</h2>
-          <p>Hello ${firstName},</p>
-          <p>Great news! Your access request to <strong>LaFlo Hotel Management System</strong> has been approved.</p>
-          <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="margin-top: 0;">Your Login Credentials:</h3>
-            <p><strong>Email:</strong> ${accessRequest.email}</p>
-            <p><strong>Temporary Password:</strong> ${tempPassword}</p>
-          </div>
-          <p>Please log in and change your password upon first login.</p>
-          <p><a href="${config.appUrl || 'https://laflo-web-production.up.railway.app'}/login" style="background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Log In Now</a></p>
-          <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">If you have any questions, please contact your administrator.</p>
-        </div>
-      `,
+      subject: `Your LaFlo access is approved [AR-${accessRequest.id}]`,
+      html: approved.html,
+      text: approved.text,
     });
-    console.log(`[APPROVE] ✓ Approval email with credentials sent to ${accessRequest.email}`);
+    console.log(`[APPROVE] OK Approval email with credentials sent to ${accessRequest.email}`);
   } catch (error) {
-    console.error('[APPROVE] ✗ Failed to send approval email:', error);
-  }
-
-  // Update status and remove from pending list
+    console.error('[APPROVE] ERROR Failed to send approval email:', error);
+  }// Update status and remove from pending list
   mockAccessRequests.splice(requestIndex, 1);
   saveDemoStore();
 
@@ -1541,31 +1602,32 @@ router.post('/access-requests/:id/request-info', authenticateDemo, async (req: R
   
   // Send email to user requesting more information
   try {
+    const first = (accessRequest.fullName || 'User').split(' ')[0] || 'User';
+    const needsInfo = renderLafloEmail({
+      preheader: `More information is needed. Reference AR-${accessRequest.id}.`,
+      title: 'More information needed',
+      greeting: `Hello ${first},`,
+      intro:
+        'We reviewed your access request and need a bit more information before we can proceed. Reply to this email with the requested details.',
+      meta: [{ label: 'Reference', value: `AR-${accessRequest.id}` }],
+      bodyHtml: notes
+        ? `<p style="margin:0;"><strong>Message from administrator:</strong><br/>${escapeEmailText(
+            String(notes)
+          )}</p>`
+        : undefined,
+      footerNote: 'Reply directly to this email to provide the requested information.',
+    });
+
     await sendEmail({
       to: accessRequest.email,
-      subject: `Additional Information Required [AR-${accessRequest.id}] - LaFlo Access Request`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #f59e0b;">Additional Information Required</h2>
-          <p>Hello ${accessRequest.fullName.split(' ')[0]},</p>
-          <p>We've reviewed your access request to <strong>LaFlo Hotel Management System</strong> and need some additional information before we can proceed.</p>
-          ${notes ? `
-          <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
-            <h3 style="margin-top: 0; color: #92400e;">Message from Administrator:</h3>
-            <p style="color: #78350f;">${notes}</p>
-          </div>
-          ` : ''}
-          <p>Please reply to this email with the requested information, and we will continue processing your request.</p>
-          <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">If you have any questions, please contact your administrator.</p>
-        </div>
-      `,
+      subject: `Additional information needed for your access request [AR-${accessRequest.id}]`,
+      html: needsInfo.html,
+      text: needsInfo.text,
     });
-    console.log(`[REQUEST-INFO] ✓ Info request email sent to ${accessRequest.email}`);
+    console.log(`[REQUEST-INFO] OK Info request email sent to ${accessRequest.email}`);
   } catch (error) {
-    console.error('[REQUEST-INFO] ✗ Failed to send info request email:', error);
-  }
-  
-  saveDemoStore();
+    console.error('[REQUEST-INFO] ERROR Failed to send info request email:', error);
+  }saveDemoStore();
   res.json({ success: true, message: 'Information requested and email sent to user' });
 });
 

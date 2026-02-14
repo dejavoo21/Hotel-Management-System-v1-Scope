@@ -36,6 +36,8 @@ export const config = {
   // Email (Resend)
   email: {
     resendApiKey: process.env.RESEND_API_KEY || '',
+    brevoApiKey: process.env.BREVO_API_KEY || '',
+    fromName: process.env.EMAIL_FROM_NAME || 'LaFlo',
     fromAddress: process.env.EMAIL_FROM || 'noreply@hotelos.com',
   },
   accessRequestNotifyEmails: process.env.ACCESS_REQUEST_NOTIFY_EMAILS

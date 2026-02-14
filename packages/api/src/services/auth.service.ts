@@ -8,6 +8,7 @@ import { prisma } from '../config/database.js';
 import { config } from '../config/index.js';
 import { logger } from '../config/logger.js';
 import { sendEmail } from './email.service.js';
+import { renderLafloEmail, renderOtpEmail } from '../utils/emailTemplates.js';
 import { TokenPayload, RefreshTokenPayload } from '../types/index.js';
 import { UnauthorizedError, NotFoundError, ForbiddenError } from '../middleware/errorHandler.js';
 
@@ -391,16 +392,19 @@ export async function requestPasswordReset(email: string) {
   });
 
   const resetUrl = `${config.appUrl}/reset-password?token=${token}`;
+  const { html, text } = renderLafloEmail({
+    preheader: 'Use this link to reset your password (expires in 60 minutes).',
+    title: 'Reset your password',
+    greeting: `Hello ${user.firstName},`,
+    intro: 'Use the button below to reset your password. This link expires in 60 minutes.',
+    cta: { label: 'Reset password', url: resetUrl },
+    footerNote: 'If you did not request a password reset, you can ignore this email.',
+  });
   await sendEmail({
     to: user.email,
     subject: 'Reset your LaFlo password',
-    html: `
-      <p>Hello ${user.firstName},</p>
-      <p>Use the link below to reset your password:</p>
-      <p><a href="${resetUrl}">Reset password</a></p>
-      <p>This link expires in 60 minutes.</p>
-    `,
-    text: `Reset your password: ${resetUrl}`,
+    html,
+    text,
   });
 }
 
@@ -461,15 +465,12 @@ export async function requestEmailOtp(email: string, purpose: string) {
     },
   });
 
+  const { html, text } = renderOtpEmail({ firstName: user.firstName, code });
   await sendEmail({
     to: user.email,
     subject: 'Your LaFlo verification code',
-    html: `
-      <p>Hello ${user.firstName},</p>
-      <p>Your verification code is <strong>${code}</strong>.</p>
-      <p>This code expires in 10 minutes.</p>
-    `,
-    text: `Your verification code is ${code}`,
+    html,
+    text,
   });
 }
 

@@ -5,6 +5,7 @@ import { NotFoundError, ConflictError, ForbiddenError } from '../middleware/erro
 import { createPasswordResetToken, hashPassword } from '../services/auth.service.js';
 import { sendEmail } from '../services/email.service.js';
 import { config } from '../config/index.js';
+import { renderLafloEmail } from '../utils/emailTemplates.js';
 
 export async function getAllUsers(
   req: AuthenticatedRequest,
@@ -105,15 +106,19 @@ export async function createUser(
     if (sendInvite) {
       const token = await createPasswordResetToken(user.id);
       const inviteUrl = `${config.appUrl}/reset-password?token=${token}`;
+      const { html, text } = renderLafloEmail({
+        preheader: 'Your LaFlo account is ready. Set your password to get started.',
+        title: 'You are invited to LaFlo',
+        greeting: `Hello ${user.firstName},`,
+        intro: 'Your LaFlo account is ready. Set your password using the button below.',
+        cta: { label: 'Set your password', url: inviteUrl },
+        footerNote: 'This link is personal to you. Do not share it.',
+      });
       await sendEmail({
         to: user.email,
         subject: 'You are invited to LaFlo',
-        html: `
-          <p>Hello ${user.firstName},</p>
-          <p>Your LaFlo account is ready. Set your password using the link below:</p>
-          <p><a href="${inviteUrl}">Set your password</a></p>
-        `,
-        text: `Set your password: ${inviteUrl}`,
+        html,
+        text,
       });
     }
 
