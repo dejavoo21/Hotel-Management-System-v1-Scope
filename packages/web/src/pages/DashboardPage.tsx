@@ -114,25 +114,24 @@ function KpiCard({
     <ClickableCard
       to={to}
       ariaLabel={`${title} details`}
-      className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+      className="rounded-[20px] bg-white p-4 shadow-sm ring-1 ring-slate-200"
     >
       <div className="flex items-center justify-between">
-        <div className="text-sm font-semibold text-slate-600">{title}</div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-50"
-            aria-label="More"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6h.01M12 12h.01M12 18h.01" />
-            </svg>
-          </button>
-          <div className="rounded-xl bg-emerald-50 p-2 text-emerald-700">{icon}</div>
-        </div>
+        <div className="rounded-xl bg-emerald-50 p-2 text-emerald-700">{icon}</div>
+        <button
+          type="button"
+          className="rounded-lg p-1 text-slate-400 hover:bg-slate-50"
+          aria-label="More"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6h.01M12 12h.01M12 18h.01" />
+          </svg>
+        </button>
       </div>
-      <div className={`mt-3 ${KPI_VALUE_CLASS}`}>{value}</div>
+
+      <div className="mt-3 text-sm font-semibold text-slate-600">{title}</div>
+      <div className={`mt-2 ${KPI_VALUE_CLASS}`}>{value}</div>
       <div className="mt-2">
         <TrendPill pct={trendPct} />
       </div>
@@ -361,6 +360,28 @@ export default function DashboardPage() {
     return revenueByMonth.reduce((best, cur) => (cur.value > best.value ? cur : best), revenueByMonth[0]);
   }, [revenueByMonth]);
 
+  // Position the "TOTAL REVENUE" bubble near the max point (approx. by index + value range).
+  const maxRevenueIndex = useMemo(() => {
+    const idx = revenueByMonth.findIndex((p) => p.month === maxRevenuePoint.month);
+    return Math.max(0, idx);
+  }, [maxRevenuePoint.month, revenueByMonth]);
+
+  const bubbleLeftPct = useMemo(() => {
+    if (revenueByMonth.length <= 1) return 50;
+    return (maxRevenueIndex / (revenueByMonth.length - 1)) * 100;
+  }, [maxRevenueIndex, revenueByMonth.length]);
+
+  const bubbleTopPct = useMemo(() => {
+    const vals = revenueByMonth.map((p) => p.value);
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    if (!Number.isFinite(min) || !Number.isFinite(max) || max === min) return 22;
+    const t = (maxRevenuePoint.value - min) / (max - min); // 0..1
+    // Higher value => closer to top. Clamp to keep it readable.
+    const top = 14 + (1 - t) * 34; // 14%..48%
+    return Math.round(Math.min(48, Math.max(14, top)));
+  }, [maxRevenuePoint.value, revenueByMonth]);
+
   const donutColors = ['#bbf7d0', '#d9f99d', '#c7d2fe', '#fde68a', '#fecaca', '#e2e8f0'];
 
   return (
@@ -385,8 +406,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid items-start gap-4 xl:grid-cols-[0.82fr_1.18fr_360px]">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:col-span-2">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-6">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           title="New Bookings"
           value={summary.newBookings.toLocaleString()}
@@ -438,12 +460,8 @@ export default function DashboardPage() {
         />
       </div>
 
-        <div className="grid gap-4 xl:col-span-2 xl:col-start-1 xl:row-start-2 xl:grid-cols-[0.82fr_1.18fr]">
-          <ClickableCard
-            to="/rooms"
-            ariaLabel="Go to rooms"
-            className="h-full rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
-          >
+        <div className="grid gap-6 lg:grid-cols-2">
+          <ClickableCard to="/rooms" ariaLabel="Go to rooms" className="h-full rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Room Availability</div>
               <button
@@ -517,11 +535,7 @@ export default function DashboardPage() {
             </div>
           </ClickableCard>
 
-          <ClickableCard
-            to="/expenses"
-            ariaLabel="Go to revenue and expenses"
-            className="h-full rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
-          >
+          <ClickableCard to="/expenses" ariaLabel="Go to revenue and expenses" className="h-full rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold text-slate-900">Revenue</div>
@@ -543,7 +557,10 @@ export default function DashboardPage() {
             </div>
 
             <div className="relative mt-3 h-64">
-              <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded-2xl border border-lime-200 bg-lime-50 px-4 py-2 text-center shadow-sm">
+              <div
+                className="pointer-events-none absolute -translate-x-1/2 rounded-2xl border border-lime-200 bg-lime-50 px-4 py-2 text-center shadow-sm"
+                style={{ left: `${bubbleLeftPct}%`, top: `${bubbleTopPct}%` }}
+              >
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total Revenue</div>
                 <div className="text-sm font-extrabold text-slate-900">{formatCurrency(maxRevenuePoint.value, currency)}</div>
               </div>
@@ -574,11 +591,7 @@ export default function DashboardPage() {
             </div>
           </ClickableCard>
 
-          <ClickableCard
-            to="/bookings"
-            ariaLabel="Go to reservations"
-            className="h-full rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
-          >
+          <ClickableCard to="/bookings" ariaLabel="Go to reservations" className="h-full rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Reservations</div>
               <select
@@ -621,11 +634,7 @@ export default function DashboardPage() {
             </div>
           </ClickableCard>
 
-          <ClickableCard
-            to="/reports"
-            ariaLabel="Go to booking platform report"
-            className="h-full rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
-          >
+          <ClickableCard to="/reports" ariaLabel="Go to booking platform report" className="h-full rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold text-slate-900">Booking by Platform</div>
@@ -672,8 +681,91 @@ export default function DashboardPage() {
           </ClickableCard>
         </div>
 
-        <div className="space-y-4 xl:col-start-3 xl:row-start-1 xl:row-span-3">
-          <ClickableCard to="/reviews" ariaLabel="Go to reviews" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <button
+                type="button"
+                className="text-sm font-semibold text-slate-900 hover:underline"
+                onClick={() => navigate('/bookings')}
+              >
+                Booking List
+              </button>
+              <div className="mt-1 text-xs font-semibold text-slate-500">Arrivals and departures today</div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <svg
+                  className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  value={bookingSearch}
+                  onChange={(e) => setBookingSearch(e.target.value)}
+                  className="w-56 rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-3 text-sm placeholder-slate-400 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                  placeholder="Search guest, status, etc"
+                />
+              </div>
+              <select
+                value={bookingStatus}
+                onChange={(e) => setBookingStatus(e.target.value as any)}
+                className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900"
+              >
+                <option>All Status</option>
+                <option>Checked-In</option>
+                <option>Checked-Out</option>
+                <option>Pending</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-4 overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-100">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Booking ID</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Guest Name</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Room Type</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Room Number</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Duration</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Check-In & Check-Out</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredBookings.map((b) => (
+                  <tr key={b.id} className="cursor-pointer hover:bg-slate-50" onClick={() => navigate('/bookings')}>
+                    <td className="px-5 py-4 text-sm font-semibold text-slate-900">{b.bookingId}</td>
+                    <td className="px-5 py-4 text-sm text-slate-700">{b.guestName}</td>
+                    <td className="px-5 py-4 text-sm text-slate-700">
+                      <RoomTypeBadge roomType={b.roomType} />
+                    </td>
+                    <td className="px-5 py-4 text-sm text-slate-700">{b.roomNumber}</td>
+                    <td className="px-5 py-4 text-sm text-slate-700">{b.duration}</td>
+                    <td className="px-5 py-4 text-sm text-slate-700">{b.dates}</td>
+                    <td className="px-5 py-4 text-sm">
+                      <StatusBadge status={b.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {filteredBookings.length === 0 ? (
+            <div className="mt-4 rounded-2xl bg-slate-50 p-6 text-sm text-slate-600">No bookings match your search.</div>
+          ) : null}
+        </div>
+
+        </div>
+
+        <div className="space-y-6">
+          <ClickableCard to="/reviews" ariaLabel="Go to reviews" className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold text-slate-900">Overall Rating</div>
@@ -715,12 +807,12 @@ export default function DashboardPage() {
             </div>
           </ClickableCard>
 
-          <ClickableCard to="/housekeeping" ariaLabel="Go to housekeeping tasks" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <ClickableCard to="/housekeeping" ariaLabel="Go to housekeeping tasks" className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Tasks</div>
               <button
                 type="button"
-                className="rounded-xl bg-lime-200 p-2 text-slate-900 hover:bg-lime-300"
+                className="rounded-full bg-lime-200 p-2 text-slate-900 hover:bg-lime-300"
                 aria-label="Add"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -753,7 +845,9 @@ export default function DashboardPage() {
                     className="mt-1 h-4 w-4 rounded border-slate-300 text-lime-600"
                   />
                   <div className="min-w-0">
-                    <div className="text-[11px] font-semibold text-slate-500">{t.dateLabel}</div>
+                    <div className="inline-flex rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200">
+                      {t.dateLabel}
+                    </div>
                     <div className={`mt-1 text-sm font-extrabold ${t.completed ? 'text-slate-500 line-through' : 'text-slate-900'}`}>
                       {t.title}
                     </div>
@@ -774,11 +868,7 @@ export default function DashboardPage() {
             </div>
           </ClickableCard>
 
-          <ClickableCard
-            to="/settings?tab=audit-trail"
-            ariaLabel="Go to audit trail"
-            className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
-          >
+          <ClickableCard to="/settings?tab=audit-trail" ariaLabel="Go to audit trail" className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Recent Activities</div>
               <button
@@ -793,9 +883,9 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            <div className="mt-4 space-y-4">
+            <div className="mt-4 divide-y divide-slate-100">
               {recentActivities.map((a) => (
-                <div key={a.id} className="flex items-start gap-3">
+                <div key={a.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                   <span className="mt-1 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-lime-100 text-lime-800">
                     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />
@@ -814,96 +904,6 @@ export default function DashboardPage() {
           </ClickableCard>
         </div>
 
-        <div className="xl:col-span-2 xl:col-start-1 xl:row-start-3">
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <button
-                type="button"
-                className="text-sm font-semibold text-slate-900 hover:underline"
-                onClick={() => navigate('/bookings')}
-              >
-                Booking List
-              </button>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative">
-                  <svg
-                    className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  <input
-                    value={bookingSearch}
-                    onChange={(e) => setBookingSearch(e.target.value)}
-                    className="w-56 rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-3 text-sm placeholder-slate-400 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                    placeholder="Search guest, status, etc"
-                  />
-                </div>
-                <select
-                  value={bookingStatus}
-                  onChange={(e) => setBookingStatus(e.target.value as any)}
-                  className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900"
-                >
-                  <option>All Status</option>
-                  <option>Checked-In</option>
-                  <option>Checked-Out</option>
-                  <option>Pending</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={() => navigate('/bookings')}
-                  className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
-                >
-                  View all
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-4 overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-100">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Booking ID</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Guest Name</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Room Type</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Room Number</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Duration</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Check-In & Check-Out</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredBookings.map((b) => (
-                    <tr
-                      key={b.id}
-                      className="cursor-pointer hover:bg-slate-50"
-                      onClick={() => navigate('/bookings')}
-                    >
-                      <td className="px-5 py-4 text-sm font-semibold text-slate-900">{b.bookingId}</td>
-                      <td className="px-5 py-4 text-sm text-slate-700">{b.guestName}</td>
-                      <td className="px-5 py-4 text-sm text-slate-700">
-                        <RoomTypeBadge roomType={b.roomType} />
-                      </td>
-                      <td className="px-5 py-4 text-sm text-slate-700">{b.roomNumber}</td>
-                      <td className="px-5 py-4 text-sm text-slate-700">{b.duration}</td>
-                      <td className="px-5 py-4 text-sm text-slate-700">{b.dates}</td>
-                      <td className="px-5 py-4 text-sm">
-                        <StatusBadge status={b.status} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {filteredBookings.length === 0 ? (
-              <div className="mt-4 rounded-2xl bg-slate-50 p-6 text-sm text-slate-600">No bookings match your search.</div>
-            ) : null}
-          </div>
-        </div>
       </div>
 
     </div>
