@@ -161,8 +161,10 @@ export default function DashboardPage() {
   // MOCK DATA - replace with real data
   const roomAvailability = useMemo(() => ({ occupied: 286, reserved: 87, available: 32, notReady: 13 }), []);
 
+  const [revenueRange, setRevenueRange] = useState<'6m' | '1y'>('6m');
+
   // MOCK DATA - replace with real data
-  const revenueByMonth = useMemo(
+  const revenue6m = useMemo(
     () => [
       { month: 'Dec 2027', value: 220_000 },
       { month: 'Jan 2028', value: 245_000 },
@@ -175,7 +177,23 @@ export default function DashboardPage() {
   );
 
   // MOCK DATA - replace with real data
-  const reservationsByDay = useMemo(
+  const revenue1y = useMemo(
+    () => [
+      { month: 'Jun 2027', value: 185_000 },
+      { month: 'Jul 2027', value: 205_000 },
+      { month: 'Aug 2027', value: 198_000 },
+      { month: 'Sep 2027', value: 215_000 },
+      { month: 'Oct 2027', value: 230_000 },
+      { month: 'Nov 2027', value: 240_000 },
+      ...revenue6m,
+    ],
+    [revenue6m],
+  );
+
+  const revenueByMonth = useMemo(() => (revenueRange === '6m' ? revenue6m : revenue1y), [revenue6m, revenue1y, revenueRange]);
+
+  // MOCK DATA - replace with real data
+  const reservations7d = useMemo(
     () => [
       { day: '12 Jun', booked: 40, canceled: 18 },
       { day: '13 Jun', booked: 52, canceled: 22 },
@@ -186,6 +204,26 @@ export default function DashboardPage() {
       { day: '18 Jun', booked: 58, canceled: 21 },
     ],
     [],
+  );
+
+  const reservations30d = useMemo(
+    () => {
+      // 30-day mock derived from a stable baseline.
+      const days = Array.from({ length: 30 }).map((_, i) => {
+        const d = 1 + i;
+        const booked = 38 + ((i * 7) % 28);
+        const canceled = 12 + ((i * 5) % 14);
+        return { day: `${d} Jun`, booked, canceled };
+      });
+      return days;
+    },
+    [],
+  );
+
+  const [reservationsRange, setReservationsRange] = useState<'7d' | '30d'>('7d');
+  const reservationsByDay = useMemo(
+    () => (reservationsRange === '7d' ? reservations7d : reservations30d),
+    [reservations30d, reservations7d, reservationsRange],
   );
 
   // MOCK DATA - replace with real data
@@ -329,7 +367,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid items-start gap-4 xl:grid-cols-[1fr_1fr_360px]">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:col-span-2">
         <KpiCard
           title="New Bookings"
           value={summary.newBookings.toLocaleString()}
@@ -381,8 +420,8 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="grid items-start gap-4 xl:grid-cols-[1fr_1fr_360px]">
-        <div className="space-y-4">
+
+        <div className="space-y-4 xl:col-start-1 xl:row-start-2">
           <ClickableCard to="/rooms" ariaLabel="Go to rooms" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Room Availability</div>
@@ -425,21 +464,33 @@ export default function DashboardPage() {
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-xs font-semibold text-slate-500">Occupied</div>
-                  <div className={`mt-1 ${KPI_VALUE_CLASS}`}>{roomAvailability.occupied}</div>
+                <div className="flex items-start gap-3">
+                  <span className="mt-1 h-10 w-1 rounded-full bg-emerald-200" aria-hidden="true" />
+                  <div>
+                    <div className="text-xs font-semibold text-slate-500">Occupied</div>
+                    <div className={`mt-1 ${KPI_VALUE_CLASS}`}>{roomAvailability.occupied}</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-xs font-semibold text-slate-500">Reserved</div>
-                  <div className={`mt-1 ${KPI_VALUE_CLASS}`}>{roomAvailability.reserved}</div>
+                <div className="flex items-start gap-3">
+                  <span className="mt-1 h-10 w-1 rounded-full bg-lime-200" aria-hidden="true" />
+                  <div>
+                    <div className="text-xs font-semibold text-slate-500">Reserved</div>
+                    <div className={`mt-1 ${KPI_VALUE_CLASS}`}>{roomAvailability.reserved}</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-xs font-semibold text-slate-500">Available</div>
-                  <div className={`mt-1 ${KPI_VALUE_CLASS}`}>{roomAvailability.available}</div>
+                <div className="flex items-start gap-3">
+                  <span className="mt-1 h-10 w-1 rounded-full bg-emerald-100" aria-hidden="true" />
+                  <div>
+                    <div className="text-xs font-semibold text-slate-500">Available</div>
+                    <div className={`mt-1 ${KPI_VALUE_CLASS}`}>{roomAvailability.available}</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-xs font-semibold text-slate-500">Not Ready</div>
-                  <div className={`mt-1 ${KPI_VALUE_CLASS}`}>{roomAvailability.notReady}</div>
+                <div className="flex items-start gap-3">
+                  <span className="mt-1 h-10 w-1 rounded-full bg-slate-200" aria-hidden="true" />
+                  <div>
+                    <div className="text-xs font-semibold text-slate-500">Not Ready</div>
+                    <div className={`mt-1 ${KPI_VALUE_CLASS}`}>{roomAvailability.notReady}</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -450,10 +501,15 @@ export default function DashboardPage() {
               <div className="text-sm font-semibold text-slate-900">Reservations</div>
               <select
                 className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900"
+                value={reservationsRange}
                 onClick={(e) => e.stopPropagation()}
-                onChange={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  setReservationsRange(e.target.value as any);
+                }}
               >
-                <option>Last 7 Days</option>
+                <option value="7d">Last 7 Days</option>
+                <option value="30d">Last 30 Days</option>
               </select>
             </div>
 
@@ -483,7 +539,7 @@ export default function DashboardPage() {
           </ClickableCard>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 xl:col-start-2 xl:row-start-2">
           <ClickableCard
             to="/expenses"
             ariaLabel="Go to revenue and expenses"
@@ -492,18 +548,23 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold text-slate-900">Revenue</div>
-                <div className="text-xs font-semibold text-slate-500">Last 6 Months</div>
+                <div className="text-xs font-semibold text-slate-500">{revenueRange === '6m' ? 'Last 6 Months' : 'This Year'}</div>
               </div>
               <select
                 className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900"
                 onClick={(e) => e.stopPropagation()}
-                onChange={(e) => e.stopPropagation()}
+                value={revenueRange}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  setRevenueRange(e.target.value as any);
+                }}
               >
-                <option>Last 6 Months</option>
+                <option value="6m">Last 6 Months</option>
+                <option value="1y">This Year</option>
               </select>
             </div>
 
-            <div className="relative mt-4 h-60">
+            <div className="relative mt-4 h-72">
               <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded-2xl border border-lime-200 bg-lime-50 px-4 py-2 text-center shadow-sm">
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total Revenue</div>
                 <div className="text-sm font-extrabold text-slate-900">{formatCurrency(maxRevenuePoint.value, currency)}</div>
@@ -557,11 +618,11 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-[1fr_220px] md:items-center">
-              <div className="h-56">
+            <div className="mt-4 grid gap-4 md:grid-cols-[220px_1fr] md:items-center">
+              <div className="h-52">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={bookingByPlatform} dataKey="pct" nameKey="name" innerRadius={60} outerRadius={86} paddingAngle={2}>
+                    <Pie data={bookingByPlatform} dataKey="pct" nameKey="name" innerRadius={56} outerRadius={80} paddingAngle={2}>
                       {bookingByPlatform.map((_, idx) => (
                         <Cell key={idx} fill={donutColors[idx % donutColors.length]} stroke="#ffffff" strokeWidth={2} />
                       ))}
@@ -574,9 +635,9 @@ export default function DashboardPage() {
               <div className="space-y-2 text-sm">
                 {bookingByPlatform.map((row, idx) => (
                   <div key={row.name} className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: donutColors[idx % donutColors.length] }} />
-                      <span className="text-slate-700">{row.name}</span>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: donutColors[idx % donutColors.length] }} />
+                      <span className="truncate text-slate-700">{row.name}</span>
                     </div>
                     <span className="font-semibold text-slate-900">{row.pct}%</span>
                   </div>
@@ -586,7 +647,7 @@ export default function DashboardPage() {
           </ClickableCard>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 xl:col-start-3 xl:row-start-1 xl:row-span-3">
           <ClickableCard to="/reviews" ariaLabel="Go to reviews" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div>
@@ -728,7 +789,7 @@ export default function DashboardPage() {
           </ClickableCard>
         </div>
 
-        <div className="xl:col-span-2">
+        <div className="xl:col-span-2 xl:col-start-1 xl:row-start-3">
           <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <button

@@ -71,6 +71,25 @@ function formatCurrency(value: number, currency: string) {
   return value.toLocaleString(undefined, { style: 'currency', currency });
 }
 
+function formatRangeLabel(range: Range) {
+  const start = new Date(range.startDate);
+  const end = new Date(range.endDate);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return `${range.startDate} - ${range.endDate}`;
+  }
+
+  const sameYear = start.getFullYear() === end.getFullYear();
+  const sameMonth = sameYear && start.getMonth() === end.getMonth();
+
+  if (sameMonth) {
+    const month = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(start);
+    return `${start.getDate()} - ${end.getDate()} ${month} ${start.getFullYear()}`;
+  }
+
+  const fmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return `${fmt.format(start)} - ${fmt.format(end)}`;
+}
+
 function categoryFromName(name: string): ExpenseCategory {
   const n = (name || '').toLowerCase();
   if (n.includes('salary') || n.includes('wage') || n.includes('payroll')) return 'Salaries and Wages';
@@ -595,82 +614,82 @@ export default function ExpensesPage() {
       </div>
 
       {/* Summary cards - do not stretch to match chart heights */}
-      <div className="grid items-start gap-4 md:grid-cols-3">
-        <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-2">
-              <div className="rounded-xl bg-emerald-50 p-2 text-emerald-700">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7h18M7 7v14m10-14v14" />
-                </svg>
-              </div>
-              <p className="text-sm font-semibold text-slate-600">Total Balance</p>
-            </div>
-            {weeklyTrend.balance != null ? (
-              <div className="rounded-xl bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                {weeklyTrend.balance >= 0 ? '+' : ''}
-                {weeklyTrend.balance}%
-              </div>
-            ) : null}
-          </div>
-          <p className={`mt-4 ${KPI_VALUE_CLASS}`}>{formatCurrency(Math.round(totals.balance), currency)}</p>
-          <p className="mt-1 text-xs text-slate-500">from last week</p>
-        </div>
-
-        <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-2">
-              <div className="rounded-xl bg-emerald-50 p-2 text-emerald-700">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v12m6-6H6" />
-                </svg>
-              </div>
-              <p className="text-sm font-semibold text-slate-600">Total Income</p>
-            </div>
-            {weeklyTrend.income != null ? (
-              <div
-                className={`rounded-xl px-2.5 py-1 text-xs font-semibold ${
-                  weeklyTrend.income >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                }`}
-              >
-                {weeklyTrend.income >= 0 ? '+' : ''}
-                {weeklyTrend.income}%
-              </div>
-            ) : null}
-          </div>
-          <p className={`mt-4 ${KPI_VALUE_CLASS}`}>{formatCurrency(Math.round(totals.income), currency)}</p>
-          <p className="mt-1 text-xs text-slate-500">from last week</p>
-        </div>
-
-        <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-2">
-              <div className="rounded-xl bg-emerald-50 p-2 text-emerald-700">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M7 10h10M7 14h10M7 18h10" />
-                </svg>
-              </div>
-              <p className="text-sm font-semibold text-slate-600">Total Expenses</p>
-            </div>
-            {weeklyTrend.expenses != null ? (
-              <div
-                className={`rounded-xl px-2.5 py-1 text-xs font-semibold ${
-                  weeklyTrend.expenses <= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                }`}
-              >
-                {weeklyTrend.expenses >= 0 ? '+' : ''}
-                {weeklyTrend.expenses}%
-              </div>
-            ) : null}
-          </div>
-          <p className={`mt-4 ${KPI_VALUE_CLASS}`}>{formatCurrency(Math.round(totals.expenses), currency)}</p>
-          <p className="mt-1 text-xs text-slate-500">from last week</p>
-        </div>
-      </div>
-
-      {/* Earnings + Breakdown row (matches reference layout) */}
       <div className="grid items-start gap-4 lg:grid-cols-[2.2fr_1fr]">
-        <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div className="space-y-4">
+          <div className="grid items-start gap-4 md:grid-cols-3">
+            <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="rounded-xl bg-emerald-50 p-2 text-emerald-700">
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7h18M7 7v14m10-14v14" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-600">Total Balance</p>
+                </div>
+                {weeklyTrend.balance != null ? (
+                  <div className="rounded-xl bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                    {weeklyTrend.balance >= 0 ? '+' : ''}
+                    {weeklyTrend.balance}%
+                  </div>
+                ) : null}
+              </div>
+              <p className={`mt-4 ${KPI_VALUE_CLASS}`}>{formatCurrency(Math.round(totals.balance), currency)}</p>
+              <p className="mt-1 text-xs text-slate-500">from last week</p>
+            </div>
+
+            <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="rounded-xl bg-emerald-50 p-2 text-emerald-700">
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v12m6-6H6" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-600">Total Income</p>
+                </div>
+                {weeklyTrend.income != null ? (
+                  <div
+                    className={`rounded-xl px-2.5 py-1 text-xs font-semibold ${
+                      weeklyTrend.income >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                    }`}
+                  >
+                    {weeklyTrend.income >= 0 ? '+' : ''}
+                    {weeklyTrend.income}%
+                  </div>
+                ) : null}
+              </div>
+              <p className={`mt-4 ${KPI_VALUE_CLASS}`}>{formatCurrency(Math.round(totals.income), currency)}</p>
+              <p className="mt-1 text-xs text-slate-500">from last week</p>
+            </div>
+
+            <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="rounded-xl bg-emerald-50 p-2 text-emerald-700">
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M7 10h10M7 14h10M7 18h10" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-600">Total Expenses</p>
+                </div>
+                {weeklyTrend.expenses != null ? (
+                  <div
+                    className={`rounded-xl px-2.5 py-1 text-xs font-semibold ${
+                      weeklyTrend.expenses <= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                    }`}
+                  >
+                    {weeklyTrend.expenses >= 0 ? '+' : ''}
+                    {weeklyTrend.expenses}%
+                  </div>
+                ) : null}
+              </div>
+              <p className={`mt-4 ${KPI_VALUE_CLASS}`}>{formatCurrency(Math.round(totals.expenses), currency)}</p>
+              <p className="mt-1 text-xs text-slate-500">from last week</p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold text-slate-900">Earnings</h2>
@@ -709,8 +728,9 @@ export default function ExpensesPage() {
             )}
           </div>
         </div>
+        </div>
 
-        <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 lg:self-stretch">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-slate-600">Breakdown</p>
             <div className="flex overflow-hidden rounded-xl bg-slate-100 p-1 text-xs font-semibold">
@@ -808,6 +828,17 @@ export default function ExpensesPage() {
               />
             </div>
 
+            <button
+              type="button"
+              className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-slate-600 shadow-sm hover:bg-slate-100"
+              title="Filters"
+              aria-label="Filters"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h18l-7 8v6l-4-2v-4L3 5z" />
+              </svg>
+            </button>
+
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value as any)}
@@ -841,9 +872,19 @@ export default function ExpensesPage() {
               <option value="Failed">Failed</option>
             </select>
 
-            <div className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900">
-              {range.startDate} - {range.endDate}
-            </div>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm hover:bg-lime-300"
+              title="Date range"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3M5 11h14M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span>{formatRangeLabel(range)}</span>
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
           </div>
         </div>
 
