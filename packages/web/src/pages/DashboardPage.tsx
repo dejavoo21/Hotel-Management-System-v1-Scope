@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { KPI_VALUE_CLASS } from '@/styles/typography';
 import {
   Area,
@@ -44,8 +44,39 @@ function formatCurrency(value: number, currency = 'USD') {
 function TrendPill({ pct }: { pct: number }) {
   const up = pct >= 0;
   const cls = up ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700';
-  const label = `${up ? '▲' : '▼'} ${Math.abs(pct).toFixed(2)}% from last week`;
+  const label = `${up ? '\u25B2' : '\u25BC'} ${Math.abs(pct).toFixed(2)}% from last week`;
   return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${cls}`}>{label}</span>;
+}
+
+function ClickableCard({
+  to,
+  className,
+  ariaLabel,
+  children,
+}: {
+  to: string;
+  className: string;
+  ariaLabel: string;
+  children: React.ReactNode;
+}) {
+  const navigate = useNavigate();
+  return (
+    <div
+      role="link"
+      tabIndex={0}
+      aria-label={ariaLabel}
+      className={`${className} cursor-pointer outline-none transition hover:shadow-md focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2`}
+      onClick={() => navigate(to)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          navigate(to);
+        }
+      }}
+    >
+      {children}
+    </div>
+  );
 }
 
 function KpiCard({
@@ -53,18 +84,29 @@ function KpiCard({
   value,
   trendPct,
   icon,
+  to,
 }: {
   title: string;
   value: string;
   trendPct: number;
   icon: React.ReactNode;
+  to: string;
 }) {
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+    <ClickableCard
+      to={to}
+      ariaLabel={`${title} details`}
+      className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+    >
       <div className="flex items-center justify-between">
         <div className="text-sm font-semibold text-slate-600">{title}</div>
         <div className="flex items-center gap-2">
-          <button type="button" className="rounded-lg p-1 text-slate-400 hover:bg-slate-50" aria-label="More">
+          <button
+            type="button"
+            className="rounded-lg p-1 text-slate-400 hover:bg-slate-50"
+            aria-label="More"
+            onClick={(e) => e.stopPropagation()}
+          >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6h.01M12 12h.01M12 18h.01" />
             </svg>
@@ -72,11 +114,11 @@ function KpiCard({
           <div className="rounded-xl bg-emerald-50 p-2 text-emerald-700">{icon}</div>
         </div>
       </div>
-      <div className={`mt-4 ${KPI_VALUE_CLASS}`}>{value}</div>
-      <div className="mt-3">
+      <div className={`mt-3 ${KPI_VALUE_CLASS}`}>{value}</div>
+      <div className="mt-2">
         <TrendPill pct={trendPct} />
       </div>
-    </div>
+    </ClickableCard>
   );
 }
 
@@ -292,6 +334,7 @@ export default function DashboardPage() {
           title="New Bookings"
           value={summary.newBookings.toLocaleString()}
           trendPct={summary.trends.newBookings}
+          to="/bookings"
           icon={
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M7 7h10M7 12h10M7 17h6" />
@@ -302,6 +345,7 @@ export default function DashboardPage() {
           title="Check-In"
           value={summary.checkIn.toLocaleString()}
           trendPct={summary.trends.checkIn}
+          to="/bookings"
           icon={
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M3 12h18M7 8l-4 4 4 4" />
@@ -312,6 +356,7 @@ export default function DashboardPage() {
           title="Check-Out"
           value={summary.checkOut.toLocaleString()}
           trendPct={summary.trends.checkOut}
+          to="/bookings"
           icon={
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M21 12H3m14 4l4-4-4-4" />
@@ -322,6 +367,7 @@ export default function DashboardPage() {
           title="Total Revenue"
           value={formatCurrency(summary.totalRevenue, currency)}
           trendPct={summary.trends.totalRevenue}
+          to="/invoices"
           icon={
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path
@@ -337,10 +383,15 @@ export default function DashboardPage() {
 
       <div className="grid items-start gap-4 xl:grid-cols-[1fr_1fr_360px]">
         <div className="space-y-4">
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <ClickableCard to="/rooms" ariaLabel="Go to rooms" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Room Availability</div>
-              <button type="button" className="rounded-lg p-1 text-slate-400 hover:bg-slate-50" aria-label="More">
+              <button
+                type="button"
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-50"
+                aria-label="More"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6h.01M12 12h.01M12 18h.01" />
                 </svg>
@@ -392,12 +443,16 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
-          </div>
+          </ClickableCard>
 
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <ClickableCard to="/bookings" ariaLabel="Go to reservations" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Reservations</div>
-              <select className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900">
+              <select
+                className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900"
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => e.stopPropagation()}
+              >
                 <option>Last 7 Days</option>
               </select>
             </div>
@@ -425,22 +480,30 @@ export default function DashboardPage() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </ClickableCard>
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <ClickableCard
+            to="/expenses"
+            ariaLabel="Go to revenue and expenses"
+            className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
+          >
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold text-slate-900">Revenue</div>
                 <div className="text-xs font-semibold text-slate-500">Last 6 Months</div>
               </div>
-              <select className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900">
+              <select
+                className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900"
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => e.stopPropagation()}
+              >
                 <option>Last 6 Months</option>
               </select>
             </div>
 
-            <div className="relative mt-4 h-64">
+            <div className="relative mt-4 h-60">
               <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded-2xl border border-lime-200 bg-lime-50 px-4 py-2 text-center shadow-sm">
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total Revenue</div>
                 <div className="text-sm font-extrabold text-slate-900">{formatCurrency(maxRevenuePoint.value, currency)}</div>
@@ -470,15 +533,24 @@ export default function DashboardPage() {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </ClickableCard>
 
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <ClickableCard
+            to="/reports"
+            ariaLabel="Go to booking platform report"
+            className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
+          >
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold text-slate-900">Booking by Platform</div>
                 <div className="text-xs font-semibold text-slate-500">Last 30 Days</div>
               </div>
-              <button type="button" className="rounded-lg p-1 text-slate-400 hover:bg-slate-50" aria-label="More">
+              <button
+                type="button"
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-50"
+                aria-label="More"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6h.01M12 12h.01M12 18h.01" />
                 </svg>
@@ -511,17 +583,22 @@ export default function DashboardPage() {
                 ))}
               </div>
             </div>
-          </div>
+          </ClickableCard>
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <ClickableCard to="/reviews" ariaLabel="Go to reviews" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold text-slate-900">Overall Rating</div>
                 <div className="text-xs font-semibold text-slate-500">Based on recent reviews</div>
               </div>
-              <button type="button" className="rounded-lg p-1 text-slate-400 hover:bg-slate-50" aria-label="More">
+              <button
+                type="button"
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-50"
+                aria-label="More"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6h.01M12 12h.01M12 18h.01" />
                 </svg>
@@ -539,7 +616,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="mt-4 space-y-3">
+            <div className="mt-3 space-y-2.5">
               {reviewSummary.categories.map((c) => (
                 <div key={c.name} className="grid grid-cols-[96px_1fr_30px] items-center gap-3">
                   <div className="text-xs font-semibold text-slate-600">{c.name}</div>
@@ -550,12 +627,20 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
-          </div>
+          </ClickableCard>
 
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <ClickableCard to="/housekeeping" ariaLabel="Go to housekeeping tasks" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Tasks</div>
-              <button type="button" className="rounded-xl bg-lime-200 p-2 text-slate-900 hover:bg-lime-300" aria-label="Add">
+              <button
+                type="button"
+                className="rounded-xl bg-lime-200 p-2 text-slate-900 hover:bg-lime-300"
+                aria-label="Add"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate('/housekeeping');
+                }}
+              >
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
@@ -574,9 +659,11 @@ export default function DashboardPage() {
                     type="checkbox"
                     checked={t.completed}
                     onChange={(e) => {
+                      e.stopPropagation();
                       const checked = e.target.checked;
                       setTasks((prev) => prev.map((x) => (x.id === t.id ? { ...x, completed: checked } : x)));
                     }}
+                    onClick={(e) => e.stopPropagation()}
                     className="mt-1 h-4 w-4 rounded border-slate-300 text-lime-600"
                   />
                   <div className="min-w-0">
@@ -586,7 +673,12 @@ export default function DashboardPage() {
                     </div>
                     {t.subtitle ? <div className="mt-1 text-xs font-semibold text-slate-600">{t.subtitle}</div> : null}
                   </div>
-                  <button type="button" className="ml-auto rounded-lg p-1 text-slate-400 hover:bg-white" aria-label="More">
+                  <button
+                    type="button"
+                    className="ml-auto rounded-lg p-1 text-slate-400 hover:bg-white"
+                    aria-label="More"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6h.01M12 12h.01M12 18h.01" />
                     </svg>
@@ -594,12 +686,21 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
-          </div>
+          </ClickableCard>
 
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <ClickableCard
+            to="/settings?tab=audit-trail"
+            ariaLabel="Go to audit trail"
+            className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
+          >
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Recent Activities</div>
-              <button type="button" className="rounded-lg p-1 text-slate-400 hover:bg-slate-50" aria-label="More">
+              <button
+                type="button"
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-50"
+                aria-label="More"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6h.01M12 12h.01M12 18h.01" />
                 </svg>
@@ -624,13 +725,19 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
-          </div>
+          </ClickableCard>
         </div>
 
         <div className="xl:col-span-2">
           <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-sm font-semibold text-slate-900">Booking List</div>
+              <button
+                type="button"
+                className="text-sm font-semibold text-slate-900 hover:underline"
+                onClick={() => navigate('/bookings')}
+              >
+                Booking List
+              </button>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="relative">
                   <svg
@@ -659,6 +766,13 @@ export default function DashboardPage() {
                   <option>Checked-Out</option>
                   <option>Pending</option>
                 </select>
+                <button
+                  type="button"
+                  onClick={() => navigate('/bookings')}
+                  className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+                >
+                  View all
+                </button>
               </div>
             </div>
 
@@ -677,7 +791,11 @@ export default function DashboardPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredBookings.map((b) => (
-                    <tr key={b.id} className="hover:bg-slate-50">
+                    <tr
+                      key={b.id}
+                      className="cursor-pointer hover:bg-slate-50"
+                      onClick={() => navigate('/bookings')}
+                    >
                       <td className="px-5 py-4 text-sm font-semibold text-slate-900">{b.bookingId}</td>
                       <td className="px-5 py-4 text-sm text-slate-700">{b.guestName}</td>
                       <td className="px-5 py-4 text-sm text-slate-700">
@@ -702,10 +820,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="hidden">
-        <Link to="/reviews">Reviews</Link>
-        <Link to="/expenses">Expenses</Link>
-      </div>
     </div>
   );
 }
