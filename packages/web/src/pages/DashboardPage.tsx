@@ -60,14 +60,32 @@ function ClickableCard({
   children: React.ReactNode;
 }) {
   const navigate = useNavigate();
+
+  // Prevent accidental navigation when the user interacts with controls inside the card
+  // (selects, inputs, buttons, links, etc.). This is critical for dropdown filters to work.
+  const INTERACTIVE_SELECTOR =
+    'a,button,input,select,textarea,summary,details,[role="button"],[role="menuitem"],[role="option"],[role="checkbox"],[data-no-card-nav="true"]';
+
+  const isInteractive = (target: EventTarget | null, currentTarget: HTMLElement) => {
+    const el = target instanceof Element ? target : null;
+    if (!el) return false;
+    const closest = el.closest(INTERACTIVE_SELECTOR);
+    return !!closest && currentTarget.contains(closest);
+  };
+
   return (
     <div
       role="link"
       tabIndex={0}
       aria-label={ariaLabel}
       className={`${className} cursor-pointer outline-none transition hover:shadow-md focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2`}
-      onClick={() => navigate(to)}
+      onClick={(e) => {
+        if (e.defaultPrevented) return;
+        if (isInteractive(e.target, e.currentTarget)) return;
+        navigate(to);
+      }}
       onKeyDown={(e) => {
+        if (isInteractive(e.target, e.currentTarget)) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           navigate(to);
@@ -420,9 +438,12 @@ export default function DashboardPage() {
         />
       </div>
 
-
-        <div className="space-y-4 xl:col-start-1 xl:row-start-2">
-          <ClickableCard to="/rooms" ariaLabel="Go to rooms" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div className="grid gap-4 xl:col-span-2 xl:col-start-1 xl:row-start-2 xl:grid-cols-[0.82fr_1.18fr]">
+          <ClickableCard
+            to="/rooms"
+            ariaLabel="Go to rooms"
+            className="h-full rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
+          >
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Room Availability</div>
               <button
@@ -496,55 +517,10 @@ export default function DashboardPage() {
             </div>
           </ClickableCard>
 
-          <ClickableCard to="/bookings" ariaLabel="Go to reservations" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-slate-900">Reservations</div>
-              <select
-                className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900"
-                value={reservationsRange}
-                onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-                onChange={(e) => {
-                  e.stopPropagation();
-                  setReservationsRange(e.target.value as any);
-                }}
-              >
-                <option value="7d">Last 7 Days</option>
-                <option value="30d">Last 30 Days</option>
-              </select>
-            </div>
-
-            <div className="mt-3 flex items-center gap-4 text-xs font-semibold text-slate-500">
-              <span className="inline-flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-200" />
-                Booked
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-lime-200" />
-                Canceled
-              </span>
-            </div>
-
-            <div className="mt-4 h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={reservationsByDay} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#e2e8f0" />
-                  <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} width={32} />
-                  <Tooltip contentStyle={{ borderRadius: 12, borderColor: '#e2e8f0' }} />
-                  <Bar dataKey="booked" fill="#bbf7d0" radius={[10, 10, 10, 10]} />
-                  <Bar dataKey="canceled" fill="#d9f99d" radius={[10, 10, 10, 10]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </ClickableCard>
-        </div>
-
-        <div className="space-y-4 xl:col-start-2 xl:row-start-2">
           <ClickableCard
             to="/expenses"
             ariaLabel="Go to revenue and expenses"
-            className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
+            className="h-full rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
           >
             <div className="flex items-center justify-between">
               <div>
@@ -599,9 +575,56 @@ export default function DashboardPage() {
           </ClickableCard>
 
           <ClickableCard
+            to="/bookings"
+            ariaLabel="Go to reservations"
+            className="h-full rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
+          >
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold text-slate-900">Reservations</div>
+              <select
+                className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900"
+                value={reservationsRange}
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  setReservationsRange(e.target.value as any);
+                }}
+              >
+                <option value="7d">Last 7 Days</option>
+                <option value="30d">Last 30 Days</option>
+              </select>
+            </div>
+
+            <div className="mt-3 flex items-center gap-4 text-xs font-semibold text-slate-500">
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-200" />
+                Booked
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-lime-200" />
+                Canceled
+              </span>
+            </div>
+
+            <div className="mt-4 h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={reservationsByDay} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} width={32} />
+                  <Tooltip contentStyle={{ borderRadius: 12, borderColor: '#e2e8f0' }} />
+                  <Bar dataKey="booked" fill="#bbf7d0" radius={[10, 10, 10, 10]} />
+                  <Bar dataKey="canceled" fill="#d9f99d" radius={[10, 10, 10, 10]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </ClickableCard>
+
+          <ClickableCard
             to="/reports"
             ariaLabel="Go to booking platform report"
-            className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
+            className="h-full rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
           >
             <div className="flex items-center justify-between">
               <div>
