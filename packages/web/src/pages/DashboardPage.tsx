@@ -179,12 +179,12 @@ export default function DashboardPage() {
   // MOCK DATA - replace with real data
   const revenue1y = useMemo(
     () => [
-      { month: 'Jun 2027', value: 185_000 },
-      { month: 'Jul 2027', value: 205_000 },
-      { month: 'Aug 2027', value: 198_000 },
-      { month: 'Sep 2027', value: 215_000 },
-      { month: 'Oct 2027', value: 230_000 },
-      { month: 'Nov 2027', value: 240_000 },
+      { month: 'Jun 2027', value: 180_000 },
+      { month: 'Jul 2027', value: 210_000 },
+      { month: 'Aug 2027', value: 195_000 },
+      { month: 'Sep 2027', value: 240_000 },
+      { month: 'Oct 2027', value: 330_000 },
+      { month: 'Nov 2027', value: 390_000 },
       ...revenue6m,
     ],
     [revenue6m],
@@ -367,7 +367,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid items-start gap-4 xl:grid-cols-[1fr_1fr_360px]">
+      <div className="grid items-start gap-4 xl:grid-cols-[0.82fr_1.18fr_360px]">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:col-span-2">
         <KpiCard
           title="New Bookings"
@@ -503,6 +503,7 @@ export default function DashboardPage() {
                 className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900"
                 value={reservationsRange}
                 onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
                 onChange={(e) => {
                   e.stopPropagation();
                   setReservationsRange(e.target.value as any);
@@ -553,6 +554,7 @@ export default function DashboardPage() {
               <select
                 className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900"
                 onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
                 value={revenueRange}
                 onChange={(e) => {
                   e.stopPropagation();
@@ -564,7 +566,7 @@ export default function DashboardPage() {
               </select>
             </div>
 
-            <div className="relative mt-4 h-72">
+            <div className="relative mt-3 h-64">
               <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded-2xl border border-lime-200 bg-lime-50 px-4 py-2 text-center shadow-sm">
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total Revenue</div>
                 <div className="text-sm font-extrabold text-slate-900">{formatCurrency(maxRevenuePoint.value, currency)}</div>
