@@ -47,6 +47,7 @@ type ChannelPerformance = {
   label: string;
   value: string;
   hint: string;
+  tone: 'emerald' | 'sky' | 'amber';
 };
 
 function formatCurrency(value: number, currency = 'USD') {
@@ -190,7 +191,7 @@ export default function DashboardPage() {
   // MOCK DATA - replace with real data
   const roomAvailability = useMemo(() => ({ occupied: 286, reserved: 87, available: 32, notReady: 13 }), []);
 
-  const [revenueRange, setRevenueRange] = useState<'6m' | '1y'>('6m');
+  const [revenueRange, setRevenueRange] = useState<'7d' | '3m' | '1y'>('3m');
 
   // MOCK DATA - replace with real data
   const revenue6m = useMemo(
@@ -219,7 +220,27 @@ export default function DashboardPage() {
     [revenue6m],
   );
 
-  const revenueByMonth = useMemo(() => (revenueRange === '6m' ? revenue6m : revenue1y), [revenue6m, revenue1y, revenueRange]);
+  // MOCK DATA - replace with real data
+  const revenue3m = useMemo(() => revenue6m.slice(3), [revenue6m]);
+  // MOCK DATA - replace with real data
+  const revenue7d = useMemo(
+    () => [
+      { month: 'Mon', value: 38_000 },
+      { month: 'Tue', value: 41_500 },
+      { month: 'Wed', value: 39_200 },
+      { month: 'Thu', value: 46_000 },
+      { month: 'Fri', value: 52_700 },
+      { month: 'Sat', value: 49_900 },
+      { month: 'Sun', value: 47_300 },
+    ],
+    [],
+  );
+
+  const revenueByMonth = useMemo(() => {
+    if (revenueRange === '7d') return revenue7d;
+    if (revenueRange === '3m') return revenue3m;
+    return revenue1y;
+  }, [revenue1y, revenue3m, revenue7d, revenueRange]);
 
   // MOCK DATA - replace with real data
   const reservations7d = useMemo(
@@ -235,24 +256,37 @@ export default function DashboardPage() {
     [],
   );
 
-  const reservations30d = useMemo(
-    () => {
-      // 30-day mock derived from a stable baseline.
-      const days = Array.from({ length: 30 }).map((_, i) => {
-        const d = 1 + i;
-        const booked = 38 + ((i * 7) % 28);
-        const canceled = 12 + ((i * 5) % 14);
-        return { day: `${d} Jun`, booked, canceled };
-      });
-      return days;
-    },
+  const reservations3m = useMemo(
+    () => [
+      { day: 'Mar', booked: 146, canceled: 58 },
+      { day: 'Apr', booked: 162, canceled: 61 },
+      { day: 'May', booked: 171, canceled: 64 },
+    ],
     [],
   );
 
-  const [reservationsRange, setReservationsRange] = useState<'7d' | '30d'>('7d');
+  const reservations1y = useMemo(
+    () => [
+      { day: 'Jun', booked: 118, canceled: 46 },
+      { day: 'Jul', booked: 130, canceled: 48 },
+      { day: 'Aug', booked: 124, canceled: 44 },
+      { day: 'Sep', booked: 138, canceled: 51 },
+      { day: 'Oct', booked: 149, canceled: 55 },
+      { day: 'Nov', booked: 154, canceled: 57 },
+      { day: 'Dec', booked: 161, canceled: 60 },
+      { day: 'Jan', booked: 166, canceled: 62 },
+      { day: 'Feb', booked: 158, canceled: 59 },
+      { day: 'Mar', booked: 146, canceled: 58 },
+      { day: 'Apr', booked: 162, canceled: 61 },
+      { day: 'May', booked: 171, canceled: 64 },
+    ],
+    [],
+  );
+
+  const [reservationsRange, setReservationsRange] = useState<'7d' | '3m' | '1y'>('7d');
   const reservationsByDay = useMemo(
-    () => (reservationsRange === '7d' ? reservations7d : reservations30d),
-    [reservations30d, reservations7d, reservationsRange],
+    () => (reservationsRange === '7d' ? reservations7d : reservationsRange === '3m' ? reservations3m : reservations1y),
+    [reservations1y, reservations3m, reservations7d, reservationsRange],
   );
 
   // MOCK DATA - replace with real data
@@ -370,9 +404,9 @@ export default function DashboardPage() {
   // MOCK DATA - replace with real data
   const channelPerformance = useMemo<ChannelPerformance[]>(
     () => [
-      { label: 'Top Channel', value: 'Direct Booking', hint: '61% share' },
-      { label: 'Best Conversion', value: 'Booking.com', hint: '4.8% CVR' },
-      { label: 'Highest ADR', value: '$214', hint: 'Agoda' },
+      { label: 'Top Channel', value: 'Direct Booking', hint: '61% share', tone: 'emerald' },
+      { label: 'Best Conversion', value: 'Booking.com', hint: '4.8% CVR', tone: 'sky' },
+      { label: 'Highest ADR', value: '$214', hint: 'Agoda', tone: 'amber' },
     ],
     [],
   );
@@ -440,7 +474,7 @@ export default function DashboardPage() {
 
       <div className="grid items-stretch gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-5">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
         <KpiCard
           title="New Bookings"
           value={summary.newBookings.toLocaleString()}
@@ -487,6 +521,28 @@ export default function DashboardPage() {
                 strokeWidth={1.7}
                 d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
               />
+            </svg>
+          }
+        />
+        <KpiCard
+          title="Occupancy"
+          value={`${Math.round((roomAvailability.occupied / totalRooms) * 100)}%`}
+          trendPct={2.14}
+          to="/rooms"
+          icon={
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M4 20h16M7 20V9l5-4 5 4v11M9 12h6" />
+            </svg>
+          }
+        />
+        <KpiCard
+          title="ADR"
+          value={formatCurrency(Math.round(summary.totalRevenue / Math.max(summary.newBookings, 1)), currency)}
+          trendPct={1.92}
+          to="/reports"
+          icon={
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M4 18h16M7 15l3-3 3 2 4-5" />
             </svg>
           }
         />
@@ -565,7 +621,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              <div className="mt-6 grid gap-2 sm:grid-cols-3">
                 {roomSignals.map((signal) => {
                   const toneClass =
                     signal.tone === 'amber'
@@ -588,10 +644,12 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold text-slate-900">Revenue</div>
-                <div className="text-xs font-semibold text-slate-500">{revenueRange === '6m' ? 'Last 6 Months' : 'This Year'}</div>
+                <div className="text-xs font-semibold text-slate-500">
+                  {revenueRange === '7d' ? 'Last 7 Days' : revenueRange === '3m' ? 'Last 3 Months' : 'Last 1 Year'}
+                </div>
               </div>
               <select
-                className="rounded-full bg-lime-200 px-3 py-1.5 text-[11px] font-semibold text-slate-900"
+                className="min-w-[126px] rounded-full bg-lime-200 py-1.5 pl-4 pr-10 text-[11px] font-semibold text-slate-900"
                 onClick={(e) => e.stopPropagation()}
                 onMouseDown={(e) => e.stopPropagation()}
                 value={revenueRange}
@@ -600,8 +658,9 @@ export default function DashboardPage() {
                   setRevenueRange(e.target.value as any);
                 }}
               >
-                <option value="6m">Last 6 Months</option>
-                <option value="1y">This Year</option>
+                <option value="7d">Last 7 Days</option>
+                <option value="3m">Last 3 Months</option>
+                <option value="1y">Last 1 Year</option>
               </select>
             </div>
 
@@ -644,7 +703,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Reservations</div>
               <select
-                className="min-w-[110px] rounded-full bg-lime-200 pl-4 pr-9 py-1.5 text-[11px] font-semibold text-slate-900"
+                className="min-w-[126px] rounded-full bg-lime-200 py-1.5 pl-4 pr-10 text-[11px] font-semibold text-slate-900"
                 value={reservationsRange}
                 onClick={(e) => e.stopPropagation()}
                 onMouseDown={(e) => e.stopPropagation()}
@@ -654,7 +713,8 @@ export default function DashboardPage() {
                 }}
               >
                 <option value="7d">Last 7 Days</option>
-                <option value="30d">Last 30 Days</option>
+                <option value="3m">Last 3 Months</option>
+                <option value="1y">Last 1 Year</option>
               </select>
             </div>
 
@@ -701,11 +761,11 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            <div className="mt-4 grid gap-4 xl:grid-cols-[220px_220px_1fr] xl:items-center">
-              <div className="h-52">
+            <div className="mt-4 grid gap-4 xl:grid-cols-[248px_220px_1fr] xl:items-center">
+              <div className="h-56">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={bookingByPlatform} dataKey="pct" nameKey="name" innerRadius={56} outerRadius={80} paddingAngle={2}>
+                    <Pie data={bookingByPlatform} dataKey="pct" nameKey="name" innerRadius={64} outerRadius={96} paddingAngle={2}>
                       {bookingByPlatform.map((_, idx) => (
                         <Cell key={idx} fill={donutColors[idx % donutColors.length]} stroke="#ffffff" strokeWidth={2} />
                       ))}
@@ -728,13 +788,24 @@ export default function DashboardPage() {
               </div>
 
               <div className="grid gap-2 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
-                {channelPerformance.map((item) => (
-                  <div key={item.label} className="rounded-xl bg-white px-3 py-2 ring-1 ring-slate-100">
+                {channelPerformance.map((item) => {
+                  const toneClass =
+                    item.tone === 'sky'
+                      ? 'border-sky-200 bg-sky-50/50'
+                      : item.tone === 'amber'
+                        ? 'border-amber-200 bg-amber-50/50'
+                        : 'border-emerald-200 bg-emerald-50/50';
+                  const underlineClass =
+                    item.tone === 'sky' ? 'bg-sky-300' : item.tone === 'amber' ? 'bg-amber-300' : 'bg-emerald-300';
+
+                  return (
+                  <div key={item.label} className={`rounded-xl border px-3 py-2 ${toneClass}`}>
                     <div className="text-[11px] font-semibold text-slate-500">{item.label}</div>
                     <div className="mt-1 text-sm font-semibold text-slate-900">{item.value}</div>
                     <div className="text-[11px] font-medium text-slate-500">{item.hint}</div>
+                    <div className={`mt-1 h-1 w-16 rounded-full ${underlineClass}`} />
                   </div>
-                ))}
+                )})}
               </div>
             </div>
           </ClickableCard>
@@ -824,7 +895,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex h-full flex-col gap-5">
-          <ClickableCard to="/reviews" ariaLabel="Go to reviews" className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <ClickableCard to="/reviews" ariaLabel="Go to reviews" className="min-h-[320px] rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold text-slate-900">Overall Rating</div>
