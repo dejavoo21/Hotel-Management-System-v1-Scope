@@ -156,6 +156,13 @@ function trendPillClass(value: number, positiveStyle = true) {
   return up ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700';
 }
 
+function getRangeFactor(range: TimeRange) {
+  if (range === '7d') return 0.22;
+  if (range === '3m') return 0.58;
+  if (range === '6m') return 0.82;
+  return 1;
+}
+
 function escapeHtml(value: string) {
   return value
     .replaceAll('&', '&amp;')
@@ -432,21 +439,35 @@ export default function ExpensesPage() {
 
   const transactions = useMemo(() => [...transactionsReal, ...transactionsMock].slice(0, 40), [transactionsReal, transactionsMock]);
 
+  const inDateRange = (iso: string, range: Range) => {
+    const d = new Date(iso);
+    const start = new Date(range.startDate);
+    const end = new Date(range.endDate);
+    if (Number.isNaN(d.getTime()) || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
+    return d >= start && d <= end;
+  };
+
+  const transactionsForHeader = useMemo(
+    () => transactions.filter((t) => inDateRange(t.date, headerDateRange)),
+    [transactions, headerDateRange],
+  );
+
   const filteredTransactions = useMemo(() => {
     const q = search.trim().toLowerCase();
     return transactions.filter((t) => {
+      if (!inDateRange(t.date, transactionsDateRange)) return false;
       if (categoryFilter !== 'ALL' && t.category !== categoryFilter) return false;
       if (statusFilter !== 'ALL' && t.status !== statusFilter) return false;
       if (!q) return true;
       return t.expense.toLowerCase().includes(q) || t.category.toLowerCase().includes(q);
     });
-  }, [transactions, search, categoryFilter, statusFilter]);
+  }, [transactions, transactionsDateRange, search, categoryFilter, statusFilter]);
 
   const mockTotalsWhenEmpty = useMemo(() => ({ balance: 15650, income: 45650, expenses: 30000 }), []);
 
   const totals = useMemo(() => {
     const hasReal = transactionsReal.length > 0 || (revenueSeries?.length ?? 0) > 0;
-    const expenseTotal = transactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    const expenseTotal = transactionsForHeader.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     const incomeTotal = (revenueSeries ?? []).reduce((sum, p) => sum + (Number(p.revenue) || 0), 0);
     if (!hasReal) return mockTotalsWhenEmpty;
     return {
@@ -454,7 +475,7 @@ export default function ExpensesPage() {
       income: incomeTotal,
       expenses: expenseTotal,
     };
-  }, [transactions, transactionsReal.length, revenueSeries, mockTotalsWhenEmpty]);
+  }, [transactionsForHeader, transactionsReal.length, revenueSeries, mockTotalsWhenEmpty]);
 
   const weeklyTrend = useMemo(() => {
     const end = new Date(headerDateRange.endDate);
@@ -474,15 +495,15 @@ export default function ExpensesPage() {
     const incomePrev = incomePoints.filter((p) => inWindow(p.date, prevStart, beforeMid)).reduce((s, p) => s + (Number(p.revenue) || 0), 0);
     const incomeCurr = incomePoints.filter((p) => inWindow(p.date, mid, end)).reduce((s, p) => s + (Number(p.revenue) || 0), 0);
 
-    const expensePrev = transactions.filter((t) => inWindow(t.date, prevStart, beforeMid)).reduce((s, t) => s + (Number(t.amount) || 0), 0);
-    const expenseCurr = transactions.filter((t) => inWindow(t.date, mid, end)).reduce((s, t) => s + (Number(t.amount) || 0), 0);
+    const expensePrev = transactionsForHeader.filter((t) => inWindow(t.date, prevStart, beforeMid)).reduce((s, t) => s + (Number(t.amount) || 0), 0);
+    const expenseCurr = transactionsForHeader.filter((t) => inWindow(t.date, mid, end)).reduce((s, t) => s + (Number(t.amount) || 0), 0);
 
     return {
       income: pctChange(incomeCurr, incomePrev),
       expenses: pctChange(expenseCurr, expensePrev),
       balance: pctChange(incomeCurr - expenseCurr, incomePrev - expensePrev),
     };
-  }, [headerDateRange.endDate, revenueSeries, transactions]);
+  }, [headerDateRange.endDate, revenueSeries, transactionsForHeader]);
 
   const earningsSeries = useMemo((): EarningsPoint[] => {
     const fallbackSeries = () => {
@@ -556,7 +577,7 @@ export default function ExpensesPage() {
     }
 
     const byCategory = new Map<ExpenseCategory, number>();
-    for (const t of transactionsReal) {
+    for (const t of transactionsForHeader) {
       byCategory.set(t.category, (byCategory.get(t.category) ?? 0) + (Number(t.amount) || 0));
     }
 
@@ -568,7 +589,7 @@ export default function ExpensesPage() {
     return rows
       .map((r) => ({ ...r, pct: Math.round((r.value / sum) * 100) }))
       .sort((a, b) => b.value - a.value);
-  }, [mockTotalsWhenEmpty.expenses, totals.expenses, transactionsReal]);
+  }, [mockTotalsWhenEmpty.expenses, totals.expenses, transactionsForHeader, transactionsReal.length]);
 
   const incomeBreakdown = useMemo(() => {
     const breakdown = (sourcesRaw as any)?.breakdown;
@@ -584,7 +605,7 @@ export default function ExpensesPage() {
 
     // Fallback so the Income tab never looks broken (until we wire real income sources).
     if (!rows.length) {
-      const total = Math.max(0, Math.round(totals.income || mockTotalsWhenEmpty.income));
+      const total = Math.max(0, Math.round((totals.income || mockTotalsWhenEmpty.income) * getRangeFactor(headerRange)));
       const fallback = [
         { name: 'Direct Booking', pct: 52 },
         { name: 'Booking.com', pct: 18 },
@@ -596,9 +617,11 @@ export default function ExpensesPage() {
       return fallback.map((r) => ({ name: r.name, pct: r.pct, value: Math.round((total * r.pct) / 100) }));
     }
 
-    const sum = rows.reduce((s, r) => s + r.value, 0) || 1;
-    return rows.map((r) => ({ ...r, pct: Math.round((r.value / sum) * 100) }));
-  }, [sourcesRaw]);
+    const factor = getRangeFactor(headerRange);
+    const scaled = rows.map((r) => ({ ...r, value: Math.max(1, Math.round(r.value * factor)) }));
+    const sum = scaled.reduce((s, r) => s + r.value, 0) || 1;
+    return scaled.map((r) => ({ ...r, pct: Math.round((r.value / sum) * 100) }));
+  }, [sourcesRaw, totals.income, mockTotalsWhenEmpty.income, headerRange]);
 
   const donutRows = donutTab === 'expense' ? expenseBreakdown : incomeBreakdown;
   const donutTotal = useMemo(() => {
@@ -760,78 +783,100 @@ export default function ExpensesPage() {
         </div>
         </div>
 
-        <div className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-slate-600">Breakdown</p>
-            <div className="flex overflow-hidden rounded-xl bg-slate-100 p-1 text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => setDonutTab('income')}
-                className={`rounded-lg px-4 py-1.5 transition-colors ${
-                  donutTab === 'income' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-800'
-                }`}
-              >
-                Income
-              </button>
-              <button
-                type="button"
-                onClick={() => setDonutTab('expense')}
-                className={`rounded-lg px-4 py-1.5 transition-colors ${
-                  donutTab === 'expense' ? 'bg-lime-200 text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-800'
-                }`}
-              >
-                Expense
-              </button>
+        <div className="flex h-full flex-col gap-4">
+          <div className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-slate-600">Breakdown</p>
+              <div className="flex overflow-hidden rounded-xl bg-slate-100 p-1 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setDonutTab('income')}
+                  className={`rounded-lg px-4 py-1.5 transition-colors ${
+                    donutTab === 'income' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-800'
+                  }`}
+                >
+                  Income
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDonutTab('expense')}
+                  className={`rounded-lg px-4 py-1.5 transition-colors ${
+                    donutTab === 'expense' ? 'bg-lime-200 text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-800'
+                  }`}
+                >
+                  Expense
+                </button>
+              </div>
+            </div>
+
+            <div className="relative mt-4 h-56">
+              {isLoading ? (
+                <div className="h-full animate-shimmer rounded-xl" />
+              ) : (
+                <>
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+                    <div className="text-sm font-semibold text-slate-900">
+                      {donutTab === 'expense' ? formatCurrency(Math.round(donutTotal), currency) : `${Math.round(donutTotal)}`}
+                    </div>
+                    <div className="mt-0.5 text-[11px] font-semibold text-slate-500">
+                      {donutTab === 'expense' ? 'Total Expense' : 'Total Income'}
+                    </div>
+                  </div>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Tooltip
+                        formatter={(value: any) =>
+                          donutTab === 'expense' ? formatCurrency(Number(value) || 0, currency) : String(value)
+                        }
+                        contentStyle={{ borderRadius: 12, borderColor: '#e2e8f0' }}
+                      />
+                      <Pie data={donutRows as any[]} dataKey="value" nameKey="name" innerRadius={64} outerRadius={102} paddingAngle={2}>
+                        {(donutRows as any[]).map((_, idx) => (
+                          <Cell key={idx} fill={donutColors[idx % donutColors.length]} />
+                        ))}
+                        <Label value="" position="center" />
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </>
+              )}
+            </div>
+
+            <div className="mt-3 space-y-2 text-xs">
+              {(donutRows as any[]).map((row: any, idx: number) => (
+                <div key={row.name} className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="h-3 w-6 rounded" style={{ background: donutColors[idx % donutColors.length] }} />
+                    <span className="truncate text-slate-700">
+                      {row.name} <span className="text-slate-400">({row.pct}%)</span>
+                    </span>
+                  </div>
+                  <span className="shrink-0 font-semibold text-slate-900">
+                    {donutTab === 'expense' ? formatCurrency(Number(row.value) || 0, currency) : String(row.value)}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
 
-          <div className="relative mt-4 h-56">
-            {isLoading ? (
-              <div className="h-full animate-shimmer rounded-xl" />
-            ) : (
-              <>
-                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-                  <div className="text-sm font-semibold text-slate-900">
-                    {donutTab === 'expense' ? formatCurrency(Math.round(donutTotal), currency) : `${Math.round(donutTotal)}`}
-                  </div>
-                  <div className="mt-0.5 text-[11px] font-semibold text-slate-500">
-                    {donutTab === 'expense' ? 'Total Expense' : 'Total Income'}
-                  </div>
-                </div>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Tooltip
-                      formatter={(value: any) =>
-                        donutTab === 'expense' ? formatCurrency(Number(value) || 0, currency) : String(value)
-                      }
-                      contentStyle={{ borderRadius: 12, borderColor: '#e2e8f0' }}
-                    />
-                    <Pie data={donutRows as any[]} dataKey="value" nameKey="name" innerRadius={64} outerRadius={102} paddingAngle={2}>
-                      {(donutRows as any[]).map((_, idx) => (
-                        <Cell key={idx} fill={donutColors[idx % donutColors.length]} />
-                      ))}
-                      <Label value="" position="center" />
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-              </>
-            )}
-          </div>
-
-          <div className="mt-3 space-y-2 text-xs">
-            {(donutRows as any[]).map((row: any, idx: number) => (
-              <div key={row.name} className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="h-3 w-6 rounded" style={{ background: donutColors[idx % donutColors.length] }} />
-                  <span className="truncate text-slate-700">
-                    {row.name} <span className="text-slate-400">({row.pct}%)</span>
-                  </span>
-                </div>
-                <span className="shrink-0 font-semibold text-slate-900">
-                  {donutTab === 'expense' ? formatCurrency(Number(row.value) || 0, currency) : String(row.value)}
+          <div className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+            <div className="text-sm font-semibold text-slate-900">Range Insight</div>
+            <div className="mt-3 space-y-2 text-xs">
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2">
+                <span className="text-slate-600">Active Range</span>
+                <span className="font-semibold text-slate-900">{headerRange === '7d' ? '7 Days' : headerRange === '3m' ? '3 Months' : headerRange === '6m' ? '6 Months' : '1 Year'}</span>
+              </div>
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2">
+                <span className="text-slate-600">Top Category</span>
+                <span className="font-semibold text-slate-900">{donutRows[0]?.name ?? '-'}</span>
+              </div>
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2">
+                <span className="text-slate-600">Total ({donutTab === 'expense' ? 'Expense' : 'Income'})</span>
+                <span className="font-semibold text-slate-900">
+                  {donutTab === 'expense' ? formatCurrency(Math.round(donutTotal), currency) : Math.round(donutTotal).toLocaleString()}
                 </span>
               </div>
-            ))}
+            </div>
           </div>
         </div>
       </div>
