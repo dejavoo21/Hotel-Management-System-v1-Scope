@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { KPI_VALUE_CLASS } from '@/styles/typography';
+import { KPI_VALUE_CLASS, KPI_VALUE_CLASS_SM } from '@/styles/typography';
 import {
   Area,
   AreaChart,
@@ -45,7 +45,7 @@ function TrendPill({ pct }: { pct: number }) {
   const up = pct >= 0;
   const cls = up ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700';
   const label = `${up ? '\u25B2' : '\u25BC'} ${Math.abs(pct).toFixed(2)}% from last week`;
-  return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${cls}`}>{label}</span>;
+  return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-medium ${cls}`}>{label}</span>;
 }
 
 function ClickableCard({
@@ -130,7 +130,7 @@ function KpiCard({
         </button>
       </div>
 
-      <div className="mt-3 text-sm font-semibold text-slate-600">{title}</div>
+      <div className="mt-3 text-xs font-medium uppercase tracking-wide text-slate-500">{title}</div>
       <div className={`mt-2 ${KPI_VALUE_CLASS}`}>{value}</div>
       <div className="mt-2">
         <TrendPill pct={trendPct} />
@@ -385,9 +385,9 @@ export default function DashboardPage() {
   const donutColors = ['#bbf7d0', '#d9f99d', '#c7d2fe', '#fde68a', '#fecaca', '#e2e8f0'];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Dashboard</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard</h1>
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
@@ -407,7 +407,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-6">
+        <div className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           title="New Bookings"
@@ -460,7 +460,7 @@ export default function DashboardPage() {
         />
       </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-5 lg:grid-cols-2">
           <ClickableCard to="/rooms" ariaLabel="Go to rooms" className="h-full rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Room Availability</div>
@@ -507,28 +507,28 @@ export default function DashboardPage() {
                   <span className="mt-1 h-10 w-1 rounded-full bg-emerald-200" aria-hidden="true" />
                   <div>
                     <div className="text-xs font-semibold text-slate-500">Occupied</div>
-                    <div className={`mt-1 ${KPI_VALUE_CLASS}`}>{roomAvailability.occupied}</div>
+                    <div className={`mt-1 ${KPI_VALUE_CLASS_SM}`}>{roomAvailability.occupied}</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="mt-1 h-10 w-1 rounded-full bg-lime-200" aria-hidden="true" />
                   <div>
                     <div className="text-xs font-semibold text-slate-500">Reserved</div>
-                    <div className={`mt-1 ${KPI_VALUE_CLASS}`}>{roomAvailability.reserved}</div>
+                    <div className={`mt-1 ${KPI_VALUE_CLASS_SM}`}>{roomAvailability.reserved}</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="mt-1 h-10 w-1 rounded-full bg-emerald-100" aria-hidden="true" />
                   <div>
                     <div className="text-xs font-semibold text-slate-500">Available</div>
-                    <div className={`mt-1 ${KPI_VALUE_CLASS}`}>{roomAvailability.available}</div>
+                    <div className={`mt-1 ${KPI_VALUE_CLASS_SM}`}>{roomAvailability.available}</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="mt-1 h-10 w-1 rounded-full bg-slate-200" aria-hidden="true" />
                   <div>
                     <div className="text-xs font-semibold text-slate-500">Not Ready</div>
-                    <div className={`mt-1 ${KPI_VALUE_CLASS}`}>{roomAvailability.notReady}</div>
+                    <div className={`mt-1 ${KPI_VALUE_CLASS_SM}`}>{roomAvailability.notReady}</div>
                   </div>
                 </div>
               </div>
@@ -542,7 +542,7 @@ export default function DashboardPage() {
                 <div className="text-xs font-semibold text-slate-500">{revenueRange === '6m' ? 'Last 6 Months' : 'This Year'}</div>
               </div>
               <select
-                className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900"
+                className="rounded-full bg-lime-200 px-3 py-1.5 text-[11px] font-semibold text-slate-900"
                 onClick={(e) => e.stopPropagation()}
                 onMouseDown={(e) => e.stopPropagation()}
                 value={revenueRange}
@@ -595,7 +595,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Reservations</div>
               <select
-                className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900"
+                className="rounded-full bg-lime-200 px-3 py-1.5 text-[11px] font-semibold text-slate-900"
                 value={reservationsRange}
                 onClick={(e) => e.stopPropagation()}
                 onMouseDown={(e) => e.stopPropagation()}
@@ -764,7 +764,7 @@ export default function DashboardPage() {
 
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-5">
           <ClickableCard to="/reviews" ariaLabel="Go to reviews" className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div>
