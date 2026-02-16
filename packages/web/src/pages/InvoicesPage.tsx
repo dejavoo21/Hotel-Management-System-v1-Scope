@@ -64,11 +64,52 @@ export default function InvoicesPage() {
     return { total, unpaid };
   }, [invoices]);
 
+  const primaryInvoice = invoices[0] as Invoice | undefined;
+
+  const runHeaderInvoiceAction = async (action: 'view' | 'print' | 'email' | 'download') => {
+    if (!primaryInvoice) {
+      toast('No invoices yet. Create one from a booking first.', { icon: 'ℹ️' });
+      navigate('/bookings');
+      return;
+    }
+
+    if (action === 'email') {
+      setRecipientEmail('');
+      setEmailModal({ id: primaryInvoice.id, invoiceNo: String((primaryInvoice as any).invoiceNo || primaryInvoice.id) });
+      return;
+    }
+
+    try {
+      const blob = await downloadInvoicePdf(primaryInvoice.id);
+      if (action === 'view') {
+        await openPdfInNewTab(blob);
+        return;
+      }
+      if (action === 'print') {
+        const w = await openPdfInNewTab(blob);
+        setTimeout(() => {
+          try {
+            w?.focus();
+            w?.print();
+          } catch {
+            // ignore print errors from popup blockers
+          }
+        }, 600);
+        toast.success('Invoice opened. Use your browser print dialog if needed.');
+        return;
+      }
+      const filename = `invoice-${String((primaryInvoice as any).invoiceNo || primaryInvoice.id)}.pdf`;
+      triggerBlobDownload(blob, filename);
+    } catch {
+      toast.error(`Failed to ${action} invoice`);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Invoicing</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Invoicing</h1>
           <p className="mt-1 text-sm text-slate-600">Manage invoices, download PDFs, print, and email guests.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -134,18 +175,51 @@ export default function InvoicesPage() {
           <div className="flex items-center gap-3">
             <div className="hidden items-center gap-2 text-xs font-semibold text-slate-500 md:flex">
               <span className="text-slate-400">Actions per invoice:</span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-slate-700">
-                <span aria-hidden="true">👁️</span> View
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-slate-700">
-                <span aria-hidden="true">🖨️</span> Print
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-slate-700">
-                <span aria-hidden="true">✉️</span> Email
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-slate-700">
-                <span aria-hidden="true">⬇️</span> Download
-              </span>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-slate-700 hover:bg-slate-200"
+                onClick={() => void runHeaderInvoiceAction('view')}
+              >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                View
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-slate-700 hover:bg-slate-200"
+                onClick={() => void runHeaderInvoiceAction('print')}
+              >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M6 9V3h12v6" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M6 18h12v3H6z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M6 14H5a2 2 0 01-2-2v-2a2 2 0 012-2h14a2 2 0 012 2v2a2 2 0 01-2 2h-1" />
+                </svg>
+                Print
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-slate-700 hover:bg-slate-200"
+                onClick={() => void runHeaderInvoiceAction('email')}
+              >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 4h16v16H4z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M22 6l-10 7L2 6" />
+                </svg>
+                Email
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-slate-700 hover:bg-slate-200"
+                onClick={() => void runHeaderInvoiceAction('download')}
+              >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 3v12m0 0l4-4m-4 4l-4-4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 17v3h16v-3" />
+                </svg>
+                Download
+              </button>
             </div>
             <div className="text-sm font-semibold text-slate-500">{totalCount} total</div>
           </div>
@@ -388,3 +462,4 @@ export default function InvoicesPage() {
     </div>
   );
 }
+

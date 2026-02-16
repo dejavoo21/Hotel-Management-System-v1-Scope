@@ -730,16 +730,21 @@ export default function ExpensesPage() {
               <h2 className="text-lg font-bold text-slate-900">Earnings</h2>
               <p className="text-sm text-slate-500">Income vs Expense</p>
             </div>
-             <select
-               className="min-w-[126px] rounded-full bg-lime-200 py-1.5 pl-4 pr-10 text-[11px] font-semibold text-slate-900"
-               value={earningsRange}
-               onChange={(e) => setEarningsRange(e.target.value as TimeRange)}
-             >
-               <option value="7d">Last 7 Days</option>
-               <option value="3m">Last 3 Months</option>
-               <option value="6m">Last 6 Months</option>
-               <option value="1y">This Year</option>
-             </select>
+             <div className="relative">
+               <select
+                 className="min-w-[132px] appearance-none rounded-xl border border-lime-300 bg-lime-200 py-2 pl-3 pr-8 text-[11px] font-semibold text-slate-900 shadow-sm outline-none ring-0 hover:bg-lime-300 focus:border-lime-400 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+                 value={earningsRange}
+                 onChange={(e) => setEarningsRange(e.target.value as TimeRange)}
+               >
+                 <option value="7d">Last 7 Days</option>
+                 <option value="3m">Last 3 Months</option>
+                 <option value="6m">Last 6 Months</option>
+                 <option value="1y">This Year</option>
+               </select>
+               <svg className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-700" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                 <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.158l3.71-3.929a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+               </svg>
+             </div>
            </div>
 
           <div className="mt-3 flex items-center gap-5 text-xs font-semibold text-slate-500">
@@ -936,25 +941,25 @@ export default function ExpensesPage() {
               <option value="Failed">Failed</option>
             </select>
 
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm hover:bg-lime-300"
-              title="Date range"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <div className="relative">
+              <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3M5 11h14M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-               <select
-                 value={transactionsRange}
-                 onChange={(e) => setTransactionsRange(e.target.value as TimeRange)}
-                 className="bg-transparent pr-1 text-xs font-semibold text-slate-900 focus:outline-none"
-               >
-                 <option value="7d">Last 7 Days</option>
-                 <option value="3m">Last 3 Months</option>
-                 <option value="6m">Last 6 Months</option>
-                 <option value="1y">This Year</option>
-               </select>
-             </button>
+              <select
+                value={transactionsRange}
+                onChange={(e) => setTransactionsRange(e.target.value as TimeRange)}
+                className="min-w-[138px] appearance-none rounded-xl border border-lime-300 bg-lime-200 py-2 pl-9 pr-8 text-xs font-semibold text-slate-900 shadow-sm outline-none ring-0 hover:bg-lime-300 focus:border-lime-400 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+                aria-label="Date range"
+              >
+                <option value="7d">Last 7 Days</option>
+                <option value="3m">Last 3 Months</option>
+                <option value="6m">Last 6 Months</option>
+                <option value="1y">This Year</option>
+              </select>
+              <svg className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-700" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.158l3.71-3.929a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+              </svg>
+            </div>
           </div>
         </div>
 
