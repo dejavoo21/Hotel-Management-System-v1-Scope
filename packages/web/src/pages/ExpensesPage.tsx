@@ -646,7 +646,7 @@ export default function ExpensesPage() {
       </div>
 
       <div className="grid items-start gap-4 xl:grid-cols-[2.35fr_0.95fr]">
-        <div className="space-y-4">
+        <div className="flex h-full flex-col gap-4">
           <div className="grid items-start gap-4 md:grid-cols-3">
             <div className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
               <div className="flex items-start justify-between">
@@ -724,7 +724,7 @@ export default function ExpensesPage() {
             </div>
           </div>
 
-          <div className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <div className="flex-1 rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold text-slate-900">Earnings</h2>
