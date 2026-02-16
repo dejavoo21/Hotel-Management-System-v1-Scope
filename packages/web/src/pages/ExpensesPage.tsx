@@ -954,10 +954,7 @@ export default function ExpensesPage() {
                  <option value="6m">Last 6 Months</option>
                  <option value="1y">This Year</option>
                </select>
-               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-               </svg>
-            </button>
+             </button>
           </div>
         </div>
 
