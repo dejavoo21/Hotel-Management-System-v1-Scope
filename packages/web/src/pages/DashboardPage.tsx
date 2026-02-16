@@ -327,12 +327,15 @@ export default function DashboardPage() {
     () => ({
       rating: 4.6,
       reviewsCount: 2546,
+      responseRate: 94,
+      sentiment: { positive: 2180, neutral: 256, negative: 110 },
       categories: [
         { name: 'Facilities', value: 4.4 },
         { name: 'Cleanliness', value: 4.7 },
         { name: 'Services', value: 4.6 },
         { name: 'Comfort', value: 4.8 },
         { name: 'Location', value: 4.5 },
+        { name: 'Food & Dining', value: 4.4 },
       ],
     }),
     [],
@@ -358,6 +361,24 @@ export default function DashboardPage() {
         title: 'Room Cleaning Completed',
         detail: 'Maria Gonzalez cleaned and prepared Room 204 for new guests.',
         time: '10:00 AM',
+      },
+      {
+        id: 'ra-4',
+        title: 'Invoice Sent to Guest',
+        detail: 'Invoice INV-2028-119 was emailed to Anthony Clarke for Room 101.',
+        time: '9:35 AM',
+      },
+      {
+        id: 'ra-5',
+        title: 'Late Check-Out Approved',
+        detail: 'Front desk approved late check-out for Room 302 until 2:00 PM.',
+        time: '9:10 AM',
+      },
+      {
+        id: 'ra-6',
+        title: 'Inventory Restocked',
+        detail: 'Housekeeping trolley stock refreshed for floors 2 and 3.',
+        time: '8:40 AM',
       },
     ],
     [],
@@ -403,6 +424,56 @@ export default function DashboardPage() {
         duration: '4 nights',
         dates: 'June 18, 2028 - June 22, 2028',
         status: 'Pending',
+      },
+      {
+        id: 'b4',
+        bookingId: 'LG-B00111',
+        guestName: 'Daniel Brooks',
+        roomType: 'Deluxe',
+        roomNumber: 'Room 107',
+        duration: '2 nights',
+        dates: 'June 20, 2028 - June 22, 2028',
+        status: 'Checked-In',
+      },
+      {
+        id: 'b5',
+        bookingId: 'LG-B00112',
+        guestName: 'Sophia Miller',
+        roomType: 'Standard',
+        roomNumber: 'Room 206',
+        duration: '1 night',
+        dates: 'June 20, 2028 - June 21, 2028',
+        status: 'Checked-Out',
+      },
+      {
+        id: 'b6',
+        bookingId: 'LG-B00113',
+        guestName: 'Michael Stone',
+        roomType: 'Suite',
+        roomNumber: 'Room 401',
+        duration: '5 nights',
+        dates: 'June 17, 2028 - June 22, 2028',
+        status: 'Checked-In',
+      },
+      {
+        id: 'b7',
+        bookingId: 'LG-B00114',
+        guestName: 'Olivia Chen',
+        roomType: 'Deluxe',
+        roomNumber: 'Room 205',
+        duration: '3 nights',
+        dates: 'June 21, 2028 - June 24, 2028',
+        status: 'Pending',
+      },
+      {
+        id: 'b8',
+        bookingId: 'LG-B00115',
+        guestName: 'Noah Richardson',
+        roomType: 'Standard',
+        roomNumber: 'Room 118',
+        duration: '2 nights',
+        dates: 'June 21, 2028 - June 23, 2028',
+        status: 'Checked-In',
       },
     ],
     [],
@@ -962,6 +1033,31 @@ export default function DashboardPage() {
                   <div className="text-xs font-semibold text-slate-700 text-right">{c.value.toFixed(1)}</div>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-emerald-50 px-3 py-2 ring-1 ring-emerald-100">
+                <div className="text-[11px] font-semibold text-slate-500">Positive</div>
+                <div className="mt-1 text-sm font-semibold text-emerald-700">
+                  {reviewSummary.sentiment.positive.toLocaleString()}
+                </div>
+              </div>
+              <div className="rounded-xl bg-sky-50 px-3 py-2 ring-1 ring-sky-100">
+                <div className="text-[11px] font-semibold text-slate-500">Neutral</div>
+                <div className="mt-1 text-sm font-semibold text-sky-700">
+                  {reviewSummary.sentiment.neutral.toLocaleString()}
+                </div>
+              </div>
+              <div className="rounded-xl bg-rose-50 px-3 py-2 ring-1 ring-rose-100">
+                <div className="text-[11px] font-semibold text-slate-500">Negative</div>
+                <div className="mt-1 text-sm font-semibold text-rose-700">
+                  {reviewSummary.sentiment.negative.toLocaleString()}
+                </div>
+              </div>
+              <div className="rounded-xl bg-lime-50 px-3 py-2 ring-1 ring-lime-100">
+                <div className="text-[11px] font-semibold text-slate-500">Response Rate</div>
+                <div className="mt-1 text-sm font-semibold text-lime-700">{reviewSummary.responseRate}%</div>
+              </div>
             </div>
           </ClickableCard>
 
