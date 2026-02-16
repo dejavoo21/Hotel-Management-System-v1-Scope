@@ -191,7 +191,7 @@ export default function DashboardPage() {
   // MOCK DATA - replace with real data
   const roomAvailability = useMemo(() => ({ occupied: 286, reserved: 87, available: 32, notReady: 13 }), []);
 
-  const [revenueRange, setRevenueRange] = useState<'7d' | '3m' | '1y'>('3m');
+  const [revenueRange, setRevenueRange] = useState<'7d' | '3m' | '6m' | '1y'>('6m');
 
   // MOCK DATA - replace with real data
   const revenue6m = useMemo(
@@ -239,8 +239,9 @@ export default function DashboardPage() {
   const revenueByMonth = useMemo(() => {
     if (revenueRange === '7d') return revenue7d;
     if (revenueRange === '3m') return revenue3m;
+    if (revenueRange === '6m') return revenue6m;
     return revenue1y;
-  }, [revenue1y, revenue3m, revenue7d, revenueRange]);
+  }, [revenue1y, revenue3m, revenue6m, revenue7d, revenueRange]);
 
   // MOCK DATA - replace with real data
   const reservations7d = useMemo(
@@ -283,10 +284,29 @@ export default function DashboardPage() {
     [],
   );
 
-  const [reservationsRange, setReservationsRange] = useState<'7d' | '3m' | '1y'>('7d');
+  const reservations6m = useMemo(
+    () => [
+      { day: 'Jan', booked: 310, canceled: 74 },
+      { day: 'Feb', booked: 298, canceled: 69 },
+      { day: 'Mar', booked: 344, canceled: 81 },
+      { day: 'Apr', booked: 366, canceled: 88 },
+      { day: 'May', booked: 352, canceled: 83 },
+      { day: 'Jun', booked: 388, canceled: 96 },
+    ],
+    [],
+  );
+
+  const [reservationsRange, setReservationsRange] = useState<'7d' | '3m' | '6m' | '1y'>('7d');
   const reservationsByDay = useMemo(
-    () => (reservationsRange === '7d' ? reservations7d : reservationsRange === '3m' ? reservations3m : reservations1y),
-    [reservations1y, reservations3m, reservations7d, reservationsRange],
+    () =>
+      reservationsRange === '7d'
+        ? reservations7d
+        : reservationsRange === '3m'
+          ? reservations3m
+          : reservationsRange === '6m'
+            ? reservations6m
+            : reservations1y,
+    [reservations1y, reservations3m, reservations6m, reservations7d, reservationsRange],
   );
 
   // MOCK DATA - replace with real data
@@ -621,7 +641,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="mt-6 grid gap-2 sm:grid-cols-3">
+              <div className="mt-8 grid gap-2 sm:grid-cols-3">
                 {roomSignals.map((signal) => {
                   const toneClass =
                     signal.tone === 'amber'
@@ -645,7 +665,13 @@ export default function DashboardPage() {
               <div>
                 <div className="text-sm font-semibold text-slate-900">Revenue</div>
                 <div className="text-xs font-semibold text-slate-500">
-                  {revenueRange === '7d' ? 'Last 7 Days' : revenueRange === '3m' ? 'Last 3 Months' : 'Last 1 Year'}
+                  {revenueRange === '7d'
+                    ? 'Last 7 Days'
+                    : revenueRange === '3m'
+                      ? 'Last 3 Months'
+                      : revenueRange === '6m'
+                        ? 'Last 6 Months'
+                        : 'Last 1 Year'}
                 </div>
               </div>
               <select
@@ -660,6 +686,7 @@ export default function DashboardPage() {
               >
                 <option value="7d">Last 7 Days</option>
                 <option value="3m">Last 3 Months</option>
+                <option value="6m">Last 6 Months</option>
                 <option value="1y">Last 1 Year</option>
               </select>
             </div>
@@ -714,6 +741,7 @@ export default function DashboardPage() {
               >
                 <option value="7d">Last 7 Days</option>
                 <option value="3m">Last 3 Months</option>
+                <option value="6m">Last 6 Months</option>
                 <option value="1y">Last 1 Year</option>
               </select>
             </div>
@@ -895,7 +923,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex h-full flex-col gap-5">
-          <ClickableCard to="/reviews" ariaLabel="Go to reviews" className="min-h-[320px] rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <ClickableCard to="/reviews" ariaLabel="Go to reviews" className="min-h-[460px] rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold text-slate-900">Overall Rating</div>
@@ -998,7 +1026,7 @@ export default function DashboardPage() {
             </div>
           </ClickableCard>
 
-          <ClickableCard to="/settings?tab=audit-trail" ariaLabel="Go to audit trail" className="min-h-[320px] flex-1 rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <ClickableCard to="/settings?tab=audit-trail" ariaLabel="Go to audit trail" className="min-h-[380px] h-full flex-1 rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Recent Activities</div>
               <button
