@@ -460,7 +460,7 @@ export default function DashboardPage() {
         />
       </div>
 
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid gap-5 lg:grid-cols-[0.72fr_1.28fr]">
           <ClickableCard to="/rooms" ariaLabel="Go to rooms" className="h-full rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Room Availability</div>
@@ -652,7 +652,7 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-[220px_1fr] md:items-center">
+            <div className="mt-4 grid gap-4 md:grid-cols-[220px_260px] md:items-center md:justify-center">
               <div className="h-52">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -666,9 +666,9 @@ export default function DashboardPage() {
                 </ResponsiveContainer>
               </div>
 
-              <div className="space-y-2 text-sm">
+              <div className="mx-auto w-full max-w-[260px] space-y-2 text-sm">
                 {bookingByPlatform.map((row, idx) => (
-                  <div key={row.name} className="flex items-center justify-between gap-3">
+                  <div key={row.name} className="grid grid-cols-[1fr_auto] items-center gap-3">
                     <div className="flex min-w-0 items-center gap-2">
                       <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: donutColors[idx % donutColors.length] }} />
                       <span className="truncate text-slate-700">{row.name}</span>
@@ -868,7 +868,7 @@ export default function DashboardPage() {
             </div>
           </ClickableCard>
 
-          <ClickableCard to="/settings?tab=audit-trail" ariaLabel="Go to audit trail" className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <ClickableCard to="/settings?tab=audit-trail" ariaLabel="Go to audit trail" className="min-h-[320px] rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Recent Activities</div>
               <button
