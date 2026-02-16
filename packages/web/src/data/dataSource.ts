@@ -249,7 +249,7 @@ export async function getReviewStats({ timeRange }: { timeRange: TimeRange }) {
   const responseRate = total ? Math.round((responded / total) * 100) : 0;
 
   // Positive / negative series.
-  const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '6m' ? 180 : 365;
+  const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '3m' ? 90 : timeRange === '6m' ? 180 : 365;
   const end = new Date(endDate + 'T00:00:00');
   const start = new Date(end);
   start.setDate(start.getDate() - (days - 1));

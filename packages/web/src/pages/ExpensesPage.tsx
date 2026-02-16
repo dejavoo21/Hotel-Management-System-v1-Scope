@@ -5,7 +5,7 @@ import type { PurchaseOrder } from '@/types';
 import { KPI_VALUE_CLASS } from '@/styles/typography';
 import TimeRangeToggle from '@/components/ui/TimeRangeToggle';
 import type { TimeRange } from '@/data/timeRange';
-import { timeRangeToDateRange } from '@/data/timeRange';
+import { timeRangeLabel, timeRangeToDateRange } from '@/data/timeRange';
 import { downloadPurchaseOrderPdf, getRevenueBreakdown, getSourcesBreakdown, listPurchaseOrders } from '@/data/dataSource';
 import {
   Bar,
@@ -498,12 +498,16 @@ export default function ExpensesPage() {
   }, [range.endDate, revenueSeries, transactions]);
 
   const earningsSeries = useMemo((): EarningsPoint[] => {
-    const hasReal = (revenueSeries?.length ?? 0) > 0 || transactionsReal.length > 0;
-    if (!hasReal) {
+    const fallbackSeries = () => {
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const income = [22000, 18500, 14000, 20000, 23500, 26000, 21500, 15500, 21000, 25500, 24000, 27500];
       const expense = [16500, 19000, 14000, 17500, 21000, 25500, 15600, 9000, 16500, 23000, 18500, 15500];
       return months.map((m, i) => ({ month: m, income: income[i], expense: -expense[i] }));
+    };
+
+    const hasReal = (revenueSeries?.length ?? 0) > 0 || transactionsReal.length > 0;
+    if (!hasReal) {
+      return fallbackSeries();
     }
 
     const byMonthIncome = new Map<string, number>();
@@ -527,6 +531,8 @@ export default function ExpensesPage() {
     for (const k of byMonthExpense.keys()) keys.add(k);
     const sorted = [...keys].sort((a, b) => a.localeCompare(b));
     const last12 = sorted.slice(Math.max(0, sorted.length - 12));
+
+    if (last12.length < 6) return fallbackSeries();
 
     return last12.map((key) => ({
       month: monthLabelFromKey(key),
@@ -612,8 +618,10 @@ export default function ExpensesPage() {
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Expense</h1>
         <TimeRangeToggle
           options={[
-            { label: 'This Year', value: '1y' },
+            { label: 'Last 7 Days', value: '7d' },
+            { label: 'Last 3 Months', value: '3m' },
             { label: 'Last 6 Months', value: '6m' },
+            { label: 'This Year', value: '1y' },
           ]}
           value={timeRange}
           onChange={setTimeRange}
@@ -705,10 +713,10 @@ export default function ExpensesPage() {
               <h2 className="text-lg font-bold text-slate-900">Earnings</h2>
               <p className="text-sm text-slate-500">Income vs Expense</p>
             </div>
-            <div className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900">
-              {timeRange === '1y' ? 'This Year' : 'Last 6 Months'}
-            </div>
-          </div>
+             <div className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900">
+               {timeRangeLabel(timeRange)}
+             </div>
+           </div>
 
           <div className="mt-3 flex items-center gap-5 text-xs font-semibold text-slate-500">
             <span className="inline-flex items-center gap-2">
@@ -726,7 +734,7 @@ export default function ExpensesPage() {
               <div className="h-full animate-shimmer rounded-xl" />
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={earningsSeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <BarChart data={earningsSeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }} barGap={4} barCategoryGap="28%">
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                   <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
                   <YAxis
@@ -742,8 +750,8 @@ export default function ExpensesPage() {
                     ]}
                     contentStyle={{ borderRadius: 12, borderColor: '#e2e8f0' }}
                   />
-                  <Bar dataKey="income" name="Income" fill="#bbf7d0" radius={[10, 10, 10, 10]} />
-                  <Bar dataKey="expense" name="Expense" fill="#d9f99d" radius={[10, 10, 10, 10]} />
+                  <Bar dataKey="income" name="Income" fill="#bbf7d0" radius={[8, 8, 8, 8]} maxBarSize={24} />
+                  <Bar dataKey="expense" name="Expense" fill="#d9f99d" radius={[8, 8, 8, 8]} maxBarSize={24} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -776,7 +784,7 @@ export default function ExpensesPage() {
             </div>
           </div>
 
-          <div className="relative mt-4 h-56">
+          <div className="relative mt-4 h-64">
             {isLoading ? (
               <div className="h-full animate-shimmer rounded-xl" />
             ) : (
@@ -797,7 +805,7 @@ export default function ExpensesPage() {
                       }
                       contentStyle={{ borderRadius: 12, borderColor: '#e2e8f0' }}
                     />
-                    <Pie data={donutRows as any[]} dataKey="value" nameKey="name" innerRadius={62} outerRadius={92} paddingAngle={2}>
+                    <Pie data={donutRows as any[]} dataKey="value" nameKey="name" innerRadius={72} outerRadius={116} paddingAngle={2}>
                       {(donutRows as any[]).map((_, idx) => (
                         <Cell key={idx} fill={donutColors[idx % donutColors.length]} />
                       ))}
@@ -912,7 +920,7 @@ export default function ExpensesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredTransactions.slice(0, 20).map((row) => (
+              {filteredTransactions.slice(0, 5).map((row) => (
                 <tr key={row.id} className="hover:bg-slate-50">
                   <td className="px-5 py-4 text-sm font-semibold text-slate-900">
                     {row.expense}
