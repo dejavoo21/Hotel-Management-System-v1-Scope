@@ -168,6 +168,13 @@ function statusPillClass(status: TransactionStatus) {
   return 'bg-rose-50 text-rose-700';
 }
 
+function trendPillClass(value: number, positiveStyle = true) {
+  if (value === 0) return 'bg-slate-100 text-slate-700';
+  const up = value > 0;
+  if (positiveStyle) return up ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700';
+  return up ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700';
+}
+
 function escapeHtml(value: string) {
   return value
     .replaceAll('&', '&amp;')
@@ -600,7 +607,7 @@ export default function ExpensesPage() {
   }, [donutRows, donutTab, mockTotalsWhenEmpty.expenses, totals.expenses]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Expense</h1>
         <TimeRangeToggle
@@ -613,11 +620,10 @@ export default function ExpensesPage() {
         />
       </div>
 
-      {/* Summary cards - do not stretch to match chart heights */}
-      <div className="grid items-start gap-4 lg:grid-cols-[2.2fr_1fr]">
+      <div className="grid items-start gap-4 xl:grid-cols-[2.25fr_1fr]">
         <div className="space-y-4">
           <div className="grid items-start gap-4 md:grid-cols-3">
-            <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+            <div className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   <div className="rounded-xl bg-emerald-50 p-2 text-emerald-700">
@@ -627,18 +633,22 @@ export default function ExpensesPage() {
                   </div>
                   <p className="text-sm font-semibold text-slate-600">Total Balance</p>
                 </div>
-                {weeklyTrend.balance != null ? (
-                  <div className="rounded-xl bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                    {weeklyTrend.balance >= 0 ? '+' : ''}
-                    {weeklyTrend.balance}%
-                  </div>
-                ) : null}
+                <button type="button" className="rounded-lg p-1 text-slate-400 hover:bg-slate-50" aria-label="More">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6h.01M12 12h.01M12 18h.01" />
+                  </svg>
+                </button>
               </div>
               <p className={`mt-4 ${KPI_VALUE_CLASS}`}>{formatCurrency(Math.round(totals.balance), currency)}</p>
-              <p className="mt-1 text-xs text-slate-500">from last week</p>
+              {weeklyTrend.balance != null ? (
+                <div className={`mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${trendPillClass(weeklyTrend.balance)}`}>
+                  {weeklyTrend.balance >= 0 ? '▲' : '▼'} {Math.abs(weeklyTrend.balance)}%
+                </div>
+              ) : null}
+              <p className="mt-1 text-[11px] text-slate-500">from last week</p>
             </div>
 
-            <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+            <div className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   <div className="rounded-xl bg-emerald-50 p-2 text-emerald-700">
@@ -648,22 +658,22 @@ export default function ExpensesPage() {
                   </div>
                   <p className="text-sm font-semibold text-slate-600">Total Income</p>
                 </div>
-                {weeklyTrend.income != null ? (
-                  <div
-                    className={`rounded-xl px-2.5 py-1 text-xs font-semibold ${
-                      weeklyTrend.income >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                    }`}
-                  >
-                    {weeklyTrend.income >= 0 ? '+' : ''}
-                    {weeklyTrend.income}%
-                  </div>
-                ) : null}
+                <button type="button" className="rounded-lg p-1 text-slate-400 hover:bg-slate-50" aria-label="More">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6h.01M12 12h.01M12 18h.01" />
+                  </svg>
+                </button>
               </div>
               <p className={`mt-4 ${KPI_VALUE_CLASS}`}>{formatCurrency(Math.round(totals.income), currency)}</p>
-              <p className="mt-1 text-xs text-slate-500">from last week</p>
+              {weeklyTrend.income != null ? (
+                <div className={`mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${trendPillClass(weeklyTrend.income)}`}>
+                  {weeklyTrend.income >= 0 ? '▲' : '▼'} {Math.abs(weeklyTrend.income)}%
+                </div>
+              ) : null}
+              <p className="mt-1 text-[11px] text-slate-500">from last week</p>
             </div>
 
-            <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+            <div className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   <div className="rounded-xl bg-emerald-50 p-2 text-emerald-700">
@@ -673,23 +683,23 @@ export default function ExpensesPage() {
                   </div>
                   <p className="text-sm font-semibold text-slate-600">Total Expenses</p>
                 </div>
-                {weeklyTrend.expenses != null ? (
-                  <div
-                    className={`rounded-xl px-2.5 py-1 text-xs font-semibold ${
-                      weeklyTrend.expenses <= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                    }`}
-                  >
-                    {weeklyTrend.expenses >= 0 ? '+' : ''}
-                    {weeklyTrend.expenses}%
-                  </div>
-                ) : null}
+                <button type="button" className="rounded-lg p-1 text-slate-400 hover:bg-slate-50" aria-label="More">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6h.01M12 12h.01M12 18h.01" />
+                  </svg>
+                </button>
               </div>
               <p className={`mt-4 ${KPI_VALUE_CLASS}`}>{formatCurrency(Math.round(totals.expenses), currency)}</p>
-              <p className="mt-1 text-xs text-slate-500">from last week</p>
+              {weeklyTrend.expenses != null ? (
+                <div className={`mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${trendPillClass(weeklyTrend.expenses, true)}`}>
+                  {weeklyTrend.expenses >= 0 ? '▲' : '▼'} {Math.abs(weeklyTrend.expenses)}%
+                </div>
+              ) : null}
+              <p className="mt-1 text-[11px] text-slate-500">from last week</p>
             </div>
           </div>
 
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <div className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold text-slate-900">Earnings</h2>
@@ -698,6 +708,17 @@ export default function ExpensesPage() {
             <div className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900">
               {timeRange === '1y' ? 'This Year' : 'Last 6 Months'}
             </div>
+          </div>
+
+          <div className="mt-3 flex items-center gap-5 text-xs font-semibold text-slate-500">
+            <span className="inline-flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-lime-300" />
+              Income
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-200" />
+              Expense
+            </span>
           </div>
 
           <div className="mt-4 h-80">
@@ -730,7 +751,7 @@ export default function ExpensesPage() {
         </div>
         </div>
 
-        <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 lg:self-stretch">
+        <div className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200 lg:self-stretch">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-slate-600">Breakdown</p>
             <div className="flex overflow-hidden rounded-xl bg-slate-100 p-1 text-xs font-semibold">
@@ -806,7 +827,7 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+      <div className="overflow-hidden rounded-[20px] bg-white shadow-sm ring-1 ring-slate-200">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <h2 className="text-lg font-bold text-slate-900">Transactions</h2>
           <div className="flex flex-wrap items-center gap-2">
@@ -827,17 +848,6 @@ export default function ExpensesPage() {
                 placeholder="Search expense"
               />
             </div>
-
-            <button
-              type="button"
-              className="rounded-xl border border-slate-200 bg-slate-50 p-2 text-slate-600 shadow-sm hover:bg-slate-100"
-              title="Filters"
-              aria-label="Filters"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h18l-7 8v6l-4-2v-4L3 5z" />
-              </svg>
-            </button>
 
             <select
               value={categoryFilter}
@@ -943,8 +953,8 @@ export default function ExpensesPage() {
 
                       <button
                         type="button"
-                        className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-lime-300"
-                        onClick={async () => {
+                className="inline-flex items-center gap-1 rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-lime-300"
+                onClick={async () => {
                           if (row.purchaseOrderId) {
                             const blob = await downloadPurchaseOrderPdf(row.purchaseOrderId);
                             triggerBlobDownload(blob, `laflo-purchase-order-${row.purchaseOrderId}.pdf`);
@@ -954,7 +964,12 @@ export default function ExpensesPage() {
                           triggerBlobDownload(blob, `laflo-expense-${row.id}.html`);
                         }}
                       >
-                        Download
+                        <span className="inline-flex items-center gap-1.5">
+                          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v12m0 0l4-4m-4 4l-4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+                          </svg>
+                          Download
+                        </span>
                       </button>
                     </div>
                   </td>
