@@ -37,6 +37,18 @@ type TaskRow = {
   completed: boolean;
 };
 
+type RoomSignal = {
+  label: string;
+  value: string;
+  tone: 'lime' | 'amber' | 'sky';
+};
+
+type ChannelPerformance = {
+  label: string;
+  value: string;
+  hint: string;
+};
+
 function formatCurrency(value: number, currency = 'USD') {
   return value.toLocaleString(undefined, { style: 'currency', currency, maximumFractionDigits: 0 });
 }
@@ -345,6 +357,26 @@ export default function DashboardPage() {
   const [bookingSearch, setBookingSearch] = useState('');
   const [bookingStatus, setBookingStatus] = useState<'All Status' | BookingStatus>('All Status');
 
+  // MOCK DATA - replace with real data
+  const roomSignals = useMemo<RoomSignal[]>(
+    () => [
+      { label: 'Priority Clean', value: '3 rooms', tone: 'amber' },
+      { label: 'Maintenance Alerts', value: '2 open', tone: 'sky' },
+      { label: 'Late Check-Outs', value: '4 today', tone: 'lime' },
+    ],
+    [],
+  );
+
+  // MOCK DATA - replace with real data
+  const channelPerformance = useMemo<ChannelPerformance[]>(
+    () => [
+      { label: 'Top Channel', value: 'Direct Booking', hint: '61% share' },
+      { label: 'Best Conversion', value: 'Booking.com', hint: '4.8% CVR' },
+      { label: 'Highest ADR', value: '$214', hint: 'Agoda' },
+    ],
+    [],
+  );
+
   const filteredBookings = useMemo(() => {
     const q = bookingSearch.trim().toLowerCase();
     return bookings.filter((b) => {
@@ -406,7 +438,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid items-stretch gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
@@ -532,6 +564,23 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </div>
+
+              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                {roomSignals.map((signal) => {
+                  const toneClass =
+                    signal.tone === 'amber'
+                      ? 'bg-amber-50 text-amber-800 ring-amber-100'
+                      : signal.tone === 'sky'
+                        ? 'bg-sky-50 text-sky-800 ring-sky-100'
+                        : 'bg-lime-50 text-lime-800 ring-lime-100';
+                  return (
+                    <div key={signal.label} className={`rounded-xl px-3 py-2 ring-1 ${toneClass}`}>
+                      <div className="text-[11px] font-semibold text-slate-500">{signal.label}</div>
+                      <div className="mt-1 text-sm font-semibold">{signal.value}</div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </ClickableCard>
 
@@ -595,7 +644,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Reservations</div>
               <select
-                className="rounded-full bg-lime-200 px-3 py-1.5 text-[11px] font-semibold text-slate-900"
+                className="min-w-[110px] rounded-full bg-lime-200 pl-4 pr-9 py-1.5 text-[11px] font-semibold text-slate-900"
                 value={reservationsRange}
                 onClick={(e) => e.stopPropagation()}
                 onMouseDown={(e) => e.stopPropagation()}
@@ -652,7 +701,7 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-[220px_260px] md:items-center md:justify-center">
+            <div className="mt-4 grid gap-4 xl:grid-cols-[220px_220px_1fr] xl:items-center">
               <div className="h-52">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -666,7 +715,7 @@ export default function DashboardPage() {
                 </ResponsiveContainer>
               </div>
 
-              <div className="mx-auto w-full max-w-[260px] space-y-2 text-sm">
+              <div className="mx-auto w-full max-w-[220px] space-y-2 text-sm">
                 {bookingByPlatform.map((row, idx) => (
                   <div key={row.name} className="grid grid-cols-[1fr_auto] items-center gap-3">
                     <div className="flex min-w-0 items-center gap-2">
@@ -674,6 +723,16 @@ export default function DashboardPage() {
                       <span className="truncate text-slate-700">{row.name}</span>
                     </div>
                     <span className="font-semibold text-slate-900">{row.pct}%</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid gap-2 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
+                {channelPerformance.map((item) => (
+                  <div key={item.label} className="rounded-xl bg-white px-3 py-2 ring-1 ring-slate-100">
+                    <div className="text-[11px] font-semibold text-slate-500">{item.label}</div>
+                    <div className="mt-1 text-sm font-semibold text-slate-900">{item.value}</div>
+                    <div className="text-[11px] font-medium text-slate-500">{item.hint}</div>
                   </div>
                 ))}
               </div>
@@ -764,7 +823,7 @@ export default function DashboardPage() {
 
         </div>
 
-        <div className="space-y-5">
+        <div className="flex h-full flex-col gap-5">
           <ClickableCard to="/reviews" ariaLabel="Go to reviews" className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div>
@@ -868,7 +927,7 @@ export default function DashboardPage() {
             </div>
           </ClickableCard>
 
-          <ClickableCard to="/settings?tab=audit-trail" ariaLabel="Go to audit trail" className="min-h-[320px] rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <ClickableCard to="/settings?tab=audit-trail" ariaLabel="Go to audit trail" className="min-h-[320px] flex-1 rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Recent Activities</div>
               <button
