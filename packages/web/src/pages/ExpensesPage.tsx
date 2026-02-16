@@ -5,7 +5,7 @@ import type { PurchaseOrder } from '@/types';
 import { KPI_VALUE_CLASS } from '@/styles/typography';
 import TimeRangeToggle from '@/components/ui/TimeRangeToggle';
 import type { TimeRange } from '@/data/timeRange';
-import { timeRangeLabel, timeRangeToDateRange } from '@/data/timeRange';
+import { timeRangeToDateRange } from '@/data/timeRange';
 import { downloadPurchaseOrderPdf, getRevenueBreakdown, getSourcesBreakdown, listPurchaseOrders } from '@/data/dataSource';
 import {
   Bar,
@@ -69,25 +69,6 @@ function pctChange(current: number, prev: number) {
 
 function formatCurrency(value: number, currency: string) {
   return value.toLocaleString(undefined, { style: 'currency', currency });
-}
-
-function formatRangeLabel(range: Range) {
-  const start = new Date(range.startDate);
-  const end = new Date(range.endDate);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-    return `${range.startDate} - ${range.endDate}`;
-  }
-
-  const sameYear = start.getFullYear() === end.getFullYear();
-  const sameMonth = sameYear && start.getMonth() === end.getMonth();
-
-  if (sameMonth) {
-    const month = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(start);
-    return `${start.getDate()} - ${end.getDate()} ${month} ${start.getFullYear()}`;
-  }
-
-  const fmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  return `${fmt.format(start)} - ${fmt.format(end)}`;
 }
 
 function categoryFromName(name: string): ExpenseCategory {
@@ -373,23 +354,26 @@ function triggerBlobDownload(blob: Blob, filename: string) {
 export default function ExpensesPage() {
   const { user } = useAuthStore();
   const currency = user?.hotel?.currency || 'USD';
-  const [timeRange, setTimeRange] = useState<TimeRange>('1y');
+  const [headerRange, setHeaderRange] = useState<TimeRange>('1y');
+  const [earningsRange, setEarningsRange] = useState<TimeRange>('1y');
+  const [transactionsRange, setTransactionsRange] = useState<TimeRange>('1y');
   const [donutTab, setDonutTab] = useState<'income' | 'expense'>('expense');
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'ALL' | ExpenseCategory>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | TransactionStatus>('ALL');
   const [selectedTx, setSelectedTx] = useState<TransactionRow | null>(null);
 
-  const range: Range = useMemo(() => timeRangeToDateRange(timeRange), [timeRange]);
+  const headerDateRange: Range = useMemo(() => timeRangeToDateRange(headerRange), [headerRange]);
+  const transactionsDateRange: Range = useMemo(() => timeRangeToDateRange(transactionsRange), [transactionsRange]);
 
   const { data: revenueSeries, isLoading: isLoadingRevenue } = useQuery({
-    queryKey: ['expenses', 'income', timeRange],
-    queryFn: () => getRevenueBreakdown({ timeRange }),
+    queryKey: ['expenses', 'income', headerRange],
+    queryFn: () => getRevenueBreakdown({ timeRange: headerRange }),
   });
 
   const { data: sourcesRaw } = useQuery({
-    queryKey: ['expenses', 'incomeSources', timeRange],
-    queryFn: () => getSourcesBreakdown({ timeRange }),
+    queryKey: ['expenses', 'incomeSources', headerRange],
+    queryFn: () => getSourcesBreakdown({ timeRange: headerRange }),
   });
 
   const { data: orders, isLoading: isLoadingOrders } = useQuery({
@@ -441,7 +425,10 @@ export default function ExpensesPage() {
 
   const minRows = 14;
   const mockCount = Math.max(0, minRows - transactionsReal.length);
-  const transactionsMock = useMemo(() => buildMockTransactions(range.startDate, mockCount), [range.startDate, mockCount]);
+  const transactionsMock = useMemo(
+    () => buildMockTransactions(transactionsDateRange.startDate, mockCount),
+    [transactionsDateRange.startDate, mockCount],
+  );
 
   const transactions = useMemo(() => [...transactionsReal, ...transactionsMock].slice(0, 40), [transactionsReal, transactionsMock]);
 
@@ -470,7 +457,7 @@ export default function ExpensesPage() {
   }, [transactions, transactionsReal.length, revenueSeries, mockTotalsWhenEmpty]);
 
   const weeklyTrend = useMemo(() => {
-    const end = new Date(range.endDate);
+    const end = new Date(headerDateRange.endDate);
     const prevStart = new Date(end);
     prevStart.setDate(prevStart.getDate() - 13);
     const mid = new Date(end);
@@ -495,7 +482,7 @@ export default function ExpensesPage() {
       expenses: pctChange(expenseCurr, expensePrev),
       balance: pctChange(incomeCurr - expenseCurr, incomePrev - expensePrev),
     };
-  }, [range.endDate, revenueSeries, transactions]);
+  }, [headerDateRange.endDate, revenueSeries, transactions]);
 
   const earningsSeries = useMemo((): EarningsPoint[] => {
     const fallbackSeries = () => {
@@ -540,6 +527,13 @@ export default function ExpensesPage() {
       expense: -Math.round(byMonthExpense.get(key) ?? 0),
     }));
   }, [revenueSeries, transactionsReal]);
+
+  const earningsSeriesDisplay = useMemo(() => {
+    if (earningsRange === '1y') return earningsSeries;
+    if (earningsRange === '6m') return earningsSeries.slice(-6);
+    if (earningsRange === '3m') return earningsSeries.slice(-3);
+    return earningsSeries.slice(-7);
+  }, [earningsRange, earningsSeries]);
 
   const expenseBreakdown = useMemo(() => {
     const categories: Array<{ name: ExpenseCategory; share: number }> = [
@@ -615,7 +609,7 @@ export default function ExpensesPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Expense</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Expense</h1>
         <TimeRangeToggle
           options={[
             { label: 'Last 7 Days', value: '7d' },
@@ -623,12 +617,12 @@ export default function ExpensesPage() {
             { label: 'Last 6 Months', value: '6m' },
             { label: 'This Year', value: '1y' },
           ]}
-          value={timeRange}
-          onChange={setTimeRange}
+          value={headerRange}
+          onChange={setHeaderRange}
         />
       </div>
 
-      <div className="grid items-start gap-4 xl:grid-cols-[2.25fr_1fr]">
+      <div className="grid items-start gap-4 xl:grid-cols-[2.35fr_0.95fr]">
         <div className="space-y-4">
           <div className="grid items-start gap-4 md:grid-cols-3">
             <div className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
@@ -713,9 +707,16 @@ export default function ExpensesPage() {
               <h2 className="text-lg font-bold text-slate-900">Earnings</h2>
               <p className="text-sm text-slate-500">Income vs Expense</p>
             </div>
-             <div className="rounded-xl bg-lime-200 px-3 py-2 text-xs font-semibold text-slate-900">
-               {timeRangeLabel(timeRange)}
-             </div>
+             <select
+               className="min-w-[126px] rounded-full bg-lime-200 py-1.5 pl-4 pr-10 text-[11px] font-semibold text-slate-900"
+               value={earningsRange}
+               onChange={(e) => setEarningsRange(e.target.value as TimeRange)}
+             >
+               <option value="7d">Last 7 Days</option>
+               <option value="3m">Last 3 Months</option>
+               <option value="6m">Last 6 Months</option>
+               <option value="1y">This Year</option>
+             </select>
            </div>
 
           <div className="mt-3 flex items-center gap-5 text-xs font-semibold text-slate-500">
@@ -729,12 +730,12 @@ export default function ExpensesPage() {
             </span>
           </div>
 
-          <div className="mt-4 h-80">
+          <div className="mt-4 h-72">
             {isLoading ? (
               <div className="h-full animate-shimmer rounded-xl" />
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={earningsSeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }} barGap={4} barCategoryGap="28%">
+                <BarChart data={earningsSeriesDisplay} margin={{ top: 10, right: 10, left: 0, bottom: 0 }} barGap={6} barCategoryGap="8%">
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                   <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
                   <YAxis
@@ -750,8 +751,8 @@ export default function ExpensesPage() {
                     ]}
                     contentStyle={{ borderRadius: 12, borderColor: '#e2e8f0' }}
                   />
-                  <Bar dataKey="income" name="Income" fill="#bbf7d0" radius={[8, 8, 8, 8]} maxBarSize={24} />
-                  <Bar dataKey="expense" name="Expense" fill="#d9f99d" radius={[8, 8, 8, 8]} maxBarSize={24} />
+                  <Bar dataKey="income" name="Income" fill="#bbf7d0" radius={[8, 8, 8, 8]} maxBarSize={36} />
+                  <Bar dataKey="expense" name="Expense" fill="#d9f99d" radius={[8, 8, 8, 8]} maxBarSize={36} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -759,7 +760,7 @@ export default function ExpensesPage() {
         </div>
         </div>
 
-        <div className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200 lg:self-stretch">
+        <div className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-slate-600">Breakdown</p>
             <div className="flex overflow-hidden rounded-xl bg-slate-100 p-1 text-xs font-semibold">
@@ -784,7 +785,7 @@ export default function ExpensesPage() {
             </div>
           </div>
 
-          <div className="relative mt-4 h-64">
+          <div className="relative mt-4 h-56">
             {isLoading ? (
               <div className="h-full animate-shimmer rounded-xl" />
             ) : (
@@ -805,7 +806,7 @@ export default function ExpensesPage() {
                       }
                       contentStyle={{ borderRadius: 12, borderColor: '#e2e8f0' }}
                     />
-                    <Pie data={donutRows as any[]} dataKey="value" nameKey="name" innerRadius={72} outerRadius={116} paddingAngle={2}>
+                    <Pie data={donutRows as any[]} dataKey="value" nameKey="name" innerRadius={64} outerRadius={102} paddingAngle={2}>
                       {(donutRows as any[]).map((_, idx) => (
                         <Cell key={idx} fill={donutColors[idx % donutColors.length]} />
                       ))}
@@ -898,10 +899,19 @@ export default function ExpensesPage() {
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3M5 11h14M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <span>{formatRangeLabel(range)}</span>
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+               <select
+                 value={transactionsRange}
+                 onChange={(e) => setTransactionsRange(e.target.value as TimeRange)}
+                 className="bg-transparent pr-1 text-xs font-semibold text-slate-900 focus:outline-none"
+               >
+                 <option value="7d">Last 7 Days</option>
+                 <option value="3m">Last 3 Months</option>
+                 <option value="6m">Last 6 Months</option>
+                 <option value="1y">This Year</option>
+               </select>
+               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+               </svg>
             </button>
           </div>
         </div>
