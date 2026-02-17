@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import type { PurchaseOrder } from '@/types';
 import { KPI_VALUE_CLASS } from '@/styles/typography';
-import TimeRangeToggle from '@/components/ui/TimeRangeToggle';
 import type { TimeRange } from '@/data/timeRange';
 import { timeRangeToDateRange } from '@/data/timeRange';
 import { downloadPurchaseOrderPdf, getRevenueBreakdown, getSourcesBreakdown, listPurchaseOrders } from '@/data/dataSource';
@@ -655,16 +654,6 @@ export default function ExpensesPage() {
     <div className="space-y-5">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Expense</h1>
-        <TimeRangeToggle
-          options={[
-            { label: 'Last 7 Days', value: '7d' },
-            { label: 'Last 3 Months', value: '3m' },
-            { label: 'Last 6 Months', value: '6m' },
-            { label: 'This Year', value: '1y' },
-          ]}
-          value={headerRange}
-          onChange={setHeaderRange}
-        />
       </div>
 
       <div className="grid items-start gap-4 xl:grid-cols-[2.35fr_0.95fr]">
