@@ -629,6 +629,28 @@ export default function ExpensesPage() {
     return donutRows.reduce((s: number, r: any) => s + (Number(r.value) || 0), 0);
   }, [donutRows, donutTab, mockTotalsWhenEmpty.expenses, totals.expenses]);
 
+  const renderEarningsTooltip = ({ active, payload, label }: any) => {
+    if (!active || !Array.isArray(payload) || payload.length === 0) return null;
+
+    const income = Number(payload.find((entry: any) => entry?.dataKey === 'income')?.value ?? 0);
+    const expenseRaw = Number(payload.find((entry: any) => entry?.dataKey === 'expense')?.value ?? 0);
+    const expense = Math.abs(expenseRaw);
+
+    return (
+      <div className="rounded-xl border border-lime-200 bg-lime-100 px-3 py-2 shadow-sm">
+        <div className="text-[11px] font-semibold text-amber-700">{label}</div>
+        <div className="mt-1 text-[11px] text-slate-800">
+          <div>
+            <span className="font-semibold text-emerald-700">Income</span> {formatCurrency(income, currency)}
+          </div>
+          <div>
+            <span className="font-semibold text-lime-700">Expense</span> {formatCurrency(expense, currency)}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -772,13 +794,7 @@ export default function ExpensesPage() {
                     tickLine={false}
                     tickFormatter={(v) => `${Math.round(Math.abs(Number(v)) / 1000)}k`}
                   />
-                  <Tooltip
-                    formatter={(value: any, name: any) => [
-                      formatCurrency(Math.abs(Number(value) || 0), currency),
-                      name === 'income' ? 'Income' : 'Expense',
-                    ]}
-                    contentStyle={{ borderRadius: 12, borderColor: '#e2e8f0' }}
-                  />
+                  <Tooltip content={renderEarningsTooltip} />
                   <Bar dataKey="income" name="Income" fill="#bbf7d0" radius={[8, 8, 8, 8]} maxBarSize={36} />
                   <Bar dataKey="expense" name="Expense" fill="#d9f99d" radius={[8, 8, 8, 8]} maxBarSize={36} />
                 </BarChart>
