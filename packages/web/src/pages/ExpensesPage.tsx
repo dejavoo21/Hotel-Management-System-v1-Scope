@@ -753,8 +753,11 @@ export default function ExpensesPage() {
               <p className="text-sm text-slate-500">Income vs Expense</p>
             </div>
              <div className="relative">
+               <svg className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3M5 11h14M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+               </svg>
                <select
-                 className="min-w-[132px] appearance-none rounded-xl border border-lime-300 bg-lime-200 py-2 pl-3 pr-8 text-[11px] font-semibold text-slate-900 shadow-sm outline-none ring-0 hover:bg-lime-300 focus:border-lime-400 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+                 className="min-w-[140px] appearance-none rounded-full border border-lime-300 bg-lime-200 py-2 pl-9 pr-8 text-[11px] font-semibold text-slate-900 shadow-sm outline-none ring-0 hover:bg-lime-300 focus:border-lime-400 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
                  value={earningsRange}
                  onChange={(e) => setEarningsRange(e.target.value as TimeRange)}
                >
@@ -763,7 +766,7 @@ export default function ExpensesPage() {
                  <option value="6m">Last 6 Months</option>
                  <option value="1y">This Year</option>
                </select>
-               <svg className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-700" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+               <svg className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-700" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.158l3.71-3.929a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                </svg>
              </div>
@@ -785,18 +788,23 @@ export default function ExpensesPage() {
               <div className="h-full animate-shimmer rounded-xl" />
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={earningsSeriesDisplay} margin={{ top: 10, right: 10, left: 0, bottom: 0 }} barGap={6} barCategoryGap="8%">
+                <BarChart data={earningsSeriesDisplay} margin={{ top: 10, right: 10, left: 0, bottom: 0 }} barCategoryGap="24%">
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                   <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
                   <YAxis
                     tick={{ fontSize: 12, fill: '#64748b' }}
                     axisLine={false}
                     tickLine={false}
-                    tickFormatter={(v) => `${Math.round(Math.abs(Number(v)) / 1000)}k`}
+                    tickFormatter={(v) => {
+                      const n = Number(v) || 0;
+                      if (n === 0) return '0';
+                      const absK = `${Math.round(Math.abs(n) / 1000)}k`;
+                      return n < 0 ? `-${absK}` : absK;
+                    }}
                   />
                   <Tooltip content={renderEarningsTooltip} />
-                  <Bar dataKey="income" name="Income" fill="#bbf7d0" radius={[8, 8, 8, 8]} maxBarSize={36} />
-                  <Bar dataKey="expense" name="Expense" fill="#d9f99d" radius={[8, 8, 8, 8]} maxBarSize={36} />
+                  <Bar dataKey="income" name="Income" stackId="monthly" fill="#b7ebcf" radius={[8, 8, 8, 8]} maxBarSize={30} />
+                  <Bar dataKey="expense" name="Expense" stackId="monthly" fill="#c9e57e" radius={[8, 8, 8, 8]} maxBarSize={30} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -964,7 +972,7 @@ export default function ExpensesPage() {
               <select
                 value={transactionsRange}
                 onChange={(e) => setTransactionsRange(e.target.value as TimeRange)}
-                className="min-w-[138px] appearance-none rounded-xl border border-lime-300 bg-lime-200 py-2 pl-9 pr-8 text-xs font-semibold text-slate-900 shadow-sm outline-none ring-0 hover:bg-lime-300 focus:border-lime-400 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+                className="min-w-[154px] appearance-none rounded-full border border-lime-300 bg-lime-200 py-2 pl-9 pr-8 text-xs font-semibold text-slate-900 shadow-sm outline-none ring-0 hover:bg-lime-300 focus:border-lime-400 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
                 aria-label="Date range"
               >
                 <option value="7d">Last 7 Days</option>
