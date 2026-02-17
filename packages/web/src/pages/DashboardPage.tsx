@@ -563,9 +563,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid items-stretch gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-5">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+      <div className="grid items-stretch gap-6 2xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="min-w-0 space-y-5">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <KpiCard
           title="New Bookings"
           value={summary.newBookings.toLocaleString()}
@@ -639,7 +639,7 @@ export default function DashboardPage() {
         />
       </div>
 
-        <div className="grid gap-5 lg:grid-cols-[0.72fr_1.28fr]">
+        <div className="grid gap-5 xl:grid-cols-[0.72fr_1.28fr]">
           <ClickableCard to="/rooms" ariaLabel="Go to rooms" className="h-full rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Room Availability</div>
@@ -842,7 +842,7 @@ export default function DashboardPage() {
             </div>
           </ClickableCard>
 
-          <ClickableCard to="/reports" ariaLabel="Go to booking platform report" className="h-full rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <ClickableCard to="/reports" ariaLabel="Go to booking platform report" className="min-w-0 h-full rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold text-slate-900">Booking by Platform</div>
@@ -860,7 +860,7 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            <div className="mt-4 grid gap-4 xl:grid-cols-[248px_220px_1fr] xl:items-center">
+            <div className="mt-4 grid gap-4 2xl:grid-cols-[248px_220px_1fr] 2xl:items-center">
               <div className="h-56">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -993,7 +993,7 @@ export default function DashboardPage() {
 
         </div>
 
-        <div className="flex h-full flex-col gap-5">
+        <div className="min-w-0 flex h-full flex-col gap-5">
           <ClickableCard to="/reviews" ariaLabel="Go to reviews" className="min-h-[460px] rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div>
