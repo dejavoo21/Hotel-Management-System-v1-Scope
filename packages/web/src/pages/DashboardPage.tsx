@@ -731,7 +731,7 @@ export default function DashboardPage() {
             </div>
           </ClickableCard>
 
-          <ClickableCard to="/expenses" ariaLabel="Go to revenue and expenses" className="h-full rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <ClickableCard to="/expenses" ariaLabel="Go to revenue and expenses" className="min-w-0 h-full overflow-hidden rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold text-slate-900">Revenue</div>
@@ -762,7 +762,7 @@ export default function DashboardPage() {
               </select>
             </div>
 
-            <div className="relative mt-3 h-64">
+            <div className="relative mt-3 h-64 overflow-hidden">
               <div
                 className="pointer-events-none absolute -translate-x-1/2 rounded-2xl border border-lime-200 bg-lime-50 px-4 py-2 text-center shadow-sm"
                 style={{ left: `${bubbleLeftPct}%`, top: `${bubbleTopPct}%` }}
