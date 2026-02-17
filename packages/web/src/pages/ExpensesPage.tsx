@@ -360,7 +360,7 @@ function triggerBlobDownload(blob: Blob, filename: string) {
 export default function ExpensesPage() {
   const { user } = useAuthStore();
   const currency = user?.hotel?.currency || 'USD';
-  const [headerRange, setHeaderRange] = useState<TimeRange>('1y');
+  const [headerRange] = useState<TimeRange>('1y');
   const [earningsRange, setEarningsRange] = useState<TimeRange>('1y');
   const [transactionsRange, setTransactionsRange] = useState<TimeRange>('1y');
   const [donutTab, setDonutTab] = useState<'income' | 'expense'>('expense');
