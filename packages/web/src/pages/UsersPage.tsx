@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import type { User } from '@/types';
@@ -26,6 +26,42 @@ interface CreateUserData {
   title?: string;
 }
 
+type UserSecurityPrefs = {
+  passphraseEnabled: boolean;
+  biometricsEnabled: boolean;
+};
+
+const userAvatarKey = (userId: string) => `laflo-user-avatar:${userId}`;
+const userSecurityStorageKey = 'laflo-user-security-prefs';
+
+function getStoredUserAvatar(userId?: string | null) {
+  if (!userId) return null;
+  try {
+    return window.localStorage.getItem(userAvatarKey(userId));
+  } catch {
+    return null;
+  }
+}
+
+function loadSecurityPrefsMap() {
+  try {
+    const raw = window.localStorage.getItem(userSecurityStorageKey);
+    if (!raw) return {} as Record<string, UserSecurityPrefs>;
+    const parsed = JSON.parse(raw) as Record<string, UserSecurityPrefs>;
+    return parsed ?? {};
+  } catch {
+    return {} as Record<string, UserSecurityPrefs>;
+  }
+}
+
+function saveSecurityPrefsMap(map: Record<string, UserSecurityPrefs>) {
+  try {
+    window.localStorage.setItem(userSecurityStorageKey, JSON.stringify(map));
+  } catch {
+    // no-op
+  }
+}
+
 export default function UsersPage() {
   const { user: currentUser } = useAuthStore();
   const [showAddModal, setShowAddModal] = useState(false);
@@ -36,6 +72,11 @@ export default function UsersPage() {
   const [editPermissions, setEditPermissions] = useState<PermissionId[]>([]);
   const [editSuperAdmin, setEditSuperAdmin] = useState(false);
   const [userTitles, setUserTitles] = useState<Record<string, string>>({});
+  const [editTwoFactor, setEditTwoFactor] = useState(false);
+  const [editPassphraseEnabled, setEditPassphraseEnabled] = useState(false);
+  const [editBiometricsEnabled, setEditBiometricsEnabled] = useState(false);
+  const [editUserAvatar, setEditUserAvatar] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const queryClient = useQueryClient();
   const permissionOptions = getPermissionOptions();
   const currentUserIsSuperAdmin = isSuperAdminUser(currentUser?.id);
@@ -164,7 +205,41 @@ export default function UsersPage() {
     setEditPermissions(getUserPermissions(selectedUser.id, selectedUser.role));
     setEditTitle(getUserTitles()[selectedUser.id] || '');
     setEditSuperAdmin(isSuperAdminUser(selectedUser.id));
+    setEditTwoFactor(Boolean(selectedUser.twoFactorEnabled));
+    setEditUserAvatar(getStoredUserAvatar(selectedUser.id));
+    const prefsMap = loadSecurityPrefsMap();
+    const prefs = prefsMap[selectedUser.id];
+    setEditPassphraseEnabled(Boolean(prefs?.passphraseEnabled));
+    setEditBiometricsEnabled(Boolean(prefs?.biometricsEnabled));
   }, [selectedUser]);
+
+  const onEditAvatarPicked = (file?: File) => {
+    if (!file || !selectedUser) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const value = typeof reader.result === 'string' ? reader.result : null;
+      if (!value) return;
+      try {
+        window.localStorage.setItem(userAvatarKey(selectedUser.id), value);
+        setEditUserAvatar(value);
+        toast.success('Profile photo updated');
+      } catch {
+        toast.error('Failed to save profile photo');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeEditAvatar = () => {
+    if (!selectedUser) return;
+    try {
+      window.localStorage.removeItem(userAvatarKey(selectedUser.id));
+      setEditUserAvatar(null);
+      toast.success('Profile photo removed');
+    } catch {
+      toast.error('Failed to remove profile photo');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -208,8 +283,18 @@ export default function UsersPage() {
                     <div className="flex items-center gap-3">
                       {getRoleIcon(user.role, isSuperAdminUser(user.id))}
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 text-sm font-medium text-primary-700">
-                        {user.firstName[0]}
-                        {user.lastName[0]}
+                        {getStoredUserAvatar(user.id) ? (
+                          <img
+                            src={getStoredUserAvatar(user.id) || undefined}
+                            alt={`${user.firstName} ${user.lastName}`}
+                            className="h-full w-full rounded-full object-cover"
+                          />
+                        ) : (
+                          <>
+                            {user.firstName[0]}
+                            {user.lastName[0]}
+                          </>
+                        )}
                       </div>
                       <div>
                         <p className="font-medium text-slate-900">
@@ -416,15 +501,15 @@ export default function UsersPage() {
 
       {/* Edit User Modal */}
       {selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-6">
           <div
-            className="fixed inset-0 bg-slate-900/50 pointer-events-none"
+            className="fixed inset-0 bg-slate-900/50"
             onClick={() => setSelectedUser(null)}
           />
-          <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl z-50">
+          <div className="relative z-50 mt-2 w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
             <button
               onClick={() => setSelectedUser(null)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 pointer-events-auto z-50"
+              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"
               type="button"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -450,12 +535,19 @@ export default function UsersPage() {
                     lastName: formData.get('lastName') as string,
                     email: formData.get('email') as string,
                     role: formData.get('role') as User['role'],
+                    twoFactorEnabled: editTwoFactor,
                   },
                 });
                 setUserTitle(selectedUser.id, editTitle);
                 setUserTitles((prev) => ({ ...prev, [selectedUser.id]: editTitle }));
                 setUserPermissions(selectedUser.id, editPermissions);
                 setSuperAdmin(selectedUser.id, editSuperAdmin);
+                const prefsMap = loadSecurityPrefsMap();
+                prefsMap[selectedUser.id] = {
+                  passphraseEnabled: editPassphraseEnabled,
+                  biometricsEnabled: editBiometricsEnabled,
+                };
+                saveSecurityPrefsMap(prefsMap);
                 appendAuditLog({
                   action: 'USER_ACCESS_UPDATED',
                   actorId: currentUser?.id,
@@ -466,11 +558,57 @@ export default function UsersPage() {
                     title: editTitle || null,
                     permissions: editPermissions,
                     superAdmin: editSuperAdmin,
+                    security: {
+                      twoFactorEnabled: editTwoFactor,
+                      passphraseEnabled: editPassphraseEnabled,
+                      biometricsEnabled: editBiometricsEnabled,
+                    },
                   },
                 });
               }}
               className="mt-6 space-y-4"
             >
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-lg font-semibold text-primary-700">
+                    {editUserAvatar ? (
+                      <img
+                        src={editUserAvatar}
+                        alt={`${selectedUser.firstName} ${selectedUser.lastName}`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <>
+                        {selectedUser.firstName[0]}
+                        {selectedUser.lastName[0]}
+                      </>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-slate-900">Profile Photo</p>
+                    <p className="text-xs text-slate-500">Upload a profile image for this user account.</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(event) => {
+                        onEditAvatarPicked(event.target.files?.[0]);
+                        event.currentTarget.value = '';
+                      }}
+                    />
+                    <button type="button" className="btn-outline" onClick={() => avatarInputRef.current?.click()}>
+                      Upload
+                    </button>
+                    <button type="button" className="btn-outline" onClick={removeEditAvatar}>
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="label">Position Title</label>
                 <input
@@ -481,6 +619,7 @@ export default function UsersPage() {
                   placeholder="e.g. Night Supervisor"
                 />
               </div>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="label">First Name</label>
@@ -520,6 +659,43 @@ export default function UsersPage() {
                 </select>
               </div>
 
+              <div className="rounded-xl border border-slate-200 p-4">
+                <p className="font-medium text-slate-900">Security</p>
+                <p className="text-xs text-slate-500">Configure account protection options.</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  <label className="flex items-center gap-2 rounded-lg border border-slate-200 p-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={editTwoFactor}
+                      onChange={(event) => setEditTwoFactor(event.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 text-primary-600"
+                    />
+                    Enable 2FA
+                  </label>
+                  <label className="flex items-center gap-2 rounded-lg border border-slate-200 p-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={editPassphraseEnabled}
+                      onChange={(event) => setEditPassphraseEnabled(event.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 text-primary-600"
+                    />
+                    Passphrase
+                  </label>
+                  <label className="flex items-center gap-2 rounded-lg border border-slate-200 p-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={editBiometricsEnabled}
+                      onChange={(event) => setEditBiometricsEnabled(event.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 text-primary-600"
+                    />
+                    Biometrics
+                  </label>
+                </div>
+                <p className="mt-2 text-[11px] text-slate-500">
+                  Passphrase and biometrics are saved as local profile preferences until backend integration is enabled.
+                </p>
+              </div>
+
               <div className="rounded-lg bg-slate-50 p-4">
                 <p className="text-sm text-slate-500">Account Info</p>
                 <div className="mt-2 space-y-1 text-sm">
@@ -532,7 +708,7 @@ export default function UsersPage() {
                       ? new Date(selectedUser.lastLoginAt).toLocaleString()
                       : 'Never'}
                   </p>
-                  <p>2FA: {selectedUser.twoFactorEnabled ? 'Enabled' : 'Disabled'}</p>
+                  <p>2FA: {editTwoFactor ? 'Enabled' : 'Disabled'}</p>
                 </div>
               </div>
 
@@ -580,11 +756,11 @@ export default function UsersPage() {
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4 relative z-50">
+              <div className="sticky bottom-0 flex gap-3 border-t border-slate-100 bg-white pt-4">
                 <button
                   type="button"
                   onClick={() => setSelectedUser(null)}
-                  className="btn-outline flex-1 pointer-events-auto"
+                  className="btn-outline flex-1"
                 >
                   Cancel
                 </button>

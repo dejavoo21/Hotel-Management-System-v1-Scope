@@ -168,6 +168,30 @@ function shortDateLabel(isoDate: string) {
   return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+function compactRangeLabel(startISO: string, endISO: string) {
+  const start = new Date(startISO);
+  const end = new Date(endISO);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return `${shortDateLabel(startISO)} - ${shortDateLabel(endISO)}`;
+  }
+
+  if (
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth()
+  ) {
+    const month = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(start);
+    return `${start.getDate()} - ${end.getDate()} ${month} ${start.getFullYear()}`;
+  }
+
+  if (start.getFullYear() === end.getFullYear()) {
+    const month1 = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(start);
+    const month2 = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(end);
+    return `${start.getDate()} ${month1} - ${end.getDate()} ${month2} ${start.getFullYear()}`;
+  }
+
+  return `${shortDateLabel(startISO)} - ${shortDateLabel(endISO)}`;
+}
+
 function escapeHtml(value: string) {
   return value
     .replaceAll('&', '&amp;')
@@ -468,6 +492,11 @@ export default function ExpensesPage() {
     });
   }, [transactions, transactionsDateRange, search, categoryFilter, statusFilter]);
 
+  const transactionsInRange = useMemo(
+    () => transactions.filter((t) => inDateRange(t.date, transactionsDateRange)),
+    [transactions, transactionsDateRange],
+  );
+
   const mockTotalsWhenEmpty = useMemo(() => ({ balance: 15650, income: 45650, expenses: 30000 }), []);
 
   const totals = useMemo(() => {
@@ -662,7 +691,13 @@ export default function ExpensesPage() {
     expenses: weeklyTrend.expenses ?? 4.79,
   };
 
-  const transactionsRangeLabel = `${shortDateLabel(transactionsDateRange.startDate)} - ${shortDateLabel(transactionsDateRange.endDate)}`;
+  const transactionsRangeLabel = useMemo(() => {
+    if (transactionsInRange.length === 0) {
+      return compactRangeLabel(transactionsDateRange.startDate, transactionsDateRange.endDate);
+    }
+    const sorted = [...transactionsInRange].sort((a, b) => a.date.localeCompare(b.date));
+    return compactRangeLabel(sorted[0].date, sorted[sorted.length - 1].date);
+  }, [transactionsInRange, transactionsDateRange.startDate, transactionsDateRange.endDate]);
 
   return (
     <div className="space-y-5">
@@ -974,10 +1009,10 @@ export default function ExpensesPage() {
               >
                 <option value={transactionsRange}>{transactionsRangeLabel}</option>
                 <option disabled>----</option>
-                <option value="7d">{`${shortDateLabel(timeRangeToDateRange('7d').startDate)} - ${shortDateLabel(timeRangeToDateRange('7d').endDate)}`}</option>
-                <option value="3m">{`${shortDateLabel(timeRangeToDateRange('3m').startDate)} - ${shortDateLabel(timeRangeToDateRange('3m').endDate)}`}</option>
-                <option value="6m">{`${shortDateLabel(timeRangeToDateRange('6m').startDate)} - ${shortDateLabel(timeRangeToDateRange('6m').endDate)}`}</option>
-                <option value="1y">{`${shortDateLabel(timeRangeToDateRange('1y').startDate)} - ${shortDateLabel(timeRangeToDateRange('1y').endDate)}`}</option>
+                <option value="7d">{compactRangeLabel(timeRangeToDateRange('7d').startDate, timeRangeToDateRange('7d').endDate)}</option>
+                <option value="3m">{compactRangeLabel(timeRangeToDateRange('3m').startDate, timeRangeToDateRange('3m').endDate)}</option>
+                <option value="6m">{compactRangeLabel(timeRangeToDateRange('6m').startDate, timeRangeToDateRange('6m').endDate)}</option>
+                <option value="1y">{compactRangeLabel(timeRangeToDateRange('1y').startDate, timeRangeToDateRange('1y').endDate)}</option>
               </select>
               <svg className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-700" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                 <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.158l3.71-3.929a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />

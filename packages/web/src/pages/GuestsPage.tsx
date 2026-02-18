@@ -27,13 +27,6 @@ export default function GuestsPage() {
     queryFn: roomService.getRoomTypes,
   });
 
-  const roomTypeById = useMemo(() => {
-    const entries = roomTypes || [];
-    return entries.reduce<Record<string, string>>((acc, roomType) => {
-      acc[roomType.id] = roomType.name;
-      return acc;
-    }, {});
-  }, [roomTypes]);
   const openAddGuestModal = () => {
     setShowAddModal(true);
     setSearchParams((prev) => {
@@ -157,15 +150,34 @@ export default function GuestsPage() {
     }).format(amount);
   };
 
-  const latestBookingWithRoom = useMemo(() => {
-    const bookings = guestBookingsData?.data || [];
-    const withRooms = bookings.filter((booking: Booking) => booking.room);
-    if (withRooms.length === 0) return null;
-    return withRooms.sort(
+  const bookingHistory = useMemo(() => {
+    const bookings = (guestBookingsData?.data || []) as Booking[];
+    return [...bookings].sort(
       (a: Booking, b: Booking) =>
         new Date(b.checkInDate).getTime() - new Date(a.checkInDate).getTime()
-    )[0];
+    );
   }, [guestBookingsData]);
+
+  const latestBookingWithRoom = useMemo(
+    () => bookingHistory.find((booking) => booking.room) || null,
+    [bookingHistory]
+  );
+
+  const primaryBooking = useMemo(
+    () => latestBookingWithRoom || bookingHistory[0] || null,
+    [latestBookingWithRoom, bookingHistory]
+  );
+
+  const formatDateTime = (value?: string) => {
+    if (!value) return '-';
+    return new Date(value).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
 
   const onGuestImagePicked = (guestId: string, file?: File) => {
     if (!file) return;
@@ -469,143 +481,30 @@ export default function GuestsPage() {
       )}
 
       {selectedGuest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
           <div
             className="fixed inset-0 bg-slate-900/50"
             onClick={() => setSelectedGuest(null)}
           />
-          <div className="relative w-full max-w-lg rounded-xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+          <div className="relative w-full max-w-6xl h-[calc(100dvh-1rem)] sm:h-[calc(100dvh-2rem)] overflow-hidden rounded-2xl bg-slate-50 shadow-2xl">
             <button
               onClick={() => setSelectedGuest(null)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"
+              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 z-10"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
 
-            <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-lg font-semibold text-primary-700">
-                {getGuestImage(selectedGuest.id) ? (
-                  <img
-                    key={`${selectedGuest.id}-${guestImageVersion}`}
-                    src={getGuestImage(selectedGuest.id) || undefined}
-                    alt={`${selectedGuest.firstName} ${selectedGuest.lastName}`}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <>
-                    {selectedGuest.firstName[0]}
-                    {selectedGuest.lastName[0]}
-                  </>
-                )}
-              </div>
+            <div className="h-full overflow-y-auto p-4 sm:p-5">
+            <div className="mb-4 flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-slate-900">
-                  {selectedGuest.firstName} {selectedGuest.lastName}
-                  {selectedGuest.vipStatus && (
-                    <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                      VIP
-                    </span>
-                  )}
-                </h2>
-                {selectedGuest.nationality && (
-                  <p className="text-sm text-slate-500">{selectedGuest.nationality}</p>
-                )}
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Reservation</p>
+                <h2 className="text-2xl font-bold text-slate-900">Guest Profile</h2>
               </div>
-            </div>
-
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <div>
-                <p className="text-sm text-slate-500">Email</p>
-                <p className="font-medium">{selectedGuest.email || '-'}</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-500">Phone</p>
-                <p className="font-medium">{selectedGuest.phone || '-'}</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-500">Address</p>
-                <p className="font-medium">
-                  {[selectedGuest.address, selectedGuest.city, selectedGuest.country]
-                    .filter(Boolean)
-                    .join(', ') || '-'}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-500">ID</p>
-                <p className="font-medium">
-                  {selectedGuest.idType && selectedGuest.idNumber
-                    ? `${selectedGuest.idType}: ${selectedGuest.idNumber}`
-                    : '-'}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-500">Preferred Room Type</p>
-                <p className="font-medium">
-                  {selectedGuest.preferredRoomTypeId
-                    ? roomTypeById[selectedGuest.preferredRoomTypeId] || 'Unknown'
-                    : '-'}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <input
-                ref={guestImageInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(event) => {
-                  onGuestImagePicked(selectedGuest.id, event.target.files?.[0]);
-                  event.currentTarget.value = '';
-                }}
-              />
               <button
                 type="button"
-                onClick={() => guestImageInputRef.current?.click()}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Change guest photo
-              </button>
-            </div>
-
-            {latestBookingWithRoom?.room && (
-              <div className="mt-4 rounded-xl border border-slate-200 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Booked Room</p>
-                <img
-                  src={getRoomImage(latestBookingWithRoom.room)}
-                  alt={`Room ${latestBookingWithRoom.room.number}`}
-                  className="mt-2 h-36 w-full rounded-lg object-cover"
-                />
-                <div className="mt-2 text-sm">
-                  <p className="font-semibold text-slate-900">
-                    Room {latestBookingWithRoom.room.number} - {latestBookingWithRoom.room.roomType.name}
-                  </p>
-                  <p className="text-slate-500">
-                    {new Date(latestBookingWithRoom.checkInDate).toLocaleDateString()} to{' '}
-                    {new Date(latestBookingWithRoom.checkOutDate).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className="mt-6 grid grid-cols-2 gap-4 rounded-lg bg-slate-50 p-4">
-              <div className="text-center">
-                <p className="text-2xl font-bold tracking-tight text-slate-900">{selectedGuest.totalStays}</p>
-                <p className="text-sm text-slate-500">Total Stays</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold tracking-tight text-slate-900">
-                  {formatCurrency(selectedGuest.totalSpent)}
-                </p>
-                <p className="text-sm text-slate-500">Total Spent</p>
-              </div>
-            </div>
-
-            <div className="mt-6 flex gap-3">
-              <button
-                className="btn-outline flex-1"
+                className="btn-outline"
                 onClick={() => {
                   navigate(`/bookings?guestId=${selectedGuest.id}`);
                   setSelectedGuest(null);
@@ -613,37 +512,302 @@ export default function GuestsPage() {
               >
                 View Bookings
               </button>
-              <button
-                onClick={() => setShowEditModal(true)}
-                className="btn-primary flex-1"
-              >
-                Edit Guest
-              </button>
             </div>
-            <div className="mt-4">
-              <button
-                className="btn-outline w-full border-rose-200 text-rose-600 hover:bg-rose-50"
-                onClick={() => {
-                  const confirmed = window.confirm(
-                    'Delete this guest? This will anonymize the guest record.'
-                  );
-                  if (confirmed) {
-                    deleteGuestMutation.mutate(selectedGuest.id);
-                  }
-                }}
-                disabled={deleteGuestMutation.isPending}
-              >
-                {deleteGuestMutation.isPending ? 'Deleting...' : 'Delete Guest'}
-              </button>
+
+            <div className="grid gap-4 xl:grid-cols-12">
+              <div className="card xl:col-span-3">
+                <h3 className="text-base font-semibold text-slate-900">Profile</h3>
+                <div className="mt-4 flex items-center gap-3">
+                  <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-base font-semibold text-primary-700">
+                    {getGuestImage(selectedGuest.id) ? (
+                      <img
+                        key={`${selectedGuest.id}-${guestImageVersion}`}
+                        src={getGuestImage(selectedGuest.id) || undefined}
+                        alt={`${selectedGuest.firstName} ${selectedGuest.lastName}`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <>
+                        {selectedGuest.firstName[0]}
+                        {selectedGuest.lastName[0]}
+                      </>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-slate-900">
+                      {selectedGuest.firstName} {selectedGuest.lastName}
+                    </p>
+                    <p className="text-sm text-slate-500">{selectedGuest.id}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-3 border-t border-slate-200 pt-4">
+                  <p className="text-sm text-slate-700">{selectedGuest.phone || '-'}</p>
+                  <p className="text-sm text-slate-700">{selectedGuest.email || '-'}</p>
+                </div>
+
+                <h4 className="mt-5 text-sm font-semibold text-slate-900">Personal Information</h4>
+                <div className="mt-3 grid grid-cols-2 gap-y-3 text-sm">
+                  <div>
+                    <p className="text-xs text-slate-500">Date of Birth</p>
+                    <p className="font-medium text-slate-800">-</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Gender</p>
+                    <p className="font-medium text-slate-800">-</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Nationality</p>
+                    <p className="font-medium text-slate-800">{selectedGuest.nationality || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Passport No</p>
+                    <p className="font-medium text-slate-800">{selectedGuest.idNumber || '-'}</p>
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-lg border border-primary-100 bg-primary-50 p-3">
+                  <p className="text-xs text-slate-500">Loyalty Program</p>
+                  <p className="mt-1 inline-flex rounded bg-primary-200 px-2 py-0.5 text-xs font-semibold text-primary-800">
+                    {selectedGuest.vipStatus ? 'Platinum Member' : 'Member'}
+                  </p>
+                  <div className="mt-2 flex justify-between text-xs text-slate-600">
+                    <span>{selectedGuest.totalStays} stays</span>
+                    <span>{formatCurrency(selectedGuest.totalSpent)}</span>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <input
+                    ref={guestImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => {
+                      onGuestImagePicked(selectedGuest.id, event.target.files?.[0]);
+                      event.currentTarget.value = '';
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => guestImageInputRef.current?.click()}
+                    className="btn-outline w-full"
+                  >
+                    Change guest photo
+                  </button>
+                </div>
+              </div>
+
+              <div className="card xl:col-span-6">
+                <h3 className="text-base font-semibold text-slate-900">Booking Info</h3>
+                {primaryBooking ? (
+                  <>
+                    <div className="mt-3 inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                      Booking Confirmed
+                    </div>
+                    <p className="mt-2 text-3xl font-bold text-slate-900">Booking ID: {primaryBooking.bookingRef}</p>
+                    <p className="mt-1 text-sm text-slate-500">{formatDateTime(primaryBooking.checkInDate)}</p>
+
+                    <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                      <div>
+                        <p className="text-xs text-slate-500">Room Type</p>
+                        <p className="font-semibold text-slate-900">
+                          {primaryBooking.room?.roomType.name || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Room Number</p>
+                        <p className="font-semibold text-slate-900">
+                          {primaryBooking.room?.number || '-'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Price</p>
+                        <p className="font-semibold text-slate-900">{formatCurrency(primaryBooking.roomRate)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Guests</p>
+                        <p className="font-semibold text-slate-900">
+                          {primaryBooking.numberOfAdults + primaryBooking.numberOfChildren}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Check In</p>
+                        <p className="font-semibold text-slate-900">{formatDateTime(primaryBooking.checkInDate)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Check Out</p>
+                        <p className="font-semibold text-slate-900">{formatDateTime(primaryBooking.checkOutDate)}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 border-t border-slate-200 pt-4">
+                      <p className="text-xs text-slate-500">Notes</p>
+                      <p className="text-sm text-slate-700">
+                        {primaryBooking.specialRequests ||
+                          selectedGuest.notes ||
+                          'Guest requested extra pillows and towels.'}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <p className="mt-3 text-sm text-slate-500">No bookings available for this guest yet.</p>
+                )}
+
+                <div className="mt-5 flex gap-3">
+                  <button
+                    onClick={() => setShowEditModal(true)}
+                    className="btn-primary"
+                  >
+                    Edit Guest
+                  </button>
+                  <button
+                    className="btn-outline border-rose-200 text-rose-600 hover:bg-rose-50"
+                    onClick={() => {
+                      const confirmed = window.confirm(
+                        'Delete this guest? This will anonymize the guest record.'
+                      );
+                      if (confirmed) {
+                        deleteGuestMutation.mutate(selectedGuest.id);
+                      }
+                    }}
+                    disabled={deleteGuestMutation.isPending}
+                  >
+                    {deleteGuestMutation.isPending ? 'Deleting...' : 'Delete Guest'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="card xl:col-span-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-semibold text-slate-900">Room Info</h3>
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-slate-500 hover:text-slate-700"
+                    onClick={() => {
+                      if (primaryBooking?.room?.id) {
+                        navigate('/rooms');
+                        setSelectedGuest(null);
+                      }
+                    }}
+                  >
+                    View Detail
+                  </button>
+                </div>
+
+                {primaryBooking?.room ? (
+                  <>
+                    <img
+                      src={getRoomImage(primaryBooking.room)}
+                      alt={`Room ${primaryBooking.room.number}`}
+                      className="mt-3 h-40 w-full rounded-lg object-cover"
+                    />
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600">
+                      <span>{primaryBooking.room.floor}F</span>
+                      <span>•</span>
+                      <span>{primaryBooking.room.roomType.name}</span>
+                      <span>•</span>
+                      <span>{primaryBooking.numberOfAdults + primaryBooking.numberOfChildren} guests</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="mt-3 rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+                    Room not assigned yet.
+                  </div>
+                )}
+
+                <div className="mt-5 border-t border-slate-200 pt-4">
+                  <div className="mb-2 flex items-center justify-between text-sm">
+                    <span className="text-slate-500">Room and offer</span>
+                    <span className="font-semibold text-slate-900">
+                      {formatCurrency(primaryBooking?.totalAmount || 0)}
+                    </span>
+                  </div>
+                  <div className="mb-2 flex items-center justify-between text-sm">
+                    <span className="text-slate-500">Extras</span>
+                    <span className="font-semibold text-slate-900">{formatCurrency(0)}</span>
+                  </div>
+                  <div className="mb-2 flex items-center justify-between text-sm">
+                    <span className="text-slate-500">Tax</span>
+                    <span className="font-semibold text-slate-900">{formatCurrency(0)}</span>
+                  </div>
+                  <div className="mt-3 border-t border-slate-200 pt-3 flex items-center justify-between">
+                    <span className="text-sm font-semibold text-slate-700">Total Price</span>
+                    <span className="text-2xl font-bold text-slate-900">
+                      {formatCurrency(primaryBooking?.totalAmount || selectedGuest.totalSpent)}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
+
+            <div className="card mt-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">Booking History</h3>
+                  <p className="text-xs text-slate-500">Arrivals and departures</p>
+                </div>
+                <p className="text-xs text-slate-500">{bookingHistory.length} records</p>
+              </div>
+
+              <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200">
+                <table className="table min-w-[760px]">
+                  <thead>
+                    <tr>
+                      <th>Image</th>
+                      <th>Booking ID</th>
+                      <th>Booking Date</th>
+                      <th>Room Type</th>
+                      <th>Room Number</th>
+                      <th>Check-In</th>
+                      <th>Check-Out</th>
+                      <th>Guests</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {bookingHistory.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-6 text-center text-sm text-slate-500">
+                          No booking history found.
+                        </td>
+                      </tr>
+                    ) : (
+                      bookingHistory.map((booking) => (
+                        <tr key={booking.id}>
+                          <td>
+                            {booking.room ? (
+                              <img
+                                src={getRoomImage(booking.room)}
+                                alt={`Room ${booking.room.number}`}
+                                className="h-10 w-16 rounded object-cover"
+                              />
+                            ) : (
+                              <div className="h-10 w-16 rounded bg-slate-100" />
+                            )}
+                          </td>
+                          <td>{booking.bookingRef}</td>
+                          <td>{formatDateTime(booking.checkInDate)}</td>
+                          <td>{booking.room?.roomType.name || '-'}</td>
+                          <td>{booking.room?.number || '-'}</td>
+                          <td>{formatDateTime(booking.checkInDate)}</td>
+                          <td>{formatDateTime(booking.checkOutDate)}</td>
+                          <td>{booking.numberOfAdults + booking.numberOfChildren}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
           </div>
         </div>
       )}
 
       {showEditModal && selectedGuest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4">
           <div className="fixed inset-0 bg-slate-900/50" onClick={() => setShowEditModal(false)} />
-          <div className="relative w-full max-w-lg rounded-xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+          <div className="relative mt-2 w-full max-w-lg rounded-xl bg-white p-6 shadow-xl max-h-[calc(100dvh-2rem)] overflow-y-auto">
             <h2 className="text-xl font-bold text-slate-900">Edit Guest</h2>
             <form
               onSubmit={(event) => {
