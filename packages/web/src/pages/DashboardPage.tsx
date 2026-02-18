@@ -1122,7 +1122,7 @@ export default function DashboardPage() {
             </div>
           </ClickableCard>
 
-          <ClickableCard to="/settings?tab=audit-trail" ariaLabel="Go to audit trail" className="h-full max-h-[460px] overflow-hidden rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <ClickableCard to="/settings?tab=audit-trail" ariaLabel="Go to audit trail" className="min-h-[500px] rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Recent Activities</div>
               <button
@@ -1137,7 +1137,7 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            <div className="mt-4 max-h-[380px] divide-y divide-slate-100 overflow-y-auto pr-1">
+            <div className="mt-4 divide-y divide-slate-100">
               {recentActivities.map((a) => (
                 <div key={a.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                   <span className="mt-1 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-lime-100 text-lime-800">
