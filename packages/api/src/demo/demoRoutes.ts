@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Demo mode routes - serves mock data without database
  */
 
@@ -208,112 +208,173 @@ function buildDemoReceiptPdf(
 
     const guest = mockGuests.find((g) => g.id === booking.guestId);
     const processedAt = new Date(payment.processedAt);
-
-    // Header with separation
     const hotelName = mockHotel.name.replace(' Demo', '');
-    doc.fontSize(18).font('Helvetica-Bold').fillColor('#1f2937').text(hotelName, { align: 'center' });
-    doc.fontSize(14).font('Helvetica').fillColor('#6b7280').text('PAYMENT RECEIPT', { align: 'center' });
-    doc.moveDown(0.5);
-    doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#3b82f6').lineWidth(2).stroke();
-    doc.moveDown(0.5);
+    const formatMoney = (value: number) =>
+      new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 
-    // Metadata in two columns
-    doc.fontSize(9).fillColor('#6b7280').font('Helvetica');
-    doc.text('RECEIPT #', 45, doc.y);
-    doc.fontSize(10).fillColor('#111827').font('Helvetica-Bold');
-    doc.text(payment.id, 45, doc.y);
-    
-    doc.fontSize(9).fillColor('#6b7280').font('Helvetica');
-    doc.text('DATE', 350, doc.y - 32);
-    doc.fontSize(10).fillColor('#111827').font('Helvetica-Bold');
-    doc.text(processedAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), 350, doc.y - 10);
-    
-    doc.moveDown(1);
-    doc.fontSize(9).fillColor('#6b7280').font('Helvetica');
-    doc.text('BOOKING REF', 45, doc.y);
-    doc.fontSize(10).fillColor('#111827').font('Helvetica-Bold');
-    doc.text(booking.bookingRef, 45, doc.y);
-    
-    doc.fontSize(9).fillColor('#6b7280').font('Helvetica');
-    doc.text('STATUS', 350, doc.y - 32);
-    doc.fontSize(10).fillColor('#059669').font('Helvetica-Bold');
-    doc.text(payment.status, 350, doc.y - 10);
-    
-    doc.moveDown(1.5);
-    doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#e5e7eb').lineWidth(1).stroke();
-    doc.moveDown(1);
+    doc.fontSize(28).font('Helvetica-Bold').fillColor('#1e293b').text(hotelName, 45, 44);
+    doc.fontSize(13).font('Helvetica').fillColor('#64748b').text('PAYMENT RECEIPT', 45, 76);
+    doc.moveTo(45, 98).lineTo(555, 98).lineWidth(2).strokeColor('#3b82f6').stroke();
 
-    // Guest Information
-    doc.fontSize(11).font('Helvetica-Bold').fillColor('#1f2937').text('GUEST');
-    doc.moveDown(0.3);
-    doc.fontSize(10).font('Helvetica').fillColor('#111827');
-    doc.text(guest ? `${guest.firstName} ${guest.lastName}` : 'Guest');
-    if (guest?.email) doc.text(`Email: ${guest.email}`);
-    if (guest?.phone) doc.text(`Phone: ${guest.phone}`);
-    
-    doc.moveDown(1);
-    doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#e5e7eb').lineWidth(1).stroke();
-    doc.moveDown(1);
+    doc.font('Helvetica').fontSize(9).fillColor('#94a3b8');
+    doc.text('RECEIPT #', 45, 114);
+    doc.text('DATE', 300, 114);
+    doc.text('STATUS', 440, 114);
+    doc.font('Helvetica-Bold').fontSize(12).fillColor('#0f172a');
+    doc.text(payment.id, 45, 128, { width: 240 });
+    doc.text(processedAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }), 300, 128, { width: 130 });
+    doc.fillColor('#059669').text('COMPLETED', 440, 128);
 
-    // Booking Details
-    doc.fontSize(11).font('Helvetica-Bold').fillColor('#1f2937').text('BOOKING');
-    doc.moveDown(0.3);
-    doc.fontSize(10).font('Helvetica').fillColor('#111827');
-    doc.text(`Check-in: ${new Date(booking.checkInDate).toLocaleDateString()}`);
-    doc.text(`Check-out: ${new Date(booking.checkOutDate).toLocaleDateString()}`);
-    if (booking.room) {
-      doc.text(`Room: ${booking.room.number} - ${booking.room.roomType.name}`);
-    }
-    
-    doc.moveDown(1);
-    doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#e5e7eb').lineWidth(1).stroke();
-    doc.moveDown(1);
+    doc.moveTo(45, 160).lineTo(555, 160).lineWidth(1).strokeColor('#e2e8f0').stroke();
 
-    // Charges Table
-    doc.fontSize(10).font('Helvetica-Bold').fillColor('#111827').text('PAYMENT DETAILS');
-    doc.moveDown(0.3);
-    
-    const tableTop = doc.y;
-    // Header
-    doc.rect(40, tableTop, 515, 25).fill('#f3f4f6');
-    doc.fillColor('#1f2937').font('Helvetica-Bold').fontSize(9);
-    doc.text('Description', 50, tableTop + 8);
-    doc.text('Qty', 280, tableTop + 8, { width: 40, align: 'center' });
-    doc.text('Unit Price', 350, tableTop + 8, { width: 80, align: 'right' });
-    doc.text('Amount', 450, tableTop + 8, { width: 100, align: 'right' });
-    
-    // Row
-    doc.rect(40, tableTop + 25, 515, 22).fill('#ffffff').stroke();
-    doc.font('Helvetica').fontSize(10).fillColor('#111827');
-    doc.text('Payment Received', 50, tableTop + 33);
-    doc.text('1', 280, tableTop + 33, { width: 40, align: 'center' });
-    doc.text(`$${payment.amount.toFixed(2)}`, 350, tableTop + 33, { width: 80, align: 'right' });
-    doc.text(`$${payment.amount.toFixed(2)}`, 450, tableTop + 33, { width: 100, align: 'right' });
-    
-    doc.moveDown(3.5);
-    doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#e5e7eb').lineWidth(1).stroke();
-    doc.moveDown(1);
+    let y = 178;
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#1e293b').text('GUEST', 45, y);
+    doc.font('Helvetica').fontSize(11).fillColor('#0f172a');
+    doc.text(guest ? `${guest.firstName} ${guest.lastName}` : 'Guest', 45, y + 18);
+    if (guest?.email) doc.text(`Email: ${guest.email}`, 45, y + 35);
+    if (guest?.phone) doc.text(`Phone: ${guest.phone}`, 45, y + 52);
 
-    // Summary
-    doc.fontSize(10).font('Helvetica').fillColor('#6b7280');
-    doc.text('Subtotal', 350, doc.y, { width: 100, align: 'right' });
-    doc.text(`$${payment.amount.toFixed(2)}`, 460, doc.y, { width: 95, align: 'right' });
-    
-    doc.moveDown(0.5);
-    doc.text('Tax', 350, doc.y, { width: 100, align: 'right' });
-    doc.text('$0.00', 460, doc.y, { width: 95, align: 'right' });
-    
-    doc.moveDown(0.8);
-    doc.moveTo(350, doc.y).lineTo(555, doc.y).strokeColor('#111827').lineWidth(1.5).stroke();
-    doc.moveDown(0.5);
-    
-    doc.fontSize(12).font('Helvetica-Bold').fillColor('#1f2937');
-    doc.text('TOTAL', 350, doc.y, { width: 100, align: 'right' });
-    doc.text(`$${payment.amount.toFixed(2)}`, 460, doc.y, { width: 95, align: 'right' });
+    y += 84;
+    doc.moveTo(45, y).lineTo(555, y).lineWidth(1).strokeColor('#e2e8f0').stroke();
+    y += 18;
 
-    doc.moveDown(2);
-    doc.fontSize(9).font('Helvetica').fillColor('#9ca3af').text('Thank you for your business!', { align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#1e293b').text('BOOKING', 45, y);
+    doc.font('Helvetica').fontSize(11).fillColor('#0f172a');
+    doc.text(`Check-in: ${new Date(booking.checkInDate).toLocaleDateString()}`, 45, y + 18);
+    doc.text(`Check-out: ${new Date(booking.checkOutDate).toLocaleDateString()}`, 45, y + 35);
+    if (booking.room) doc.text(`Room: ${booking.room.number} - ${booking.room.roomType.name}`, 45, y + 52);
+
+    y += 84;
+    doc.moveTo(45, y).lineTo(555, y).lineWidth(1).strokeColor('#e2e8f0').stroke();
+    y += 18;
+
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#1e293b').text('PAYMENT DETAILS', 45, y);
+    y += 16;
+
+    doc.rect(45, y, 510, 30).fill('#f1f5f9');
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f2937');
+    doc.text('Description', 60, y + 10);
+    doc.text('Qty', 290, y + 10, { width: 40, align: 'center' });
+    doc.text('Unit Price', 370, y + 10, { width: 90, align: 'right' });
+    doc.text('Amount', 480, y + 10, { width: 65, align: 'right' });
+    y += 30;
+
+    doc.rect(45, y, 510, 36).fillAndStroke('#ffffff', '#e2e8f0');
+    doc.font('Helvetica').fontSize(11).fillColor('#0f172a');
+    doc.text('Payment Received', 60, y + 12);
+    doc.text('1', 290, y + 12, { width: 40, align: 'center' });
+    doc.text(formatMoney(payment.amount), 370, y + 12, { width: 90, align: 'right' });
+    doc.text(formatMoney(payment.amount), 480, y + 12, { width: 65, align: 'right' });
+
+    y += 64;
+    doc.moveTo(45, y).lineTo(555, y).lineWidth(1).strokeColor('#e2e8f0').stroke();
+    y += 14;
+    doc.font('Helvetica').fontSize(11).fillColor('#64748b');
+    doc.text('Subtotal', 400, y, { width: 80, align: 'right' });
+    doc.text(formatMoney(payment.amount), 480, y, { width: 65, align: 'right' });
+    y += 24;
+    doc.text('Tax', 400, y, { width: 80, align: 'right' });
+    doc.text(formatMoney(0), 480, y, { width: 65, align: 'right' });
+    y += 30;
+    doc.moveTo(370, y).lineTo(555, y).lineWidth(2).strokeColor('#0f172a').stroke();
+    y += 10;
+    doc.font('Helvetica-Bold').fontSize(14).fillColor('#1e293b');
+    doc.text('TOTAL', 400, y, { width: 80, align: 'right' });
+    doc.text(formatMoney(payment.amount), 480, y, { width: 65, align: 'right' });
     
+    doc.end();
+  });
+}
+
+function buildDemoInvoicePdf(
+  invoice: typeof mockInvoices[0],
+  booking: typeof mockBookings[0]
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'A4', margin: 45 });
+    const chunks: Buffer[] = [];
+
+    doc.on('data', (chunk) => chunks.push(chunk as Buffer));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    const guest = mockGuests.find((g) => g.id === booking.guestId);
+    const charges = getBookingCharges(booking);
+    const hotelName = mockHotel.name.replace(' Demo', '');
+    const formatMoney = (value: number) =>
+      new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+
+    doc.fontSize(28).font('Helvetica-Bold').fillColor('#1e293b').text(hotelName, 45, 44);
+    doc.fontSize(13).font('Helvetica').fillColor('#64748b').text('INVOICE', 45, 76);
+    doc.moveTo(45, 98).lineTo(555, 98).lineWidth(2).strokeColor('#3b82f6').stroke();
+
+    doc.font('Helvetica').fontSize(9).fillColor('#94a3b8');
+    doc.text('INVOICE #', 45, 114);
+    doc.text('ISSUED', 300, 114);
+    doc.text('BOOKING', 440, 114);
+    doc.font('Helvetica-Bold').fontSize(12).fillColor('#0f172a');
+    doc.text(invoice.invoiceNo, 45, 128, { width: 240 });
+    doc.text(
+      new Date(invoice.issuedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+      300,
+      128,
+      { width: 130 }
+    );
+    doc.text(booking.bookingRef, 440, 128);
+
+    doc.moveTo(45, 160).lineTo(555, 160).lineWidth(1).strokeColor('#e2e8f0').stroke();
+
+    let y = 178;
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#1e293b').text('GUEST', 45, y);
+    doc.font('Helvetica').fontSize(11).fillColor('#0f172a');
+    doc.text(guest ? `${guest.firstName} ${guest.lastName}` : 'Guest', 45, y + 18);
+    if (guest?.email) doc.text(`Email: ${guest.email}`, 45, y + 35);
+    if (booking.room) doc.text(`Room: ${booking.room.number} - ${booking.room.roomType.name}`, 45, y + 52);
+
+    y += 84;
+    doc.moveTo(45, y).lineTo(555, y).lineWidth(1).strokeColor('#e2e8f0').stroke();
+    y += 18;
+
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#1e293b').text('CHARGES', 45, y);
+    y += 16;
+
+    doc.rect(45, y, 510, 30).fill('#f1f5f9');
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f2937');
+    doc.text('Description', 60, y + 10);
+    doc.text('Qty', 290, y + 10, { width: 40, align: 'center' });
+    doc.text('Unit Price', 370, y + 10, { width: 90, align: 'right' });
+    doc.text('Amount', 480, y + 10, { width: 65, align: 'right' });
+    y += 30;
+
+    charges.forEach((charge) => {
+      const qty = charge.quantity || 1;
+      const amount = charge.amount || 0;
+      const unitPrice = qty > 0 ? amount / qty : amount;
+      doc.rect(45, y, 510, 30).fillAndStroke('#ffffff', '#e2e8f0');
+      doc.font('Helvetica').fontSize(10).fillColor('#0f172a');
+      doc.text(charge.description || 'Charge', 60, y + 9, { width: 215, ellipsis: true });
+      doc.text(String(qty), 290, y + 9, { width: 40, align: 'center' });
+      doc.text(formatMoney(unitPrice), 370, y + 9, { width: 90, align: 'right' });
+      doc.text(formatMoney(amount), 480, y + 9, { width: 65, align: 'right' });
+      y += 30;
+    });
+
+    y += 16;
+    doc.moveTo(45, y).lineTo(555, y).lineWidth(1).strokeColor('#e2e8f0').stroke();
+    y += 14;
+    doc.font('Helvetica').fontSize(11).fillColor('#64748b');
+    doc.text('Subtotal', 400, y, { width: 80, align: 'right' });
+    doc.text(formatMoney(invoice.subtotal), 480, y, { width: 65, align: 'right' });
+    y += 24;
+    doc.text('Tax', 400, y, { width: 80, align: 'right' });
+    doc.text(formatMoney(invoice.tax), 480, y, { width: 65, align: 'right' });
+    y += 30;
+    doc.moveTo(370, y).lineTo(555, y).lineWidth(2).strokeColor('#0f172a').stroke();
+    y += 10;
+    doc.font('Helvetica-Bold').fontSize(14).fillColor('#1e293b');
+    doc.text('TOTAL', 400, y, { width: 80, align: 'right' });
+    doc.text(formatMoney(invoice.total), 480, y, { width: 65, align: 'right' });
+
     doc.end();
   });
 }
@@ -1846,158 +1907,16 @@ router.get('/invoices/:id/pdf', authenticateDemo, (req: Request, res: Response) 
     return res.status(404).json({ success: false, error: 'Booking not found' });
   }
 
-  const guest = mockGuests.find((g) => g.id === booking.guestId);
-  const charges = getBookingCharges(booking);
-
-  // Build detailed invoice content
-  let content = `${mockHotel.name}\n`;
-  content += `INVOICE\n\n`;
-  content += `Invoice Number: ${invoice.invoiceNo}\n`;
-  content += `Invoice Date: ${new Date(invoice.issuedAt).toLocaleDateString()}\n`;
-  content += `Status: ${invoice.status}\n\n`;
-  
-  content += `GUEST INFORMATION\n`;
-  content += `Name: ${guest ? `${guest.firstName} ${guest.lastName}` : 'Guest'}\n`;
-  content += `Email: ${guest?.email || 'N/A'}\n`;
-  content += `Phone: ${guest?.phone || 'N/A'}\n\n`;
-  
-  content += `BOOKING DETAILS\n`;
-  content += `Booking Reference: ${booking.bookingRef}\n`;
-  content += `Check-in: ${new Date(booking.checkInDate).toLocaleDateString()}\n`;
-  content += `Check-out: ${new Date(booking.checkOutDate).toLocaleDateString()}\n`;
-  if (booking.room) {
-    content += `Room: ${booking.room.number} - ${booking.room.roomType.name}\n`;
-  }
-  content += `\n`;
-  
-  content += `CHARGES\n`;
-  content += `${'Description'.padEnd(40)} ${'Qty'.padEnd(5)} ${'Amount'.padStart(10)}\n`;
-  content += `${'-'.repeat(60)}\n`;
-  
-  charges.forEach(charge => {
-    const desc = charge.description.substring(0, 39).padEnd(40);
-    const qty = (charge.quantity || 1).toString().padEnd(5);
-    const amt = `$${(charge.amount || 0).toFixed(2)}`.padStart(10);
-    content += `${desc} ${qty} ${amt}\n`;
-  });
-  
-  content += `${'-'.repeat(60)}\n`;
-  content += `${'Subtotal:'.padEnd(45)} ${'$' + invoice.subtotal.toFixed(2)}`.padStart(10) + '\n';
-  content += `${'Tax:'.padEnd(45)} ${'$' + invoice.tax.toFixed(2)}`.padStart(10) + '\n';
-  content += `${'TOTAL:'.padEnd(45)} ${'$' + invoice.total.toFixed(2)}`.padStart(10) + '\n\n';
-  
-  content += `Thank you for choosing ${mockHotel.name}!\n`;
-
-  // Create a proper PDF with PDFKit
-  const doc = new PDFDocument({ size: 'A4', margin: 45 });
-  const chunks: Buffer[] = [];
-
-  doc.on('data', (chunk) => chunks.push(chunk as Buffer));
-  doc.on('end', () => {
-    const pdfBuffer = Buffer.concat(chunks);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoice.invoiceNo}.pdf"`);
-    res.send(pdfBuffer);
-  });
-
-  // Header - Hotel name and Invoice title (clean, professional)
-  const hotelName = mockHotel.name.replace(' Demo', '');
-  doc.fontSize(18).font('Helvetica-Bold').fillColor('#000000').text(`${hotelName} Receipt Report`, { align: 'left' });
-  doc.moveDown(0.8);
-  doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#000000').lineWidth(1).stroke();
-  doc.moveDown(0.8);
-
-  // Invoice details in single line format with better spacing
-  const headerY = doc.y;
-  doc.fontSize(9).font('Helvetica-Bold').fillColor('#000000');
-  
-  doc.text('Receipt Number', 45, headerY);
-  doc.text('Receipt Date', 200, headerY);
-  doc.text('Status', 320, headerY);
-  doc.text('Booking Reference', 420, headerY);
-  
-  doc.fontSize(9).font('Helvetica').fillColor('#000000');
-  doc.text(invoice.invoiceNo, 45, headerY + 12, { width: 140 });
-  doc.text(new Date(invoice.issuedAt).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' }), 200, headerY + 12);
-  doc.text(invoice.status, 320, headerY + 12);
-  doc.text(booking.bookingRef, 420, headerY + 12);
-  
-  doc.moveDown(2.5);
-
-  // Guest Information and Booking Details (left side box)
-  const boxY = doc.y;
-  const boxX = 45;
-  const boxWidth = 250;
-  
-  // Guest Information
-  doc.fontSize(10).font('Helvetica-Bold').fillColor('#000000').text('Guest Information', boxX, boxY);
-  let currentBoxY = boxY + 18;
-  
-  doc.fontSize(9).font('Helvetica').fillColor('#000000');
-  const guestName = guest ? `${guest.firstName} ${guest.lastName}` : 'Guest';
-  const guestEmail = guest?.email || 'N/A';
-  const guestPhone = guest?.phone || 'N/A';
-  
-  doc.text(guestName, boxX, currentBoxY);
-  currentBoxY += 12;
-  doc.text(`john.smith@email.com · ${guestPhone}`, boxX, currentBoxY);
-  currentBoxY += 20;
-  
-  // Booking Details
-  doc.fontSize(10).font('Helvetica-Bold').fillColor('#000000').text('Booking Details', boxX, currentBoxY);
-  currentBoxY += 18;
-  
-  doc.fontSize(9).font('Helvetica').fillColor('#000000');
-  const checkIn = new Date(booking.checkInDate).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
-  const checkOut = new Date(booking.checkOutDate).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
-  doc.text(`Check-in: ${checkIn} · Check-out: ${checkOut}`, boxX, currentBoxY);
-  
-  // Move doc.y to after the box
-  doc.y = Math.max(doc.y, currentBoxY + 30);
-
-  // Charges Table (professional with gray header)
-  doc.fontSize(11).font('Helvetica-Bold').fillColor('#000000').text('Charges');
-  doc.moveDown(0.5);
-  
-  const tableTop = doc.y;
-  const descX = 40;
-  const qtyX = 320;
-  const unitPriceX = 410;
-  const amountX = 500;
-
-  // Table header (gray background)
-  doc.rect(40, tableTop, 515, 22).fill('#e5e7eb');
-  doc.fontSize(9).font('Helvetica-Bold').fillColor('#000000');
-  doc.text('Description', descX + 5, tableTop + 7);
-  doc.text('Quantity', qtyX, tableTop + 7, { width: 80, align: 'center' });
-  doc.text('Unit Price', unitPriceX, tableTop + 7, { width: 80, align: 'right' });
-  doc.text('Amount', amountX, tableTop + 7, { width: 50, align: 'right' });
-
-  // Table rows (white background with borders)
-  let currentY = tableTop + 22;
-  charges.forEach((charge, index) => {
-    const rowHeight = 20;
-    doc.rect(40, currentY, 515, rowHeight).fillAndStroke('#ffffff', '#e5e7eb');
-    
-    doc.fontSize(9).font('Helvetica').fillColor('#000000');
-    doc.text(charge.description, descX + 5, currentY + 5, { width: 270 });
-    doc.text((charge.quantity || 1).toString(), qtyX, currentY + 5, { width: 80, align: 'center' });
-    
-    const unitPrice = charge.amount && charge.quantity ? (charge.amount / charge.quantity) : (charge.amount || 0);
-    doc.text(`$${unitPrice.toFixed(2)}`, unitPriceX, currentY + 5, { width: 80, align: 'right' });
-    doc.text(`$${(charge.amount || 0).toFixed(2)}`, amountX, currentY + 5, { width: 50, align: 'right' });
-    
-    currentY += rowHeight;
-  });
-
-  // Total section (matching screenshot 2)
-  doc.moveDown(2);
-  currentY = doc.y;
-  doc.fontSize(11).font('Helvetica-Bold').fillColor('#000000');
-  doc.text('Total', 40, currentY);
-  doc.text(`$${invoice.total.toFixed(2)}`, amountX, currentY, { width: 50, align: 'right' });
-
-  doc.end();
+  buildDemoInvoicePdf(invoice, booking)
+    .then((pdfBuffer) => {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoice.invoiceNo}.pdf"`);
+      res.send(pdfBuffer);
+    })
+    .catch((error) => {
+      console.error('[DEMO INVOICE PDF ERROR]', error);
+      res.status(500).json({ success: false, error: 'Failed to generate invoice PDF' });
+    });
 });
 
 router.post('/invoices/:id/send', authenticateDemo, async (req: Request, res: Response) => {
@@ -2193,7 +2112,7 @@ router.post('/invoices/:id/send', authenticateDemo, async (req: Request, res: Re
         html: emailHtml,
         text: `Invoice ${invoice.invoiceNo}\n\nGuest: ${guest.firstName} ${guest.lastName}\nBooking: ${booking.bookingRef}\nTotal: $${invoice.total.toFixed(2)}\nStatus: ${invoice.status}\n\nThank you for your stay!`,
       });
-      console.log(`✓ Invoice email sent to ${guest.email}`);
+      console.log(`âœ“ Invoice email sent to ${guest.email}`);
       res.json({ success: true, message: 'Invoice emailed successfully' });
     } else {
       // Demo mode without SMTP - just log and simulate success
@@ -2345,11 +2264,11 @@ router.post('/payments/:id/receipt/email', authenticateDemo, (req: Request, res:
         </div>
         <div class="section">
           <strong>Guest Information</strong><br />
-          ${guest.firstName} ${guest.lastName} · ${guest.email} · ${guest.phone || 'N/A'}
+          ${guest.firstName} ${guest.lastName} Â· ${guest.email} Â· ${guest.phone || 'N/A'}
         </div>
         <div class="section">
           <strong>Booking Details</strong><br />
-          Check-in: ${new Date(booking.checkInDate).toLocaleDateString()} · Check-out: ${new Date(booking.checkOutDate).toLocaleDateString()}
+          Check-in: ${new Date(booking.checkInDate).toLocaleDateString()} Â· Check-out: ${new Date(booking.checkOutDate).toLocaleDateString()}
         </div>
         <div class="section">
           <strong>Charges</strong>
@@ -2959,9 +2878,9 @@ router.post('/users', authenticateDemo, async (req: Request, res: Response) => {
           </div>
         `,
       });
-      console.log(`[POST /users] ✓ Pending notification email sent to ${email}`);
+      console.log(`[POST /users] âœ“ Pending notification email sent to ${email}`);
     } catch (error) {
-      console.error('[POST /users] ✗ Failed to send pending notification email:', error);
+      console.error('[POST /users] âœ— Failed to send pending notification email:', error);
     }
 
     return res.status(201).json({ 
@@ -3401,3 +3320,4 @@ function broadcastAccessRequests() {
 
 export { mockAccessRequests, mockAccessRequestReplies, saveDemoStore, broadcastAccessRequests };
 export default router;
+

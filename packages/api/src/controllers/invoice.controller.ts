@@ -100,44 +100,110 @@ function buildInvoicePdfBuffer(invoice: {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    doc.fontSize(18).text(invoice.hotelName, { align: 'left' });
-    doc.fontSize(14).text('Invoice', { align: 'right' });
-    doc.moveDown(0.5);
-    doc.fontSize(10).fillColor('#475569');
-    doc.text(`Invoice: ${invoice.invoiceNo}`);
-    doc.text(`Issued: ${invoice.issuedAt.toDateString()}`);
-    doc.text(`Booking: ${invoice.bookingRef}`);
-    doc.text(`Guest: ${invoice.guestName}`);
-    if (invoice.roomLabel) {
-      doc.text(`Room: ${invoice.roomLabel}`);
-    }
-    if (invoice.stayLabel) {
-      doc.text(`Stay: ${invoice.stayLabel}`);
-    }
+    const formatMoney = (value: number) =>
+      new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 
-    doc.moveDown(0.8);
-    doc.fillColor('#0f172a').fontSize(11);
-    doc.text('Item', 48, doc.y, { continued: true, width: 260 });
-    doc.text('Qty', { continued: true, width: 60 });
-    doc.text('Unit', { continued: true, width: 80 });
-    doc.text('Total', { width: 80 });
-    doc.moveDown(0.3);
-    doc.moveTo(48, doc.y).lineTo(548, doc.y).strokeColor('#e2e8f0').stroke();
-    doc.moveDown(0.3);
+    doc.fontSize(28).font('Helvetica-Bold').fillColor('#1e293b').text(invoice.hotelName, 48, 44);
+    doc.fontSize(13).font('Helvetica').fillColor('#64748b').text('INVOICE', 48, 76);
+
+    doc
+      .moveTo(48, 98)
+      .lineTo(547, 98)
+      .lineWidth(2)
+      .strokeColor('#3b82f6')
+      .stroke();
+
+    doc.font('Helvetica').fontSize(9).fillColor('#94a3b8');
+    doc.text('INVOICE #', 48, 114);
+    doc.text('ISSUED', 300, 114);
+    doc.text('BOOKING', 430, 114);
+    doc.font('Helvetica-Bold').fontSize(12).fillColor('#0f172a');
+    doc.text(invoice.invoiceNo, 48, 128, { width: 230 });
+    doc.text(
+      invoice.issuedAt.toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+      300,
+      128,
+      { width: 120 }
+    );
+    doc.text(invoice.bookingRef, 430, 128, { width: 110 });
+
+    doc
+      .moveTo(48, 160)
+      .lineTo(547, 160)
+      .lineWidth(1)
+      .strokeColor('#e2e8f0')
+      .stroke();
+
+    let y = 178;
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#1e293b').text('GUEST', 48, y);
+    doc.font('Helvetica').fontSize(11).fillColor('#0f172a');
+    doc.text(invoice.guestName, 48, y + 18);
+    if (invoice.roomLabel) doc.text(`Room: ${invoice.roomLabel}`, 48, y + 35);
+    if (invoice.stayLabel) doc.text(`Stay: ${invoice.stayLabel}`, 48, y + 52);
+
+    y += 84;
+    doc
+      .moveTo(48, y)
+      .lineTo(547, y)
+      .lineWidth(1)
+      .strokeColor('#e2e8f0')
+      .stroke();
+    y += 18;
+
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#1e293b').text('CHARGES', 48, y);
+    y += 16;
+
+    doc.rect(48, y, 499, 30).fill('#f1f5f9');
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1f2937');
+    doc.text('Description', 64, y + 10);
+    doc.text('Qty', 290, y + 10, { width: 40, align: 'center' });
+    doc.text('Unit Price', 360, y + 10, { width: 90, align: 'right' });
+    doc.text('Amount', 470, y + 10, { width: 65, align: 'right' });
+    y += 30;
 
     invoice.lineItems.forEach((item) => {
-      doc.fontSize(10).fillColor('#0f172a');
-      doc.text(item.name, 48, doc.y, { continued: true, width: 260 });
-      doc.text(item.quantity.toString(), { continued: true, width: 60 });
-      doc.text(item.unitPrice.toFixed(2), { continued: true, width: 80 });
-      doc.text(item.total.toFixed(2), { width: 80 });
+      const rowHeight = 30;
+      doc.rect(48, y, 499, rowHeight).fillAndStroke('#ffffff', '#e2e8f0');
+      doc.font('Helvetica').fontSize(10).fillColor('#0f172a');
+      doc.text(item.name, 64, y + 9, { width: 215, ellipsis: true });
+      doc.text(String(item.quantity), 290, y + 9, { width: 40, align: 'center' });
+      doc.text(formatMoney(item.unitPrice), 360, y + 9, { width: 90, align: 'right' });
+      doc.text(formatMoney(item.total), 470, y + 9, { width: 65, align: 'right' });
+      y += rowHeight;
     });
 
-    doc.moveDown(0.8);
-    doc.fontSize(11).fillColor('#0f172a');
-    doc.text(`Subtotal: ${invoice.subtotal.toFixed(2)}`, { align: 'right' });
-    doc.text(`Tax: ${invoice.tax.toFixed(2)}`, { align: 'right' });
-    doc.fontSize(12).text(`Total: ${invoice.total.toFixed(2)}`, { align: 'right' });
+    y += 16;
+    doc
+      .moveTo(48, y)
+      .lineTo(547, y)
+      .lineWidth(1)
+      .strokeColor('#e2e8f0')
+      .stroke();
+    y += 14;
+
+    doc.font('Helvetica').fontSize(11).fillColor('#64748b');
+    doc.text('Subtotal', 390, y, { width: 80, align: 'right' });
+    doc.text(formatMoney(invoice.subtotal), 470, y, { width: 65, align: 'right' });
+    y += 24;
+    doc.text('Tax', 390, y, { width: 80, align: 'right' });
+    doc.text(formatMoney(invoice.tax), 470, y, { width: 65, align: 'right' });
+    y += 30;
+
+    doc
+      .moveTo(360, y)
+      .lineTo(547, y)
+      .lineWidth(2)
+      .strokeColor('#0f172a')
+      .stroke();
+    y += 10;
+    doc.font('Helvetica-Bold').fontSize(14).fillColor('#1e293b');
+    doc.text('TOTAL', 390, y, { width: 80, align: 'right' });
+    doc.text(formatMoney(invoice.total), 470, y, { width: 65, align: 'right' });
+
     doc.end();
   });
 }
