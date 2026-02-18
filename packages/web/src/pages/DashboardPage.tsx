@@ -1035,7 +1035,7 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="mt-7 grid grid-cols-2 gap-2">
               <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100/70 px-3 py-2 ring-1 ring-emerald-200">
                 <div className="text-[11px] font-semibold text-emerald-800/80">Positive</div>
                 <div className="mt-1 text-sm font-semibold text-emerald-700">
