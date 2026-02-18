@@ -4,6 +4,7 @@ import { calendarService } from '@/services';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/stores/authStore';
 import { appendAuditLog } from '@/utils/auditLog';
+import { PAGE_TITLE_CLASS } from '@/styles/typography';
 
 type CalendarType = 'BOOKING' | 'HOUSEKEEPING' | 'MAINTENANCE' | 'EVENT' | 'OTHER';
 
@@ -246,7 +247,7 @@ export default function CalendarPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Calendar</h1>
+          <h1 className={PAGE_TITLE_CLASS}>Calendar</h1>
           <p className="mt-1 text-sm text-slate-500">Bookings, housekeeping, and events in one place.</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -771,3 +772,4 @@ export default function CalendarPage() {
     </div>
   );
 }
+

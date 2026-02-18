@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useQuery } from '@tanstack/react-query';
@@ -213,6 +213,7 @@ export default function DashboardLayout() {
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [globalSearchActiveIndex, setGlobalSearchActiveIndex] = useState(0);
+  const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState({
     operations: true,
     guest: true,
@@ -243,10 +244,51 @@ export default function DashboardLayout() {
   const lastPendingCount = useRef<number | null>(null);
   const lastInfoReceivedCount = useRef<number | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const globalSearchRef = useRef<HTMLDivElement | null>(null);
   const [accessRequestAck, setAccessRequestAck] = useState(() => loadAccessRequestAckMap());
 
+  const avatarStorageKey = `laflo-profile-avatar:${user?.id || 'guest'}`;
+
   useEffect(() => onAccessRequestAckChanged(() => setAccessRequestAck(loadAccessRequestAckMap())), []);
+
+  useEffect(() => {
+    try {
+      const value = localStorage.getItem(avatarStorageKey);
+      setProfileAvatar(value || null);
+    } catch {
+      setProfileAvatar(null);
+    }
+  }, [avatarStorageKey]);
+
+  const onAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : null;
+      if (!result) return;
+      try {
+        localStorage.setItem(avatarStorageKey, result);
+      } catch {
+        toast.error('Failed to save profile picture');
+        return;
+      }
+      setProfileAvatar(result);
+      toast.success('Profile picture updated');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeAvatar = () => {
+    try {
+      localStorage.removeItem(avatarStorageKey);
+      setProfileAvatar(null);
+      toast.success('Profile picture removed');
+    } catch {
+      toast.error('Failed to remove profile picture');
+    }
+  };
 
   const { data: accessRequests } = useQuery({
     queryKey: ['accessRequests', 'badge'],
@@ -752,9 +794,13 @@ export default function DashboardLayout() {
                   <p className="text-xs text-slate-500">{user?.role}</p>
                 </div>
                 <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center overflow-hidden">
-                  <span className="text-sm font-medium text-amber-700">
-                    {user?.firstName?.[0]}{user?.lastName?.[0]}
-                  </span>
+                  {profileAvatar ? (
+                    <img src={profileAvatar} alt="Profile" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-sm font-medium text-amber-700">
+                      {user?.firstName?.[0]}{user?.lastName?.[0]}
+                    </span>
+                  )}
                 </div>
               </button>
 
@@ -784,6 +830,30 @@ export default function DashboardLayout() {
                     className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
                   >
                     Settings
+                  </button>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={onAvatarChange}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => avatarInputRef.current?.click()}
+                    className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    Upload photo
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={removeAvatar}
+                    className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:text-slate-400"
+                    disabled={!profileAvatar}
+                  >
+                    Remove photo
                   </button>
                   <div className="h-px bg-slate-100" role="presentation" />
                   <button

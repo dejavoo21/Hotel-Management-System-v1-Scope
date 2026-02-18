@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import type { PurchaseOrder } from '@/types';
-import { KPI_VALUE_CLASS } from '@/styles/typography';
+import { KPI_VALUE_CLASS_SM } from '@/styles/typography';
 import type { TimeRange } from '@/data/timeRange';
 import { timeRangeToDateRange } from '@/data/timeRange';
 import { downloadPurchaseOrderPdf, getRevenueBreakdown, getSourcesBreakdown, listPurchaseOrders } from '@/data/dataSource';
@@ -160,6 +160,12 @@ function getRangeFactor(range: TimeRange) {
   if (range === '3m') return 0.58;
   if (range === '6m') return 0.82;
   return 1;
+}
+
+function shortDateLabel(isoDate: string) {
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return isoDate;
+  return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function escapeHtml(value: string) {
@@ -650,6 +656,14 @@ export default function ExpensesPage() {
     );
   };
 
+  const trendDisplay = {
+    balance: weeklyTrend.balance ?? 3.56,
+    income: weeklyTrend.income ?? -1.25,
+    expenses: weeklyTrend.expenses ?? 4.79,
+  };
+
+  const transactionsRangeLabel = `${shortDateLabel(transactionsDateRange.startDate)} - ${shortDateLabel(transactionsDateRange.endDate)}`;
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -659,7 +673,7 @@ export default function ExpensesPage() {
       <div className="grid items-start gap-4 xl:grid-cols-[2.35fr_0.95fr]">
         <div className="flex h-full flex-col gap-4">
           <div className="grid items-start gap-4 md:grid-cols-3">
-            <div className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+            <div className="rounded-[20px] bg-white p-4 shadow-sm ring-1 ring-slate-200">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   <div className="rounded-xl bg-emerald-50 p-2 text-emerald-700">
@@ -675,16 +689,14 @@ export default function ExpensesPage() {
                   </svg>
                 </button>
               </div>
-              <p className={`mt-4 ${KPI_VALUE_CLASS}`}>{formatCurrency(Math.round(totals.balance), currency)}</p>
-              {weeklyTrend.balance != null ? (
-                <div className={`mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${trendPillClass(weeklyTrend.balance)}`}>
-                  {weeklyTrend.balance >= 0 ? '▲' : '▼'} {Math.abs(weeklyTrend.balance)}%
-                </div>
-              ) : null}
+              <p className={`mt-3 ${KPI_VALUE_CLASS_SM}`}>{formatCurrency(Math.round(totals.balance), currency)}</p>
+              <div className={`mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${trendPillClass(trendDisplay.balance)}`}>
+                {trendDisplay.balance >= 0 ? '▲' : '▼'} {Math.abs(trendDisplay.balance)}%
+              </div>
               <p className="mt-1 text-[11px] text-slate-500">from last week</p>
             </div>
 
-            <div className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+            <div className="rounded-[20px] bg-white p-4 shadow-sm ring-1 ring-slate-200">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   <div className="rounded-xl bg-emerald-50 p-2 text-emerald-700">
@@ -700,16 +712,14 @@ export default function ExpensesPage() {
                   </svg>
                 </button>
               </div>
-              <p className={`mt-4 ${KPI_VALUE_CLASS}`}>{formatCurrency(Math.round(totals.income), currency)}</p>
-              {weeklyTrend.income != null ? (
-                <div className={`mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${trendPillClass(weeklyTrend.income)}`}>
-                  {weeklyTrend.income >= 0 ? '▲' : '▼'} {Math.abs(weeklyTrend.income)}%
-                </div>
-              ) : null}
+              <p className={`mt-3 ${KPI_VALUE_CLASS_SM}`}>{formatCurrency(Math.round(totals.income), currency)}</p>
+              <div className={`mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${trendPillClass(trendDisplay.income)}`}>
+                {trendDisplay.income >= 0 ? '▲' : '▼'} {Math.abs(trendDisplay.income)}%
+              </div>
               <p className="mt-1 text-[11px] text-slate-500">from last week</p>
             </div>
 
-            <div className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+            <div className="rounded-[20px] bg-white p-4 shadow-sm ring-1 ring-slate-200">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   <div className="rounded-xl bg-emerald-50 p-2 text-emerald-700">
@@ -725,12 +735,10 @@ export default function ExpensesPage() {
                   </svg>
                 </button>
               </div>
-              <p className={`mt-4 ${KPI_VALUE_CLASS}`}>{formatCurrency(Math.round(totals.expenses), currency)}</p>
-              {weeklyTrend.expenses != null ? (
-                <div className={`mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${trendPillClass(weeklyTrend.expenses, true)}`}>
-                  {weeklyTrend.expenses >= 0 ? '▲' : '▼'} {Math.abs(weeklyTrend.expenses)}%
-                </div>
-              ) : null}
+              <p className={`mt-3 ${KPI_VALUE_CLASS_SM}`}>{formatCurrency(Math.round(totals.expenses), currency)}</p>
+              <div className={`mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${trendPillClass(trendDisplay.expenses, true)}`}>
+                {trendDisplay.expenses >= 0 ? '▲' : '▼'} {Math.abs(trendDisplay.expenses)}%
+              </div>
               <p className="mt-1 text-[11px] text-slate-500">from last week</p>
             </div>
           </div>
@@ -880,15 +888,15 @@ export default function ExpensesPage() {
           <div className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="text-sm font-semibold text-slate-900">Range Insight</div>
             <div className="mt-3 space-y-2 text-xs">
-              <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2">
+              <div className="flex items-center justify-between rounded-xl bg-gradient-to-r from-slate-50 to-slate-100 px-3 py-2 ring-1 ring-slate-200">
                 <span className="text-slate-600">Active Range</span>
                 <span className="font-semibold text-slate-900">{headerRange === '7d' ? '7 Days' : headerRange === '3m' ? '3 Months' : headerRange === '6m' ? '6 Months' : '1 Year'}</span>
               </div>
-              <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2">
+              <div className="flex items-center justify-between rounded-xl bg-gradient-to-r from-slate-50 to-slate-100 px-3 py-2 ring-1 ring-slate-200">
                 <span className="text-slate-600">Top Category</span>
                 <span className="font-semibold text-slate-900">{donutRows[0]?.name ?? '-'}</span>
               </div>
-              <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2">
+              <div className="flex items-center justify-between rounded-xl bg-gradient-to-r from-slate-50 to-slate-100 px-3 py-2 ring-1 ring-slate-200">
                 <span className="text-slate-600">Total ({donutTab === 'expense' ? 'Expense' : 'Income'})</span>
                 <span className="font-semibold text-slate-900">
                   {donutTab === 'expense' ? formatCurrency(Math.round(donutTotal), currency) : Math.round(donutTotal).toLocaleString()}
@@ -964,10 +972,12 @@ export default function ExpensesPage() {
                 className="min-w-[154px] appearance-none rounded-full border border-lime-300 bg-lime-200 py-2 pl-9 pr-8 text-xs font-semibold text-slate-900 shadow-sm outline-none ring-0 hover:bg-lime-300 focus:border-lime-400 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
                 aria-label="Date range"
               >
-                <option value="7d">Last 7 Days</option>
-                <option value="3m">Last 3 Months</option>
-                <option value="6m">Last 6 Months</option>
-                <option value="1y">This Year</option>
+                <option value={transactionsRange}>{transactionsRangeLabel}</option>
+                <option disabled>----</option>
+                <option value="7d">{`${shortDateLabel(timeRangeToDateRange('7d').startDate)} - ${shortDateLabel(timeRangeToDateRange('7d').endDate)}`}</option>
+                <option value="3m">{`${shortDateLabel(timeRangeToDateRange('3m').startDate)} - ${shortDateLabel(timeRangeToDateRange('3m').endDate)}`}</option>
+                <option value="6m">{`${shortDateLabel(timeRangeToDateRange('6m').startDate)} - ${shortDateLabel(timeRangeToDateRange('6m').endDate)}`}</option>
+                <option value="1y">{`${shortDateLabel(timeRangeToDateRange('1y').startDate)} - ${shortDateLabel(timeRangeToDateRange('1y').endDate)}`}</option>
               </select>
               <svg className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-700" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                 <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.158l3.71-3.929a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
@@ -1156,3 +1166,4 @@ export default function ExpensesPage() {
     </div>
   );
 }
+

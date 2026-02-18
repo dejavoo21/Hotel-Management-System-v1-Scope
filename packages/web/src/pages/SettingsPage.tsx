@@ -567,7 +567,7 @@ export default function SettingsPage() {
     <div className="space-y-6">
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Settings</h1>
         <p className="mt-1 text-sm text-slate-500">Manage your hotel and account settings</p>
       </div>
 
@@ -1787,3 +1787,4 @@ export default function SettingsPage() {
     </div>
   );
 }
+

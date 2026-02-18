@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { roomService } from '@/services';
 import type { Room } from '@/types';
 import toast from 'react-hot-toast';
 import { useSearchParams } from 'react-router-dom';
 import { formatEnumLabel } from '@/utils';
+import { PAGE_TITLE_CLASS } from '@/styles/typography';
+import { getRoomImage, setRoomImage } from '@/utils/mediaPrefs';
 
 type ViewMode = 'grid' | 'list';
 type StatusFilter = 'all' | 'AVAILABLE' | 'OCCUPIED' | 'OUT_OF_SERVICE';
@@ -14,10 +16,12 @@ export default function RoomsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [housekeepingFilter, setHousekeepingFilter] = useState<HousekeepingFilter>('all');
-const [floorFilter, setFloorFilter] = useState<number | 'all'>('all');
+  const [floorFilter, setFloorFilter] = useState<number | 'all'>('all');
+  const [roomImageVersion, setRoomImageVersion] = useState(0);
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showFloorModal, setShowFloorModal] = useState(false);
+  const roomImageInputRef = useRef<HTMLInputElement | null>(null);
   const [searchParams] = useSearchParams();
   const validStatusFilters: StatusFilter[] = ['all', 'AVAILABLE', 'OCCUPIED', 'OUT_OF_SERVICE'];
   const validHousekeepingFilters: HousekeepingFilter[] = [
@@ -177,11 +181,28 @@ const [floorFilter, setFloorFilter] = useState<number | 'all'>('all');
     }
   };
 
+  const onRoomImagePicked = (roomId: string, file?: File) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const value = typeof reader.result === 'string' ? reader.result : null;
+      if (!value) return;
+      try {
+        setRoomImage(roomId, value);
+        setRoomImageVersion((v) => v + 1);
+        toast.success('Room image updated');
+      } catch {
+        toast.error('Failed to update room image');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Rooms</h1>
+          <h1 className={PAGE_TITLE_CLASS}>Rooms</h1>
           <p className="mt-1 text-sm text-slate-500">
             Manage room status and availability
           </p>
@@ -314,10 +335,17 @@ const [floorFilter, setFloorFilter] = useState<number | 'all'>('all');
               onClick={() => setSelectedRoom(room)}
               className={`card card-hover text-left border-l-4 ${getHousekeepingColor(room.housekeepingStatus)}`}
             >
-              <div className="flex items-start justify-between">
+              <div className="flex items-start justify-between gap-3">
+                <img
+                  key={`${room.id}-${roomImageVersion}`}
+                  src={getRoomImage(room)}
+                  alt={`Room ${room.number}`}
+                  className="h-16 w-24 shrink-0 rounded-lg object-cover"
+                />
                 <div>
                   <p className="text-lg font-bold text-slate-900">{room.number}</p>
                   <p className="text-sm text-slate-500">{room.roomType.name}</p>
+                  <p className="text-xs text-slate-500">Floor {room.floor}</p>
                 </div>
                 <div className={`h-3 w-3 rounded-full ${getStatusColor(room.status)}`} />
               </div>
@@ -406,6 +434,34 @@ const [floorFilter, setFloorFilter] = useState<number | 'all'>('all');
             </p>
 
             <div className="mt-6 space-y-4">
+              <div>
+                <img
+                  key={`${selectedRoom.id}-${roomImageVersion}`}
+                  src={getRoomImage(selectedRoom)}
+                  alt={`Room ${selectedRoom.number}`}
+                  className="h-40 w-full rounded-xl object-cover"
+                />
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    ref={roomImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => {
+                      onRoomImagePicked(selectedRoom.id, event.target.files?.[0]);
+                      event.currentTarget.value = '';
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => roomImageInputRef.current?.click()}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Change image
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <label className="label">Room Status</label>
                 <div className="flex flex-wrap gap-2">
@@ -607,3 +663,4 @@ const [floorFilter, setFloorFilter] = useState<number | 'all'>('all');
     </div>
   );
 }
+

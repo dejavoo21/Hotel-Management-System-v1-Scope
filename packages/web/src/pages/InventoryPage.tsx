@@ -3,6 +3,27 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inventoryService, purchaseOrderService } from '@/services';
 import type { InventoryItem } from '@/types';
 import toast from 'react-hot-toast';
+import { PAGE_TITLE_CLASS } from '@/styles/typography';
+
+const inventoryImageByName: Record<string, string> = {
+  towels: 'https://images.unsplash.com/photo-1600369672770-985fd300a37f?auto=format&fit=crop&w=240&q=80',
+  shampoo: 'https://images.unsplash.com/photo-1612817288484-6f916006741a?auto=format&fit=crop&w=240&q=80',
+  coffee: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=240&q=80',
+  key: 'https://images.unsplash.com/photo-1616628182509-f0f2f79fef7a?auto=format&fit=crop&w=240&q=80',
+  cleaning: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=240&q=80',
+  snack: 'https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=240&q=80',
+};
+
+function getInventoryImage(name: string) {
+  const n = name.toLowerCase();
+  if (n.includes('towel')) return inventoryImageByName.towels;
+  if (n.includes('shampoo')) return inventoryImageByName.shampoo;
+  if (n.includes('coffee')) return inventoryImageByName.coffee;
+  if (n.includes('key')) return inventoryImageByName.key;
+  if (n.includes('clean')) return inventoryImageByName.cleaning;
+  if (n.includes('snack')) return inventoryImageByName.snack;
+  return inventoryImageByName.cleaning;
+}
 
 export default function InventoryPage() {
   const [search, setSearch] = useState('');
@@ -94,7 +115,7 @@ export default function InventoryPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Inventory</h1>
+          <h1 className={PAGE_TITLE_CLASS}>Inventory</h1>
           <p className="mt-1 text-sm text-slate-500">Track hotel supplies and reorder points.</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -148,20 +169,22 @@ export default function InventoryPage() {
           </div>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-slate-500">
+              <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="pb-3">Item</th>
                   <th className="pb-3">Category</th>
-                  <th className="pb-3">On hand</th>
-                  <th className="pb-3">Reorder</th>
+                  <th className="pb-3">Availability</th>
+                  <th className="pb-3">Quantity in Stock</th>
+                  <th className="pb-3">Quantity in Reorder</th>
                   <th className="pb-3">Status</th>
+                  <th className="pb-3">Action</th>
                   <th className="pb-3">Select</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={6} className="py-6 text-center text-slate-500">
+                    <td colSpan={8} className="py-6 text-center text-slate-500">
                       Loading inventory...
                     </td>
                   </tr>
@@ -171,8 +194,18 @@ export default function InventoryPage() {
                     const selected = selectedItems.some((entry) => entry.id === item.id);
                     return (
                       <tr key={item.id}>
-                        <td className="py-3 font-medium text-slate-900">{item.name}</td>
+                        <td className="py-3">
+                          <div className="flex items-center gap-3">
+                            <img src={getInventoryImage(item.name)} alt={item.name} className="h-9 w-9 rounded-lg object-cover" />
+                            <span className="font-medium text-slate-900">{item.name}</span>
+                          </div>
+                        </td>
                         <td className="py-3 text-slate-600">{item.category}</td>
+                        <td className="py-3">
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isLow ? 'bg-amber-50 text-amber-700' : 'bg-lime-100 text-lime-700'}`}>
+                            {isLow ? 'Low' : 'Available'}
+                          </span>
+                        </td>
                         <td className="py-3 text-slate-600">
                           {item.quantityOnHand} {item.unit}
                         </td>
@@ -187,6 +220,16 @@ export default function InventoryPage() {
                           </span>
                         </td>
                         <td className="py-3">
+                          <div className="flex items-center gap-2">
+                            <button className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200">
+                              View detail
+                            </button>
+                            <button className="rounded-lg bg-lime-200 px-2.5 py-1 text-xs font-semibold text-slate-800 hover:bg-lime-300">
+                              Reorder
+                            </button>
+                          </div>
+                        </td>
+                        <td className="py-3">
                           <input
                             type="checkbox"
                             checked={selected}
@@ -198,7 +241,7 @@ export default function InventoryPage() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={6} className="py-6 text-center text-slate-500">
+                    <td colSpan={8} className="py-6 text-center text-slate-500">
                       No inventory items found.
                     </td>
                   </tr>
@@ -412,3 +455,4 @@ export default function InventoryPage() {
     </div>
   );
 }
+

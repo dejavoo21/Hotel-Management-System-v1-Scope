@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { guestService, roomService } from '@/services';
 import type { Guest } from '@/types';
@@ -6,6 +6,8 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { appendAuditLog } from '@/utils/auditLog';
+import { PAGE_TITLE_CLASS } from '@/styles/typography';
+import { getGuestImage, setGuestImage } from '@/utils/mediaPrefs';
 
 export default function GuestsPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -13,6 +15,8 @@ export default function GuestsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [guestImageVersion, setGuestImageVersion] = useState(0);
+  const guestImageInputRef = useRef<HTMLInputElement | null>(null);
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -142,11 +146,28 @@ export default function GuestsPage() {
     }).format(amount);
   };
 
+  const onGuestImagePicked = (guestId: string, file?: File) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const value = typeof reader.result === 'string' ? reader.result : null;
+      if (!value) return;
+      try {
+        setGuestImage(guestId, value);
+        setGuestImageVersion((v) => v + 1);
+        toast.success('Guest photo updated');
+      } catch {
+        toast.error('Failed to update guest photo');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Guests</h1>
+          <h1 className={PAGE_TITLE_CLASS}>Guests</h1>
           <p className="mt-1 text-sm text-slate-500">
             Manage your guest directory
           </p>
@@ -227,9 +248,20 @@ export default function GuestsPage() {
                 >
                   <td>
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 text-sm font-medium text-primary-700">
-                        {guest.firstName[0]}
-                        {guest.lastName[0]}
+                      <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-sm font-medium text-primary-700">
+                        {getGuestImage(guest.id) ? (
+                          <img
+                            key={`${guest.id}-${guestImageVersion}`}
+                            src={getGuestImage(guest.id) || undefined}
+                            alt={`${guest.firstName} ${guest.lastName}`}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <>
+                            {guest.firstName[0]}
+                            {guest.lastName[0]}
+                          </>
+                        )}
                       </div>
                       <div>
                         <p className="font-medium text-slate-900">
@@ -432,9 +464,20 @@ export default function GuestsPage() {
             </button>
 
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-100 text-lg font-semibold text-primary-700">
-                {selectedGuest.firstName[0]}
-                {selectedGuest.lastName[0]}
+              <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-lg font-semibold text-primary-700">
+                {getGuestImage(selectedGuest.id) ? (
+                  <img
+                    key={`${selectedGuest.id}-${guestImageVersion}`}
+                    src={getGuestImage(selectedGuest.id) || undefined}
+                    alt={`${selectedGuest.firstName} ${selectedGuest.lastName}`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <>
+                    {selectedGuest.firstName[0]}
+                    {selectedGuest.lastName[0]}
+                  </>
+                )}
               </div>
               <div>
                 <h2 className="text-xl font-bold text-slate-900">
@@ -486,13 +529,33 @@ export default function GuestsPage() {
               </div>
             </div>
 
+            <div className="mt-4">
+              <input
+                ref={guestImageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => {
+                  onGuestImagePicked(selectedGuest.id, event.target.files?.[0]);
+                  event.currentTarget.value = '';
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => guestImageInputRef.current?.click()}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Change guest photo
+              </button>
+            </div>
+
             <div className="mt-6 grid grid-cols-2 gap-4 rounded-lg bg-slate-50 p-4">
               <div className="text-center">
-                <p className="text-2xl font-bold text-slate-900">{selectedGuest.totalStays}</p>
+                <p className="text-2xl font-bold tracking-tight text-slate-900">{selectedGuest.totalStays}</p>
                 <p className="text-sm text-slate-500">Total Stays</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-slate-900">
+                <p className="text-2xl font-bold tracking-tight text-slate-900">
                   {formatCurrency(selectedGuest.totalSpent)}
                 </p>
                 <p className="text-sm text-slate-500">Total Spent</p>
@@ -671,3 +734,4 @@ export default function GuestsPage() {
     </div>
   );
 }
+

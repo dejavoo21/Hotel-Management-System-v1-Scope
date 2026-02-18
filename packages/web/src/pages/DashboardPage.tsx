@@ -712,7 +712,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="mt-8 grid gap-2 sm:grid-cols-3">
+              <div className="mt-10 grid gap-2 sm:grid-cols-3">
                 {roomSignals.map((signal) => {
                   const toneClass =
                     signal.tone === 'amber'
@@ -1036,32 +1036,32 @@ export default function DashboardPage() {
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <div className="rounded-xl bg-emerald-50 px-3 py-2 ring-1 ring-emerald-100">
-                <div className="text-[11px] font-semibold text-slate-500">Positive</div>
+              <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100/70 px-3 py-2 ring-1 ring-emerald-200">
+                <div className="text-[11px] font-semibold text-emerald-800/80">Positive</div>
                 <div className="mt-1 text-sm font-semibold text-emerald-700">
                   {reviewSummary.sentiment.positive.toLocaleString()}
                 </div>
               </div>
-              <div className="rounded-xl bg-sky-50 px-3 py-2 ring-1 ring-sky-100">
-                <div className="text-[11px] font-semibold text-slate-500">Neutral</div>
+              <div className="rounded-xl bg-gradient-to-br from-sky-50 to-sky-100/70 px-3 py-2 ring-1 ring-sky-200">
+                <div className="text-[11px] font-semibold text-sky-800/80">Neutral</div>
                 <div className="mt-1 text-sm font-semibold text-sky-700">
                   {reviewSummary.sentiment.neutral.toLocaleString()}
                 </div>
               </div>
-              <div className="rounded-xl bg-rose-50 px-3 py-2 ring-1 ring-rose-100">
-                <div className="text-[11px] font-semibold text-slate-500">Negative</div>
+              <div className="rounded-xl bg-gradient-to-br from-rose-50 to-rose-100/70 px-3 py-2 ring-1 ring-rose-200">
+                <div className="text-[11px] font-semibold text-rose-800/80">Negative</div>
                 <div className="mt-1 text-sm font-semibold text-rose-700">
                   {reviewSummary.sentiment.negative.toLocaleString()}
                 </div>
               </div>
-              <div className="rounded-xl bg-lime-50 px-3 py-2 ring-1 ring-lime-100">
-                <div className="text-[11px] font-semibold text-slate-500">Response Rate</div>
+              <div className="rounded-xl bg-gradient-to-br from-lime-50 to-lime-100/80 px-3 py-2 ring-1 ring-lime-200">
+                <div className="text-[11px] font-semibold text-lime-900/80">Response Rate</div>
                 <div className="mt-1 text-sm font-semibold text-lime-700">{reviewSummary.responseRate}%</div>
               </div>
             </div>
           </ClickableCard>
 
-          <ClickableCard to="/housekeeping" ariaLabel="Go to housekeeping tasks" className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <ClickableCard to="/housekeeping" ariaLabel="Go to housekeeping tasks" className="min-h-[420px] rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Tasks</div>
               <button
@@ -1122,7 +1122,7 @@ export default function DashboardPage() {
             </div>
           </ClickableCard>
 
-          <ClickableCard to="/settings?tab=audit-trail" ariaLabel="Go to audit trail" className="min-h-[380px] h-full flex-1 rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <ClickableCard to="/settings?tab=audit-trail" ariaLabel="Go to audit trail" className="h-full max-h-[460px] overflow-hidden rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">Recent Activities</div>
               <button
@@ -1137,7 +1137,7 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            <div className="mt-4 divide-y divide-slate-100">
+            <div className="mt-4 max-h-[380px] divide-y divide-slate-100 overflow-y-auto pr-1">
               {recentActivities.map((a) => (
                 <div key={a.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                   <span className="mt-1 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-lime-100 text-lime-800">
@@ -1163,3 +1163,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

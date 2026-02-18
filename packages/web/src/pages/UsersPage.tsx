@@ -171,7 +171,7 @@ export default function UsersPage() {
       {/* Page header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Users</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Users</h1>
           <p className="mt-1 text-sm text-slate-500">Manage staff accounts and permissions</p>
         </div>
         <button onClick={() => setShowAddModal(true)} className="btn-primary">
@@ -647,4 +647,5 @@ export default function UsersPage() {
     </div>
   );
 }
+
 

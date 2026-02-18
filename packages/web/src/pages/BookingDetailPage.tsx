@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { formatEnumLabel } from '@/utils';
 import { getApiError } from '@/services/api';
 import { appendAuditLog } from '@/utils/auditLog';
+import { getRoomImage } from '@/utils/mediaPrefs';
 
 export default function BookingDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -395,7 +396,7 @@ export default function BookingDetailPage() {
           </button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-slate-900">{booking.bookingRef}</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">{booking.bookingRef}</h1>
               <span className={getStatusBadge(booking.status)}>
                 {formatEnumLabel(booking.status)}
               </span>
@@ -636,6 +637,21 @@ export default function BookingDetailPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {booking.room ? (
+            <div className="card">
+              <h3 className="font-semibold text-slate-900">Room Info</h3>
+              <img
+                src={getRoomImage(booking.room)}
+                alt={`Room ${booking.room.number}`}
+                className="mt-3 h-40 w-full rounded-xl object-cover"
+              />
+              <div className="mt-3 text-sm">
+                <div className="font-semibold text-slate-900">Room {booking.room.number}</div>
+                <div className="text-slate-500">{booking.room.roomType.name}</div>
+              </div>
+            </div>
+          ) : null}
+
           {/* Balance */}
           <div className={`card ${balance > 0 ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-emerald-500'}`}>
             <p className="text-sm text-slate-500">Balance Due</p>
@@ -1026,3 +1042,4 @@ export default function BookingDetailPage() {
     </div>
   );
 }
+
