@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import TimeRangeToggle from '@/components/ui/TimeRangeToggle';
 import type { TimeRange } from '@/data/timeRange';
@@ -190,7 +190,7 @@ export default function ReviewsPage() {
               <div key={r.id} className="rounded-2xl border border-slate-200 bg-white p-4 hover:bg-slate-50">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-slate-900">{r.guest} � {r.country}</div>
+                    <div className="truncate text-sm font-semibold text-slate-900">{r.guest} • {r.country}</div>
                     <div className="mt-1 text-xs text-slate-500">{new Date(r.date).toLocaleDateString()}</div>
                     <p className="mt-2 text-sm text-slate-700">{r.comment || 'No comment provided.'}</p>
                   </div>
@@ -204,4 +204,5 @@ export default function ReviewsPage() {
     </div>
   );
 }
+
 
