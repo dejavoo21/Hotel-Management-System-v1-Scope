@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { guestService, roomService } from '@/services';
-import type { Guest } from '@/types';
+import { bookingService, guestService, roomService } from '@/services';
+import type { Booking, Guest } from '@/types';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { appendAuditLog } from '@/utils/auditLog';
 import { PAGE_TITLE_CLASS } from '@/styles/typography';
-import { getGuestImage, setGuestImage } from '@/utils/mediaPrefs';
+import { getGuestImage, getRoomImage, setGuestImage } from '@/utils/mediaPrefs';
 
 export default function GuestsPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,6 +61,17 @@ export default function GuestsPage() {
       guestService.getGuests({
         search: searchQuery || undefined,
         page,
+        limit: 20,
+      }),
+  });
+
+  const { data: guestBookingsData } = useQuery({
+    queryKey: ['guestBookings', selectedGuest?.id],
+    enabled: !!selectedGuest?.id,
+    queryFn: () =>
+      bookingService.getBookings({
+        guestId: selectedGuest?.id,
+        page: 1,
         limit: 20,
       }),
   });
@@ -145,6 +156,16 @@ export default function GuestsPage() {
       currency: user?.hotel?.currency || 'USD',
     }).format(amount);
   };
+
+  const latestBookingWithRoom = useMemo(() => {
+    const bookings = guestBookingsData?.data || [];
+    const withRooms = bookings.filter((booking: Booking) => booking.room);
+    if (withRooms.length === 0) return null;
+    return withRooms.sort(
+      (a: Booking, b: Booking) =>
+        new Date(b.checkInDate).getTime() - new Date(a.checkInDate).getTime()
+    )[0];
+  }, [guestBookingsData]);
 
   const onGuestImagePicked = (guestId: string, file?: File) => {
     if (!file) return;
@@ -453,7 +474,7 @@ export default function GuestsPage() {
             className="fixed inset-0 bg-slate-900/50"
             onClick={() => setSelectedGuest(null)}
           />
-          <div className="relative w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+          <div className="relative w-full max-w-lg rounded-xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setSelectedGuest(null)}
               className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"
@@ -548,6 +569,26 @@ export default function GuestsPage() {
                 Change guest photo
               </button>
             </div>
+
+            {latestBookingWithRoom?.room && (
+              <div className="mt-4 rounded-xl border border-slate-200 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Booked Room</p>
+                <img
+                  src={getRoomImage(latestBookingWithRoom.room)}
+                  alt={`Room ${latestBookingWithRoom.room.number}`}
+                  className="mt-2 h-36 w-full rounded-lg object-cover"
+                />
+                <div className="mt-2 text-sm">
+                  <p className="font-semibold text-slate-900">
+                    Room {latestBookingWithRoom.room.number} - {latestBookingWithRoom.room.roomType.name}
+                  </p>
+                  <p className="text-slate-500">
+                    {new Date(latestBookingWithRoom.checkInDate).toLocaleDateString()} to{' '}
+                    {new Date(latestBookingWithRoom.checkOutDate).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="mt-6 grid grid-cols-2 gap-4 rounded-lg bg-slate-50 p-4">
               <div className="text-center">

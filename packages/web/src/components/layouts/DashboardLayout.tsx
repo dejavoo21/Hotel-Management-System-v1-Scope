@@ -530,7 +530,7 @@ export default function DashboardLayout() {
   }, [globalSearchQuery, globalSearchTargets]);
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen w-full bg-gray-50">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
@@ -957,7 +957,7 @@ export default function DashboardLayout() {
         </header>
 
           {/* Page content */}
-        <main id="main-content" className="flex-1 p-4 lg:p-6" tabIndex={-1}>
+        <main id="main-content" className="min-w-0 flex-1 overflow-x-auto p-4 lg:p-6" tabIndex={-1}>
           <Outlet />
         </main>
       </div>

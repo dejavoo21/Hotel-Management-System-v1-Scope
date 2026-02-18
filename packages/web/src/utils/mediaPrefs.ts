@@ -1,13 +1,19 @@
 import type { Room } from '@/types';
 
 const ROOM_IMAGES_KEY = 'laflo-room-images';
+const ROOM_TYPE_IMAGES_KEY = 'laflo-room-type-images';
 const GUEST_IMAGES_KEY = 'laflo-guest-images';
 
 const defaultRoomImageByType: Record<string, string> = {
-  standard: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80',
-  deluxe: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1200&q=80',
-  suite: 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?auto=format&fit=crop&w=1200&q=80',
-  family: 'https://images.unsplash.com/photo-1445019980597-93fa8acb246c?auto=format&fit=crop&w=1200&q=80',
+  single: '/assets/rooms/single-room.jpg',
+  standard: '/assets/rooms/single-room.jpg',
+  deluxe: '/assets/rooms/deluxe-room.jpg',
+  suite: '/assets/rooms/suite-room.jpg',
+  family: '/assets/rooms/double-room.jpg',
+  double: '/assets/rooms/double-room.jpg',
+  king: '/assets/rooms/king-room.jpg',
+  queen: '/assets/rooms/queen-room.jpg',
+  twin: '/assets/rooms/twin-room.jpg',
 };
 
 function readMap(key: string): Record<string, string> {
@@ -25,14 +31,42 @@ function writeMap(key: string, map: Record<string, string>) {
   localStorage.setItem(key, JSON.stringify(map));
 }
 
-export function getRoomImage(room: Pick<Room, 'id' | 'number' | 'roomType'>): string {
-  const map = readMap(ROOM_IMAGES_KEY);
-  if (map[room.id]) return map[room.id];
-  const roomTypeName = room.roomType?.name?.toLowerCase() || '';
-  if (roomTypeName.includes('deluxe')) return defaultRoomImageByType.deluxe;
-  if (roomTypeName.includes('suite')) return defaultRoomImageByType.suite;
-  if (roomTypeName.includes('family')) return defaultRoomImageByType.family;
+function normalizeRoomType(roomTypeName: string): string {
+  return roomTypeName.toLowerCase().trim();
+}
+
+function inferDefaultRoomImage(roomTypeName?: string): string {
+  const type = normalizeRoomType(roomTypeName || '');
+  if (type.includes('single')) return defaultRoomImageByType.single;
+  if (type.includes('deluxe')) return defaultRoomImageByType.deluxe;
+  if (type.includes('suite')) return defaultRoomImageByType.suite;
+  if (type.includes('family')) return defaultRoomImageByType.family;
+  if (type.includes('double')) return defaultRoomImageByType.double;
+  if (type.includes('king')) return defaultRoomImageByType.king;
+  if (type.includes('queen')) return defaultRoomImageByType.queen;
+  if (type.includes('twin')) return defaultRoomImageByType.twin;
   return defaultRoomImageByType.standard;
+}
+
+export function getRoomTypeImage(roomTypeName?: string): string {
+  const typeName = normalizeRoomType(roomTypeName || '');
+  if (!typeName) return inferDefaultRoomImage('standard');
+  const typeMap = readMap(ROOM_TYPE_IMAGES_KEY);
+  return typeMap[typeName] || inferDefaultRoomImage(typeName);
+}
+
+export function setRoomTypeImage(roomTypeName: string, imageDataUrl: string) {
+  const key = normalizeRoomType(roomTypeName);
+  if (!key) return;
+  const map = readMap(ROOM_TYPE_IMAGES_KEY);
+  map[key] = imageDataUrl;
+  writeMap(ROOM_TYPE_IMAGES_KEY, map);
+}
+
+export function getRoomImage(room: Pick<Room, 'id' | 'number' | 'roomType'>): string {
+  const roomMap = readMap(ROOM_IMAGES_KEY);
+  if (roomMap[room.id]) return roomMap[room.id];
+  return getRoomTypeImage(room.roomType?.name);
 }
 
 export function setRoomImage(roomId: string, imageDataUrl: string) {

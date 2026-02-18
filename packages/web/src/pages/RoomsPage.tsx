@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { useSearchParams } from 'react-router-dom';
 import { formatEnumLabel } from '@/utils';
 import { PAGE_TITLE_CLASS } from '@/styles/typography';
-import { getRoomImage, setRoomImage } from '@/utils/mediaPrefs';
+import { getRoomImage, setRoomImage, setRoomTypeImage } from '@/utils/mediaPrefs';
 
 type ViewMode = 'grid' | 'list';
 type StatusFilter = 'all' | 'AVAILABLE' | 'OCCUPIED' | 'OUT_OF_SERVICE';
@@ -22,6 +22,7 @@ export default function RoomsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showFloorModal, setShowFloorModal] = useState(false);
   const roomImageInputRef = useRef<HTMLInputElement | null>(null);
+  const roomTypeImageInputRef = useRef<HTMLInputElement | null>(null);
   const [searchParams] = useSearchParams();
   const validStatusFilters: StatusFilter[] = ['all', 'AVAILABLE', 'OCCUPIED', 'OUT_OF_SERVICE'];
   const validHousekeepingFilters: HousekeepingFilter[] = [
@@ -193,6 +194,23 @@ export default function RoomsPage() {
         toast.success('Room image updated');
       } catch {
         toast.error('Failed to update room image');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const onRoomTypeImagePicked = (roomTypeName: string, file?: File) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const value = typeof reader.result === 'string' ? reader.result : null;
+      if (!value) return;
+      try {
+        setRoomTypeImage(roomTypeName, value);
+        setRoomImageVersion((v) => v + 1);
+        toast.success('Room type image updated');
+      } catch {
+        toast.error('Failed to update room type image');
       }
     };
     reader.readAsDataURL(file);
@@ -416,7 +434,7 @@ export default function RoomsPage() {
             className="fixed inset-0 bg-slate-900/50"
             onClick={() => setSelectedRoom(null)}
           />
-          <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+          <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <button
               type="button"
               onClick={() => setSelectedRoom(null)}
@@ -458,6 +476,23 @@ export default function RoomsPage() {
                     className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                   >
                     Change image
+                  </button>
+                  <input
+                    ref={roomTypeImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => {
+                      onRoomTypeImagePicked(selectedRoom.roomType.name, event.target.files?.[0]);
+                      event.currentTarget.value = '';
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => roomTypeImageInputRef.current?.click()}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Change type image
                   </button>
                 </div>
               </div>
