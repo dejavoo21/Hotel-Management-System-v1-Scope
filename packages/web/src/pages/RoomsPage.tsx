@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { roomService } from '@/services';
 import type { Room } from '@/types';
@@ -8,12 +8,21 @@ import { formatEnumLabel } from '@/utils';
 import { PAGE_TITLE_CLASS } from '@/styles/typography';
 import { getRoomImage, setRoomImage, setRoomTypeImage } from '@/utils/mediaPrefs';
 
-type ViewMode = 'grid' | 'list';
 type StatusFilter = 'all' | 'AVAILABLE' | 'OCCUPIED' | 'OUT_OF_SERVICE';
 type HousekeepingFilter = 'all' | 'CLEAN' | 'DIRTY' | 'INSPECTION' | 'OUT_OF_SERVICE';
+type SortBy = 'popular' | 'name' | 'priceAsc' | 'priceDesc';
+
+type GroupedRoomType = {
+  name: string;
+  description?: string;
+  baseRate: number;
+  maxGuests: number;
+  total: number;
+  occupied: number;
+  sample: Room;
+};
 
 export default function RoomsPage() {
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [housekeepingFilter, setHousekeepingFilter] = useState<HousekeepingFilter>('all');
   const [floorFilter, setFloorFilter] = useState<number | 'all'>('all');
@@ -21,6 +30,9 @@ export default function RoomsPage() {
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showFloorModal, setShowFloorModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<SortBy>('popular');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
   const roomImageInputRef = useRef<HTMLInputElement | null>(null);
   const roomTypeImageInputRef = useRef<HTMLInputElement | null>(null);
   const [searchParams] = useSearchParams();
@@ -32,6 +44,7 @@ export default function RoomsPage() {
     'INSPECTION',
     'OUT_OF_SERVICE',
   ];
+
   useEffect(() => {
     const statusParam = searchParams.get('status');
     if (statusParam && validStatusFilters.includes(statusParam as StatusFilter)) {
@@ -47,13 +60,13 @@ export default function RoomsPage() {
 
   const { data: roomsData, isLoading } = useQuery({
     queryKey: ['rooms', statusFilter, housekeepingFilter, floorFilter],
-        queryFn: () =>
-          roomService.getRooms({
-            status: statusFilter !== 'all' ? statusFilter : undefined,
-            housekeepingStatus: housekeepingFilter !== 'all' ? housekeepingFilter : undefined,
-            floor: floorFilter !== 'all' ? floorFilter : undefined,
-            limit: 100,
-          }),
+    queryFn: () =>
+      roomService.getRooms({
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        housekeepingStatus: housekeepingFilter !== 'all' ? housekeepingFilter : undefined,
+        floor: floorFilter !== 'all' ? floorFilter : undefined,
+        limit: 100,
+      }),
   });
 
   const { data: roomTypes } = useQuery({
@@ -105,58 +118,86 @@ export default function RoomsPage() {
     },
   });
 
-  const updateStatusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: Room['status'] }) =>
-      roomService.updateRoomStatus(id, status),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['rooms'] });
-      toast.success('Room status updated');
-      setSelectedRoom(null);
-    },
-    onError: () => {
-      toast.error('Failed to update room status');
-    },
-  });
-
-  const updateHousekeepingMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: Room['housekeepingStatus'] }) =>
-      roomService.updateHousekeepingStatus(id, status),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['rooms'] });
-      toast.success('Housekeeping status updated');
-      setSelectedRoom(null);
-    },
-    onError: () => {
-      toast.error('Failed to update housekeeping status');
-    },
-  });
-
   const rooms = roomsData?.data || [];
   const sortedFloors = (floorsData || []).slice().sort((a, b) => a.number - b.number);
 
-  const getStatusColor = (status: Room['status']) => {
-    switch (status) {
-      case 'AVAILABLE':
-        return 'bg-emerald-500';
-      case 'OCCUPIED':
-        return 'bg-blue-500';
-      case 'OUT_OF_SERVICE':
-        return 'bg-slate-400';
+  const groupedByType = useMemo(() => {
+    const map = new Map<string, GroupedRoomType>();
+    for (const room of rooms) {
+      const key = room.roomType.name;
+      const entry = map.get(key);
+      if (!entry) {
+        map.set(key, {
+          name: room.roomType.name,
+          description: room.roomType.description,
+          baseRate: Number(room.roomType.baseRate) || 0,
+          maxGuests: Number(room.roomType.maxGuests) || 2,
+          total: 1,
+          occupied: room.status === 'OCCUPIED' ? 1 : 0,
+          sample: room,
+        });
+      } else {
+        entry.total += 1;
+        if (room.status === 'OCCUPIED') entry.occupied += 1;
+      }
     }
-  };
+    return [...map.values()];
+  }, [rooms]);
 
-  const getHousekeepingColor = (status: Room['housekeepingStatus']) => {
-    switch (status) {
-      case 'CLEAN':
-        return 'border-emerald-500';
-      case 'DIRTY':
-        return 'border-amber-500';
-      case 'INSPECTION':
-        return 'border-blue-500';
-      case 'OUT_OF_SERVICE':
-        return 'border-slate-400';
+  const filteredGroups = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const filtered = groupedByType.filter((group) => {
+      if (typeFilter !== 'all' && group.name !== typeFilter) return false;
+      if (!query) return true;
+      return (
+        group.name.toLowerCase().includes(query) ||
+        (group.description || '').toLowerCase().includes(query) ||
+        rooms.some(
+          (room) =>
+            room.roomType.name === group.name &&
+            (room.number.includes(query) || `floor ${room.floor}`.includes(query)),
+        )
+      );
+    });
+
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'priceAsc':
+          return a.baseRate - b.baseRate;
+        case 'priceDesc':
+          return b.baseRate - a.baseRate;
+        case 'popular':
+        default:
+          return b.occupied - a.occupied;
+      }
+    });
+
+    return filtered;
+  }, [groupedByType, searchQuery, typeFilter, sortBy, rooms]);
+
+  useEffect(() => {
+    if (!selectedRoom && filteredGroups.length > 0) {
+      setSelectedRoom(filteredGroups[0].sample);
+      return;
     }
-  };
+    if (selectedRoom) {
+      const refreshed = rooms.find((r) => r.id === selectedRoom.id);
+      if (refreshed) {
+        setSelectedRoom(refreshed);
+        return;
+      }
+      const sameType = rooms.find((r) => r.roomType.name === selectedRoom.roomType.name);
+      if (sameType) {
+        setSelectedRoom(sameType);
+      } else if (filteredGroups.length > 0) {
+        setSelectedRoom(filteredGroups[0].sample);
+      } else {
+        setSelectedRoom(null);
+      }
+    }
+  }, [rooms, selectedRoom, filteredGroups]);
 
   const getStatusBadge = (status: Room['status']) => {
     switch (status) {
@@ -164,19 +205,6 @@ export default function RoomsPage() {
         return 'status-available';
       case 'OCCUPIED':
         return 'status-occupied';
-      case 'OUT_OF_SERVICE':
-        return 'status-oos';
-    }
-  };
-
-  const getHousekeepingBadge = (status: Room['housekeepingStatus']) => {
-    switch (status) {
-      case 'CLEAN':
-        return 'status-available';
-      case 'DIRTY':
-        return 'status-dirty';
-      case 'INSPECTION':
-        return 'status-confirmed';
       case 'OUT_OF_SERVICE':
         return 'status-oos';
     }
@@ -216,250 +244,249 @@ export default function RoomsPage() {
     reader.readAsDataURL(file);
   };
 
+  const getAreaLabel = (roomTypeName: string) => {
+    const t = roomTypeName.toLowerCase();
+    if (t.includes('suite')) return '50 m2';
+    if (t.includes('family')) return '45 m2';
+    if (t.includes('deluxe')) return '35 m2';
+    if (t.includes('single')) return '20 m2';
+    return '25 m2';
+  };
+
+  const getBedLabel = (roomTypeName: string) => {
+    const t = roomTypeName.toLowerCase();
+    if (t.includes('family')) return '2 Queen Beds';
+    if (t.includes('suite') || t.includes('deluxe')) return 'King Bed';
+    if (t.includes('single')) return 'Single Bed';
+    return 'Queen Bed';
+  };
+
+  const selectedTypeRooms = selectedRoom
+    ? rooms.filter((r) => r.roomType.name === selectedRoom.roomType.name)
+    : [];
+  const selectedOccupied = selectedTypeRooms.filter((r) => r.status === 'OCCUPIED').length;
+  const selectedTypeImages = selectedTypeRooms.slice(0, 4);
+  const selectedAmenities =
+    selectedRoom?.roomType.amenities?.filter(Boolean).slice(0, 8) || [
+      'High-speed Wi-Fi',
+      'In-room safe',
+      'Mini-fridge',
+      'Flat-screen TV',
+      'Air conditioning',
+      'Coffee/tea maker',
+      'Complimentary bottled water',
+      'Hairdryer',
+    ];
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className={PAGE_TITLE_CLASS}>Rooms</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Manage room status and availability
-          </p>
-        </div>
-        <button onClick={() => setShowAddModal(true)} className="btn-primary">
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Add Room
-        </button>
+      <div>
+        <h1 className={PAGE_TITLE_CLASS}>Rooms</h1>
       </div>
 
-      <div className="card">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex rounded-lg border border-slate-200 p-1">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                viewMode === 'grid'
-                  ? 'bg-primary-600 text-white'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+      <div className="grid gap-4 xl:grid-cols-[1.08fr_1fr]">
+        <div className="card p-4">
+          <div className="mb-4 grid gap-3 md:grid-cols-[minmax(200px,1fr)_auto_auto_auto]">
+            <div className="relative">
+              <svg
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
               </svg>
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                viewMode === 'list'
-                  ? 'bg-primary-600 text-white'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
+              <input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                className="input h-10 pl-9"
+                placeholder="Search room type, number, etc"
+              />
+            </div>
+            <select
+              value={sortBy}
+              onChange={(event) => setSortBy(event.target.value as SortBy)}
+              className="input h-10 w-auto min-w-[110px]"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-              </svg>
+              <option value="popular">Popular</option>
+              <option value="name">Name</option>
+              <option value="priceAsc">Price: Low</option>
+              <option value="priceDesc">Price: High</option>
+            </select>
+            <select
+              value={typeFilter}
+              onChange={(event) => setTypeFilter(event.target.value)}
+              className="input h-10 w-auto min-w-[120px]"
+            >
+              <option value="all">All Type</option>
+              {roomTypes?.map((roomType) => (
+                <option key={roomType.id} value={roomType.name}>
+                  {roomType.name}
+                </option>
+              ))}
+            </select>
+            <button onClick={() => setShowAddModal(true)} className="btn-primary h-10">
+              Add Room
             </button>
           </div>
 
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            className="input w-auto"
-          >
-            <option value="all">All Status</option>
-            <option value="AVAILABLE">Available</option>
-            <option value="OCCUPIED">Occupied</option>
-            <option value="OUT_OF_SERVICE">Out of Service</option>
-          </select>
-
-          <select
-            value={housekeepingFilter}
-            onChange={(e) => setHousekeepingFilter(e.target.value as HousekeepingFilter)}
-            className="input w-auto"
-          >
-            <option value="all">All Housekeeping</option>
-            <option value="CLEAN">Clean</option>
-            <option value="DIRTY">Dirty</option>
-            <option value="INSPECTION">Inspection</option>
-            <option value="OUT_OF_SERVICE">Out of Service</option>
-          </select>
-
-          <select
-            value={floorFilter}
-            onChange={(e) =>
-              setFloorFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))
-            }
-            className="input w-auto"
-          >
-            <option value="all">All Floors</option>
-            {sortedFloors.map((floor) => (
-              <option key={floor.id} value={floor.number}>
-                Floor {floor.number}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={() => setShowFloorModal(true)}
-            className="btn-outline h-full whitespace-nowrap rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:border-slate-300 hover:text-slate-900"
-          >
-            Add floor
-          </button>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-4 text-sm">
-        <span className="font-medium text-slate-700">Status:</span>
-        <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rounded-full bg-emerald-500" />
-          <span className="text-slate-600">Available</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rounded-full bg-blue-500" />
-          <span className="text-slate-600">Occupied</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rounded-full bg-slate-400" />
-          <span className="text-slate-600">Out of Service</span>
-        </div>
-        <span className="mx-2 text-slate-300">|</span>
-        <span className="font-medium text-slate-700">Housekeeping:</span>
-        <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rounded border-2 border-emerald-500" />
-          <span className="text-slate-600">Clean</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rounded border-2 border-amber-500" />
-          <span className="text-slate-600">Dirty</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rounded border-2 border-blue-500" />
-          <span className="text-slate-600">Inspection</span>
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {[...Array(10)].map((_, i) => (
-            <div key={i} className="h-32 animate-shimmer rounded-xl" />
-          ))}
-        </div>
-      ) : viewMode === 'grid' ? (
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {rooms.map((room) => (
-            <button
-              key={room.id}
-              onClick={() => setSelectedRoom(room)}
-              className={`card card-hover text-left border-l-4 ${getHousekeepingColor(room.housekeepingStatus)}`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <img
-                  key={`${room.id}-${roomImageVersion}`}
-                  src={getRoomImage(room)}
-                  alt={`Room ${room.number}`}
-                  className="h-16 w-24 shrink-0 rounded-lg object-cover"
-                />
-                <div>
-                  <p className="text-lg font-bold text-slate-900">{room.number}</p>
-                  <p className="text-sm text-slate-500">{room.roomType.name}</p>
-                  <p className="text-xs text-slate-500">Floor {room.floor}</p>
-                </div>
-                <div className={`h-3 w-3 rounded-full ${getStatusColor(room.status)}`} />
+          <div className="space-y-4">
+            {isLoading ? (
+              [...Array(6)].map((_, index) => (
+                <div key={index} className="h-36 animate-shimmer rounded-xl" />
+              ))
+            ) : filteredGroups.length === 0 ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
+                No rooms match your filters.
               </div>
-              <div className="mt-3 flex items-center gap-2">
-                <span className={getStatusBadge(room.status)}>{formatEnumLabel(room.status)}</span>
+            ) : (
+              filteredGroups.map((group) => {
+                const isActive = selectedRoom?.roomType.name === group.name;
+                return (
+                  <button
+                    key={group.name}
+                    onClick={() => setSelectedRoom(group.sample)}
+                    className={`w-full rounded-xl border bg-white p-3 text-left transition ${
+                      isActive
+                        ? 'border-primary-300 ring-2 ring-primary-100'
+                        : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex gap-4">
+                      <img
+                        key={`${group.sample.id}-${roomImageVersion}`}
+                        src={getRoomImage(group.sample)}
+                        alt={group.name}
+                        className="h-28 w-36 shrink-0 rounded-lg object-cover"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <h3 className="text-3xl font-semibold leading-tight text-slate-900">{group.name}</h3>
+                          <span className={group.occupied > 0 ? 'status-occupied' : 'status-available'}>
+                            {group.occupied > 0 ? 'Occupied' : 'Available'}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-4 text-xs text-slate-500">
+                          <span>{getAreaLabel(group.name)}</span>
+                          <span>{getBedLabel(group.name)}</span>
+                          <span>{group.maxGuests} guests</span>
+                        </div>
+                        <p className="mt-2 line-clamp-2 text-sm text-slate-500">
+                          {group.description ||
+                            'Comfortable, affordable stay with practical amenities for short or long visits.'}
+                        </p>
+                        <div className="mt-2 flex items-end justify-between">
+                          <p className="text-xs text-slate-500">
+                            Availability:{' '}
+                            <span className="font-semibold text-slate-700">
+                              {group.total - group.occupied}/{group.total} Rooms
+                            </span>
+                          </p>
+                          <p className="text-3xl font-extrabold text-slate-900">
+                            ${Math.round(group.baseRate || 120)}
+                            <span className="text-sm font-medium text-slate-500">/night</span>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        <div className="card p-4">
+          {selectedRoom ? (
+            <>
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-lg font-semibold text-slate-900">Room Detail</p>
+                <button
+                  type="button"
+                  className="rounded-md border border-lime-300 bg-lime-100 px-3 py-1 text-xs font-semibold text-slate-900"
+                >
+                  Edit
+                </button>
               </div>
-              {room.currentGuest && (
-                <p className="mt-2 text-sm text-slate-600">
-                  {room.currentGuest.firstName} {room.currentGuest.lastName}
-                </p>
-              )}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Room</th>
-                <th>Type</th>
-                <th>Floor</th>
-                <th>Status</th>
-                <th>Housekeeping</th>
-                <th>Guest</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {rooms.map((room) => (
-                <tr key={room.id}>
-                  <td className="font-medium">{room.number}</td>
-                  <td>{room.roomType.name}</td>
-                  <td>{room.floor}</td>
-                  <td>
-                    <span className={getStatusBadge(room.status)}>
-                      {formatEnumLabel(room.status)}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={getHousekeepingBadge(room.housekeepingStatus)}>
-                      {formatEnumLabel(room.housekeepingStatus)}
-                    </span>
-                  </td>
-                  <td>
-                    {room.currentGuest
-                      ? `${room.currentGuest.firstName} ${room.currentGuest.lastName}`
-                      : '-'}
-                  </td>
-                  <td>
-                    <button
-                      onClick={() => setSelectedRoom(room)}
-                      className="text-primary-600 hover:text-primary-700"
-                    >
-                      Edit
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              <div className="flex items-center gap-2">
+                <h2 className="text-4xl font-extrabold text-slate-900">{selectedRoom.roomType.name} Room</h2>
+                <span className={getStatusBadge(selectedRoom.status)}>{formatEnumLabel(selectedRoom.status)}</span>
+              </div>
+              <p className="mt-1 text-sm text-slate-500">
+                Occupied: {selectedOccupied}/{selectedTypeRooms.length || 1} Rooms
+              </p>
 
-      {selectedRoom && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-slate-900/50"
-            onClick={() => setSelectedRoom(null)}
-          />
-          <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-            <button
-              type="button"
-              onClick={() => setSelectedRoom(null)}
-              aria-label="Close room details"
-              className="absolute right-4 top-4 rounded-full p-1 text-slate-400 hover:text-slate-600"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-
-            <h2 className="text-xl font-bold text-slate-900">Room {selectedRoom.number}</h2>
-            <p className="text-sm text-slate-500">
-              {selectedRoom.roomType.name} • Floor {selectedRoom.floor}
-            </p>
-
-            <div className="mt-6 space-y-4">
-              <div>
+              <div className="mt-3 grid grid-cols-[1fr_70px] gap-3">
                 <img
                   key={`${selectedRoom.id}-${roomImageVersion}`}
                   src={getRoomImage(selectedRoom)}
                   alt={`Room ${selectedRoom.number}`}
-                  className="h-40 w-full rounded-xl object-cover"
+                  className="h-60 w-full rounded-lg object-cover"
                 />
-                <div className="mt-2 flex items-center gap-2">
+                <div className="space-y-2">
+                  {selectedTypeImages.map((room, index) => (
+                    <img
+                      key={`${room.id}-${index}-${roomImageVersion}`}
+                      src={getRoomImage(room)}
+                      alt="Room preview"
+                      className="h-[56px] w-full rounded-md object-cover"
+                    />
+                  ))}
+                  <button className="w-full rounded-md bg-primary-100 px-2 py-2 text-xs font-semibold text-slate-700">
+                    View All
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-slate-600">
+                <span>{getAreaLabel(selectedRoom.roomType.name)}</span>
+                <span>{getBedLabel(selectedRoom.roomType.name)}</span>
+                <span>{selectedRoom.roomType.maxGuests} guests</span>
+              </div>
+              <p className="mt-3 text-sm text-slate-500">
+                {selectedRoom.roomType.description ||
+                  'Upgrade to this room type for added space and comfort. Enjoy premium amenities and a practical setup for business or leisure stays.'}
+              </p>
+
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-lg font-semibold text-slate-900">Features</p>
+                  <ul className="mt-2 space-y-1 text-sm text-slate-600">
+                    <li>Private balcony (where applicable)</li>
+                    <li>Spacious layout with modern design</li>
+                    <li>Work desk with ergonomic chair</li>
+                    <li>Large windows offering city or garden views</li>
+                  </ul>
+                </div>
+                <div>
+                  <p className="text-lg font-semibold text-slate-900">Facilities</p>
+                  <ul className="mt-2 space-y-1 text-sm text-slate-600">
+                    <li>High-speed Wi-Fi</li>
+                    <li>In-room safe</li>
+                    <li>Mini-fridge</li>
+                    <li>Flat-screen TV</li>
+                    <li>Air conditioning</li>
+                    <li>Coffee/tea maker</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <p className="text-lg font-semibold text-slate-900">Amenities</p>
+                <ul className="mt-2 grid gap-1 text-sm text-slate-600 sm:grid-cols-2">
+                  {selectedAmenities.map((amenity) => (
+                    <li key={amenity}>{amenity}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="mt-4 border-t border-slate-200 pt-4">
+                <div className="flex flex-wrap gap-2">
                   <input
                     ref={roomImageInputRef}
                     type="file"
@@ -473,7 +500,7 @@ export default function RoomsPage() {
                   <button
                     type="button"
                     onClick={() => roomImageInputRef.current?.click()}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    className="btn-outline"
                   >
                     Change image
                   </button>
@@ -490,77 +517,20 @@ export default function RoomsPage() {
                   <button
                     type="button"
                     onClick={() => roomTypeImageInputRef.current?.click()}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    className="btn-outline"
                   >
                     Change type image
                   </button>
                 </div>
               </div>
-
-              <div>
-                <label className="label">Room Status</label>
-                <div className="flex flex-wrap gap-2">
-                  {(['AVAILABLE', 'OCCUPIED', 'OUT_OF_SERVICE'] as const).map((status) => (
-                    <button
-                      key={status}
-                      onClick={() => updateStatusMutation.mutate({ id: selectedRoom.id, status })}
-                      disabled={updateStatusMutation.isPending}
-                      className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                        selectedRoom.status === status
-                          ? 'bg-primary-600 text-white'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      }`}
-                    >
-                      {formatEnumLabel(status)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="label">Housekeeping Status</label>
-                <div className="flex flex-wrap gap-2">
-                  {(['CLEAN', 'DIRTY', 'INSPECTION', 'OUT_OF_SERVICE'] as const).map((status) => (
-                    <button
-                      key={status}
-                      onClick={() => updateHousekeepingMutation.mutate({ id: selectedRoom.id, status })}
-                      disabled={updateHousekeepingMutation.isPending}
-                      className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                        selectedRoom.housekeepingStatus === status
-                          ? 'bg-primary-600 text-white'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      }`}
-                    >
-                      {formatEnumLabel(status)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {selectedRoom.currentGuest && (
-                <div className="rounded-lg bg-slate-50 p-4">
-                  <p className="text-sm font-medium text-slate-500">Current Guest</p>
-                  <p className="mt-1 font-medium text-slate-900">
-                    {selectedRoom.currentGuest.firstName} {selectedRoom.currentGuest.lastName}
-                  </p>
-                  {selectedRoom.currentBooking && (
-                    <p className="text-sm text-slate-600">
-                      Booking: {selectedRoom.currentBooking.bookingRef}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {selectedRoom.notes && (
-                <div>
-                  <label className="label">Notes</label>
-                  <p className="text-sm text-slate-600">{selectedRoom.notes}</p>
-                </div>
-              )}
+            </>
+          ) : (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
+              Select a room type to view details.
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
 
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -633,7 +603,7 @@ export default function RoomsPage() {
                     >
                       <span className="text-sm text-slate-700">
                         Floor {floor.number}
-                        {floor.name ? ` — ${floor.name}` : ''}
+                        {floor.name ? ` - ${floor.name}` : ''}
                       </span>
                       <button
                         type="button"
@@ -651,6 +621,7 @@ export default function RoomsPage() {
           </div>
         </div>
       )}
+
       {showFloorModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-900/50" onClick={() => setShowFloorModal(false)} />
@@ -698,4 +669,3 @@ export default function RoomsPage() {
     </div>
   );
 }
-
