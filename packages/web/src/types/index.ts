@@ -31,6 +31,7 @@ export interface LoginResponse {
   expiresIn?: string;
   requiresTwoFactor?: boolean;
   requiresPasswordChange?: boolean;
+  requiresOtpRevalidation?: boolean;
 }
 
 // Room types
@@ -255,6 +256,7 @@ export interface AccessRequest {
   id: string;
   fullName: string;
   email: string;
+  mobileNumber?: string;
   company?: string;
   role?: string;
   message?: string;

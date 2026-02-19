@@ -12,6 +12,7 @@ import {
   onAccessRequestAckChanged,
   ackAccessRequest,
 } from '@/utils/accessRequestAck';
+import AppChatbot from '@/components/support/AppChatbot';
 
 type NavigationItem = {
   name: string;
@@ -961,6 +962,7 @@ export default function DashboardLayout() {
           <Outlet />
         </main>
       </div>
+      <AppChatbot />
     </div>
   );
 }

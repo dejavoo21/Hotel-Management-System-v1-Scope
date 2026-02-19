@@ -23,6 +23,7 @@ export default function RequestAccessPage() {
       await accessRequestService.create({
         fullName: form.get('fullName') as string,
         email,
+        mobileNumber: (form.get('mobileNumber') as string) || undefined,
         company: (form.get('company') as string) || undefined,
         role: (form.get('role') as string) || undefined,
         message: (form.get('message') as string) || undefined,
@@ -80,6 +81,10 @@ export default function RequestAccessPage() {
           <div>
             <label className="label">Company</label>
             <input name="company" className="input" />
+          </div>
+          <div>
+            <label className="label">Mobile number</label>
+            <input name="mobileNumber" className="input" placeholder="+1 555 123 4567" />
           </div>
           <div>
             <label className="label">Role</label>

@@ -53,11 +53,24 @@ export const authService = {
   },
 
   async requestOtp(email: string): Promise<void> {
-    await api.post('/auth/otp/request', { email });
+    await api.post('/auth/otp/request', { email, purpose: 'LOGIN' });
   },
 
-  async verifyOtp(email: string, code: string): Promise<LoginResponse> {
-    const response = await api.post('/auth/otp/verify', { email, code });
+  async requestOtpForPurpose(
+    email: string,
+    purpose: 'LOGIN' | 'ACCESS_REVALIDATION',
+    channel: 'EMAIL' | 'SMS' = 'EMAIL',
+    phone?: string
+  ): Promise<void> {
+    await api.post('/auth/otp/request', { email, purpose, channel, phone });
+  },
+
+  async verifyOtp(
+    email: string,
+    code: string,
+    purpose: 'LOGIN' | 'ACCESS_REVALIDATION' = 'LOGIN'
+  ): Promise<LoginResponse> {
+    const response = await api.post('/auth/otp/verify', { email, code, purpose });
     return response.data.data;
   },
 };

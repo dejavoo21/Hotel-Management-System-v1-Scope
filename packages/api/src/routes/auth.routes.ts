@@ -53,11 +53,19 @@ const resetPasswordSchema = z.object({
 
 const requestOtpSchema = z.object({
   email: z.string().email('Invalid email format'),
+  purpose: z.enum(['LOGIN', 'ACCESS_REVALIDATION']).optional(),
+  channel: z.enum(['EMAIL', 'SMS']).optional(),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^\+?[0-9()\-\s]{7,20}$/, 'Invalid phone number')
+    .optional(),
 });
 
 const verifyOtpSchema = z.object({
   email: z.string().email('Invalid email format'),
   code: z.string().length(6, 'Code must be 6 digits'),
+  purpose: z.enum(['LOGIN', 'ACCESS_REVALIDATION']).optional(),
 });
 
 // Routes

@@ -81,7 +81,18 @@ export async function createAccessRequest(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { fullName, email, company, role, message } = req.body;
+    const { fullName, email, mobileNumber, company, role, message } = req.body as {
+      fullName: string;
+      email: string;
+      mobileNumber?: string;
+      company?: string;
+      role?: string;
+      message?: string;
+    };
+
+    const normalizedMessage = [message?.trim(), mobileNumber?.trim() ? `Mobile: ${mobileNumber.trim()}` : '']
+      .filter(Boolean)
+      .join('\n');
 
     const request = await prisma.accessRequest.create({
       data: {
@@ -89,7 +100,7 @@ export async function createAccessRequest(
         email: email.toLowerCase(),
         company,
         role,
-        message,
+        message: normalizedMessage || null,
       },
     });
 
@@ -106,6 +117,7 @@ export async function createAccessRequest(
       meta: [
         { label: 'Name', value: fullName },
         { label: 'Email', value: email },
+        { label: 'Mobile', value: mobileNumber || '-' },
         { label: 'Company', value: company || '-' },
         { label: 'Role', value: role || '-' },
         { label: 'Message', value: message || '-' },
@@ -130,6 +142,7 @@ export async function createAccessRequest(
       meta: [
         { label: 'Company', value: company || '-' },
         { label: 'Role', value: role || '-' },
+        { label: 'Mobile', value: mobileNumber || '-' },
         { label: 'Reference', value: `AR-${request.id}` },
       ],
       cta: { label: 'Go to login', url: `${config.appUrl}/login` },

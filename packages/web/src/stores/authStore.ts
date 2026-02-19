@@ -10,12 +10,17 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   requiresTwoFactor: boolean;
+  requiresOtpRevalidation: boolean;
   pendingEmail: string | null;
   pendingPassword: string | null;
 
   // Actions
   login: (credentials: LoginCredentials) => Promise<LoginResponse>;
-  loginWithOtp: (email: string, code: string) => Promise<LoginResponse>;
+  loginWithOtp: (
+    email: string,
+    code: string,
+    purpose?: 'LOGIN' | 'ACCESS_REVALIDATION'
+  ) => Promise<LoginResponse>;
   verify2FA: (code: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshTokens: () => Promise<void>;
@@ -32,6 +37,7 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: true,
       requiresTwoFactor: false,
+      requiresOtpRevalidation: false,
       pendingEmail: null,
       pendingPassword: null,
 
@@ -41,6 +47,17 @@ export const useAuthStore = create<AuthState>()(
         if (response.requiresTwoFactor) {
           set({
             requiresTwoFactor: true,
+            requiresOtpRevalidation: false,
+            pendingEmail: credentials.email,
+            pendingPassword: credentials.password,
+          });
+          return response;
+        }
+
+        if (response.requiresOtpRevalidation) {
+          set({
+            requiresTwoFactor: false,
+            requiresOtpRevalidation: true,
             pendingEmail: credentials.email,
             pendingPassword: credentials.password,
           });
@@ -53,6 +70,7 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: response.refreshToken,
           isAuthenticated: true,
           requiresTwoFactor: false,
+          requiresOtpRevalidation: false,
           pendingEmail: null,
           pendingPassword: null,
         });
@@ -60,12 +78,17 @@ export const useAuthStore = create<AuthState>()(
         return response;
       },
 
-      loginWithOtp: async (email: string, code: string) => {
-        const response = await authService.verifyOtp(email, code);
+      loginWithOtp: async (
+        email: string,
+        code: string,
+        purpose: 'LOGIN' | 'ACCESS_REVALIDATION' = 'LOGIN'
+      ) => {
+        const response = await authService.verifyOtp(email, code, purpose);
 
         if (response.requiresTwoFactor) {
           set({
             requiresTwoFactor: true,
+            requiresOtpRevalidation: false,
             pendingEmail: email,
             pendingPassword: null,
           });
@@ -78,6 +101,7 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: response.refreshToken || null,
           isAuthenticated: Boolean(response.accessToken),
           requiresTwoFactor: false,
+          requiresOtpRevalidation: false,
           pendingEmail: null,
           pendingPassword: null,
         });
@@ -95,12 +119,23 @@ export const useAuthStore = create<AuthState>()(
           twoFactorCode: code,
         });
 
+        if (response.requiresOtpRevalidation) {
+          set({
+            requiresTwoFactor: false,
+            requiresOtpRevalidation: true,
+            pendingEmail,
+            pendingPassword,
+          });
+          return;
+        }
+
         set({
           user: response.user,
           accessToken: response.accessToken,
           refreshToken: response.refreshToken,
           isAuthenticated: true,
           requiresTwoFactor: false,
+          requiresOtpRevalidation: false,
           pendingEmail: null,
           pendingPassword: null,
         });
@@ -123,6 +158,7 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: null,
           isAuthenticated: false,
           requiresTwoFactor: false,
+          requiresOtpRevalidation: false,
           pendingEmail: null,
           pendingPassword: null,
         });
@@ -179,6 +215,7 @@ export const useAuthStore = create<AuthState>()(
                 accessToken: null,
                 refreshToken: null,
                 isAuthenticated: false,
+                requiresOtpRevalidation: false,
                 isLoading: false,
               });
             }
@@ -188,6 +225,7 @@ export const useAuthStore = create<AuthState>()(
               accessToken: null,
               refreshToken: null,
               isAuthenticated: false,
+              requiresOtpRevalidation: false,
               isLoading: false,
             });
           }

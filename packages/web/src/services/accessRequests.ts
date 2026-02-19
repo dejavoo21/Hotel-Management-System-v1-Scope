@@ -4,6 +4,7 @@ import type { AccessRequest, AccessRequestReply } from '@/types';
 export interface AccessRequestInput {
   fullName: string;
   email: string;
+  mobileNumber?: string;
   company?: string;
   role?: string;
   message?: string;

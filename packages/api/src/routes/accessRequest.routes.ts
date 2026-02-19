@@ -9,6 +9,11 @@ const router = Router();
 const createSchema = z.object({
   fullName: z.string().min(1, 'Full name is required'),
   email: z.string().email('Invalid email'),
+  mobileNumber: z
+    .string()
+    .trim()
+    .regex(/^\+?[0-9()\-\s]{7,20}$/, 'Invalid mobile number')
+    .optional(),
   company: z.string().optional(),
   role: z.string().optional(),
   message: z.string().optional(),

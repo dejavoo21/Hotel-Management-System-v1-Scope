@@ -30,7 +30,10 @@ interface LoginResult {
   expiresIn?: string;
   requiresTwoFactor?: boolean;
   requiresPasswordChange?: boolean;
+  requiresOtpRevalidation?: boolean;
 }
+
+const REVALIDATION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Login user with email and password
@@ -93,6 +96,11 @@ export async function login(
     if (!isValidCode) {
       throw new UnauthorizedError('Invalid 2FA code');
     }
+  }
+
+  const needsRevalidation = await isOtpRevalidationRequired(user.id, user.lastLoginAt);
+  if (needsRevalidation) {
+    return { requiresOtpRevalidation: true };
   }
 
   // Generate tokens
@@ -441,39 +449,6 @@ export async function resetPassword(token: string, newPassword: string) {
   logger.info(`Password reset for user: ${stored.user.email}`);
 }
 
-export async function requestEmailOtp(email: string, purpose: string) {
-  const user = await prisma.user.findUnique({
-    where: { email: email.toLowerCase() },
-    select: { id: true, firstName: true, email: true, isActive: true },
-  });
-
-  if (!user || !user.isActive) {
-    throw new UnauthorizedError('Invalid email');
-  }
-
-  const code = `${Math.floor(100000 + Math.random() * 900000)}`;
-  const codeHash = await bcrypt.hash(code, 10);
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-  await prisma.emailOtp.create({
-    data: {
-      userId: user.id,
-      email: user.email,
-      purpose,
-      codeHash,
-      expiresAt,
-    },
-  });
-
-  const { html, text } = renderOtpEmail({ firstName: user.firstName, code });
-  await sendEmail({
-    to: user.email,
-    subject: 'Your LaFlo verification code',
-    html,
-    text,
-  });
-}
-
 export async function loginWithEmailOtp(email: string, code: string, purpose: string) {
   const otp = await prisma.emailOtp.findFirst({
     where: {
@@ -518,6 +493,17 @@ export async function loginWithEmailOtp(email: string, code: string, purpose: st
     data: { lastLoginAt: new Date() },
   });
 
+  if (purpose === 'ACCESS_REVALIDATION') {
+    await prisma.activityLog.create({
+      data: {
+        userId: otp.user.id,
+        action: 'ACCESS_REVALIDATED',
+        entity: 'user',
+        entityId: otp.user.id,
+      },
+    });
+  }
+
   return {
     user: {
       id: otp.user.id,
@@ -532,6 +518,69 @@ export async function loginWithEmailOtp(email: string, code: string, purpose: st
     refreshToken,
     expiresIn: config.jwt.expiresIn,
   };
+}
+
+export async function requestEmailOtp(
+  email: string,
+  purpose: string,
+  channel: 'EMAIL' | 'SMS' = 'EMAIL',
+  phone?: string
+) {
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+    select: { id: true, firstName: true, email: true, isActive: true },
+  });
+
+  if (!user || !user.isActive) {
+    throw new UnauthorizedError('Invalid email');
+  }
+
+  const code = `${Math.floor(100000 + Math.random() * 900000)}`;
+  const codeHash = await bcrypt.hash(code, 10);
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+  await prisma.emailOtp.create({
+    data: {
+      userId: user.id,
+      email: user.email,
+      purpose,
+      codeHash,
+      expiresAt,
+    },
+  });
+
+  if (channel === 'SMS') {
+    if (!phone) {
+      throw new ForbiddenError('Phone number is required for SMS OTP');
+    }
+    logger.info(
+      `[OTP_SMS_MOCK] Sent ${purpose} OTP to ${phone.replace(/.(?=.{4})/g, '*')}`
+    );
+  }
+
+  const { html, text } = renderOtpEmail({ firstName: user.firstName, code });
+  await sendEmail({
+    to: user.email,
+    subject:
+      purpose === 'ACCESS_REVALIDATION'
+        ? 'Your LaFlo access revalidation code'
+        : 'Your LaFlo verification code',
+    html,
+    text,
+  });
+}
+
+async function isOtpRevalidationRequired(userId: string, lastLoginAt?: Date | null) {
+  const lastRevalidation = await prisma.activityLog.findFirst({
+    where: { userId, action: 'ACCESS_REVALIDATED' },
+    orderBy: { createdAt: 'desc' },
+    select: { createdAt: true },
+  });
+
+  const referenceDate = lastRevalidation?.createdAt || lastLoginAt;
+  if (!referenceDate) return true;
+
+  return Date.now() - referenceDate.getTime() >= REVALIDATION_WINDOW_MS;
 }
 
 /**

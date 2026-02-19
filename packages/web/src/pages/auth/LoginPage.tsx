@@ -11,6 +11,9 @@ export default function LoginPage() {
   const [otpCode, setOtpCode] = useState('');
   const [otpMode, setOtpMode] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [otpPurpose, setOtpPurpose] = useState<'LOGIN' | 'ACCESS_REVALIDATION'>('LOGIN');
+  const [otpChannel, setOtpChannel] = useState<'EMAIL' | 'SMS'>('EMAIL');
+  const [otpPhone, setOtpPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -34,7 +37,7 @@ export default function LoginPage() {
 
     try {
       if (otpMode) {
-        const response = await loginWithOtp(email, otpCode);
+        const response = await loginWithOtp(email, otpCode, otpPurpose);
         if (response.requiresTwoFactor) {
           navigate('/2fa');
         } else {
@@ -51,6 +54,12 @@ export default function LoginPage() {
 
         if (response.requiresTwoFactor) {
           navigate('/2fa');
+        } else if (response.requiresOtpRevalidation) {
+          setOtpMode(true);
+          setOtpPurpose('ACCESS_REVALIDATION');
+          setOtpCode('');
+          setOtpSent(false);
+          toast('Security check required. Request a code to continue.');
         } else {
           toast.success('Welcome back!');
           navigate('/');
@@ -72,9 +81,17 @@ export default function LoginPage() {
 
     setIsSendingOtp(true);
     try {
-      await authService.requestOtp(email);
+      if (otpPurpose === 'ACCESS_REVALIDATION') {
+        await authService.requestOtpForPurpose(email, 'ACCESS_REVALIDATION', otpChannel, otpPhone || undefined);
+      } else {
+        await authService.requestOtpForPurpose(email, 'LOGIN', otpChannel, otpPhone || undefined);
+      }
       setOtpSent(true);
-      toast.success('Verification code sent');
+      toast.success(
+        otpChannel === 'SMS'
+          ? 'Verification code requested for SMS (email fallback may be used).'
+          : 'Verification code sent'
+      );
     } catch (error) {
       const apiError = getApiError(error);
       toast.error(apiError.message);
@@ -180,8 +197,32 @@ export default function LoginPage() {
         ) : (
           <div>
             <label htmlFor="otp-code" className="label">
-              Email verification code <span className="text-red-500">*</span>
+              Verification code <span className="text-red-500">*</span>
             </label>
+            <div className="mb-2 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setOtpChannel('EMAIL')}
+                className={`rounded-lg border px-3 py-2 text-sm font-medium ${otpChannel === 'EMAIL' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-slate-200 text-slate-600'}`}
+              >
+                Email
+              </button>
+              <button
+                type="button"
+                onClick={() => setOtpChannel('SMS')}
+                className={`rounded-lg border px-3 py-2 text-sm font-medium ${otpChannel === 'SMS' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-slate-200 text-slate-600'}`}
+              >
+                Phone (SMS)
+              </button>
+            </div>
+            {otpChannel === 'SMS' && (
+              <input
+                value={otpPhone}
+                onChange={(e) => setOtpPhone(e.target.value)}
+                className="input mb-2"
+                placeholder="+1 555 123 4567"
+              />
+            )}
             <div className="flex gap-2">
               <input
                 id="otp-code"
@@ -224,11 +265,17 @@ export default function LoginPage() {
             </Link>
             <button
               type="button"
-              onClick={() => setOtpMode(!otpMode)}
+              onClick={() => {
+                const next = !otpMode;
+                setOtpMode(next);
+                setOtpPurpose('LOGIN');
+                setOtpCode('');
+                setOtpSent(false);
+              }}
               className="font-medium text-slate-500 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded px-1"
               aria-label={otpMode ? 'Switch to password login' : 'Switch to email code login'}
             >
-              {otpMode ? 'Use password' : 'Use email code'}
+              {otpMode ? 'Use password' : 'Use verification code'}
             </button>
           </div>
         </div>

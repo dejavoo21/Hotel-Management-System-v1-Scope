@@ -296,8 +296,13 @@ export async function requestEmailOtp(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { email } = req.body;
-    await authService.requestEmailOtp(email, 'LOGIN');
+    const { email, purpose, channel, phone } = req.body as {
+      email: string;
+      purpose?: 'LOGIN' | 'ACCESS_REVALIDATION';
+      channel?: 'EMAIL' | 'SMS';
+      phone?: string;
+    };
+    await authService.requestEmailOtp(email, purpose || 'LOGIN', channel || 'EMAIL', phone);
     res.json({ success: true, message: 'OTP sent' });
   } catch (error) {
     next(error);
@@ -310,8 +315,12 @@ export async function verifyEmailOtp(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { email, code } = req.body;
-    const result = await authService.loginWithEmailOtp(email, code, 'LOGIN');
+    const { email, code, purpose } = req.body as {
+      email: string;
+      code: string;
+      purpose?: 'LOGIN' | 'ACCESS_REVALIDATION';
+    };
+    const result = await authService.loginWithEmailOtp(email, code, purpose || 'LOGIN');
     res.json({ success: true, data: result, message: 'Login successful' });
   } catch (error) {
     next(error);
