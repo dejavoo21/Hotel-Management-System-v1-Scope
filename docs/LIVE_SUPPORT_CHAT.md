@@ -44,3 +44,14 @@ Required environment variables:
 ## Access Request Reliability
 Access request submission now remains successful even if outbound email notification fails.
 Email failures are logged and do not block request creation.
+
+## Access Request Rules
+- If the email already exists as a user account:
+  - Access request creation is blocked.
+  - A password reset link is sent automatically.
+  - UI shows a clear error message to reset password or use a different email.
+- If there is an existing in-progress access request for the same email:
+  - Duplicate request creation is blocked.
+- In Settings > Access Requests:
+  - `View response` is available for `INFO_RECEIVED`, `NEEDS_INFO`, and `INFO_REQUESTED`.
+  - If no response exists yet, modal shows an empty-state message.

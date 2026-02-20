@@ -1301,7 +1301,9 @@ export default function SettingsPage() {
                                 request.status === 'INFO_REQUESTED' ||
                                 request.status === 'INFO_RECEIVED' ? (
                                   <div className="flex flex-wrap justify-end gap-2">
-                                    {request.status === 'INFO_RECEIVED' && (
+                                    {(request.status === 'INFO_RECEIVED' ||
+                                      request.status === 'NEEDS_INFO' ||
+                                      request.status === 'INFO_REQUESTED') && (
                                       <button
                                         className="btn-outline text-sm"
                                         onClick={() => openReplyModal(request)}

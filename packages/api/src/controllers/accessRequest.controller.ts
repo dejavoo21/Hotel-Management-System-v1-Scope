@@ -4,8 +4,8 @@ import { prisma } from '../config/database.js';
 import { sendEmail } from '../services/email.service.js';
 import { config } from '../config/index.js';
 import { logger } from '../config/logger.js';
-import { Role } from '@prisma/client';
-import { createPasswordResetToken, hashPassword } from '../services/auth.service.js';
+import { AccessRequestStatus, Role } from '@prisma/client';
+import { createPasswordResetToken, hashPassword, requestPasswordReset } from '../services/auth.service.js';
 import { scanAttachment } from '../services/virusScan.service.js';
 import { renderLafloEmail, escapeEmailText } from '../utils/emailTemplates.js';
 
@@ -90,6 +90,46 @@ export async function createAccessRequest(
       role?: string;
       message?: string;
     };
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true, email: true, isActive: true },
+    });
+
+    if (existingUser) {
+      // Help the requester recover access instead of creating a duplicate access request.
+      await requestPasswordReset(normalizedEmail);
+      res.status(409).json({
+        success: false,
+        error:
+          'This email is already registered. A password reset link has been sent. Use reset password or a different email for access request.',
+      });
+      return;
+    }
+
+    const existingAccessRequest = await prisma.accessRequest.findFirst({
+      where: {
+        email: normalizedEmail,
+        status: {
+          in: [
+            AccessRequestStatus.PENDING,
+            AccessRequestStatus.NEEDS_INFO,
+            AccessRequestStatus.INFO_RECEIVED,
+          ],
+        },
+      },
+      select: { id: true, status: true },
+    });
+
+    if (existingAccessRequest) {
+      res.status(409).json({
+        success: false,
+        error:
+          'An access request for this email already exists and is still in progress. Use a different email or wait for review.',
+      });
+      return;
+    }
 
     const normalizedMessage = [message?.trim(), mobileNumber?.trim() ? `Mobile: ${mobileNumber.trim()}` : '']
       .filter(Boolean)
@@ -98,7 +138,7 @@ export async function createAccessRequest(
     const request = await prisma.accessRequest.create({
       data: {
         fullName,
-        email: email.toLowerCase(),
+        email: normalizedEmail,
         company,
         role,
         message: normalizedMessage || null,

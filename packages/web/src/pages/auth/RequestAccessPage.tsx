@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { accessRequestService } from '@/services';
+import { accessRequestService, getApiError } from '@/services';
 import toast from 'react-hot-toast';
 
 export default function RequestAccessPage() {
@@ -33,9 +33,10 @@ export default function RequestAccessPage() {
       hasSubmitted.current = true;
       setSubmittedEmail(email);
       navigate(`/request-access?submitted=${encodeURIComponent(email)}`, { replace: true });
-    } catch {
+    } catch (error) {
       if (!hasSubmitted.current) {
-        toast.error('Failed to submit request');
+        const apiError = getApiError(error);
+        toast.error(apiError.message || 'Failed to submit request');
       }
     } finally {
       setIsSubmitting(false);
