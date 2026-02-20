@@ -1565,9 +1565,47 @@ router.post('/access-requests/:id/approve', authenticateDemo, async (req: Reques
   // Check if user already exists
   const existingUser = mockUsers.find((u) => u.email.toLowerCase() === accessRequest.email.toLowerCase());
   if (existingUser) {
+    let inviteEmailSent = false;
+    let deliveryWarning: string | null = null;
+    try {
+      const alreadyExistsEmail = renderLafloEmail({
+        preheader: `Your access request was approved. Sign in with your existing account. Reference AR-${accessRequest.id}.`,
+        title: 'Access approved',
+        greeting: `Hello ${accessRequest.fullName || 'there'},`,
+        intro:
+          'Your request has been approved, and this email is already registered. Sign in with your existing account and use "Forgot password" if needed.',
+        meta: [{ label: 'Reference', value: `AR-${accessRequest.id}` }],
+        cta: {
+          label: 'Go to login',
+          url: `${config.appUrl || 'https://laflo-web-production.up.railway.app'}/login`,
+        },
+      });
+
+      await sendEmail({
+        to: accessRequest.email,
+        subject: `Your LaFlo access is approved [AR-${accessRequest.id}]`,
+        html: alreadyExistsEmail.html,
+        text: alreadyExistsEmail.text,
+      });
+      inviteEmailSent = true;
+    } catch (error) {
+      deliveryWarning =
+        'Access approved, but invite email could not be delivered. User should use Forgot password on login.';
+      console.error('[APPROVE] ERROR Failed to send approval email for existing user:', error);
+    }
+
     // Update status to approved and remove from list
     mockAccessRequests.splice(requestIndex, 1);
-    return res.json({ success: true, message: 'User already exists, request removed' });
+    return res.json({
+      success: true,
+      message: inviteEmailSent ? 'Access approved for existing user, login email sent' : 'Access approved for existing user, email delivery pending',
+      data: {
+        existingUser: true,
+        inviteEmailSent,
+        deliveryWarning,
+        loginUrl: `${config.appUrl || 'https://laflo-web-production.up.railway.app'}/login`,
+      },
+    });
   }
 
   // Generate password (use stored temp password if available, or generate new one)
@@ -1600,6 +1638,8 @@ router.post('/access-requests/:id/approve', authenticateDemo, async (req: Reques
   mockUsers.push(newUser);
   console.log(`[APPROVE] Created user from access request: ${newUser.email}`);
 
+  let inviteEmailSent = false;
+  let deliveryWarning: string | null = null;
   // Send approval email with login credentials
   try {
     const approved = renderLafloEmail({
@@ -1626,14 +1666,27 @@ router.post('/access-requests/:id/approve', authenticateDemo, async (req: Reques
       html: approved.html,
       text: approved.text,
     });
+    inviteEmailSent = true;
     console.log(`[APPROVE] OK Approval email with credentials sent to ${accessRequest.email}`);
   } catch (error) {
+    deliveryWarning =
+      'Access approved, but invite email could not be delivered. User should use Forgot password on login.';
     console.error('[APPROVE] ERROR Failed to send approval email:', error);
   }// Update status and remove from pending list
   mockAccessRequests.splice(requestIndex, 1);
   saveDemoStore();
 
-  res.json({ success: true, message: 'User approved and credentials email sent', data: newUser });
+  res.json({
+    success: true,
+    message: inviteEmailSent ? 'User approved and credentials email sent' : 'User approved, email delivery pending',
+    data: {
+      user: newUser,
+      existingUser: false,
+      inviteEmailSent,
+      deliveryWarning,
+      loginUrl: `${config.appUrl || 'https://laflo-web-production.up.railway.app'}/login`,
+    },
+  });
 });
 
 router.post('/access-requests/:id/reject', authenticateDemo, (req: Request, res: Response) => {

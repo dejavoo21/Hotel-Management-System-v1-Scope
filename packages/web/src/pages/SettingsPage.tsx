@@ -211,7 +211,7 @@ export default function SettingsPage() {
   const approveAccessMutation = useMutation({
     mutationFn: ({ id, role }: { id: string; role?: string }) =>
       accessRequestService.approve(id, role),
-    onSuccess: (_, variables) => {
+    onSuccess: (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ['accessRequests'] });
       appendAuditLog({
         action: 'ACCESS_REQUEST_APPROVED',
@@ -221,7 +221,14 @@ export default function SettingsPage() {
         details: { role: variables.role },
       });
       refreshAuditLogs();
-      toast.success('Access approved and invite sent');
+      if (result?.inviteEmailSent) {
+        toast.success('Access approved and invite sent');
+      } else {
+        toast('Access approved, but email invite was not delivered. Ask user to use Forgot password.', {
+          icon: '⚠️',
+          duration: 6000,
+        });
+      }
     },
     onError: () => {
       toast.error('Failed to approve access request');

@@ -264,14 +264,35 @@ export async function approveAccessRequest(
       footerNote: 'This link is personal to you. Do not share it.',
     });
 
-    await sendEmail({
-      to: request.email,
-      subject: `Your LaFlo access is approved [AR-${request.id}]`,
-      html: inviteEmail.html,
-      text: inviteEmail.text,
-    });
+    let inviteEmailSent = false;
+    let deliveryWarning: string | null = null;
+    try {
+      await sendEmail({
+        to: request.email,
+        subject: `Your LaFlo access is approved [AR-${request.id}]`,
+        html: inviteEmail.html,
+        text: inviteEmail.text,
+      });
+      inviteEmailSent = true;
+    } catch (emailError) {
+      deliveryWarning =
+        'Access was approved, but we could not deliver the email invite. Ask the user to use "Forgot password" on the login page.';
+      logger.error('[ACCESS-REQUEST] Failed approval invite email', {
+        requestId: request.id,
+        email: request.email,
+        error: emailError,
+      });
+    }
 
-    res.json({ success: true, message: 'Access approved and invite sent' });
+    res.json({
+      success: true,
+      message: inviteEmailSent ? 'Access approved and invite sent' : 'Access approved, email delivery pending',
+      data: {
+        inviteEmailSent,
+        deliveryWarning,
+        loginUrl: `${config.appUrl}/login`,
+      },
+    });
   } catch (error) {
     next(error);
   }

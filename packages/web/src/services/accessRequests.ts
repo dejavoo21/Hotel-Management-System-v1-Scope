@@ -10,6 +10,13 @@ export interface AccessRequestInput {
   message?: string;
 }
 
+export interface ApproveAccessResult {
+  inviteEmailSent: boolean;
+  deliveryWarning?: string | null;
+  loginUrl?: string;
+  existingUser?: boolean;
+}
+
 export const accessRequestService = {
   async create(payload: AccessRequestInput): Promise<AccessRequest> {
     const response = await api.post('/access-requests', payload);
@@ -23,8 +30,9 @@ export const accessRequestService = {
     const response = await api.get(`/access-requests/${id}/replies`);
     return response.data.data;
   },
-  async approve(id: string, role?: string): Promise<void> {
-    await api.post(`/access-requests/${id}/approve`, role ? { role } : undefined);
+  async approve(id: string, role?: string): Promise<ApproveAccessResult> {
+    const response = await api.post(`/access-requests/${id}/approve`, role ? { role } : undefined);
+    return response.data?.data || { inviteEmailSent: false };
   },
   async reject(id: string, notes: string): Promise<void> {
     await api.post(`/access-requests/${id}/reject`, { notes });
