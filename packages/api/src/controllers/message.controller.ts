@@ -481,6 +481,7 @@ export async function listSupportAgents(
     const hotelId = req.user!.hotelId;
     const onlineSince = new Date(Date.now() - 2 * 60 * 1000);
     const recentMessageSince = new Date(Date.now() - 10 * 60 * 1000);
+    const recentActivitySince = new Date(Date.now() - 10 * 60 * 1000);
     const recentLoginSince = new Date(Date.now() - 8 * 60 * 60 * 1000);
     const roles: Role[] = ['ADMIN', 'MANAGER', 'RECEPTIONIST'];
 
@@ -508,6 +509,16 @@ export async function listSupportAgents(
           orderBy: { createdAt: 'desc' },
         })
       : [];
+    const recentActivityLogs = agentIds.length
+      ? await prisma.activityLog.findMany({
+          where: {
+            userId: { in: agentIds },
+            createdAt: { gte: recentActivitySince },
+          },
+          select: { userId: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+        })
+      : [];
     const recentStaffMessages = agentIds.length
       ? await prisma.message.findMany({
           where: {
@@ -525,6 +536,7 @@ export async function listSupportAgents(
         activeById.set(log.userId, log.createdAt);
       }
     }
+    const recentActivityById = new Set(recentActivityLogs.map((log) => log.userId));
     const messageActiveById = new Set(
       recentStaffMessages
         .map((row) => row.senderUserId)
@@ -542,6 +554,7 @@ export async function listSupportAgents(
           agent.id === req.user!.id ||
           activeById.has(agent.id) ||
           messageActiveById.has(agent.id) ||
+          recentActivityById.has(agent.id) ||
           Boolean(agent.lastLoginAt && agent.lastLoginAt >= recentLoginSince),
         lastSeenAt: activeById.get(agent.id) || agent.lastLoginAt,
       })),

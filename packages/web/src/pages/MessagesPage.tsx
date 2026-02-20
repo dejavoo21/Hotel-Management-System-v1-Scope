@@ -382,11 +382,17 @@ export default function MessagesPage() {
             <div className="mb-4 text-center text-xs text-slate-400">Today, {formatDay(new Date().toISOString())}</div>
             <div className="space-y-4">
               {activeMessages.map((message) => {
+                const senderName = resolveSenderName(message);
                 const guestMsg = message.senderType === 'GUEST';
                 const systemMsg = message.senderType === 'SYSTEM';
-                const alignLeft = guestMsg || systemMsg;
-                const senderName = resolveSenderName(message);
-                const isCurrentUserMessage = Boolean(user?.id && message.senderUser?.id === user.id);
+                const isCurrentUserMessage = Boolean(
+                  message.senderType === 'STAFF' &&
+                    user &&
+                    (message.senderUser?.id === user.id ||
+                      (!message.senderUser?.id &&
+                        senderName.toLowerCase() === `${user.firstName} ${user.lastName}`.toLowerCase()))
+                );
+                const alignLeft = guestMsg || systemMsg || (message.senderType === 'STAFF' && !isCurrentUserMessage);
                 const senderRole = message.senderUser?.role;
                 const senderOnline = message.senderUser?.id
                   ? supportAgentOnlineMap.get(message.senderUser.id) === true
