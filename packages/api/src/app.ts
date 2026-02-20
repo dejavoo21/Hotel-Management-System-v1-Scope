@@ -88,14 +88,33 @@ export function createApp(): Application {
   app.use(corsMiddleware);
 
   // Rate limiting
-  const limiter = rateLimit({
+  const authPaths = new Set([
+    '/auth/login',
+    '/auth/verify-code',
+    '/auth/forgot-password',
+    '/auth/reset-password',
+    '/auth/refresh',
+  ]);
+
+  const authLimiter = rateLimit({
     windowMs: config.rateLimit.windowMs,
-    max: config.rateLimit.max,
-    message: { success: false, error: 'Too many requests, please try again later' },
+    max: 25,
+    message: { success: false, error: 'Too many auth attempts. Please wait and try again.' },
     standardHeaders: true,
     legacyHeaders: false,
   });
-  app.use('/api', limiter);
+
+  const apiLimiter = rateLimit({
+    windowMs: config.rateLimit.windowMs,
+    max: Math.max(config.rateLimit.max, 1200),
+    message: { success: false, error: 'Too many requests, please try again later' },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req) => authPaths.has(req.path),
+  });
+
+  app.use('/api', apiLimiter);
+  app.use('/api/auth', authLimiter);
 
   // Body parsing
   app.use(express.json({ limit: '10mb' }));

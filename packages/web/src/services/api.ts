@@ -57,9 +57,12 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        // Refresh failed, logout user
-        useAuthStore.getState().logout();
-        window.location.href = '/login';
+        const status = axios.isAxiosError(refreshError) ? refreshError.response?.status : undefined;
+        // Only force logout when refresh token is actually invalid/unauthorized.
+        if (status === 401 || status === 403) {
+          useAuthStore.getState().logout();
+          window.location.href = '/login';
+        }
         return Promise.reject(refreshError);
       }
     }
