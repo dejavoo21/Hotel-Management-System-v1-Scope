@@ -43,6 +43,7 @@ const requestResetSchema = z.object({
 
 const resetPasswordSchema = z.object({
   token: z.string().min(1, 'Reset token is required'),
+  otpCode: z.string().length(6, 'Verification code must be 6 digits'),
   newPassword: z
     .string()
     .min(8, 'Password must be at least 8 characters')
@@ -52,9 +53,13 @@ const resetPasswordSchema = z.object({
     ),
 });
 
+const requestResetOtpSchema = z.object({
+  token: z.string().min(1, 'Reset token is required'),
+});
+
 const requestOtpSchema = z.object({
   email: z.string().email('Invalid email format'),
-  purpose: z.enum(['LOGIN', 'ACCESS_REVALIDATION']).optional(),
+  purpose: z.enum(['LOGIN', 'ACCESS_REVALIDATION', 'PASSWORD_RESET']).optional(),
   channel: z.enum(['EMAIL', 'SMS']).optional(),
   phone: z
     .string()
@@ -66,7 +71,7 @@ const requestOtpSchema = z.object({
 const verifyOtpSchema = z.object({
   email: z.string().email('Invalid email format'),
   code: z.string().length(6, 'Code must be 6 digits'),
-  purpose: z.enum(['LOGIN', 'ACCESS_REVALIDATION']).optional(),
+  purpose: z.enum(['LOGIN', 'ACCESS_REVALIDATION', 'PASSWORD_RESET']).optional(),
   rememberDevice: z.boolean().optional(),
 });
 
@@ -79,6 +84,7 @@ router.patch('/password', authenticate, validate(changePasswordSchema), authCont
 
 // Password reset
 router.post('/password/request', validate(requestResetSchema), authController.requestPasswordReset);
+router.post('/password/otp', validate(requestResetOtpSchema), authController.requestPasswordResetOtp);
 router.post('/password/reset', validate(resetPasswordSchema), authController.resetPassword);
 
 // 2FA Routes

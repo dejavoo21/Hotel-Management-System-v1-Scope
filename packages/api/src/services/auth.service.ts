@@ -8,6 +8,7 @@ import { prisma } from '../config/database.js';
 import { config } from '../config/index.js';
 import { logger } from '../config/logger.js';
 import { sendEmail } from './email.service.js';
+import { sendSms } from './sms.service.js';
 import { renderLafloEmail, renderOtpEmail } from '../utils/emailTemplates.js';
 import { TokenPayload, RefreshTokenPayload } from '../types/index.js';
 import { UnauthorizedError, NotFoundError, ForbiddenError } from '../middleware/errorHandler.js';
@@ -423,7 +424,25 @@ export async function requestPasswordReset(email: string) {
   });
 }
 
-export async function resetPassword(token: string, newPassword: string) {
+export async function requestPasswordResetOtp(token: string) {
+  const tokenHash = hashToken(token);
+  const stored = await prisma.passwordResetToken.findFirst({
+    where: {
+      tokenHash,
+      usedAt: null,
+      expiresAt: { gte: new Date() },
+    },
+    include: { user: true },
+  });
+
+  if (!stored) {
+    throw new ForbiddenError('Reset link is invalid or expired');
+  }
+
+  await requestEmailOtp(stored.user.email, 'PASSWORD_RESET', 'EMAIL');
+}
+
+export async function resetPassword(token: string, newPassword: string, otpCode: string) {
   const tokenHash = hashToken(token);
 
   const stored = await prisma.passwordResetToken.findFirst({
@@ -439,6 +458,25 @@ export async function resetPassword(token: string, newPassword: string) {
     throw new ForbiddenError('Reset link is invalid or expired');
   }
 
+  const otp = await prisma.emailOtp.findFirst({
+    where: {
+      email: stored.user.email.toLowerCase(),
+      purpose: 'PASSWORD_RESET',
+      usedAt: null,
+      expiresAt: { gte: new Date() },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (!otp) {
+    throw new ForbiddenError('Verification code is invalid or expired');
+  }
+
+  const isValidOtp = await bcrypt.compare(otpCode, otp.codeHash);
+  if (!isValidOtp) {
+    throw new ForbiddenError('Verification code is invalid or expired');
+  }
+
   const passwordHash = await bcrypt.hash(newPassword, 12);
 
   await prisma.$transaction([
@@ -448,6 +486,10 @@ export async function resetPassword(token: string, newPassword: string) {
     }),
     prisma.passwordResetToken.update({
       where: { id: stored.id },
+      data: { usedAt: new Date() },
+    }),
+    prisma.emailOtp.update({
+      where: { id: otp.id },
       data: { usedAt: new Date() },
     }),
     prisma.refreshToken.deleteMany({ where: { userId: stored.userId } }),
@@ -571,9 +613,16 @@ export async function requestEmailOtp(
     if (!phone) {
       throw new ForbiddenError('Phone number is required for SMS OTP');
     }
-    logger.info(
-      `[OTP_SMS_MOCK] Sent ${purpose} OTP to ${phone.replace(/.(?=.{4})/g, '*')}`
-    );
+    const smsText =
+      purpose === 'ACCESS_REVALIDATION'
+        ? `Your LaFlo access revalidation code is ${code}. It expires in 10 minutes.`
+        : purpose === 'PASSWORD_RESET'
+          ? `Your LaFlo password reset verification code is ${code}. It expires in 10 minutes.`
+          : `Your LaFlo verification code is ${code}. It expires in 10 minutes.`;
+    await sendSms({
+      to: phone,
+      message: smsText,
+    });
   }
 
   const { html, text } = renderOtpEmail({ firstName: user.firstName, code });
@@ -582,7 +631,9 @@ export async function requestEmailOtp(
     subject:
       purpose === 'ACCESS_REVALIDATION'
         ? 'Your LaFlo access revalidation code'
-        : 'Your LaFlo verification code',
+        : purpose === 'PASSWORD_RESET'
+          ? 'Your LaFlo password reset verification code'
+          : 'Your LaFlo verification code',
     html,
     text,
   });

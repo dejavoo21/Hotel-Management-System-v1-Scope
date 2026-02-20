@@ -360,22 +360,6 @@ export default function LoginPage() {
         </button>
       </form>
 
-      {/* Demo credentials */}
-      <section className="mt-8 rounded-lg bg-slate-50 p-4" aria-label="Demo credentials">
-        <h2 className="text-xs font-medium text-slate-500 uppercase tracking-wide">Demo credentials</h2>
-        <div className="mt-2 space-y-1 text-sm text-slate-600">
-          <p>
-            <span className="font-medium">Admin:</span> <code>admin@demo.hotel</code> / <code>Demo123!</code>
-          </p>
-          <p>
-            <span className="font-medium">Manager:</span> <code>manager@demo.hotel</code> / <code>Demo123!</code>
-          </p>
-          <p>
-            <span className="font-medium">Receptionist:</span> <code>reception@demo.hotel</code> / <code>Demo123!</code>
-          </p>
-        </div>
-      </section>
-
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
         <span>Need access to LaFlo?</span>
         <Link to="/request-access" className="font-medium text-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded px-1">

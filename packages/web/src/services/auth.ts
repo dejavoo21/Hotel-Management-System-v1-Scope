@@ -48,8 +48,12 @@ export const authService = {
     await api.post('/auth/password/request', { email });
   },
 
-  async resetPassword(token: string, newPassword: string): Promise<void> {
-    await api.post('/auth/password/reset', { token, newPassword });
+  async requestPasswordResetOtp(token: string): Promise<void> {
+    await api.post('/auth/password/otp', { token });
+  },
+
+  async resetPassword(token: string, newPassword: string, otpCode: string): Promise<void> {
+    await api.post('/auth/password/reset', { token, newPassword, otpCode });
   },
 
   async requestOtp(email: string): Promise<void> {
@@ -58,7 +62,7 @@ export const authService = {
 
   async requestOtpForPurpose(
     email: string,
-    purpose: 'LOGIN' | 'ACCESS_REVALIDATION',
+    purpose: 'LOGIN' | 'ACCESS_REVALIDATION' | 'PASSWORD_RESET',
     channel: 'EMAIL' | 'SMS' = 'EMAIL',
     phone?: string
   ): Promise<void> {
@@ -68,7 +72,7 @@ export const authService = {
   async verifyOtp(
     email: string,
     code: string,
-    purpose: 'LOGIN' | 'ACCESS_REVALIDATION' = 'LOGIN',
+    purpose: 'LOGIN' | 'ACCESS_REVALIDATION' | 'PASSWORD_RESET' = 'LOGIN',
     rememberDevice: boolean = false
   ): Promise<LoginResponse> {
     const response = await api.post('/auth/otp/verify', {

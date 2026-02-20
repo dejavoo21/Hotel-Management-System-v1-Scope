@@ -289,9 +289,23 @@ export async function resetPassword(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { token, newPassword } = req.body;
-    await authService.resetPassword(token, newPassword);
+    const { token, newPassword, otpCode } = req.body;
+    await authService.resetPassword(token, newPassword, otpCode);
     res.json({ success: true, message: 'Password updated successfully' });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function requestPasswordResetOtp(
+  req: AuthenticatedRequest,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { token } = req.body;
+    await authService.requestPasswordResetOtp(token);
+    res.json({ success: true, message: 'Verification code sent' });
   } catch (error) {
     next(error);
   }
@@ -305,7 +319,7 @@ export async function requestEmailOtp(
   try {
     const { email, purpose, channel, phone } = req.body as {
       email: string;
-      purpose?: 'LOGIN' | 'ACCESS_REVALIDATION';
+      purpose?: 'LOGIN' | 'ACCESS_REVALIDATION' | 'PASSWORD_RESET';
       channel?: 'EMAIL' | 'SMS';
       phone?: string;
     };
@@ -325,7 +339,7 @@ export async function verifyEmailOtp(
     const { email, code, purpose, rememberDevice } = req.body as {
       email: string;
       code: string;
-      purpose?: 'LOGIN' | 'ACCESS_REVALIDATION';
+      purpose?: 'LOGIN' | 'ACCESS_REVALIDATION' | 'PASSWORD_RESET';
       rememberDevice?: boolean;
     };
     const result = await authService.loginWithEmailOtp(

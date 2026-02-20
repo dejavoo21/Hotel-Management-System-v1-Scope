@@ -489,7 +489,7 @@ export default function GuestsPage() {
           <div className="relative w-full max-w-6xl h-[calc(100dvh-1rem)] sm:h-[calc(100dvh-2rem)] overflow-hidden rounded-2xl bg-slate-50 shadow-2xl">
             <button
               onClick={() => setSelectedGuest(null)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 z-10"
+              className="absolute right-4 top-4 z-10 rounded-md p-1 text-slate-400 hover:bg-white hover:text-slate-600"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -497,7 +497,7 @@ export default function GuestsPage() {
             </button>
 
             <div className="h-full overflow-y-auto p-4 sm:p-5">
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-4 flex items-center justify-between pr-12">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Reservation</p>
                 <h2 className="text-2xl font-bold text-slate-900">Guest Profile</h2>
