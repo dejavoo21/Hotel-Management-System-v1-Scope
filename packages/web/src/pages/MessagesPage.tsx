@@ -106,17 +106,6 @@ export default function MessagesPage() {
   });
 
   useEffect(() => {
-    const run = () => {
-      messageService.heartbeatSupportPresence().catch(() => {
-        // ignore silent heartbeat errors
-      });
-    };
-    run();
-    const timer = setInterval(run, 30_000);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
     const requestedThreadId = searchParams.get('thread');
     if (requestedThreadId) {
       setActiveThreadId(requestedThreadId);
@@ -272,16 +261,19 @@ export default function MessagesPage() {
                 const guestMsg = message.senderType === 'GUEST';
                 const systemMsg = message.senderType === 'SYSTEM';
                 const alignLeft = guestMsg || systemMsg;
+                const senderName = resolveSenderName(message);
                 return (
                   <div key={message.id} className={`flex gap-2 ${alignLeft ? 'justify-start' : 'justify-end'}`}>
                     {alignLeft ? (
                       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-lime-200 text-xs font-bold text-slate-800">
-                        {systemMsg ? 'AI' : getInitials(resolveSenderName(message))}
+                        {systemMsg ? 'AI' : getInitials(senderName)}
                       </div>
                     ) : null}
                     <div className="max-w-[72%]">
                       <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                        {systemMsg ? 'LaFlo Assistant' : resolveSenderName(message)}
+                        {systemMsg
+                          ? 'LaFlo Assistant'
+                          : `${senderName}${message.senderUser?.role ? ` (${message.senderUser.role})` : ''}`}
                       </p>
                     <div className={`rounded-2xl px-4 py-3 text-sm ${
                       guestMsg
@@ -468,6 +460,9 @@ export default function MessagesPage() {
                 </div>
               ))}
             </div>
+            <p className="mt-2 text-[11px] text-slate-500">
+              `Start` marks call handling in queue. `Call` opens the phone dialer when a number is available.
+            </p>
             <div className="mt-3">
               <label className="text-xs font-semibold uppercase text-slate-500">Call notes</label>
               <textarea
@@ -484,15 +479,10 @@ export default function MessagesPage() {
 
           <div className="mt-5">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase text-slate-400">Media (17)</p>
-              <button className="text-xs font-semibold text-slate-500">Show All</button>
+              <p className="text-xs font-semibold uppercase text-slate-400">Media</p>
             </div>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {['/images/room-deluxe.jpg', '/images/room-standard.jpg', '/images/room-suite.jpg'].map((src, idx) => (
-                <div key={idx} className="h-16 overflow-hidden rounded-lg bg-slate-100">
-                  <img src={src} alt="media" className="h-full w-full object-cover" onError={(e) => ((e.currentTarget.style.display = 'none'))} />
-                </div>
-              ))}
+            <div className="mt-2 rounded-lg border border-dashed border-slate-200 p-3 text-xs text-slate-500">
+              No shared media yet for this conversation.
             </div>
           </div>
         </div>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useQuery } from '@tanstack/react-query';
-import { accessRequestService } from '@/services';
+import { accessRequestService, messageService } from '@/services';
 import { getUserPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
 import toast from 'react-hot-toast';
 import { useUiStore } from '@/stores/uiStore';
@@ -388,6 +388,18 @@ export default function DashboardLayout() {
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [showGlobalSearch]);
+
+  useEffect(() => {
+    if (!user) return;
+    const ping = () => {
+      messageService.heartbeatSupportPresence().catch(() => {
+        // Keep this silent: presence is best-effort telemetry.
+      });
+    };
+    ping();
+    const timer = setInterval(ping, 45_000);
+    return () => clearInterval(timer);
+  }, [user?.id]);
 
   const NavItem = ({ item, onClick }: { item: NavigationItem; onClick?: () => void }) => {
     const isActive = location.pathname === item.href ||

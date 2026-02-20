@@ -390,6 +390,7 @@ export async function listSupportAgents(
   try {
     const hotelId = req.user!.hotelId;
     const onlineSince = new Date(Date.now() - 2 * 60 * 1000);
+    const recentLoginSince = new Date(Date.now() - 15 * 60 * 1000);
     const roles: Role[] = ['ADMIN', 'MANAGER', 'RECEPTIONIST'];
 
     const agents = await prisma.user.findMany({
@@ -431,7 +432,10 @@ export async function listSupportAgents(
         firstName: agent.firstName,
         lastName: agent.lastName,
         role: agent.role,
-        online: activeById.has(agent.id),
+        online:
+          agent.id === req.user!.id ||
+          activeById.has(agent.id) ||
+          Boolean(agent.lastLoginAt && agent.lastLoginAt >= recentLoginSince),
         lastSeenAt: activeById.get(agent.id) || agent.lastLoginAt,
       })),
     });
