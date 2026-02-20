@@ -12,11 +12,18 @@ export async function login(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { email, password, twoFactorCode } = req.body;
+    const { email, password, twoFactorCode, trustedDeviceToken } = req.body;
     const ipAddress = req.ip || req.socket.remoteAddress;
     const userAgent = req.headers['user-agent'];
 
-    const result = await authService.login(email, password, ipAddress, userAgent, twoFactorCode);
+    const result = await authService.login(
+      email,
+      password,
+      ipAddress,
+      userAgent,
+      twoFactorCode,
+      trustedDeviceToken
+    );
 
     res.json({
       success: true,
@@ -315,12 +322,18 @@ export async function verifyEmailOtp(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { email, code, purpose } = req.body as {
+    const { email, code, purpose, rememberDevice } = req.body as {
       email: string;
       code: string;
       purpose?: 'LOGIN' | 'ACCESS_REVALIDATION';
+      rememberDevice?: boolean;
     };
-    const result = await authService.loginWithEmailOtp(email, code, purpose || 'LOGIN');
+    const result = await authService.loginWithEmailOtp(
+      email,
+      code,
+      purpose || 'LOGIN',
+      Boolean(rememberDevice)
+    );
     res.json({ success: true, data: result, message: 'Login successful' });
   } catch (error) {
     next(error);

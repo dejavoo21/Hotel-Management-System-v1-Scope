@@ -3,6 +3,25 @@ import { persist } from 'zustand/middleware';
 import { authService } from '@/services/auth';
 import type { User, LoginCredentials, LoginResponse } from '@/types';
 
+const TRUSTED_DEVICE_KEY_PREFIX = 'laflo:trusted-device:';
+const getTrustedDeviceKey = (email: string) =>
+  `${TRUSTED_DEVICE_KEY_PREFIX}${email.trim().toLowerCase()}`;
+const getTrustedDeviceToken = (email: string) => {
+  try {
+    return localStorage.getItem(getTrustedDeviceKey(email));
+  } catch {
+    return null;
+  }
+};
+const saveTrustedDeviceToken = (email: string, token?: string) => {
+  if (!token) return;
+  try {
+    localStorage.setItem(getTrustedDeviceKey(email), token);
+  } catch {
+    // ignore storage failures
+  }
+};
+
 interface AuthState {
   user: User | null;
   accessToken: string | null;
@@ -19,7 +38,8 @@ interface AuthState {
   loginWithOtp: (
     email: string,
     code: string,
-    purpose?: 'LOGIN' | 'ACCESS_REVALIDATION'
+    purpose?: 'LOGIN' | 'ACCESS_REVALIDATION',
+    rememberDevice?: boolean
   ) => Promise<LoginResponse>;
   verify2FA: (code: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -42,7 +62,12 @@ export const useAuthStore = create<AuthState>()(
       pendingPassword: null,
 
       login: async (credentials: LoginCredentials) => {
-        const response = await authService.login(credentials);
+        const trustedDeviceToken =
+          credentials.trustedDeviceToken || getTrustedDeviceToken(credentials.email) || undefined;
+        const response = await authService.login({
+          ...credentials,
+          trustedDeviceToken,
+        });
 
         if (response.requiresTwoFactor) {
           set({
@@ -74,6 +99,7 @@ export const useAuthStore = create<AuthState>()(
           pendingEmail: null,
           pendingPassword: null,
         });
+        saveTrustedDeviceToken(credentials.email, response.trustedDeviceToken);
 
         return response;
       },
@@ -81,9 +107,10 @@ export const useAuthStore = create<AuthState>()(
       loginWithOtp: async (
         email: string,
         code: string,
-        purpose: 'LOGIN' | 'ACCESS_REVALIDATION' = 'LOGIN'
+        purpose: 'LOGIN' | 'ACCESS_REVALIDATION' = 'LOGIN',
+        rememberDevice: boolean = false
       ) => {
-        const response = await authService.verifyOtp(email, code, purpose);
+        const response = await authService.verifyOtp(email, code, purpose, rememberDevice);
 
         if (response.requiresTwoFactor) {
           set({
@@ -105,6 +132,7 @@ export const useAuthStore = create<AuthState>()(
           pendingEmail: null,
           pendingPassword: null,
         });
+        saveTrustedDeviceToken(email, response.trustedDeviceToken);
 
         return response;
       },
@@ -117,6 +145,7 @@ export const useAuthStore = create<AuthState>()(
           email: pendingEmail,
           password: pendingPassword,
           twoFactorCode: code,
+          trustedDeviceToken: getTrustedDeviceToken(pendingEmail) || undefined,
         });
 
         if (response.requiresOtpRevalidation) {
@@ -139,6 +168,7 @@ export const useAuthStore = create<AuthState>()(
           pendingEmail: null,
           pendingPassword: null,
         });
+        saveTrustedDeviceToken(pendingEmail, response.trustedDeviceToken);
       },
 
       logout: async () => {

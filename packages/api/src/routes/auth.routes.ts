@@ -11,6 +11,7 @@ const loginSchema = z.object({
   email: z.string().email('Invalid email format'),
   password: z.string().min(1, 'Password is required'),
   twoFactorCode: z.string().length(6).optional(), // Optional 2FA code
+  trustedDeviceToken: z.string().min(1).optional(),
 });
 
 const refreshSchema = z.object({
@@ -66,6 +67,7 @@ const verifyOtpSchema = z.object({
   email: z.string().email('Invalid email format'),
   code: z.string().length(6, 'Code must be 6 digits'),
   purpose: z.enum(['LOGIN', 'ACCESS_REVALIDATION']).optional(),
+  rememberDevice: z.boolean().optional(),
 });
 
 // Routes

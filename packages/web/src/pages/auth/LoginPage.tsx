@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [otpPurpose, setOtpPurpose] = useState<'LOGIN' | 'ACCESS_REVALIDATION'>('LOGIN');
   const [otpChannel, setOtpChannel] = useState<'EMAIL' | 'SMS'>('EMAIL');
   const [otpPhone, setOtpPhone] = useState('');
+  const [rememberDevice, setRememberDevice] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -37,7 +38,12 @@ export default function LoginPage() {
 
     try {
       if (otpMode) {
-        const response = await loginWithOtp(email, otpCode, otpPurpose);
+        const response = await loginWithOtp(
+          email,
+          otpCode,
+          otpPurpose,
+          otpPurpose === 'ACCESS_REVALIDATION' && rememberDevice
+        );
         if (response.requiresTwoFactor) {
           navigate('/2fa');
         } else {
@@ -247,6 +253,17 @@ export default function LoginPage() {
                 {isSendingOtp ? 'Sending...' : otpSent ? 'Resend' : 'Send code'}
               </button>
             </div>
+            {otpPurpose === 'ACCESS_REVALIDATION' && (
+              <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={rememberDevice}
+                  onChange={(e) => setRememberDevice(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                />
+                Remember this device for 30 days
+              </label>
+            )}
           </div>
         )}
 

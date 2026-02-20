@@ -31,9 +31,11 @@ interface LoginResult {
   requiresTwoFactor?: boolean;
   requiresPasswordChange?: boolean;
   requiresOtpRevalidation?: boolean;
+  trustedDeviceToken?: string;
 }
 
 const REVALIDATION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const TRUSTED_DEVICE_EXPIRES_IN = '30d';
 
 /**
  * Login user with email and password
@@ -43,7 +45,8 @@ export async function login(
   password: string,
   ipAddress?: string,
   userAgent?: string,
-  twoFactorCode?: string
+  twoFactorCode?: string,
+  trustedDeviceToken?: string
 ): Promise<LoginResult> {
   // Find user by email
   const user = await prisma.user.findUnique({
@@ -98,7 +101,11 @@ export async function login(
     }
   }
 
-  const needsRevalidation = await isOtpRevalidationRequired(user.id, user.lastLoginAt);
+  const trustedForUser = trustedDeviceToken
+    ? verifyTrustedDeviceToken(trustedDeviceToken, user.id)
+    : false;
+  const needsRevalidation =
+    !trustedForUser && (await isOtpRevalidationRequired(user.id, user.lastLoginAt));
   if (needsRevalidation) {
     return { requiresOtpRevalidation: true };
   }
@@ -449,7 +456,12 @@ export async function resetPassword(token: string, newPassword: string) {
   logger.info(`Password reset for user: ${stored.user.email}`);
 }
 
-export async function loginWithEmailOtp(email: string, code: string, purpose: string) {
+export async function loginWithEmailOtp(
+  email: string,
+  code: string,
+  purpose: string,
+  rememberDevice: boolean = false
+) {
   const otp = await prisma.emailOtp.findFirst({
     where: {
       email: email.toLowerCase(),
@@ -504,6 +516,11 @@ export async function loginWithEmailOtp(email: string, code: string, purpose: st
     });
   }
 
+  const trustedDeviceToken =
+    purpose === 'ACCESS_REVALIDATION' && rememberDevice
+      ? generateTrustedDeviceToken(otp.user.id, otp.user.email)
+      : undefined;
+
   return {
     user: {
       id: otp.user.id,
@@ -517,6 +534,7 @@ export async function loginWithEmailOtp(email: string, code: string, purpose: st
     accessToken,
     refreshToken,
     expiresIn: config.jwt.expiresIn,
+    trustedDeviceToken,
   };
 }
 
@@ -581,6 +599,30 @@ async function isOtpRevalidationRequired(userId: string, lastLoginAt?: Date | nu
   if (!referenceDate) return true;
 
   return Date.now() - referenceDate.getTime() >= REVALIDATION_WINDOW_MS;
+}
+
+function generateTrustedDeviceToken(userId: string, email: string) {
+  return jwt.sign(
+    {
+      userId,
+      email,
+      scope: 'TRUSTED_DEVICE',
+    },
+    config.jwt.refreshSecret,
+    { expiresIn: TRUSTED_DEVICE_EXPIRES_IN }
+  );
+}
+
+function verifyTrustedDeviceToken(token: string, userId: string) {
+  try {
+    const decoded = jwt.verify(token, config.jwt.refreshSecret) as {
+      userId?: string;
+      scope?: string;
+    };
+    return decoded.userId === userId && decoded.scope === 'TRUSTED_DEVICE';
+  } catch {
+    return false;
+  }
 }
 
 /**

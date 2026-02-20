@@ -22,6 +22,7 @@ export interface LoginCredentials {
   email: string;
   password: string;
   twoFactorCode?: string;
+  trustedDeviceToken?: string;
 }
 
 export interface LoginResponse {
@@ -32,6 +33,7 @@ export interface LoginResponse {
   requiresTwoFactor?: boolean;
   requiresPasswordChange?: boolean;
   requiresOtpRevalidation?: boolean;
+  trustedDeviceToken?: string;
 }
 
 // Room types

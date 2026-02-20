@@ -68,9 +68,15 @@ export const authService = {
   async verifyOtp(
     email: string,
     code: string,
-    purpose: 'LOGIN' | 'ACCESS_REVALIDATION' = 'LOGIN'
+    purpose: 'LOGIN' | 'ACCESS_REVALIDATION' = 'LOGIN',
+    rememberDevice: boolean = false
   ): Promise<LoginResponse> {
-    const response = await api.post('/auth/otp/verify', { email, code, purpose });
+    const response = await api.post('/auth/otp/verify', {
+      email,
+      code,
+      purpose,
+      rememberDevice,
+    });
     return response.data.data;
   },
 };
