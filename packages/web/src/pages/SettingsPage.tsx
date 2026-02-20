@@ -351,6 +351,73 @@ export default function SettingsPage() {
     return `${(kb / 1024).toFixed(1)} MB`;
   };
 
+  const stripHtml = (value: string) =>
+    value
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>');
+
+  const normalizeWhitespace = (value: string) =>
+    value
+      .replace(/\r\n/g, '\n')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+  const extractRequesterMessage = (reply: AccessRequestReply) => {
+    const source = (reply.bodyText?.trim() || stripHtml(reply.bodyHtml || '')).trim();
+    if (!source) return 'No response message captured.';
+
+    const lines = source.split(/\r?\n/);
+    const cleaned: string[] = [];
+
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line) {
+        if (cleaned.length && cleaned[cleaned.length - 1] !== '') {
+          cleaned.push('');
+        }
+        continue;
+      }
+
+      if (/^>/.test(line)) continue;
+      if (/^on .+ wrote:$/i.test(line)) break;
+      if (/^from:\s/i.test(line)) continue;
+      if (/^sent:\s/i.test(line)) continue;
+      if (/^subject:\s/i.test(line)) continue;
+      if (/^to:\s/i.test(line)) continue;
+      if (/^cc:\s/i.test(line)) continue;
+      if (/^https?:\/\/\S+/i.test(line)) continue;
+      if (/^respond to request/i.test(line)) continue;
+      if (/^please respond promptly/i.test(line)) continue;
+      if (/^your request cannot be processed/i.test(line)) continue;
+      if (/^if the button doesn't work/i.test(line)) continue;
+      if (/^©\s*\d{4}/i.test(line)) continue;
+      if (/^environmental health/i.test(line)) continue;
+      if (/^ehs portal/i.test(line)) continue;
+      if (/^message from administrator/i.test(line)) continue;
+      if (/^ref:\s*ar-/i.test(line)) continue;
+
+      cleaned.push(line);
+    }
+
+    const message = normalizeWhitespace(cleaned.join('\n'));
+    if (message) return message;
+
+    // Fallback: first non-quoted non-empty line only
+    const fallback = lines
+      .map((line) => line.trim())
+      .find((line) => line && !line.startsWith('>') && !/^https?:\/\//i.test(line));
+
+    return fallback || 'No response message captured.';
+  };
+
   const refreshAuditLogs = () => {
     setAuditLogs(getAuditLogs());
   };
@@ -1724,9 +1791,14 @@ export default function SettingsPage() {
                     <p className="mt-2 text-sm font-medium text-slate-900">
                       {reply.subject || 'Response received'}
                     </p>
-                    <p className="mt-2 text-sm text-slate-600 whitespace-pre-line">
-                      {reply.bodyText || 'Response body captured in HTML format.'}
-                    </p>
+                    <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50/60 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                        Required information provided
+                      </p>
+                      <p className="mt-2 whitespace-pre-line text-sm text-slate-700">
+                        {extractRequesterMessage(reply)}
+                      </p>
+                    </div>
 
                     {Array.isArray(reply.attachments) && reply.attachments.length > 0 && (
                       <div className="mt-3">
