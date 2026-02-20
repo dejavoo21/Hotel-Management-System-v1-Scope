@@ -2793,6 +2793,50 @@ router.get('/messages/:id', authenticateDemo, (req: Request, res: Response) => {
   res.json({ success: true, data: thread });
 });
 
+router.post('/messages/live-support', authenticateDemo, (req: Request, res: Response) => {
+  const initialMessage =
+    typeof req.body?.initialMessage === 'string' ? req.body.initialMessage.trim() : '';
+  const user = mockUsers[0];
+  let thread = mockConversations.find((c) => c.subject === 'Live Support');
+
+  if (!thread) {
+    thread = {
+      id: `conv-support-${Date.now()}`,
+      hotelId: mockHotel.id,
+      guestId: undefined,
+      bookingId: undefined,
+      subject: 'Live Support',
+      status: 'OPEN',
+      lastMessageAt: new Date(),
+      messages: [
+        {
+          id: `msg-${Date.now()}-system`,
+          senderType: 'SYSTEM' as const,
+          body: `${user.firstName} ${user.lastName} opened live support chat.`,
+          createdAt: new Date(),
+        },
+      ],
+    };
+    mockConversations.unshift(thread as any);
+  }
+
+  if (initialMessage) {
+    const msg = {
+      id: `msg-${Date.now()}`,
+      senderType: 'STAFF' as const,
+      body: initialMessage,
+      createdAt: new Date(),
+      senderUserId: user.id,
+    };
+    thread.messages.push(msg as any);
+    thread.lastMessageAt = msg.createdAt;
+    thread.status = 'OPEN';
+  }
+
+  const summary = getConversationSummary(thread as any);
+  res.json({ success: true, data: summary });
+});
+
 router.post('/messages/:id/messages', authenticateDemo, (req: Request, res: Response) => {
   const thread = mockConversations.find((c) => c.id === req.params.id);
   if (!thread) {
@@ -2806,6 +2850,15 @@ router.post('/messages/:id/messages', authenticateDemo, (req: Request, res: Resp
     createdAt: new Date().toISOString(),
     senderUser: { firstName: user.firstName, lastName: user.lastName, role: user.role },
   };
+  thread.messages.push({
+    id: message.id,
+    senderType: 'STAFF' as const,
+    body: message.body,
+    createdAt: new Date(message.createdAt),
+    senderUserId: user.id,
+  } as any);
+  thread.lastMessageAt = new Date(message.createdAt);
+  thread.status = 'OPEN';
   res.status(201).json({ success: true, data: message, message: 'Message recorded' });
 });
 

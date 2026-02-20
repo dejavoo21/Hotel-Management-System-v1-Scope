@@ -2,6 +2,8 @@ import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest, ApiResponse } from '../types/index.js';
 import { prisma } from '../config/database.js';
 
+const LIVE_SUPPORT_SUBJECT = 'Live Support';
+
 const resolveThreadTitle = (guest?: { firstName: string; lastName: string }, bookingRef?: string) => {
   if (guest) {
     return `${guest.firstName} ${guest.lastName}`;
@@ -10,6 +12,46 @@ const resolveThreadTitle = (guest?: { firstName: string; lastName: string }, boo
     return `Booking ${bookingRef}`;
   }
   return 'Guest Conversation';
+};
+
+const serializeThreadSummary = (
+  conversation: {
+    id: string;
+    subject: string | null;
+    status: string;
+    createdAt: Date;
+    lastMessageAt: Date | null;
+    guest: { firstName: string; lastName: string; email: string | null } | null;
+    booking: { bookingRef: string; checkInDate: Date; checkOutDate: Date } | null;
+    messages: Array<{
+      id: string;
+      body: string;
+      senderType: string;
+      createdAt: Date;
+      senderUser: { firstName: string; lastName: string; role: string } | null;
+      guest: { firstName: string; lastName: string } | null;
+    }>;
+  }
+) => {
+  const lastMessage = conversation.messages[0];
+  return {
+    id: conversation.id,
+    subject: conversation.subject ?? resolveThreadTitle(conversation.guest ?? undefined, conversation.booking?.bookingRef),
+    status: conversation.status,
+    guest: conversation.guest ?? undefined,
+    booking: conversation.booking ?? undefined,
+    lastMessageAt: conversation.lastMessageAt ?? conversation.createdAt,
+    lastMessage: lastMessage
+      ? {
+          id: lastMessage.id,
+          body: lastMessage.body,
+          senderType: lastMessage.senderType,
+          createdAt: lastMessage.createdAt,
+          senderUser: lastMessage.senderUser ?? undefined,
+          guest: lastMessage.guest ?? undefined,
+        }
+      : null,
+  };
 };
 
 export async function listThreads(
@@ -85,30 +127,7 @@ export async function listThreads(
       take,
     });
 
-    res.json({
-      success: true,
-      data: conversations.map((conversation) => {
-        const lastMessage = conversation.messages[0];
-        return {
-          id: conversation.id,
-          subject: conversation.subject ?? resolveThreadTitle(conversation.guest, conversation.booking?.bookingRef),
-          status: conversation.status,
-          guest: conversation.guest,
-          booking: conversation.booking,
-          lastMessageAt: conversation.lastMessageAt ?? conversation.createdAt,
-          lastMessage: lastMessage
-            ? {
-                id: lastMessage.id,
-                body: lastMessage.body,
-                senderType: lastMessage.senderType,
-                createdAt: lastMessage.createdAt,
-                senderUser: lastMessage.senderUser,
-                guest: lastMessage.guest,
-              }
-            : null,
-        };
-      }),
-    });
+    res.json({ success: true, data: conversations.map((conversation) => serializeThreadSummary(conversation)) });
   } catch (error) {
     next(error);
   }
@@ -162,6 +181,96 @@ export async function getThread(
         })),
       },
     });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getOrCreateLiveSupportThread(
+  req: AuthenticatedRequest,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const hotelId = req.user!.hotelId;
+    const userId = req.user!.id;
+    const userName = `${req.user!.firstName} ${req.user!.lastName}`.trim();
+    const { initialMessage } = req.body as { initialMessage?: string };
+
+    let conversation = await prisma.conversation.findFirst({
+      where: { hotelId, subject: LIVE_SUPPORT_SUBJECT, status: { in: ['OPEN', 'RESOLVED'] } },
+      orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }],
+      include: {
+        guest: { select: { firstName: true, lastName: true, email: true } },
+        booking: { select: { bookingRef: true, checkInDate: true, checkOutDate: true } },
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          include: {
+            senderUser: { select: { firstName: true, lastName: true, role: true } },
+            guest: { select: { firstName: true, lastName: true } },
+          },
+        },
+      },
+    });
+
+    if (!conversation) {
+      conversation = await prisma.conversation.create({
+        data: {
+          hotelId,
+          subject: LIVE_SUPPORT_SUBJECT,
+          status: 'OPEN',
+          lastMessageAt: new Date(),
+          messages: {
+            create: {
+              senderType: 'SYSTEM',
+              body: `${userName} opened live support chat.`,
+            },
+          },
+        },
+        include: {
+          guest: { select: { firstName: true, lastName: true, email: true } },
+          booking: { select: { bookingRef: true, checkInDate: true, checkOutDate: true } },
+          messages: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            include: {
+              senderUser: { select: { firstName: true, lastName: true, role: true } },
+              guest: { select: { firstName: true, lastName: true } },
+            },
+          },
+        },
+      });
+    }
+
+    if (initialMessage?.trim()) {
+      const created = await prisma.message.create({
+        data: {
+          conversationId: conversation.id,
+          senderType: 'STAFF',
+          senderUserId: userId,
+          body: initialMessage.trim(),
+        },
+        include: {
+          senderUser: { select: { firstName: true, lastName: true, role: true } },
+          guest: { select: { firstName: true, lastName: true } },
+        },
+      });
+
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { status: 'OPEN', lastMessageAt: created.createdAt },
+      });
+
+      conversation = {
+        ...conversation,
+        status: 'OPEN',
+        lastMessageAt: created.createdAt,
+        messages: [created],
+      };
+    }
+
+    res.json({ success: true, data: serializeThreadSummary(conversation) });
   } catch (error) {
     next(error);
   }

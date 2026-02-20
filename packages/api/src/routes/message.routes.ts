@@ -7,6 +7,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/', messageController.listThreads);
+router.post('/live-support', messageController.getOrCreateLiveSupportThread);
 router.get('/:id', messageController.getThread);
 router.post('/:id/messages', messageController.createMessage);
 

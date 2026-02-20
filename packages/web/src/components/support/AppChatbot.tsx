@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { conciergeService } from '@/services';
+import { conciergeService, messageService } from '@/services';
 import { useAuthStore } from '@/stores/authStore';
 
 type ChatMessage = {
@@ -155,6 +155,9 @@ export default function AppChatbot() {
         priority: 'MEDIUM',
         status: 'PENDING',
       });
+      await messageService.getOrCreateLiveSupportThread(
+        `[${modeConfig[mode].label}] ${note}`
+      );
       setMessages((prev) => [
         ...prev,
         {
@@ -294,9 +297,16 @@ export default function AppChatbot() {
           <div className="border-t border-slate-100 px-3 py-2">
             <button
               type="button"
-              onClick={() => {
-                setOpen(false);
-                navigate('/concierge');
+              onClick={async () => {
+                try {
+                  const thread = await messageService.getOrCreateLiveSupportThread();
+                  setOpen(false);
+                  navigate(`/messages?thread=${thread.id}&support=1`);
+                } catch {
+                  setOpen(false);
+                  navigate('/messages?support=1');
+                  toast.error('Live support thread could not be created. Opened messages instead.');
+                }
               }}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
             >
