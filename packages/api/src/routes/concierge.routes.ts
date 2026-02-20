@@ -13,6 +13,8 @@ const createSchema = z.object({
   assignedToId: z.string().optional(),
   title: z.string().min(1),
   details: z.string().optional(),
+  source: z.enum(['CHATBOT', 'APP', 'MANUAL']).optional(),
+  notifySupport: z.boolean().optional(),
   status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
   dueAt: z.string().optional(),

@@ -10,6 +10,7 @@ import fs from 'fs';
 import path from 'path';
 import { config } from '../config/index.js';
 import { sendEmail } from '../services/email.service.js';
+import { sendSms } from '../services/sms.service.js';
 import { renderLafloEmail, renderOtpEmail, escapeEmailText } from '../utils/emailTemplates.js';
 import {
   mockUsers,
@@ -3289,7 +3290,7 @@ router.patch('/concierge/requests/:id', authenticateDemo, (req: Request, res: Re
 });
 
 router.post('/concierge/requests', authenticateDemo, (req: Request, res: Response) => {
-  const { title, details, priority, dueAt, guestId, roomNumber } = req.body;
+  const { title, details, priority, dueAt, guestId, roomNumber, source, notifySupport } = req.body;
 
   const newRequest = {
     id: `conc-${Date.now()}`,
@@ -3309,6 +3310,56 @@ router.post('/concierge/requests', authenticateDemo, (req: Request, res: Respons
   };
 
   mockConciergeRequests.unshift(newRequest);
+
+  const shouldNotifySupport =
+    notifySupport === true ||
+    String(source || '').toUpperCase() === 'CHATBOT' ||
+    String(title || '').toLowerCase().includes('chatbot handoff');
+
+  if (shouldNotifySupport) {
+    const emails =
+      config.supportNotifyEmails.length > 0
+        ? config.supportNotifyEmails
+        : config.accessRequestNotifyEmails;
+    const phones = config.supportNotifyPhones;
+    const conciergeUrl = `${config.appUrl}/concierge`;
+
+    if (emails.length > 0) {
+      const { html, text } = renderLafloEmail({
+        preheader: 'New chatbot handoff requires human support follow-up.',
+        title: 'New chatbot handoff request',
+        intro: 'A user escalated a chatbot conversation to human support.',
+        meta: [
+          { label: 'Hotel', value: mockHotel.name },
+          { label: 'Requester', value: 'demo-user@laflo.app' },
+          { label: 'Priority', value: priority || 'MEDIUM' },
+          { label: 'Request ID', value: newRequest.id },
+          { label: 'Title', value: title || 'Chatbot handoff' },
+        ],
+        bodyHtml: details
+          ? `<p style="margin:0;"><strong>Issue summary:</strong></p><p style="margin:6px 0 0;">${escapeEmailText(String(details).slice(0, 500))}</p>`
+          : undefined,
+        cta: { label: 'Open Concierge', url: conciergeUrl },
+        footerNote: 'This alert was generated from chatbot-to-human escalation.',
+      });
+
+      sendEmail({
+        to: emails.join(','),
+        subject: `[LaFlo] Chatbot handoff: ${title || 'New support request'}`,
+        html,
+        text,
+      }).catch((error) => {
+        console.error('[CONCIERGE] Failed to send handoff email notifications:', error);
+      });
+    }
+
+    if (phones.length > 0) {
+      const smsMessage = `LaFlo support alert: ${title || 'New chatbot handoff'} (${priority || 'MEDIUM'}). Open ${conciergeUrl}`;
+      Promise.all(phones.map((to: string) => sendSms({ to, message: smsMessage }))).catch((error) => {
+        console.error('[CONCIERGE] Failed to send handoff SMS notifications:', error);
+      });
+    }
+  }
 
   res.status(201).json({ success: true, data: newRequest });
 });

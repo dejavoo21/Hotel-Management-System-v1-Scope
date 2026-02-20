@@ -6,7 +6,15 @@ import toast from 'react-hot-toast';
 
 export default function LoginPage() {
   const [searchParams] = useSearchParams();
-  const [email, setEmail] = useState(() => searchParams.get('email') || '');
+  const [email, setEmail] = useState(() => {
+    const fromQuery = searchParams.get('email');
+    if (fromQuery) return fromQuery;
+    try {
+      return localStorage.getItem('laflo:remembered-email') || '';
+    } catch {
+      return '';
+    }
+  });
   const [password, setPassword] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [otpMode, setOtpMode] = useState(false);
@@ -14,6 +22,13 @@ export default function LoginPage() {
   const [otpPurpose, setOtpPurpose] = useState<'LOGIN' | 'ACCESS_REVALIDATION'>('LOGIN');
   const [otpChannel, setOtpChannel] = useState<'EMAIL' | 'SMS'>('EMAIL');
   const [otpPhone, setOtpPhone] = useState('');
+  const [rememberMe, setRememberMe] = useState(() => {
+    try {
+      return localStorage.getItem('laflo:remember-me') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [rememberDevice, setRememberDevice] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
@@ -37,6 +52,18 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      try {
+        if (rememberMe) {
+          localStorage.setItem('laflo:remember-me', 'true');
+          localStorage.setItem('laflo:remembered-email', email.trim());
+        } else {
+          localStorage.removeItem('laflo:remember-me');
+          localStorage.removeItem('laflo:remembered-email');
+        }
+      } catch {
+        // ignore storage failures
+      }
+
       if (otpMode) {
         const response = await loginWithOtp(
           email,
@@ -272,6 +299,8 @@ export default function LoginPage() {
             <input
               id="remember-me"
               type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
               className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
             />
             <span className="text-sm text-slate-600">Remember me</span>

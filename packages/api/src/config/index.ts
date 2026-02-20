@@ -43,6 +43,17 @@ export const config = {
   accessRequestNotifyEmails: process.env.ACCESS_REQUEST_NOTIFY_EMAILS
     ? process.env.ACCESS_REQUEST_NOTIFY_EMAILS.split(',').map((email) => email.trim()).filter(Boolean)
     : [],
+  supportNotifyEmails: process.env.SUPPORT_NOTIFY_EMAILS
+    ? process.env.SUPPORT_NOTIFY_EMAILS.split(',').map((email) => email.trim()).filter(Boolean)
+    : [],
+  supportNotifyPhones: process.env.SUPPORT_NOTIFY_PHONES
+    ? process.env.SUPPORT_NOTIFY_PHONES.split(',').map((phone) => phone.trim()).filter(Boolean)
+    : [],
+  sms: {
+    twilioAccountSid: process.env.TWILIO_ACCOUNT_SID || '',
+    twilioAuthToken: process.env.TWILIO_AUTH_TOKEN || '',
+    fromPhone: process.env.SMS_FROM_PHONE || '',
+  },
   smtp: {
     host: process.env.SMTP_HOST || '',
     port: parseInt(process.env.SMTP_PORT || '465', 10),
