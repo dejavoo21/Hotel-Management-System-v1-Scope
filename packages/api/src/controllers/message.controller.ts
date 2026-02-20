@@ -1,13 +1,26 @@
-import { Response, NextFunction } from 'express';
+import { Response, NextFunction, Request } from 'express';
 import { AuthenticatedRequest, ApiResponse } from '../types/index.js';
 import { prisma } from '../config/database.js';
+import { config } from '../config/index.js';
 import { Role } from '@prisma/client';
+import twilio from 'twilio';
 
 const LIVE_SUPPORT_SUBJECT = 'Live Support';
 const SUPPORT_HEARTBEAT_ACTION = 'SUPPORT_HEARTBEAT';
 const ASSIGNMENT_PREFIX = '[SUPPORT_ASSIGNED]';
 const BOT_HANDOFF_CONNECTING = 'I am now connecting you with one of our live Customer Support Agents for further assistance.';
 const BOT_HANDOFF_WAITING = 'Hi, thank you for requesting to chat with an agent. Our agent will be with you shortly.';
+const VOICE_TOKEN_TTL_SECONDS = 60 * 60;
+
+const sanitizePhone = (value?: string) => (value || '').replace(/[^\d+]/g, '');
+const isVoiceConfigured = () =>
+  Boolean(
+    config.voice.twilioAccountSid &&
+      config.voice.twilioApiKeySid &&
+      config.voice.twilioApiKeySecret &&
+      config.voice.twimlAppSid &&
+      config.voice.fromPhone
+  );
 
 const resolveThreadTitle = (guest?: { firstName: string; lastName: string }, bookingRef?: string) => {
   if (guest) {
@@ -380,6 +393,83 @@ export async function heartbeatSupportPresence(
   } catch (error) {
     next(error);
   }
+}
+
+export async function getSupportVoiceToken(
+  req: AuthenticatedRequest,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> {
+  try {
+    if (!isVoiceConfigured()) {
+      res.status(503).json({ success: false, error: 'In-app voice calling is not configured yet' });
+      return;
+    }
+
+    const identity = `support:${req.user!.hotelId}:${req.user!.id}`;
+    const AccessToken = twilio.jwt.AccessToken;
+    const VoiceGrant = AccessToken.VoiceGrant;
+
+    const token = new AccessToken(
+      config.voice.twilioAccountSid,
+      config.voice.twilioApiKeySid,
+      config.voice.twilioApiKeySecret,
+      {
+        identity,
+        ttl: VOICE_TOKEN_TTL_SECONDS,
+      }
+    );
+
+    token.addGrant(
+      new VoiceGrant({
+        outgoingApplicationSid: config.voice.twimlAppSid,
+        incomingAllow: false,
+      })
+    );
+
+    res.json({
+      success: true,
+      data: {
+        token: token.toJwt(),
+        identity,
+        fromPhone: config.voice.fromPhone,
+        enabled: true,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function supportVoiceTwiml(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const response = new twilio.twiml.VoiceResponse();
+  const to = sanitizePhone((req.body?.To as string | undefined) || (req.query?.To as string | undefined));
+  const callerId = sanitizePhone(config.voice.fromPhone);
+
+  if (!isVoiceConfigured() || !callerId) {
+    response.say('Voice calling is not configured.');
+    response.hangup();
+    res.type('text/xml').send(response.toString());
+    return;
+  }
+
+  if (!to) {
+    response.say('No phone number was provided.');
+    response.hangup();
+    res.type('text/xml').send(response.toString());
+    return;
+  }
+
+  const dial = response.dial({
+    callerId,
+    answerOnBridge: true,
+    timeout: 20,
+  });
+  dial.number(to);
+  res.type('text/xml').send(response.toString());
 }
 
 export async function listSupportAgents(

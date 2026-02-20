@@ -54,6 +54,13 @@ export const config = {
     twilioAuthToken: process.env.TWILIO_AUTH_TOKEN || '',
     fromPhone: process.env.SMS_FROM_PHONE || '',
   },
+  voice: {
+    twilioAccountSid: process.env.TWILIO_ACCOUNT_SID || '',
+    twilioApiKeySid: process.env.TWILIO_VOICE_API_KEY_SID || '',
+    twilioApiKeySecret: process.env.TWILIO_VOICE_API_KEY_SECRET || '',
+    twimlAppSid: process.env.TWILIO_VOICE_TWIML_APP_SID || '',
+    fromPhone: process.env.TWILIO_VOICE_FROM_PHONE || process.env.SMS_FROM_PHONE || '',
+  },
   smtp: {
     host: process.env.SMTP_HOST || '',
     port: parseInt(process.env.SMTP_PORT || '465', 10),

@@ -236,6 +236,13 @@ export interface MessageThreadSummary {
   };
 }
 
+export interface SupportVoiceToken {
+  token: string;
+  identity: string;
+  fromPhone?: string;
+  enabled: boolean;
+}
+
 export interface MessageThreadDetail extends MessageThreadSummary {
   messages: ConversationMessage[];
 }

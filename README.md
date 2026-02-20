@@ -177,6 +177,15 @@ NODE_ENV=development
 
 # Frontend
 VITE_API_URL=http://localhost:3001/api
+
+# Twilio (SMS + in-app Voice calls)
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+SMS_FROM_PHONE=+15551234567
+TWILIO_VOICE_API_KEY_SID=SKxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_VOICE_API_KEY_SECRET=your_twilio_voice_api_key_secret
+TWILIO_VOICE_TWIML_APP_SID=APxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_VOICE_FROM_PHONE=+15551234567
 ```
 
 ## User Roles & Permissions

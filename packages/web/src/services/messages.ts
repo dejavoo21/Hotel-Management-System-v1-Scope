@@ -3,6 +3,7 @@ import type {
   ConversationMessage,
   MessageThreadDetail,
   MessageThreadSummary,
+  SupportVoiceToken,
   SupportAgent,
 } from '@/types';
 
@@ -41,6 +42,11 @@ export const messageService = {
 
   async assignSupportAgent(threadId: string, userId?: string): Promise<MessageThreadSummary> {
     const response = await api.post(`/messages/${threadId}/assign`, userId ? { userId } : undefined);
+    return response.data.data;
+  },
+
+  async getSupportVoiceToken(): Promise<SupportVoiceToken> {
+    const response = await api.get('/messages/support/voice/token');
     return response.data.data;
   },
 };

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { messageService } from '@/services';
@@ -9,7 +9,9 @@ import type {
   MessageThreadDetail,
   MessageThreadSummary,
   SupportAgent,
+  SupportVoiceToken,
 } from '@/types';
+import type { Device, Call } from '@twilio/voice-sdk';
 
 const formatTime = (date: string) =>
   new Date(date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -85,6 +87,11 @@ export default function MessagesPage() {
   const [draftMessage, setDraftMessage] = useState('');
   const [callStatus, setCallStatus] = useState<Record<string, 'PENDING' | 'IN_PROGRESS' | 'DONE'>>({});
   const [callNotes, setCallNotes] = useState<Record<string, string>>({});
+  const [voiceState, setVoiceState] = useState<'IDLE' | 'CONNECTING' | 'IN_CALL' | 'ERROR'>('IDLE');
+  const [voiceError, setVoiceError] = useState('');
+  const [activeVoiceThreadId, setActiveVoiceThreadId] = useState<string | null>(null);
+  const voiceDeviceRef = useRef<Device | null>(null);
+  const voiceCallRef = useRef<Call | null>(null);
 
   const { data: threadsData, isLoading, refetch: refetchThreads } = useQuery({
     queryKey: ['message-threads', search],
@@ -185,6 +192,106 @@ export default function MessagesPage() {
       await Promise.all([activeThreadQuery.refetch(), refetchThreads()]);
     },
   });
+
+  const ensureVoiceDevice = async (): Promise<Device | null> => {
+    if (voiceDeviceRef.current) return voiceDeviceRef.current;
+    let tokenData: SupportVoiceToken;
+    try {
+      tokenData = await messageService.getSupportVoiceToken();
+    } catch {
+      setVoiceError('In-app calling is not configured yet. Please use Call guest (dialer).');
+      setVoiceState('ERROR');
+      return null;
+    }
+    try {
+      const sdk = await import('@twilio/voice-sdk');
+      const device = new sdk.Device(tokenData.token, {
+        edge: 'ashburn',
+        logLevel: 0,
+      });
+      device.on('error', (error) => {
+        setVoiceError(error.message || 'Voice device error');
+        setVoiceState('ERROR');
+      });
+      device.on('tokenWillExpire', async () => {
+        try {
+          const refreshed = await messageService.getSupportVoiceToken();
+          await device.updateToken(refreshed.token);
+        } catch {
+          setVoiceError('Failed to refresh voice token');
+          setVoiceState('ERROR');
+        }
+      });
+      await device.register();
+      voiceDeviceRef.current = device;
+      return device;
+    } catch {
+      setVoiceError('Unable to initialize in-app calling on this browser.');
+      setVoiceState('ERROR');
+      return null;
+    }
+  };
+
+  const startInAppCall = async (threadId: string, phone: string) => {
+    if (!phone) {
+      setVoiceError('No phone number saved for this thread.');
+      setVoiceState('ERROR');
+      return;
+    }
+    setVoiceError('');
+    setVoiceState('CONNECTING');
+    setActiveVoiceThreadId(threadId);
+    setCallStatus((prev) => ({ ...prev, [threadId]: 'IN_PROGRESS' }));
+    const device = await ensureVoiceDevice();
+    if (!device) {
+      setCallStatus((prev) => ({ ...prev, [threadId]: 'PENDING' }));
+      setActiveVoiceThreadId(null);
+      return;
+    }
+    try {
+      const call = await device.connect({
+        params: { To: phone, threadId },
+      });
+      voiceCallRef.current = call;
+      setActiveVoiceThreadId(threadId);
+      setVoiceState('IN_CALL');
+      call.on('disconnect', () => {
+        setVoiceState('IDLE');
+        setActiveVoiceThreadId(null);
+        setCallStatus((prev) => ({ ...prev, [threadId]: 'DONE' }));
+        voiceCallRef.current = null;
+      });
+    } catch {
+      setVoiceError('Failed to place in-app call.');
+      setVoiceState('ERROR');
+      setCallStatus((prev) => ({ ...prev, [threadId]: 'PENDING' }));
+      setActiveVoiceThreadId(null);
+    }
+  };
+
+  const endInAppCall = () => {
+    if (voiceCallRef.current) {
+      voiceCallRef.current.disconnect();
+      voiceCallRef.current = null;
+    }
+    if (activeVoiceThreadId) {
+      setCallStatus((prev) => ({ ...prev, [activeVoiceThreadId]: 'DONE' }));
+    }
+    setActiveVoiceThreadId(null);
+    setVoiceState('IDLE');
+  };
+
+  useEffect(
+    () => () => {
+      if (voiceCallRef.current) {
+        voiceCallRef.current.disconnect();
+      }
+      if (voiceDeviceRef.current) {
+        void voiceDeviceRef.current.destroy();
+      }
+    },
+    []
+  );
 
   return (
     <div className="space-y-4">
@@ -493,6 +600,14 @@ export default function MessagesPage() {
                     >
                       Complete
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => void startInAppCall(item.id, item.phone)}
+                      disabled={!item.phone || voiceState === 'CONNECTING' || voiceState === 'IN_CALL'}
+                      className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-semibold text-sky-700 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {voiceState === 'CONNECTING' && activeVoiceThreadId === item.id ? 'Connecting...' : 'Call in app'}
+                    </button>
                     {item.phone ? (
                       <a
                         href={`tel:${item.phone}`}
@@ -505,8 +620,28 @@ export default function MessagesPage() {
                 </div>
               ))}
             </div>
+            {voiceState !== 'IDLE' || voiceError ? (
+              <div className="mt-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[11px] text-slate-600">
+                {voiceError ? (
+                  <span className="text-red-600">{voiceError}</span>
+                ) : voiceState === 'CONNECTING' ? (
+                  'Connecting in-app call...'
+                ) : (
+                  <div className="flex items-center justify-between gap-2">
+                    <span>In-app call active</span>
+                    <button
+                      type="button"
+                      onClick={endInAppCall}
+                      className="rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700 hover:bg-red-100"
+                    >
+                      End call
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : null}
             <p className="mt-2 text-[11px] text-slate-500">
-              `Start` marks call handling in queue. `Call` opens the phone dialer when a number is available.
+              `Call in app` uses Twilio Voice (WebRTC). `Call` opens the phone dialer fallback.
             </p>
             <div className="mt-3">
               <label className="text-xs font-semibold uppercase text-slate-500">Call notes</label>
