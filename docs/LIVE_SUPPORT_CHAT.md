@@ -15,7 +15,10 @@ Mode selection changes quick prompts and bot response context.
 1. User clicks `Escalate to human helpdesk` in chatbot.
 2. System creates a concierge request for tracking.
 3. System creates/opens a `Live Support` conversation in Messages.
-4. User and support staff continue in the same thread.
+4. Chatbot posts in-thread handoff messages:
+   - `I am now connecting you with one of our live Customer Support Agents for further assistance.`
+   - `Hi, thank you for requesting to chat with an agent. Our agent will be with you shortly.`
+5. User and support staff continue in the same thread.
 
 ## Open Live Helpdesk
 - Chatbot `Open live helpdesk` creates/opens live support thread.
@@ -25,6 +28,8 @@ Mode selection changes quick prompts and bot response context.
 - Support/admin staff can assign a thread to self or another support agent.
 - Assignment is stored as a system event in the conversation timeline.
 - Current assignment is visible in the Messages profile panel.
+- When an agent is assigned, the system auto-posts an agent greeting message:
+  - `Hi, thank you for contacting LaFlo. My name is <Agent Name>. How may I assist you?`
 
 ## Online Presence
 - Support users send a periodic heartbeat while Messages is open.

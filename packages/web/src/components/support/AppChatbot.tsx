@@ -156,14 +156,20 @@ export default function AppChatbot() {
         status: 'PENDING',
       });
       await messageService.getOrCreateLiveSupportThread(
-        `[${modeConfig[mode].label}] ${note}`
+        `[${modeConfig[mode].label}] ${note}`,
+        `Chatbot handoff requested by ${user?.firstName || 'User'} ${user?.lastName || ''}`.trim()
       );
       setMessages((prev) => [
         ...prev,
         {
           id: `b-handoff-${Date.now()}`,
           role: 'bot',
-          text: 'I have escalated this to the helpdesk. Open Concierge to continue with a human admin.',
+          text: 'I am now connecting you with one of our live Customer Support Agents for further assistance.',
+        },
+        {
+          id: `b-handoff-wait-${Date.now()}`,
+          role: 'bot',
+          text: 'Hi, thank you for requesting to chat with an agent. Our agent will be with you shortly.',
         },
       ]);
       setHandoffRequested(false);

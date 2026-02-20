@@ -270,16 +270,29 @@ export default function MessagesPage() {
             <div className="space-y-4">
               {activeMessages.map((message) => {
                 const guestMsg = message.senderType === 'GUEST';
+                const systemMsg = message.senderType === 'SYSTEM';
+                const alignLeft = guestMsg || systemMsg;
                 return (
-                  <div key={message.id} className={`flex gap-2 ${guestMsg ? 'justify-start' : 'justify-end'}`}>
-                    {guestMsg ? (
+                  <div key={message.id} className={`flex gap-2 ${alignLeft ? 'justify-start' : 'justify-end'}`}>
+                    {alignLeft ? (
                       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-lime-200 text-xs font-bold text-slate-800">
-                        {getInitials(resolveSenderName(message))}
+                        {systemMsg ? 'AI' : getInitials(resolveSenderName(message))}
                       </div>
                     ) : null}
-                    <div className={`max-w-[72%] rounded-2xl px-4 py-3 text-sm ${guestMsg ? 'bg-emerald-100 text-slate-800' : 'bg-lime-200 text-slate-900'}`}>
+                    <div className="max-w-[72%]">
+                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        {systemMsg ? 'LaFlo Assistant' : resolveSenderName(message)}
+                      </p>
+                    <div className={`rounded-2xl px-4 py-3 text-sm ${
+                      guestMsg
+                        ? 'bg-emerald-100 text-slate-800'
+                        : systemMsg
+                          ? 'bg-primary-700 text-white'
+                          : 'bg-lime-200 text-slate-900'
+                    }`}>
                       <p>{message.body}</p>
-                      <p className="mt-1 text-right text-[11px] text-slate-500">{formatTime(message.createdAt)}</p>
+                      <p className={`mt-1 text-right text-[11px] ${systemMsg ? 'text-white/80' : 'text-slate-500'}`}>{formatTime(message.createdAt)}</p>
+                    </div>
                     </div>
                   </div>
                 );

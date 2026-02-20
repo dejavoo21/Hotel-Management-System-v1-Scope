@@ -17,9 +17,10 @@ export const messageService = {
     return response.data.data;
   },
 
-  async getOrCreateLiveSupportThread(initialMessage?: string): Promise<MessageThreadSummary> {
+  async getOrCreateLiveSupportThread(initialMessage?: string, handoffSummary?: string): Promise<MessageThreadSummary> {
     const response = await api.post('/messages/live-support', {
       initialMessage,
+      handoffSummary,
     });
     return response.data.data;
   },

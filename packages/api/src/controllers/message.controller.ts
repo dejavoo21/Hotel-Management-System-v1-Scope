@@ -6,6 +6,8 @@ import { Role } from '@prisma/client';
 const LIVE_SUPPORT_SUBJECT = 'Live Support';
 const SUPPORT_HEARTBEAT_ACTION = 'SUPPORT_HEARTBEAT';
 const ASSIGNMENT_PREFIX = '[SUPPORT_ASSIGNED]';
+const BOT_HANDOFF_CONNECTING = 'I am now connecting you with one of our live Customer Support Agents for further assistance.';
+const BOT_HANDOFF_WAITING = 'Hi, thank you for requesting to chat with an agent. Our agent will be with you shortly.';
 
 const resolveThreadTitle = (guest?: { firstName: string; lastName: string }, bookingRef?: string) => {
   if (guest) {
@@ -54,7 +56,10 @@ const serializeThreadSummary = (
     }>;
   }
 ) => {
-  const lastMessage = conversation.messages[0];
+  const visibleMessages = conversation.messages.filter(
+    (msg) => !(msg.senderType === 'SYSTEM' && msg.body.startsWith(ASSIGNMENT_PREFIX))
+  );
+  const lastMessage = visibleMessages[0];
   const assignmentMessage = conversation.messages.find((msg) => msg.senderType === 'SYSTEM' && msg.body.startsWith(ASSIGNMENT_PREFIX));
   const assignedSupport = assignmentMessage ? parseAssignedUser(assignmentMessage.body) : null;
   return {
@@ -200,6 +205,9 @@ export async function getThread(
       .reverse()
       .find((message) => message.senderType === 'SYSTEM' && message.body.startsWith(ASSIGNMENT_PREFIX));
     const assignedSupport = assignmentMessage ? parseAssignedUser(assignmentMessage.body) : null;
+    const visibleMessages = conversation.messages.filter(
+      (message) => !(message.senderType === 'SYSTEM' && message.body.startsWith(ASSIGNMENT_PREFIX))
+    );
 
     res.json({
       success: true,
@@ -220,7 +228,7 @@ export async function getThread(
               assignedById: assignedSupport.assignedById,
             }
           : undefined,
-        messages: conversation.messages.map((message) => ({
+        messages: visibleMessages.map((message) => ({
           id: message.id,
           body: message.body,
           senderType: message.senderType,
@@ -244,7 +252,7 @@ export async function getOrCreateLiveSupportThread(
     const hotelId = req.user!.hotelId;
     const userId = req.user!.id;
     const userName = `${req.user!.firstName} ${req.user!.lastName}`.trim();
-    const { initialMessage } = req.body as { initialMessage?: string };
+    const { initialMessage, handoffSummary } = req.body as { initialMessage?: string; handoffSummary?: string };
 
     let conversation = await prisma.conversation.findFirst({
       where: { hotelId, subject: LIVE_SUPPORT_SUBJECT, status: { in: ['OPEN', 'RESOLVED'] } },
@@ -292,31 +300,60 @@ export async function getOrCreateLiveSupportThread(
       });
     }
 
+    const notes: string[] = [];
+    if (handoffSummary?.trim()) {
+      notes.push(handoffSummary.trim());
+    }
     if (initialMessage?.trim()) {
-      const created = await prisma.message.create({
-        data: {
-          conversationId: conversation.id,
-          senderType: 'STAFF',
-          senderUserId: userId,
-          body: initialMessage.trim(),
-        },
-        include: {
-          senderUser: { select: { firstName: true, lastName: true, role: true } },
-          guest: { select: { firstName: true, lastName: true } },
-        },
+      notes.push(initialMessage.trim());
+    }
+    if (notes.length > 0) {
+      const created = await prisma.$transaction(async (tx) => {
+        const createdMessages = await Promise.all([
+          tx.message.create({
+            data: {
+              conversationId: conversation!.id,
+              senderType: 'STAFF',
+              senderUserId: userId,
+              body: notes.join('\n'),
+            },
+            include: {
+              senderUser: { select: { firstName: true, lastName: true, role: true } },
+              guest: { select: { firstName: true, lastName: true } },
+            },
+          }),
+          tx.message.create({
+            data: {
+              conversationId: conversation!.id,
+              senderType: 'SYSTEM',
+              body: BOT_HANDOFF_CONNECTING,
+            },
+            include: {
+              senderUser: { select: { firstName: true, lastName: true, role: true } },
+              guest: { select: { firstName: true, lastName: true } },
+            },
+          }),
+          tx.message.create({
+            data: {
+              conversationId: conversation!.id,
+              senderType: 'SYSTEM',
+              body: BOT_HANDOFF_WAITING,
+            },
+            include: {
+              senderUser: { select: { firstName: true, lastName: true, role: true } },
+              guest: { select: { firstName: true, lastName: true } },
+            },
+          }),
+        ]);
+        const lastCreated = createdMessages[createdMessages.length - 1];
+        await tx.conversation.update({
+          where: { id: conversation!.id },
+          data: { status: 'OPEN', lastMessageAt: lastCreated.createdAt },
+        });
+        return lastCreated;
       });
 
-      await prisma.conversation.update({
-        where: { id: conversation.id },
-        data: { status: 'OPEN', lastMessageAt: created.createdAt },
-      });
-
-      conversation = {
-        ...conversation,
-        status: 'OPEN',
-        lastMessageAt: created.createdAt,
-        messages: [created],
-      };
+      conversation = { ...conversation, status: 'OPEN', lastMessageAt: created.createdAt };
     }
 
     res.json({ success: true, data: serializeThreadSummary(conversation) });
@@ -450,16 +487,28 @@ export async function assignSupportAgent(
       assignedById: req.user!.id,
     });
 
-    const assignmentMessage = await prisma.message.create({
-      data: {
-        conversationId: conversation.id,
-        senderType: 'SYSTEM',
-        body: `${ASSIGNMENT_PREFIX} ${assignmentPayload}`,
-      },
-      include: {
-        senderUser: { select: { firstName: true, lastName: true, role: true } },
-        guest: { select: { firstName: true, lastName: true } },
-      },
+    const assignmentMessage = await prisma.$transaction(async (tx) => {
+      const assignment = await tx.message.create({
+        data: {
+          conversationId: conversation.id,
+          senderType: 'SYSTEM',
+          body: `${ASSIGNMENT_PREFIX} ${assignmentPayload}`,
+        },
+        include: {
+          senderUser: { select: { firstName: true, lastName: true, role: true } },
+          guest: { select: { firstName: true, lastName: true } },
+        },
+      });
+
+      await tx.message.create({
+        data: {
+          conversationId: conversation.id,
+          senderType: 'STAFF',
+          senderUserId: agent.id,
+          body: `Hi, thank you for contacting LaFlo. My name is ${agent.firstName}. How may I assist you?`,
+        },
+      });
+      return assignment;
     });
 
     await prisma.conversation.update({
