@@ -124,10 +124,16 @@ export default function MessagesPage() {
   const supportAgentOnlineMap = useMemo(() => {
     const map = new Map<string, boolean>();
     for (const agent of supportAgentsQuery.data || []) {
-      map.set(agent.id, agent.online);
+      const isCurrentUserById = Boolean(user?.id && agent.id === user.id);
+      const isCurrentUserByIdentity =
+        Boolean(user?.firstName && user?.lastName && user?.role) &&
+        agent.firstName.toLowerCase() === (user?.firstName || '').toLowerCase() &&
+        agent.lastName.toLowerCase() === (user?.lastName || '').toLowerCase() &&
+        agent.role === user?.role;
+      map.set(agent.id, agent.online || isCurrentUserById || isCurrentUserByIdentity);
     }
     return map;
-  }, [supportAgentsQuery.data]);
+  }, [supportAgentsQuery.data, user?.id, user?.firstName, user?.lastName, user?.role]);
 
   useEffect(() => {
     const requestedThreadId = searchParams.get('thread');
@@ -530,14 +536,16 @@ export default function MessagesPage() {
               </span>
             </div>
             <div className="mt-2 space-y-2">
-              {(supportAgentsQuery.data || []).map((agent) => (
+              {(supportAgentsQuery.data || []).map((agent) => {
+                const isOnline = supportAgentOnlineMap.get(agent.id) === true;
+                return (
                 <div
                   key={agent.id}
                   className="flex items-center justify-between rounded-lg border border-slate-200 px-2 py-1.5"
                 >
                   <div>
                     <p className="flex items-center gap-1.5 text-sm font-medium text-slate-800">
-                      <span className={`h-2 w-2 rounded-full ${agent.online ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                      <span className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                       {agent.firstName} {agent.lastName}
                     </p>
                     <p className="text-xs text-slate-500">{agent.role}</p>
@@ -545,10 +553,10 @@ export default function MessagesPage() {
                   <div className="flex items-center gap-2">
                     <span
                       className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                        agent.online ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                        isOnline ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
                       }`}
                     >
-                      {agent.online ? 'Online' : 'Offline'}
+                      {isOnline ? 'Online' : 'Offline'}
                     </span>
                     <button
                       type="button"
@@ -562,7 +570,8 @@ export default function MessagesPage() {
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

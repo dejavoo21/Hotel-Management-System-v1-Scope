@@ -463,6 +463,10 @@ export default function DashboardLayout() {
   const guestItems = mainItems.filter((item) => ['Guests', 'Messages'].includes(item.name));
   const financialItem = bottomNavigation.find((item) => item.name === 'Financials');
   const experienceItems = bottomNavigation.filter((item) => item.name !== 'Financials');
+  const visibleExperienceItems = experienceItems.filter((item) => {
+    if (item.roles && !item.roles.includes((user?.role || '') as UserRole)) return false;
+    return hasAccess(item.permission);
+  });
 
   const globalSearchTargets = useMemo<GlobalSearchTarget[]>(() => {
     const targets: GlobalSearchTarget[] = [];
@@ -643,17 +647,15 @@ export default function DashboardLayout() {
                 </>
               )}
 
-            <SectionHeader title="Experience" sectionKey="experience" />
-            {openSections.experience &&
-              experienceItems.map((item) => {
-                if (item.roles && !item.roles.includes((user?.role || '') as UserRole)) {
-                  return null;
-                }
-                if (!hasAccess(item.permission)) {
-                  return null;
-                }
-                return <NavItem key={item.name} item={item} onClick={() => setSidebarOpen(false)} />;
-              })}
+            {visibleExperienceItems.length > 0 && (
+              <>
+                <SectionHeader title="Experience" sectionKey="experience" />
+                {openSections.experience &&
+                  visibleExperienceItems.map((item) => (
+                    <NavItem key={item.name} item={item} onClick={() => setSidebarOpen(false)} />
+                  ))}
+              </>
+            )}
 
             {(isAdmin || hasAccess('settings') || hasAccess('users')) && (
               <>
