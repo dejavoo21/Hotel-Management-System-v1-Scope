@@ -1568,16 +1568,28 @@ router.post('/access-requests/:id/approve', authenticateDemo, async (req: Reques
     let inviteEmailSent = false;
     let deliveryWarning: string | null = null;
     try {
+      const resetToken = jwt.sign(
+        { userId: existingUser.id, type: 'password-reset' },
+        config.jwt.secret,
+        { expiresIn: '1h' }
+      );
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      demoResetTokenStore.set(resetToken, { userId: existingUser.id, expiresAt });
+      const resetUrl = `${config.appUrl || 'https://laflo-web-production.up.railway.app'}/reset-password?token=${resetToken}`;
+
       const alreadyExistsEmail = renderLafloEmail({
-        preheader: `Your access request was approved. Sign in with your existing account. Reference AR-${accessRequest.id}.`,
+        preheader: `Your access request was approved. Set a new password to continue. Reference AR-${accessRequest.id}.`,
         title: 'Access approved',
         greeting: `Hello ${accessRequest.fullName || 'there'},`,
         intro:
-          'Your request has been approved, and this email is already registered. Sign in with your existing account and use "Forgot password" if needed.',
-        meta: [{ label: 'Reference', value: `AR-${accessRequest.id}` }],
+          'Your request has been approved, and this email is already registered. Use the button below to set a new password and continue.',
+        meta: [
+          { label: 'Email', value: existingUser.email },
+          { label: 'Reference', value: `AR-${accessRequest.id}` },
+        ],
         cta: {
-          label: 'Go to login',
-          url: `${config.appUrl || 'https://laflo-web-production.up.railway.app'}/login`,
+          label: 'Set password',
+          url: resetUrl,
         },
       });
 
@@ -1687,6 +1699,169 @@ router.post('/access-requests/:id/approve', authenticateDemo, async (req: Reques
       loginUrl: `${config.appUrl || 'https://laflo-web-production.up.railway.app'}/login`,
     },
   });
+});
+
+// Compatibility endpoints used by production web client
+router.post('/auth/password/request', async (req: Request, res: Response) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ success: false, error: 'Email is required' });
+  }
+
+  const user = mockUsers.find(u => u.email.toLowerCase() === String(email).toLowerCase());
+  if (!user) {
+    return res.json({ success: true, message: 'If an account exists, a password reset link has been sent' });
+  }
+
+  const resetToken = jwt.sign(
+    { userId: user.id, type: 'password-reset' },
+    config.jwt.secret,
+    { expiresIn: '1h' }
+  );
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+  demoResetTokenStore.set(resetToken, { userId: user.id, expiresAt });
+
+  const resetUrl = `${config.appUrl || 'https://laflo-web-production.up.railway.app'}/reset-password?token=${resetToken}`;
+  try {
+    const resetEmail = renderLafloEmail({
+      preheader: 'Use this link to reset your password (expires in 60 minutes).',
+      title: 'Reset your password',
+      greeting: `Hello ${user.firstName || 'User'},`,
+      intro: 'Use the button below to reset your password. This link expires in 60 minutes.',
+      cta: { label: 'Reset password', url: resetUrl },
+      footerNote: 'If you did not request a password reset, you can ignore this email.',
+    });
+    await sendEmail({
+      to: user.email,
+      subject: 'Reset your LaFlo password',
+      html: resetEmail.html,
+      text: resetEmail.text,
+    });
+  } catch (err) {
+    console.error('Failed to send password reset email:', err);
+  }
+
+  res.json({ success: true, message: 'If an account exists, a password reset link has been sent' });
+});
+
+router.post('/auth/password/context', async (req: Request, res: Response) => {
+  const { token } = req.body;
+  if (!token) {
+    return res.status(400).json({ success: false, error: 'Reset token is required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, config.jwt.secret) as any;
+    if (decoded.type !== 'password-reset') {
+      return res.status(401).json({ success: false, error: 'Invalid reset token' });
+    }
+    const storedReset = demoResetTokenStore.get(token);
+    if (!storedReset || new Date() > storedReset.expiresAt) {
+      demoResetTokenStore.delete(token);
+      return res.status(401).json({ success: false, error: 'Reset link is invalid or expired' });
+    }
+    const user = mockUsers.find((u) => u.id === decoded.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+    return res.json({ success: true, data: { email: user.email } });
+  } catch {
+    return res.status(401).json({ success: false, error: 'Reset link is invalid or expired' });
+  }
+});
+
+router.post('/auth/password/otp', async (req: Request, res: Response) => {
+  const { token } = req.body;
+  if (!token) {
+    return res.status(400).json({ success: false, error: 'Reset token is required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, config.jwt.secret) as any;
+    if (decoded.type !== 'password-reset') {
+      return res.status(401).json({ success: false, error: 'Invalid reset token' });
+    }
+    const storedReset = demoResetTokenStore.get(token);
+    if (!storedReset || new Date() > storedReset.expiresAt) {
+      demoResetTokenStore.delete(token);
+      return res.status(401).json({ success: false, error: 'Reset link is invalid or expired' });
+    }
+    const user = mockUsers.find((u) => u.id === decoded.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    demoOtpStore.set(user.email.toLowerCase(), { code: otpCode, expiresAt, userId: user.id });
+
+    try {
+      const { html, text } = renderOtpEmail({
+        firstName: user.firstName || 'User',
+        code: otpCode,
+      });
+      await sendEmail({
+        to: user.email,
+        subject: 'Your LaFlo password reset verification code',
+        html,
+        text,
+      });
+    } catch (err) {
+      console.error('Failed to send password reset OTP email:', err);
+    }
+
+    return res.json({ success: true, message: 'Verification code sent' });
+  } catch {
+    return res.status(401).json({ success: false, error: 'Reset link is invalid or expired' });
+  }
+});
+
+router.post('/auth/password/reset', async (req: Request, res: Response) => {
+  const { token, otpCode, newPassword } = req.body;
+  const password = newPassword || req.body.password;
+
+  if (!token) {
+    return res.status(400).json({ success: false, error: 'Reset token is required' });
+  }
+  if (!password) {
+    return res.status(400).json({ success: false, error: 'New password is required' });
+  }
+  if (!otpCode) {
+    return res.status(400).json({ success: false, error: 'Verification code is required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, config.jwt.secret) as any;
+    if (decoded.type !== 'password-reset') {
+      return res.status(401).json({ success: false, error: 'Invalid reset token' });
+    }
+
+    const storedReset = demoResetTokenStore.get(token);
+    if (!storedReset || new Date() > storedReset.expiresAt) {
+      demoResetTokenStore.delete(token);
+      return res.status(401).json({ success: false, error: 'Reset link has expired. Please request a new one.' });
+    }
+
+    const user = mockUsers.find(u => u.id === decoded.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    const storedOtp = demoOtpStore.get(user.email.toLowerCase());
+    if (!storedOtp || new Date() > storedOtp.expiresAt || storedOtp.code !== String(otpCode)) {
+      return res.status(401).json({ success: false, error: 'Verification code is invalid or expired' });
+    }
+
+    user.passwordHash = await bcrypt.hash(String(password), 10);
+    user.mustChangePassword = false;
+    demoOtpStore.delete(user.email.toLowerCase());
+    demoResetTokenStore.delete(token);
+    saveDemoStore();
+
+    return res.json({ success: true, message: 'Password updated successfully' });
+  } catch {
+    return res.status(401).json({ success: false, error: 'Invalid or expired reset token' });
+  }
 });
 
 router.post('/access-requests/:id/reject', authenticateDemo, (req: Request, res: Response) => {

@@ -442,6 +442,24 @@ export async function requestPasswordResetOtp(token: string) {
   await requestEmailOtp(stored.user.email, 'PASSWORD_RESET', 'EMAIL');
 }
 
+export async function getPasswordResetContext(token: string) {
+  const tokenHash = hashToken(token);
+  const stored = await prisma.passwordResetToken.findFirst({
+    where: {
+      tokenHash,
+      usedAt: null,
+      expiresAt: { gte: new Date() },
+    },
+    include: { user: { select: { email: true } } },
+  });
+
+  if (!stored) {
+    throw new ForbiddenError('Reset link is invalid or expired');
+  }
+
+  return { email: stored.user.email };
+}
+
 export async function resetPassword(token: string, newPassword: string, otpCode: string) {
   const tokenHash = hashToken(token);
 

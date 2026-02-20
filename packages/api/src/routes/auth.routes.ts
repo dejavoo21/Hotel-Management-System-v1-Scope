@@ -57,6 +57,10 @@ const requestResetOtpSchema = z.object({
   token: z.string().min(1, 'Reset token is required'),
 });
 
+const resetContextSchema = z.object({
+  token: z.string().min(1, 'Reset token is required'),
+});
+
 const requestOtpSchema = z.object({
   email: z.string().email('Invalid email format'),
   purpose: z.enum(['LOGIN', 'ACCESS_REVALIDATION', 'PASSWORD_RESET']).optional(),
@@ -84,6 +88,7 @@ router.patch('/password', authenticate, validate(changePasswordSchema), authCont
 
 // Password reset
 router.post('/password/request', validate(requestResetSchema), authController.requestPasswordReset);
+router.post('/password/context', validate(resetContextSchema), authController.getPasswordResetContext);
 router.post('/password/otp', validate(requestResetOtpSchema), authController.requestPasswordResetOtp);
 router.post('/password/reset', validate(resetPasswordSchema), authController.resetPassword);
 

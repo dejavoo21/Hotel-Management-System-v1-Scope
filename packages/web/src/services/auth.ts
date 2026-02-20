@@ -48,6 +48,11 @@ export const authService = {
     await api.post('/auth/password/request', { email });
   },
 
+  async getPasswordResetContext(token: string): Promise<{ email: string }> {
+    const response = await api.post('/auth/password/context', { token });
+    return response.data.data;
+  },
+
   async requestPasswordResetOtp(token: string): Promise<void> {
     await api.post('/auth/password/otp', { token });
   },

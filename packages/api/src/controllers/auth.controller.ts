@@ -311,6 +311,20 @@ export async function requestPasswordResetOtp(
   }
 }
 
+export async function getPasswordResetContext(
+  req: AuthenticatedRequest,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { token } = req.body;
+    const data = await authService.getPasswordResetContext(token);
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function requestEmailOtp(
   req: AuthenticatedRequest,
   res: Response<ApiResponse>,
