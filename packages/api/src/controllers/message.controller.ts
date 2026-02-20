@@ -482,6 +482,7 @@ export async function listSupportAgents(
     const onlineSince = new Date(Date.now() - 2 * 60 * 1000);
     const recentMessageSince = new Date(Date.now() - 10 * 60 * 1000);
     const recentActivitySince = new Date(Date.now() - 10 * 60 * 1000);
+    const recentSessionSince = new Date(Date.now() - 12 * 60 * 60 * 1000);
     const recentLoginSince = new Date(Date.now() - 8 * 60 * 60 * 1000);
     const roles: Role[] = ['ADMIN', 'MANAGER', 'RECEPTIONIST'];
 
@@ -529,6 +530,16 @@ export async function listSupportAgents(
           orderBy: { createdAt: 'desc' },
         })
       : [];
+    const activeSessions = agentIds.length
+      ? await prisma.refreshToken.findMany({
+          where: {
+            userId: { in: agentIds },
+            expiresAt: { gt: new Date() },
+            createdAt: { gte: recentSessionSince },
+          },
+          select: { userId: true },
+        })
+      : [];
 
     const activeById = new Map<string, Date>();
     for (const log of heartbeatLogs) {
@@ -542,6 +553,7 @@ export async function listSupportAgents(
         .map((row) => row.senderUserId)
         .filter((value): value is string => Boolean(value))
     );
+    const activeSessionById = new Set(activeSessions.map((row) => row.userId));
 
     res.json({
       success: true,
@@ -555,6 +567,7 @@ export async function listSupportAgents(
           activeById.has(agent.id) ||
           messageActiveById.has(agent.id) ||
           recentActivityById.has(agent.id) ||
+          activeSessionById.has(agent.id) ||
           Boolean(agent.lastLoginAt && agent.lastLoginAt >= recentLoginSince),
         lastSeenAt: activeById.get(agent.id) || agent.lastLoginAt,
       })),

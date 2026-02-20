@@ -403,11 +403,14 @@ export default function MessagesPage() {
                 const senderOnline = message.senderUser?.id
                   ? supportAgentOnlineMap.get(message.senderUser.id) === true
                   : false;
+                const currentUserName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
                 const senderLabel = systemMsg
                   ? 'LaFlo Assistant'
-                  : isCurrentUserMessage
-                    ? `You (${senderRole || user?.role || 'STAFF'})`
-                    : `${senderName}${senderRole ? ` (${senderRole})` : ''}`;
+                  : `${isCurrentUserMessage ? currentUserName || senderName : senderName}${
+                      senderRole || (isCurrentUserMessage ? user?.role : undefined)
+                        ? ` (${senderRole || user?.role})`
+                        : ''
+                    }`;
                 return (
                   <div key={message.id} className={`flex gap-2 ${alignLeft ? 'justify-start' : 'justify-end'}`}>
                     {alignLeft ? (
