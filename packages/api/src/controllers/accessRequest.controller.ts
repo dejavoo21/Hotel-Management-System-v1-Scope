@@ -3,6 +3,7 @@ import { AuthenticatedRequest, ApiResponse } from '../types/index.js';
 import { prisma } from '../config/database.js';
 import { sendEmail } from '../services/email.service.js';
 import { config } from '../config/index.js';
+import { logger } from '../config/logger.js';
 import { Role } from '@prisma/client';
 import { createPasswordResetToken, hashPassword } from '../services/auth.service.js';
 import { scanAttachment } from '../services/virusScan.service.js';
@@ -126,12 +127,16 @@ export async function createAccessRequest(
       footerNote: `Reference: AR-${request.id}`,
     });
 
-    await sendEmail({
-      to: notifyRecipients.join(','),
-      subject: 'New access request',
-      html: adminEmail.html,
-      text: adminEmail.text,
-    });
+    try {
+      await sendEmail({
+        to: notifyRecipients.join(','),
+        subject: 'New access request',
+        html: adminEmail.html,
+        text: adminEmail.text,
+      });
+    } catch (emailError) {
+      logger.error('[ACCESS-REQUEST] Failed admin notification email', { error: emailError });
+    }
 
     const requesterEmail = renderLafloEmail({
       preheader: `We received your access request. Reference AR-${request.id}.`,
@@ -149,12 +154,16 @@ export async function createAccessRequest(
       footerNote: 'If you did not request access, you can ignore this email.',
     });
 
-    await sendEmail({
-      to: email,
-      subject: `We received your access request [AR-${request.id}]`,
-      html: requesterEmail.html,
-      text: requesterEmail.text,
-    });
+    try {
+      await sendEmail({
+        to: email,
+        subject: `We received your access request [AR-${request.id}]`,
+        html: requesterEmail.html,
+        text: requesterEmail.text,
+      });
+    } catch (emailError) {
+      logger.error('[ACCESS-REQUEST] Failed requester confirmation email', { error: emailError });
+    }
 
     res.status(201).json({ success: true, data: request, message: 'Request submitted' });
   } catch (error) {

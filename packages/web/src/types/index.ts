@@ -226,10 +226,27 @@ export interface MessageThreadSummary {
   booking?: { bookingRef: string; checkInDate: string; checkOutDate: string };
   lastMessageAt: string;
   lastMessage: ConversationMessage | null;
+  assignedSupport?: {
+    userId: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    assignedAt: string;
+    assignedById?: string;
+  };
 }
 
 export interface MessageThreadDetail extends MessageThreadSummary {
   messages: ConversationMessage[];
+}
+
+export interface SupportAgent {
+  id: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  online: boolean;
+  lastSeenAt?: string;
 }
 
 export interface PurchaseOrderItem {

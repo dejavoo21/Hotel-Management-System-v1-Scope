@@ -1,8 +1,11 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest, ApiResponse } from '../types/index.js';
 import { prisma } from '../config/database.js';
+import { Role } from '@prisma/client';
 
 const LIVE_SUPPORT_SUBJECT = 'Live Support';
+const SUPPORT_HEARTBEAT_ACTION = 'SUPPORT_HEARTBEAT';
+const ASSIGNMENT_PREFIX = '[SUPPORT_ASSIGNED]';
 
 const resolveThreadTitle = (guest?: { firstName: string; lastName: string }, bookingRef?: string) => {
   if (guest) {
@@ -13,6 +16,24 @@ const resolveThreadTitle = (guest?: { firstName: string; lastName: string }, boo
   }
   return 'Guest Conversation';
 };
+
+function parseAssignedUser(body: string) {
+  if (!body.startsWith(ASSIGNMENT_PREFIX)) return null;
+  const jsonText = body.slice(ASSIGNMENT_PREFIX.length).trim();
+  try {
+    const parsed = JSON.parse(jsonText) as {
+      userId: string;
+      firstName: string;
+      lastName: string;
+      role: string;
+      assignedAt: string;
+      assignedById?: string;
+    };
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 const serializeThreadSummary = (
   conversation: {
@@ -34,6 +55,8 @@ const serializeThreadSummary = (
   }
 ) => {
   const lastMessage = conversation.messages[0];
+  const assignmentMessage = conversation.messages.find((msg) => msg.senderType === 'SYSTEM' && msg.body.startsWith(ASSIGNMENT_PREFIX));
+  const assignedSupport = assignmentMessage ? parseAssignedUser(assignmentMessage.body) : null;
   return {
     id: conversation.id,
     subject: conversation.subject ?? resolveThreadTitle(conversation.guest ?? undefined, conversation.booking?.bookingRef),
@@ -51,6 +74,16 @@ const serializeThreadSummary = (
           guest: lastMessage.guest ?? undefined,
         }
       : null,
+    assignedSupport: assignedSupport
+      ? {
+          userId: assignedSupport.userId,
+          firstName: assignedSupport.firstName,
+          lastName: assignedSupport.lastName,
+          role: assignedSupport.role,
+          assignedAt: assignedSupport.assignedAt,
+          assignedById: assignedSupport.assignedById,
+        }
+      : undefined,
   };
 };
 
@@ -116,7 +149,7 @@ export async function listThreads(
         booking: { select: { bookingRef: true, checkInDate: true, checkOutDate: true } },
         messages: {
           orderBy: { createdAt: 'desc' },
-          take: 1,
+          take: 10,
           include: {
             senderUser: { select: { firstName: true, lastName: true, role: true } },
             guest: { select: { firstName: true, lastName: true } },
@@ -162,6 +195,12 @@ export async function getThread(
       return;
     }
 
+    const assignmentMessage = conversation.messages
+      .slice()
+      .reverse()
+      .find((message) => message.senderType === 'SYSTEM' && message.body.startsWith(ASSIGNMENT_PREFIX));
+    const assignedSupport = assignmentMessage ? parseAssignedUser(assignmentMessage.body) : null;
+
     res.json({
       success: true,
       data: {
@@ -171,6 +210,16 @@ export async function getThread(
         guest: conversation.guest,
         booking: conversation.booking,
         lastMessageAt: conversation.lastMessageAt ?? conversation.createdAt,
+        assignedSupport: assignedSupport
+          ? {
+              userId: assignedSupport.userId,
+              firstName: assignedSupport.firstName,
+              lastName: assignedSupport.lastName,
+              role: assignedSupport.role,
+              assignedAt: assignedSupport.assignedAt,
+              assignedById: assignedSupport.assignedById,
+            }
+          : undefined,
         messages: conversation.messages.map((message) => ({
           id: message.id,
           body: message.body,
@@ -205,7 +254,7 @@ export async function getOrCreateLiveSupportThread(
         booking: { select: { bookingRef: true, checkInDate: true, checkOutDate: true } },
         messages: {
           orderBy: { createdAt: 'desc' },
-          take: 1,
+          take: 20,
           include: {
             senderUser: { select: { firstName: true, lastName: true, role: true } },
             guest: { select: { firstName: true, lastName: true } },
@@ -233,7 +282,7 @@ export async function getOrCreateLiveSupportThread(
           booking: { select: { bookingRef: true, checkInDate: true, checkOutDate: true } },
           messages: {
             orderBy: { createdAt: 'desc' },
-            take: 1,
+            take: 20,
             include: {
               senderUser: { select: { firstName: true, lastName: true, role: true } },
               guest: { select: { firstName: true, lastName: true } },
@@ -271,6 +320,170 @@ export async function getOrCreateLiveSupportThread(
     }
 
     res.json({ success: true, data: serializeThreadSummary(conversation) });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function heartbeatSupportPresence(
+  req: AuthenticatedRequest,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await prisma.activityLog.create({
+      data: {
+        userId: req.user!.id,
+        action: SUPPORT_HEARTBEAT_ACTION,
+        entity: 'support',
+        entityId: req.user!.id,
+      },
+    });
+    res.json({ success: true, data: { ok: true } });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listSupportAgents(
+  req: AuthenticatedRequest,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const hotelId = req.user!.hotelId;
+    const onlineSince = new Date(Date.now() - 2 * 60 * 1000);
+    const roles: Role[] = ['ADMIN', 'MANAGER', 'RECEPTIONIST'];
+
+    const agents = await prisma.user.findMany({
+      where: { hotelId, isActive: true, role: { in: roles } },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        lastLoginAt: true,
+      },
+      orderBy: [{ role: 'asc' }, { firstName: 'asc' }],
+    });
+
+    const agentIds = agents.map((a) => a.id);
+    const heartbeatLogs = agentIds.length
+      ? await prisma.activityLog.findMany({
+          where: {
+            userId: { in: agentIds },
+            action: SUPPORT_HEARTBEAT_ACTION,
+            createdAt: { gte: onlineSince },
+          },
+          select: { userId: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+        })
+      : [];
+
+    const activeById = new Map<string, Date>();
+    for (const log of heartbeatLogs) {
+      if (!activeById.has(log.userId)) {
+        activeById.set(log.userId, log.createdAt);
+      }
+    }
+
+    res.json({
+      success: true,
+      data: agents.map((agent) => ({
+        id: agent.id,
+        firstName: agent.firstName,
+        lastName: agent.lastName,
+        role: agent.role,
+        online: activeById.has(agent.id),
+        lastSeenAt: activeById.get(agent.id) || agent.lastLoginAt,
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function assignSupportAgent(
+  req: AuthenticatedRequest,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const hotelId = req.user!.hotelId;
+    const { id } = req.params;
+    const payload = req.body as { userId?: string };
+    const targetUserId = payload.userId || req.user!.id;
+
+    const conversation = await prisma.conversation.findFirst({
+      where: { id, hotelId },
+      include: {
+        guest: { select: { firstName: true, lastName: true, email: true } },
+        booking: { select: { bookingRef: true, checkInDate: true, checkOutDate: true } },
+      },
+    });
+
+    if (!conversation) {
+      res.status(404).json({ success: false, error: 'Conversation not found' });
+      return;
+    }
+
+    const agent = await prisma.user.findFirst({
+      where: {
+        id: targetUserId,
+        hotelId,
+        isActive: true,
+      },
+      select: { id: true, firstName: true, lastName: true, role: true },
+    });
+
+    if (!agent) {
+      res.status(404).json({ success: false, error: 'Support agent not found' });
+      return;
+    }
+
+    const assignmentPayload = JSON.stringify({
+      userId: agent.id,
+      firstName: agent.firstName,
+      lastName: agent.lastName,
+      role: agent.role,
+      assignedAt: new Date().toISOString(),
+      assignedById: req.user!.id,
+    });
+
+    const assignmentMessage = await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        senderType: 'SYSTEM',
+        body: `${ASSIGNMENT_PREFIX} ${assignmentPayload}`,
+      },
+      include: {
+        senderUser: { select: { firstName: true, lastName: true, role: true } },
+        guest: { select: { firstName: true, lastName: true } },
+      },
+    });
+
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { status: 'OPEN', lastMessageAt: assignmentMessage.createdAt },
+    });
+
+    const refreshed = await prisma.conversation.findUnique({
+      where: { id: conversation.id },
+      include: {
+        guest: { select: { firstName: true, lastName: true, email: true } },
+        booking: { select: { bookingRef: true, checkInDate: true, checkOutDate: true } },
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          include: {
+            senderUser: { select: { firstName: true, lastName: true, role: true } },
+            guest: { select: { firstName: true, lastName: true } },
+          },
+        },
+      },
+    });
+
+    res.json({ success: true, data: refreshed ? serializeThreadSummary(refreshed) : null });
   } catch (error) {
     next(error);
   }

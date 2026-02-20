@@ -1,5 +1,10 @@
 import api from './api';
-import type { ConversationMessage, MessageThreadDetail, MessageThreadSummary } from '@/types';
+import type {
+  ConversationMessage,
+  MessageThreadDetail,
+  MessageThreadSummary,
+  SupportAgent,
+} from '@/types';
 
 export const messageService = {
   async listThreads(search?: string): Promise<MessageThreadSummary[]> {
@@ -21,6 +26,20 @@ export const messageService = {
 
   async createMessage(threadId: string, body: string): Promise<ConversationMessage> {
     const response = await api.post(`/messages/${threadId}/messages`, { body });
+    return response.data.data;
+  },
+
+  async heartbeatSupportPresence(): Promise<void> {
+    await api.post('/messages/support/presence');
+  },
+
+  async listSupportAgents(): Promise<SupportAgent[]> {
+    const response = await api.get('/messages/support/agents');
+    return response.data.data;
+  },
+
+  async assignSupportAgent(threadId: string, userId?: string): Promise<MessageThreadSummary> {
+    const response = await api.post(`/messages/${threadId}/assign`, userId ? { userId } : undefined);
     return response.data.data;
   },
 };

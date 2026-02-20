@@ -2785,12 +2785,59 @@ router.get('/messages', authenticateDemo, (req: Request, res: Response) => {
   res.json({ success: true, data: threads });
 });
 
+router.post('/messages/support/presence', authenticateDemo, (_req: Request, res: Response) => {
+  res.json({ success: true, data: { ok: true } });
+});
+
+router.get('/messages/support/agents', authenticateDemo, (_req: Request, res: Response) => {
+  const roles = ['ADMIN', 'MANAGER', 'RECEPTIONIST'];
+  const data = mockUsers
+    .filter((u) => roles.includes(u.role))
+    .map((u, idx) => ({
+      id: u.id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      role: u.role,
+      online: idx < 2,
+      lastSeenAt: new Date(Date.now() - idx * 60 * 1000).toISOString(),
+    }));
+  res.json({ success: true, data });
+});
+
 router.get('/messages/:id', authenticateDemo, (req: Request, res: Response) => {
   const thread = getConversationDetail(req.params.id);
   if (!thread) {
     return res.status(404).json({ success: false, error: 'Conversation not found' });
   }
   res.json({ success: true, data: thread });
+});
+
+router.post('/messages/:id/assign', authenticateDemo, (req: Request, res: Response) => {
+  const thread = mockConversations.find((c) => c.id === req.params.id);
+  if (!thread) {
+    return res.status(404).json({ success: false, error: 'Conversation not found' });
+  }
+  const targetId = req.body?.userId || mockUsers[0].id;
+  const agent = mockUsers.find((u) => u.id === targetId) || mockUsers[0];
+  const assignedAt = new Date();
+  const body = `[SUPPORT_ASSIGNED] ${JSON.stringify({
+    userId: agent.id,
+    firstName: agent.firstName,
+    lastName: agent.lastName,
+    role: agent.role,
+    assignedAt: assignedAt.toISOString(),
+    assignedById: mockUsers[0].id,
+  })}`;
+  thread.messages.push({
+    id: `msg-assign-${Date.now()}`,
+    senderType: 'SYSTEM' as const,
+    body,
+    createdAt: assignedAt,
+  } as any);
+  thread.lastMessageAt = assignedAt;
+  thread.status = 'OPEN';
+  const summary = getConversationSummary(thread as any);
+  res.json({ success: true, data: summary });
 });
 
 router.post('/messages/live-support', authenticateDemo, (req: Request, res: Response) => {
