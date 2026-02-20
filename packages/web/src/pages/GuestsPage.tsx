@@ -309,7 +309,17 @@ export default function GuestsPage() {
                   <td>
                     <div>
                       {guest.email && <p className="text-slate-900">{guest.email}</p>}
-                      {guest.phone && <p className="text-xs text-slate-500">{guest.phone}</p>}
+                      {guest.phone ? (
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs text-slate-500">{guest.phone}</p>
+                          <a
+                            href={`tel:${guest.phone.replace(/[^\d+]/g, '')}`}
+                            className="rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-100"
+                          >
+                            Call
+                          </a>
+                        </div>
+                      ) : null}
                     </div>
                   </td>
                   <td>{guest.country || '-'}</td>
@@ -502,16 +512,29 @@ export default function GuestsPage() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Reservation</p>
                 <h2 className="text-2xl font-bold text-slate-900">Guest Profile</h2>
               </div>
-              <button
-                type="button"
-                className="btn-outline"
-                onClick={() => {
-                  navigate(`/bookings?guestId=${selectedGuest.id}`);
-                  setSelectedGuest(null);
-                }}
-              >
-                View Bookings
-              </button>
+              <div className="flex items-center gap-2">
+                {selectedGuest.phone ? (
+                  <a
+                    href={`tel:${selectedGuest.phone.replace(/[^\d+]/g, '')}`}
+                    className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h2.153a2 2 0 011.96 1.608l.415 2.076a2 2 0 01-.502 1.821l-1.16 1.16a16 16 0 006.364 6.364l1.16-1.16a2 2 0 011.821-.502l2.076.415A2 2 0 0121 16.847V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                    Call Guest
+                  </a>
+                ) : null}
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={() => {
+                    navigate(`/bookings?guestId=${selectedGuest.id}`);
+                    setSelectedGuest(null);
+                  }}
+                >
+                  View Bookings
+                </button>
+              </div>
             </div>
 
             <div className="grid gap-4 xl:grid-cols-12">

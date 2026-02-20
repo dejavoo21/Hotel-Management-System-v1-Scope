@@ -37,12 +37,24 @@ const resolveThreadName = (thread: MessageThreadSummary) => {
   return thread.subject || 'Guest';
 };
 
+const sanitizePhone = (value?: string) => (value || '').replace(/[^\d+]/g, '');
+
+const fallbackPhoneByThread: Record<string, string> = {
+  m1: '+15551230001',
+  m2: '+15551230002',
+};
+
+const resolveThreadPhone = (thread?: MessageThreadSummary | null) => {
+  if (!thread) return '';
+  return sanitizePhone(thread.guest?.phone || fallbackPhoneByThread[thread.id] || '');
+};
+
 const mockThreads: MessageThreadSummary[] = [
   {
     id: 'm1',
     subject: 'Alice Johnson',
     status: 'OPEN',
-    guest: { firstName: 'Alice', lastName: 'Johnson', email: 'alice@example.com' },
+    guest: { firstName: 'Alice', lastName: 'Johnson', email: 'alice@example.com', phone: '+1 555 123 0001' },
     booking: { bookingRef: 'BK-305', checkInDate: new Date().toISOString(), checkOutDate: new Date().toISOString() },
     lastMessageAt: new Date().toISOString(),
     lastMessage: { id: 'm1-last', body: 'Can I request a late check-out for Room 305?', senderType: 'GUEST', createdAt: new Date().toISOString(), guest: { firstName: 'Alice', lastName: 'Johnson' } },
@@ -51,7 +63,7 @@ const mockThreads: MessageThreadSummary[] = [
     id: 'm2',
     subject: 'Michael Brown',
     status: 'OPEN',
-    guest: { firstName: 'Michael', lastName: 'Brown', email: 'michael@example.com' },
+    guest: { firstName: 'Michael', lastName: 'Brown', email: 'michael@example.com', phone: '+1 555 123 0002' },
     booking: { bookingRef: 'BK-214', checkInDate: new Date().toISOString(), checkOutDate: new Date().toISOString() },
     lastMessageAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
     lastMessage: { id: 'm2-last', body: "The air conditioning in my room isn't working.", senderType: 'GUEST', createdAt: new Date().toISOString(), guest: { firstName: 'Michael', lastName: 'Brown' } },
@@ -69,6 +81,8 @@ export default function MessagesPage() {
   const [search, setSearch] = useState('');
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [draftMessage, setDraftMessage] = useState('');
+  const [callStatus, setCallStatus] = useState<Record<string, 'PENDING' | 'IN_PROGRESS' | 'DONE'>>({});
+  const [callNotes, setCallNotes] = useState<Record<string, string>>({});
 
   const { data: threadsData, isLoading, refetch: refetchThreads } = useQuery({
     queryKey: ['message-threads', search],
@@ -124,6 +138,7 @@ export default function MessagesPage() {
 
   const activeThread = activeThreadQuery.data;
   const activeThreadSummary = threads.find((t) => t.id === activeThreadId);
+  const activeThreadPhone = resolveThreadPhone(activeThreadSummary);
   const activeThreadName =
     activeThreadSummary
       ? resolveThreadName(activeThreadSummary)
@@ -132,6 +147,17 @@ export default function MessagesPage() {
     if (activeThread && activeThread.messages.length > 0) return activeThread.messages;
     return mockMessages;
   }, [activeThread]);
+  const callQueue = useMemo(
+    () =>
+      threads.slice(0, 6).map((thread) => ({
+        id: thread.id,
+        name: resolveThreadName(thread),
+        phone: resolveThreadPhone(thread),
+        status: callStatus[thread.id] || 'PENDING',
+        lastMessageAt: thread.lastMessageAt,
+      })),
+    [threads, callStatus]
+  );
 
   const sendMessageMutation = useMutation({
     mutationFn: async () => {
@@ -221,9 +247,22 @@ export default function MessagesPage() {
                 <p className="text-xs text-slate-500">last seen recently</p>
               </div>
             </div>
-            <button className="rounded-lg p-1 text-slate-400 hover:bg-slate-50">
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6h.01M12 12h.01M12 18h.01" /></svg>
-            </button>
+            <div className="flex items-center gap-2">
+              {activeThreadPhone ? (
+                <a
+                  href={`tel:${activeThreadPhone}`}
+                  className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                >
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h2.153a2 2 0 011.96 1.608l.415 2.076a2 2 0 01-.502 1.821l-1.16 1.16a16 16 0 006.364 6.364l1.16-1.16a2 2 0 011.821-.502l2.076.415A2 2 0 0121 16.847V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                  Call guest
+                </a>
+              ) : null}
+              <button className="rounded-lg p-1 text-slate-400 hover:bg-slate-50">
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6h.01M12 12h.01M12 18h.01" /></svg>
+              </button>
+            </div>
           </div>
 
           <div className="mt-4 h-[460px] overflow-y-auto pr-1">
@@ -361,6 +400,72 @@ export default function MessagesPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase text-slate-500">Call Console</p>
+              <span className="text-[11px] text-slate-500">{callQueue.length} queued</span>
+            </div>
+            <div className="mt-2 max-h-44 space-y-2 overflow-y-auto pr-1">
+              {callQueue.map((item) => (
+                <div key={item.id} className="rounded-lg border border-slate-200 bg-white p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-900">{item.name}</p>
+                      <p className="text-xs text-slate-500">{item.phone || 'No phone saved'}</p>
+                    </div>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                        item.status === 'DONE'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : item.status === 'IN_PROGRESS'
+                            ? 'bg-sky-100 text-sky-700'
+                            : 'bg-amber-100 text-amber-700'
+                      }`}
+                    >
+                      {item.status === 'DONE' ? 'Done' : item.status === 'IN_PROGRESS' ? 'Calling' : 'Pending'}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCallStatus((prev) => ({ ...prev, [item.id]: 'IN_PROGRESS' }))}
+                      className="rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
+                    >
+                      Start
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCallStatus((prev) => ({ ...prev, [item.id]: 'DONE' }))}
+                      className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100"
+                    >
+                      Complete
+                    </button>
+                    {item.phone ? (
+                      <a
+                        href={`tel:${item.phone}`}
+                        className="rounded-md border border-lime-300 bg-lime-200 px-2 py-1 text-[11px] font-semibold text-slate-800 hover:bg-lime-300"
+                      >
+                        Call
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3">
+              <label className="text-xs font-semibold uppercase text-slate-500">Call notes</label>
+              <textarea
+                rows={3}
+                value={callNotes[activeThreadId || ''] || ''}
+                onChange={(event) =>
+                  setCallNotes((prev) => ({ ...prev, [activeThreadId || '']: event.target.value }))
+                }
+                placeholder="Document call outcome and handoff notes..."
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm"
+              />
             </div>
           </div>
 

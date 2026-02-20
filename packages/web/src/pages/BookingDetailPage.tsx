@@ -445,7 +445,20 @@ export default function BookingDetailPage() {
               </div>
               <div>
                 <p className="text-sm text-slate-500">Phone</p>
-                <p className="font-medium text-slate-900">{booking.guest.phone || '-'}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-slate-900">{booking.guest.phone || '-'}</p>
+                  {booking.guest.phone ? (
+                    <a
+                      href={`tel:${booking.guest.phone.replace(/[^\d+]/g, '')}`}
+                      className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                    >
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h2.153a2 2 0 011.96 1.608l.415 2.076a2 2 0 01-.502 1.821l-1.16 1.16a16 16 0 006.364 6.364l1.16-1.16a2 2 0 011.821-.502l2.076.415A2 2 0 0121 16.847V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                      </svg>
+                      Call
+                    </a>
+                  ) : null}
+                </div>
               </div>
               <div>
                 <p className="text-sm text-slate-500">ID</p>

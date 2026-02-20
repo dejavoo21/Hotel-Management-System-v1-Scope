@@ -222,7 +222,7 @@ export interface MessageThreadSummary {
   id: string;
   subject: string;
   status: 'OPEN' | 'RESOLVED' | 'ARCHIVED';
-  guest?: { firstName: string; lastName: string; email?: string };
+  guest?: { firstName: string; lastName: string; email?: string; phone?: string };
   booking?: { bookingRef: string; checkInDate: string; checkOutDate: string };
   lastMessageAt: string;
   lastMessage: ConversationMessage | null;
