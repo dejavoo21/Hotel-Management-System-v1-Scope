@@ -3,6 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { messageService } from '@/services';
 import { PAGE_TITLE_CLASS } from '@/styles/typography';
+import { useAuthStore } from '@/stores/authStore';
 import type {
   ConversationMessage,
   MessageThreadDetail,
@@ -77,6 +78,7 @@ const mockMessages: ConversationMessage[] = [
 ];
 
 export default function MessagesPage() {
+  const { user } = useAuthStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
@@ -104,6 +106,21 @@ export default function MessagesPage() {
     queryFn: () => messageService.listSupportAgents(),
     refetchInterval: 10_000,
   });
+  const currentUserAvatar = useMemo(() => {
+    if (!user?.id) return null;
+    try {
+      return localStorage.getItem(`laflo-profile-avatar:${user.id}`);
+    } catch {
+      return null;
+    }
+  }, [user?.id]);
+  const supportAgentOnlineMap = useMemo(() => {
+    const map = new Map<string, boolean>();
+    for (const agent of supportAgentsQuery.data || []) {
+      map.set(agent.id, agent.online);
+    }
+    return map;
+  }, [supportAgentsQuery.data]);
 
   useEffect(() => {
     const requestedThreadId = searchParams.get('thread');
@@ -262,18 +279,31 @@ export default function MessagesPage() {
                 const systemMsg = message.senderType === 'SYSTEM';
                 const alignLeft = guestMsg || systemMsg;
                 const senderName = resolveSenderName(message);
+                const isCurrentUserMessage = Boolean(user?.id && message.senderUser?.id === user.id);
+                const senderRole = message.senderUser?.role;
+                const senderOnline = message.senderUser?.id
+                  ? supportAgentOnlineMap.get(message.senderUser.id) === true
+                  : false;
+                const senderLabel = systemMsg
+                  ? 'LaFlo Assistant'
+                  : isCurrentUserMessage
+                    ? `You (${senderRole || user?.role || 'STAFF'})`
+                    : `${senderName}${senderRole ? ` (${senderRole})` : ''}`;
                 return (
                   <div key={message.id} className={`flex gap-2 ${alignLeft ? 'justify-start' : 'justify-end'}`}>
                     {alignLeft ? (
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-lime-200 text-xs font-bold text-slate-800">
-                        {systemMsg ? 'AI' : getInitials(senderName)}
+                      <div className="relative">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-lime-200 text-xs font-bold text-slate-800">
+                          {systemMsg ? 'AI' : getInitials(senderName)}
+                        </div>
+                        {!systemMsg && senderOnline ? (
+                          <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white bg-emerald-500" />
+                        ) : null}
                       </div>
                     ) : null}
                     <div className="max-w-[72%]">
                       <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                        {systemMsg
-                          ? 'LaFlo Assistant'
-                          : `${senderName}${message.senderUser?.role ? ` (${message.senderUser.role})` : ''}`}
+                        {senderLabel}
                       </p>
                     <div className={`rounded-2xl px-4 py-3 text-sm ${
                       guestMsg
@@ -286,6 +316,20 @@ export default function MessagesPage() {
                       <p className={`mt-1 text-right text-[11px] ${systemMsg ? 'text-white/80' : 'text-slate-500'}`}>{formatTime(message.createdAt)}</p>
                     </div>
                     </div>
+                    {!alignLeft && !systemMsg ? (
+                      <div className="relative">
+                        <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-lime-200 text-xs font-bold text-slate-800">
+                          {isCurrentUserMessage && currentUserAvatar ? (
+                            <img src={currentUserAvatar} alt="You" className="h-full w-full object-cover" />
+                          ) : (
+                            getInitials(senderName)
+                          )}
+                        </div>
+                        {senderOnline ? (
+                          <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white bg-emerald-500" />
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -379,7 +423,8 @@ export default function MessagesPage() {
                   className="flex items-center justify-between rounded-lg border border-slate-200 px-2 py-1.5"
                 >
                   <div>
-                    <p className="text-sm font-medium text-slate-800">
+                    <p className="flex items-center gap-1.5 text-sm font-medium text-slate-800">
+                      <span className={`h-2 w-2 rounded-full ${agent.online ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                       {agent.firstName} {agent.lastName}
                     </p>
                     <p className="text-xs text-slate-500">{agent.role}</p>

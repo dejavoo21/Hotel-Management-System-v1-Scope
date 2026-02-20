@@ -156,7 +156,7 @@ export async function listThreads(
           orderBy: { createdAt: 'desc' },
           take: 10,
           include: {
-            senderUser: { select: { firstName: true, lastName: true, role: true } },
+            senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
             guest: { select: { firstName: true, lastName: true } },
           },
         },
@@ -188,7 +188,7 @@ export async function getThread(
         messages: {
           orderBy: { createdAt: 'asc' },
           include: {
-            senderUser: { select: { firstName: true, lastName: true, role: true } },
+            senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
             guest: { select: { firstName: true, lastName: true } },
           },
         },
@@ -264,7 +264,7 @@ export async function getOrCreateLiveSupportThread(
           orderBy: { createdAt: 'desc' },
           take: 20,
           include: {
-            senderUser: { select: { firstName: true, lastName: true, role: true } },
+            senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
             guest: { select: { firstName: true, lastName: true } },
           },
         },
@@ -292,7 +292,7 @@ export async function getOrCreateLiveSupportThread(
             orderBy: { createdAt: 'desc' },
             take: 20,
             include: {
-              senderUser: { select: { firstName: true, lastName: true, role: true } },
+              senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
               guest: { select: { firstName: true, lastName: true } },
             },
           },
@@ -318,7 +318,7 @@ export async function getOrCreateLiveSupportThread(
               body: notes.join('\n'),
             },
             include: {
-              senderUser: { select: { firstName: true, lastName: true, role: true } },
+              senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
               guest: { select: { firstName: true, lastName: true } },
             },
           }),
@@ -329,7 +329,7 @@ export async function getOrCreateLiveSupportThread(
               body: BOT_HANDOFF_CONNECTING,
             },
             include: {
-              senderUser: { select: { firstName: true, lastName: true, role: true } },
+              senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
               guest: { select: { firstName: true, lastName: true } },
             },
           }),
@@ -340,7 +340,7 @@ export async function getOrCreateLiveSupportThread(
               body: BOT_HANDOFF_WAITING,
             },
             include: {
-              senderUser: { select: { firstName: true, lastName: true, role: true } },
+              senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
               guest: { select: { firstName: true, lastName: true } },
             },
           }),
@@ -390,7 +390,8 @@ export async function listSupportAgents(
   try {
     const hotelId = req.user!.hotelId;
     const onlineSince = new Date(Date.now() - 2 * 60 * 1000);
-    const recentLoginSince = new Date(Date.now() - 15 * 60 * 1000);
+    const recentMessageSince = new Date(Date.now() - 10 * 60 * 1000);
+    const recentLoginSince = new Date(Date.now() - 8 * 60 * 60 * 1000);
     const roles: Role[] = ['ADMIN', 'MANAGER', 'RECEPTIONIST'];
 
     const agents = await prisma.user.findMany({
@@ -417,6 +418,16 @@ export async function listSupportAgents(
           orderBy: { createdAt: 'desc' },
         })
       : [];
+    const recentStaffMessages = agentIds.length
+      ? await prisma.message.findMany({
+          where: {
+            senderUserId: { in: agentIds },
+            createdAt: { gte: recentMessageSince },
+          },
+          select: { senderUserId: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+        })
+      : [];
 
     const activeById = new Map<string, Date>();
     for (const log of heartbeatLogs) {
@@ -424,6 +435,11 @@ export async function listSupportAgents(
         activeById.set(log.userId, log.createdAt);
       }
     }
+    const messageActiveById = new Set(
+      recentStaffMessages
+        .map((row) => row.senderUserId)
+        .filter((value): value is string => Boolean(value))
+    );
 
     res.json({
       success: true,
@@ -435,6 +451,7 @@ export async function listSupportAgents(
         online:
           agent.id === req.user!.id ||
           activeById.has(agent.id) ||
+          messageActiveById.has(agent.id) ||
           Boolean(agent.lastLoginAt && agent.lastLoginAt >= recentLoginSince),
         lastSeenAt: activeById.get(agent.id) || agent.lastLoginAt,
       })),
@@ -499,7 +516,7 @@ export async function assignSupportAgent(
           body: `${ASSIGNMENT_PREFIX} ${assignmentPayload}`,
         },
         include: {
-          senderUser: { select: { firstName: true, lastName: true, role: true } },
+          senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
           guest: { select: { firstName: true, lastName: true } },
         },
       });
@@ -529,7 +546,7 @@ export async function assignSupportAgent(
           orderBy: { createdAt: 'desc' },
           take: 20,
           include: {
-            senderUser: { select: { firstName: true, lastName: true, role: true } },
+            senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
             guest: { select: { firstName: true, lastName: true } },
           },
         },
@@ -574,7 +591,7 @@ export async function createMessage(
         body: body.trim(),
       },
       include: {
-        senderUser: { select: { firstName: true, lastName: true, role: true } },
+        senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
       },
     });
 

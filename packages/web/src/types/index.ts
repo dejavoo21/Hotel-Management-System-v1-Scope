@@ -214,7 +214,7 @@ export interface ConversationMessage {
   body: string;
   senderType: 'GUEST' | 'STAFF' | 'SYSTEM';
   createdAt: string;
-  senderUser?: { firstName: string; lastName: string; role: string };
+  senderUser?: { id?: string; firstName: string; lastName: string; role: string };
   guest?: { firstName: string; lastName: string };
 }
 
