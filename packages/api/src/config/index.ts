@@ -56,6 +56,7 @@ export const config = {
   },
   voice: {
     twilioAccountSid: process.env.TWILIO_ACCOUNT_SID || '',
+    twilioAuthToken: process.env.TWILIO_AUTH_TOKEN || '',
     twilioApiKeySid: process.env.TWILIO_VOICE_API_KEY_SID || '',
     twilioApiKeySecret: process.env.TWILIO_VOICE_API_KEY_SECRET || '',
     twimlAppSid: process.env.TWILIO_VOICE_TWIML_APP_SID || '',

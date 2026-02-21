@@ -22,6 +22,12 @@ const isVoiceConfigured = () =>
       config.voice.twimlAppSid &&
       config.voice.fromPhone
   );
+const isPhoneCallConfigured = () =>
+  Boolean(
+    config.voice.twilioAccountSid &&
+      config.voice.twilioAuthToken &&
+      config.voice.fromPhone
+  );
 
 const resolveThreadTitle = (guest?: { firstName: string; lastName: string }, bookingRef?: string) => {
   if (guest) {
@@ -468,6 +474,53 @@ export async function supportVoiceTwiml(
   });
   dial.number(to);
   res.type('text/xml').send(response.toString());
+}
+
+export async function startSupportPhoneCall(
+  req: AuthenticatedRequest,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> {
+  try {
+    if (!isPhoneCallConfigured()) {
+      res.status(503).json({
+        success: false,
+        error: 'Twilio phone calling is not configured yet',
+      });
+      return;
+    }
+
+    const to = sanitizePhone((req.body?.to as string | undefined) || '');
+    const threadId = (req.body?.threadId as string | undefined) || undefined;
+    const callerId = sanitizePhone(config.voice.fromPhone);
+
+    if (!to || !/^\+?\d{7,15}$/.test(to)) {
+      res.status(400).json({ success: false, error: 'Valid destination phone is required' });
+      return;
+    }
+
+    const twilioClient = twilio(config.voice.twilioAccountSid, config.voice.twilioAuthToken);
+    const call = await twilioClient.calls.create({
+      to,
+      from: callerId,
+      twiml:
+        '<Response><Say voice="alice">This is a test call from LaFlo support. Your support team initiated this call via Twilio.</Say></Response>',
+    });
+
+    res.json({
+      success: true,
+      data: {
+        sid: call.sid,
+        status: call.status,
+        to,
+        from: callerId,
+        threadId,
+      },
+      message: 'Twilio test call started',
+    });
+  } catch (error) {
+    next(error);
+  }
 }
 
 export async function listSupportAgents(

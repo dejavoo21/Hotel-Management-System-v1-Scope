@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { messageService } from '@/services';
 import { PAGE_TITLE_CLASS } from '@/styles/typography';
 import { useAuthStore } from '@/stores/authStore';
@@ -285,6 +286,21 @@ export default function MessagesPage() {
       setVoiceState('ERROR');
       setCallStatus((prev) => ({ ...prev, [threadId]: 'PENDING' }));
       setActiveVoiceThreadId(null);
+    }
+  };
+
+  const startTwilioPhoneCall = async (phone: string, threadId?: string) => {
+    const sanitized = sanitizePhone(phone);
+    if (!sanitized || !/^\+?\d{7,15}$/.test(sanitized)) {
+      toast.error('Enter a valid phone number before calling.');
+      return;
+    }
+    try {
+      const started = await messageService.startSupportPhoneCall({ to: sanitized, threadId });
+      toast.success(`Twilio call started (${started.sid.slice(-8)})`);
+    } catch (error: any) {
+      const message = error?.response?.data?.error || 'Failed to start Twilio phone call';
+      toast.error(message);
     }
   };
 
@@ -669,14 +685,14 @@ export default function MessagesPage() {
                     >
                       {voiceState === 'CONNECTING' && activeVoiceThreadId === item.id ? 'Connecting...' : 'Call in app'}
                     </button>
-                    {item.phone ? (
-                      <a
-                        href={`tel:${item.phone}`}
-                        className="rounded-md border border-lime-300 bg-lime-200 px-2 py-1 text-[11px] font-semibold text-slate-800 hover:bg-lime-300"
-                      >
-                        Call
-                      </a>
-                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => void startTwilioPhoneCall(item.phone, item.id)}
+                      disabled={!item.phone}
+                      className="rounded-md border border-lime-300 bg-lime-200 px-2 py-1 text-[11px] font-semibold text-slate-800 hover:bg-lime-300 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Call via Twilio
+                    </button>
                   </div>
                 </div>
               ))}
@@ -698,15 +714,31 @@ export default function MessagesPage() {
                   Del
                 </button>
               </div>
-              <div className="mt-2 grid grid-cols-3 gap-1.5">
-                {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map((digit) => (
+              <div className="mt-3 grid grid-cols-3 gap-y-2">
+                {[
+                  { digit: '1', letters: '' },
+                  { digit: '2', letters: 'ABC' },
+                  { digit: '3', letters: 'DEF' },
+                  { digit: '4', letters: 'GHI' },
+                  { digit: '5', letters: 'JKL' },
+                  { digit: '6', letters: 'MNO' },
+                  { digit: '7', letters: 'PQRS' },
+                  { digit: '8', letters: 'TUV' },
+                  { digit: '9', letters: 'WXYZ' },
+                  { digit: '*', letters: '' },
+                  { digit: '0', letters: '+' },
+                  { digit: '#', letters: '' },
+                ].map((entry) => (
                   <button
-                    key={digit}
+                    key={entry.digit}
                     type="button"
-                    onClick={() => appendDialPadDigit(digit)}
-                    className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+                    onClick={() => appendDialPadDigit(entry.digit)}
+                    className="group flex flex-col items-center rounded-md py-1 text-center text-indigo-700 transition hover:bg-indigo-50/60"
                   >
-                    {digit}
+                    <span className="text-[19px] font-semibold leading-none">{entry.digit}</span>
+                    <span className="mt-0.5 min-h-[12px] text-[10px] font-semibold tracking-wide text-indigo-500">
+                      {entry.letters}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -719,20 +751,26 @@ export default function MessagesPage() {
                 >
                   Call in app
                 </button>
-                <a
-                  href={dialPadValid ? `tel:${dialPadSanitized}` : '#'}
-                  onClick={(e) => {
-                    if (!dialPadValid) e.preventDefault();
-                  }}
-                  className={`flex-1 rounded-md px-2 py-1.5 text-center text-[11px] font-semibold ${
-                    dialPadValid
-                      ? 'border border-lime-300 bg-lime-200 text-slate-800 hover:bg-lime-300'
-                      : 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
-                  }`}
+                <button
+                  type="button"
+                  onClick={() => void startTwilioPhoneCall(dialPadSanitized)}
+                  disabled={!dialPadValid}
+                  className="flex-1 rounded-md border border-lime-300 bg-lime-200 px-2 py-1.5 text-[11px] font-semibold text-slate-800 hover:bg-lime-300 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Call
-                </a>
+                  Call via Twilio
+                </button>
               </div>
+              <a
+                href={dialPadValid ? `tel:${dialPadSanitized}` : '#'}
+                onClick={(e) => {
+                  if (!dialPadValid) e.preventDefault();
+                }}
+                className={`mt-2 inline-block text-[11px] ${
+                  dialPadValid ? 'text-slate-500 hover:text-slate-700' : 'pointer-events-none text-slate-400'
+                }`}
+              >
+                Open phone dialer fallback
+              </a>
             </div>
             {voiceState !== 'IDLE' || voiceError ? (
               <div className="mt-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[11px] text-slate-600">
@@ -755,7 +793,7 @@ export default function MessagesPage() {
               </div>
             ) : null}
             <p className="mt-2 text-[11px] text-slate-500">
-              `Call in app` uses Twilio Voice (WebRTC). `Call` opens the phone dialer fallback.
+              `Call in app` uses Twilio Voice (WebRTC). `Call via Twilio` starts a PSTN test call from your Twilio number.
             </p>
             <div className="mt-3">
               <label className="text-xs font-semibold uppercase text-slate-500">Call notes</label>

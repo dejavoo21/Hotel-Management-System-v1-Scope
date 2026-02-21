@@ -12,6 +12,7 @@ router.use(authenticate);
 router.get('/', messageController.listThreads);
 router.post('/support/presence', messageController.heartbeatSupportPresence);
 router.get('/support/voice/token', messageController.getSupportVoiceToken);
+router.post('/support/voice/call-phone', messageController.startSupportPhoneCall);
 router.get('/support/agents', messageController.listSupportAgents);
 router.post('/live-support', messageController.getOrCreateLiveSupportThread);
 router.post('/:id/assign', messageController.assignSupportAgent);

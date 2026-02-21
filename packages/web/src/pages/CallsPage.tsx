@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { PAGE_TITLE_CLASS } from '@/styles/typography';
 import { messageService } from '@/services';
 import type { MessageThreadSummary, SupportVoiceToken } from '@/types';
@@ -132,6 +133,26 @@ export default function CallsPage() {
     }
   };
 
+  const startTwilioPhoneCall = async () => {
+    const phone = sanitizePhone(dialNumber);
+    if (!phone || !isValidDialable(phone)) {
+      setVoiceError('Enter a valid phone number (7-15 digits).');
+      setVoiceState('ERROR');
+      return;
+    }
+
+    setVoiceError('');
+    try {
+      const call = await messageService.startSupportPhoneCall({ to: phone });
+      pushRecentCall(phone, 'Dialed');
+      toast.success(`Twilio call started (${call.sid.slice(-8)})`);
+    } catch (error: any) {
+      const message = error?.response?.data?.error || 'Failed to start Twilio phone call';
+      pushRecentCall(phone, 'Failed');
+      toast.error(message);
+    }
+  };
+
   const endInAppCall = () => {
     if (voiceCallRef.current) {
       voiceCallRef.current.disconnect();
@@ -153,7 +174,20 @@ export default function CallsPage() {
     []
   );
 
-  const keypad = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
+  const keypad: Array<{ digit: string; letters: string }> = [
+    { digit: '1', letters: '' },
+    { digit: '2', letters: 'ABC' },
+    { digit: '3', letters: 'DEF' },
+    { digit: '4', letters: 'GHI' },
+    { digit: '5', letters: 'JKL' },
+    { digit: '6', letters: 'MNO' },
+    { digit: '7', letters: 'PQRS' },
+    { digit: '8', letters: 'TUV' },
+    { digit: '9', letters: 'WXYZ' },
+    { digit: '*', letters: '' },
+    { digit: '0', letters: '+' },
+    { digit: '#', letters: '' },
+  ];
   const dialable = sanitizePhone(dialNumber);
 
   return (
@@ -182,15 +216,18 @@ export default function CallsPage() {
             </button>
           </div>
 
-          <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className="mt-4 grid grid-cols-3 gap-y-4">
             {keypad.map((key) => (
               <button
-                key={key}
+                key={key.digit}
                 type="button"
-                onClick={() => appendDigit(key)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-base font-semibold text-slate-800 hover:bg-slate-50"
+                onClick={() => appendDigit(key.digit)}
+                className="group flex flex-col items-center rounded-xl py-2 text-center text-indigo-700 transition hover:bg-indigo-50/60"
               >
-                {key}
+                <span className="text-4xl font-semibold leading-none">{key.digit}</span>
+                <span className="mt-1 min-h-[14px] text-xs font-semibold tracking-wide text-indigo-500">
+                  {key.letters}
+                </span>
               </button>
             ))}
           </div>
@@ -204,20 +241,26 @@ export default function CallsPage() {
             >
               {voiceState === 'CONNECTING' ? 'Connecting...' : voiceState === 'IN_CALL' ? 'In call' : 'Call in app'}
             </button>
-            <a
-              href={isValidDialable(dialable) ? `tel:${dialable}` : '#'}
-              onClick={(event) => {
-                if (!isValidDialable(dialable)) event.preventDefault();
-              }}
-              className={`rounded-xl px-4 py-2.5 text-center text-sm font-semibold ${
-                isValidDialable(dialable)
-                  ? 'border border-primary-300 bg-primary-50 text-primary-700 hover:bg-primary-100'
-                  : 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
-              }`}
+            <button
+              type="button"
+              onClick={() => void startTwilioPhoneCall()}
+              disabled={!isValidDialable(dialable)}
+              className="rounded-xl border border-primary-300 bg-primary-50 px-4 py-2.5 text-center text-sm font-semibold text-primary-700 hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Call via phone
-            </a>
+              Call via Twilio
+            </button>
           </div>
+          <a
+            href={isValidDialable(dialable) ? `tel:${dialable}` : '#'}
+            onClick={(event) => {
+              if (!isValidDialable(dialable)) event.preventDefault();
+            }}
+            className={`mt-2 inline-block text-xs font-medium ${
+              isValidDialable(dialable) ? 'text-slate-600 hover:text-slate-800' : 'pointer-events-none text-slate-400'
+            }`}
+          >
+            Open phone dialer fallback
+          </a>
 
           {voiceState === 'IN_CALL' ? (
             <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">

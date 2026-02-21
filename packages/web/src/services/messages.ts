@@ -49,6 +49,11 @@ export const messageService = {
     const response = await api.get('/messages/support/voice/token');
     return response.data.data;
   },
+
+  async startSupportPhoneCall(payload: { to: string; threadId?: string }): Promise<{ sid: string; status: string }> {
+    const response = await api.post('/messages/support/voice/call-phone', payload);
+    return response.data.data;
+  },
 };
 
 export default messageService;

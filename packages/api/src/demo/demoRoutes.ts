@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken';
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
+import twilio from 'twilio';
 import { config } from '../config/index.js';
 import { sendEmail } from '../services/email.service.js';
 import { sendSms } from '../services/sms.service.js';
@@ -34,6 +35,7 @@ import {
 } from './mockData.js';
 
 const router = Router();
+const sanitizePhone = (value?: string) => (value || '').replace(/[^\d+]/g, '');
 
 // Store for demo session
 let demoRefreshTokens: string[] = [];
@@ -3023,6 +3025,45 @@ router.get('/messages', authenticateDemo, (req: Request, res: Response) => {
 router.post('/messages/support/presence', authenticateDemo, (req: Request, res: Response) => {
   markDemoPresence((req as any).user?.id);
   res.json({ success: true, data: { ok: true } });
+});
+
+router.post('/messages/support/voice/call-phone', authenticateDemo, async (req: Request, res: Response) => {
+  const to = sanitizePhone(req.body?.to);
+  const from = sanitizePhone(config.voice.fromPhone || config.sms.fromPhone);
+  const accountSid = config.voice.twilioAccountSid || config.sms.twilioAccountSid;
+  const authToken = config.voice.twilioAuthToken || config.sms.twilioAuthToken;
+
+  if (!accountSid || !authToken || !from) {
+    return res.status(503).json({ success: false, error: 'Twilio phone calling is not configured yet' });
+  }
+
+  if (!to || !/^\+?\d{7,15}$/.test(to)) {
+    return res.status(400).json({ success: false, error: 'Valid destination phone is required' });
+  }
+
+  try {
+    const client = twilio(accountSid, authToken);
+    const call = await client.calls.create({
+      to,
+      from,
+      twiml:
+        '<Response><Say voice="alice">This is a test call from LaFlo support. Your support team initiated this call via Twilio.</Say></Response>',
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        sid: call.sid,
+        status: call.status,
+        to,
+        from,
+      },
+      message: 'Twilio test call started',
+    });
+  } catch (error) {
+    const message = (error as Error)?.message || 'Failed to start Twilio phone call';
+    return res.status(502).json({ success: false, error: message });
+  }
 });
 
 router.get('/messages/support/agents', authenticateDemo, (req: Request, res: Response) => {
