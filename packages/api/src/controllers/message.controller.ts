@@ -526,16 +526,6 @@ export async function listSupportAgents(
           orderBy: { createdAt: 'desc' },
         })
       : [];
-    const activeSessions = agentIds.length
-      ? await prisma.refreshToken.findMany({
-          where: {
-            userId: { in: agentIds },
-            expiresAt: { gt: new Date() },
-          },
-          select: { userId: true },
-        })
-      : [];
-
     const latestHeartbeatById = new Map<string, Date>();
     const onlineHeartbeatById = new Set<string>();
     for (const log of heartbeatLogs) {
@@ -558,8 +548,6 @@ export async function listSupportAgents(
         latestStaffMessageById.set(row.senderUserId, row.createdAt);
       }
     }
-    const activeSessionById = new Set(activeSessions.map((row) => row.userId));
-
     res.json({
       success: true,
       data: agents.map((agent) => ({
@@ -569,7 +557,7 @@ export async function listSupportAgents(
         role: agent.role,
         online:
           agent.id === req.user!.id ||
-          (activeSessionById.has(agent.id) && onlineHeartbeatById.has(agent.id)),
+          onlineHeartbeatById.has(agent.id),
         lastSeenAt:
           latestHeartbeatById.get(agent.id) ||
           latestStaffMessageById.get(agent.id) ||
