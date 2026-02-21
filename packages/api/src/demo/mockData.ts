@@ -537,14 +537,14 @@ function getGuestSummary(guestId: string | undefined) {
   if (!guestId) return undefined;
   const guest = mockGuests.find((g) => g.id === guestId);
   if (!guest) return undefined;
-  return { firstName: guest.firstName, lastName: guest.lastName, email: guest.email };
+  return { firstName: guest.firstName, lastName: guest.lastName, email: guest.email, phone: guest.phone };
 }
 
 function getStaffSummary(userId: string | undefined) {
   if (!userId) return undefined;
   const user = mockUsers.find((u) => u.id === userId);
   if (!user) return undefined;
-  return { firstName: user.firstName, lastName: user.lastName, role: user.role };
+  return { id: user.id, firstName: user.firstName, lastName: user.lastName, role: user.role };
 }
 
 function normalizeMessage(message: (typeof mockConversations)[0]['messages'][0]) {

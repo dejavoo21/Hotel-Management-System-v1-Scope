@@ -163,7 +163,7 @@ export async function listThreads(
         }),
       },
       include: {
-        guest: { select: { firstName: true, lastName: true, email: true } },
+        guest: { select: { firstName: true, lastName: true, email: true, phone: true } },
         booking: { select: { bookingRef: true, checkInDate: true, checkOutDate: true } },
         messages: {
           orderBy: { createdAt: 'desc' },
@@ -196,7 +196,7 @@ export async function getThread(
     const conversation = await prisma.conversation.findFirst({
       where: { id, hotelId },
       include: {
-        guest: { select: { firstName: true, lastName: true, email: true } },
+        guest: { select: { firstName: true, lastName: true, email: true, phone: true } },
         booking: { select: { bookingRef: true, checkInDate: true, checkOutDate: true } },
         messages: {
           orderBy: { createdAt: 'asc' },
@@ -269,7 +269,7 @@ export async function getOrCreateLiveSupportThread(
       where: { hotelId, subject: LIVE_SUPPORT_SUBJECT, status: { in: ['OPEN', 'RESOLVED'] } },
       orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }],
       include: {
-        guest: { select: { firstName: true, lastName: true, email: true } },
+        guest: { select: { firstName: true, lastName: true, email: true, phone: true } },
         booking: { select: { bookingRef: true, checkInDate: true, checkOutDate: true } },
         messages: {
           orderBy: { createdAt: 'desc' },
@@ -297,7 +297,7 @@ export async function getOrCreateLiveSupportThread(
           },
         },
         include: {
-          guest: { select: { firstName: true, lastName: true, email: true } },
+          guest: { select: { firstName: true, lastName: true, email: true, phone: true } },
           booking: { select: { bookingRef: true, checkInDate: true, checkOutDate: true } },
           messages: {
             orderBy: { createdAt: 'desc' },
@@ -596,7 +596,7 @@ export async function assignSupportAgent(
     const conversation = await prisma.conversation.findFirst({
       where: { id, hotelId },
       include: {
-        guest: { select: { firstName: true, lastName: true, email: true } },
+          guest: { select: { firstName: true, lastName: true, email: true, phone: true } },
         booking: { select: { bookingRef: true, checkInDate: true, checkOutDate: true } },
       },
     });
@@ -661,7 +661,7 @@ export async function assignSupportAgent(
     const refreshed = await prisma.conversation.findUnique({
       where: { id: conversation.id },
       include: {
-        guest: { select: { firstName: true, lastName: true, email: true } },
+        guest: { select: { firstName: true, lastName: true, email: true, phone: true } },
         booking: { select: { bookingRef: true, checkInDate: true, checkOutDate: true } },
         messages: {
           orderBy: { createdAt: 'desc' },

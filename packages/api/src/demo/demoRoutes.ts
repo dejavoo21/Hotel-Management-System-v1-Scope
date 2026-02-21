@@ -40,6 +40,8 @@ let demoRefreshTokens: string[] = [];
 let demoCalendarExtras: any[] = [];
 let demoPurchaseOrders: any[] = [];
 let demoFloors = [...mockFloors]; // Mutable copy for adding/removing floors
+const demoPresenceByUserId = new Map<string, number>();
+const DEMO_ONLINE_WINDOW_MS = 2 * 60 * 1000;
 
 // Use Railway volume if available, otherwise use local data folder
 const demoStorePath = process.env.NODE_ENV === 'production' 
@@ -49,6 +51,11 @@ const demoStorePath = process.env.NODE_ENV === 'production'
 const hydrateArray = <T>(target: T[], source?: T[]) => {
   if (!Array.isArray(source)) return;
   target.splice(0, target.length, ...source);
+};
+
+const markDemoPresence = (userId?: string) => {
+  if (!userId) return;
+  demoPresenceByUserId.set(userId, Date.now());
 };
 
 const loadDemoStore = () => {
@@ -3013,22 +3020,31 @@ router.get('/messages', authenticateDemo, (req: Request, res: Response) => {
   res.json({ success: true, data: threads });
 });
 
-router.post('/messages/support/presence', authenticateDemo, (_req: Request, res: Response) => {
+router.post('/messages/support/presence', authenticateDemo, (req: Request, res: Response) => {
+  markDemoPresence((req as any).user?.id);
   res.json({ success: true, data: { ok: true } });
 });
 
-router.get('/messages/support/agents', authenticateDemo, (_req: Request, res: Response) => {
+router.get('/messages/support/agents', authenticateDemo, (req: Request, res: Response) => {
   const roles = ['ADMIN', 'MANAGER', 'RECEPTIONIST'];
+  const currentUserId = (req as any).user?.id as string | undefined;
+  const now = Date.now();
   const data = mockUsers
     .filter((u) => roles.includes(u.role))
-    .map((u, idx) => ({
+    .map((u) => {
+      const lastSeenEpoch = demoPresenceByUserId.get(u.id);
+      const isOnline =
+        u.id === currentUserId ||
+        (typeof lastSeenEpoch === 'number' && now - lastSeenEpoch <= DEMO_ONLINE_WINDOW_MS);
+      return {
       id: u.id,
       firstName: u.firstName,
       lastName: u.lastName,
       role: u.role,
-      online: idx < 2,
-      lastSeenAt: new Date(Date.now() - idx * 60 * 1000).toISOString(),
-    }));
+      online: isOnline,
+      lastSeenAt: new Date(lastSeenEpoch || u.lastLoginAt || Date.now()).toISOString(),
+    };
+    });
   res.json({ success: true, data });
 });
 
@@ -3375,6 +3391,7 @@ function authenticateDemo(req: Request, res: Response, next: Function) {
       return res.status(401).json({ success: false, error: 'User not found' });
     }
     (req as any).user = user;
+    markDemoPresence(user.id);
     next();
   } catch {
     return res.status(401).json({ success: false, error: 'Invalid token' });
