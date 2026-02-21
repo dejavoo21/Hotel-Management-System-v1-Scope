@@ -29,6 +29,7 @@ import ConciergePage from '@/pages/ConciergePage';
 import InventoryPage from '@/pages/InventoryPage';
 import CalendarPage from '@/pages/CalendarPage';
 import MessagesPage from '@/pages/MessagesPage';
+import CallsPage from '@/pages/CallsPage';
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -123,6 +124,7 @@ export default function App() {
         <Route path="bookings/:id" element={<BookingDetailPage />} />
         <Route path="inventory" element={<InventoryPage />} />
         <Route path="messages" element={<MessagesPage />} />
+        <Route path="calls" element={<CallsPage />} />
         <Route path="calendar" element={<CalendarPage />} />
         <Route path="guests" element={<GuestsPage />} />
         <Route path="housekeeping" element={<HousekeepingPage />} />

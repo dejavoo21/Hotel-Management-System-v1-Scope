@@ -109,6 +109,16 @@ const navigation: NavigationItem[] = [
     ),
   },
   {
+    name: 'Calls',
+    href: '/calls',
+    permission: 'messages',
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 5a2 2 0 012-2h2.153a2 2 0 011.96 1.608l.415 2.076a2 2 0 01-.502 1.821l-1.16 1.16a16 16 0 006.364 6.364l1.16-1.16a2 2 0 011.821-.502l2.076.415A2 2 0 0121 16.847V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+      </svg>
+    ),
+  },
+  {
     name: 'Housekeeping',
     href: '/housekeeping',
     permission: 'housekeeping',
@@ -460,7 +470,7 @@ export default function DashboardLayout() {
   const opsItems = mainItems.filter((item) =>
     ['Reservation', 'Rooms', 'Housekeeping', 'Inventory', 'Calendar'].includes(item.name)
   );
-  const guestItems = mainItems.filter((item) => ['Guests', 'Messages'].includes(item.name));
+  const guestItems = mainItems.filter((item) => ['Guests', 'Messages', 'Calls'].includes(item.name));
   const financialItem = bottomNavigation.find((item) => item.name === 'Financials');
   const experienceItems = bottomNavigation.filter((item) => item.name !== 'Financials');
   const visibleExperienceItems = experienceItems.filter((item) => {
