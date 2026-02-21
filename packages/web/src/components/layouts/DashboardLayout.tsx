@@ -470,7 +470,7 @@ export default function DashboardLayout() {
   const opsItems = mainItems.filter((item) =>
     ['Reservation', 'Rooms', 'Housekeeping', 'Inventory', 'Calendar'].includes(item.name)
   );
-  const guestItems = mainItems.filter((item) => ['Guests', 'Messages', 'Calls'].includes(item.name));
+  const guestItems = mainItems.filter((item) => ['/guests', '/messages', '/calls'].includes(item.href));
   const financialItem = bottomNavigation.find((item) => item.name === 'Financials');
   const experienceItems = bottomNavigation.filter((item) => item.name !== 'Financials');
   const visibleExperienceItems = experienceItems.filter((item) => {

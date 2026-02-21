@@ -97,6 +97,7 @@ export default function MessagesPage() {
   const [search, setSearch] = useState('');
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [draftMessage, setDraftMessage] = useState('');
+  const [dialPadNumber, setDialPadNumber] = useState('');
   const [callStatus, setCallStatus] = useState<Record<string, 'PENDING' | 'IN_PROGRESS' | 'DONE'>>({});
   const [callNotes, setCallNotes] = useState<Record<string, string>>({});
   const [voiceState, setVoiceState] = useState<'IDLE' | 'CONNECTING' | 'IN_CALL' | 'ERROR'>('IDLE');
@@ -298,6 +299,17 @@ export default function MessagesPage() {
     setActiveVoiceThreadId(null);
     setVoiceState('IDLE');
   };
+
+  const appendDialPadDigit = (digit: string) => {
+    setDialPadNumber((prev) => `${prev}${digit}`);
+  };
+
+  const backspaceDialPad = () => {
+    setDialPadNumber((prev) => prev.slice(0, -1));
+  };
+
+  const dialPadSanitized = sanitizePhone(dialPadNumber);
+  const dialPadValid = /^\+?\d{7,15}$/.test(dialPadSanitized);
 
   useEffect(
     () => () => {
@@ -668,6 +680,59 @@ export default function MessagesPage() {
                   </div>
                 </div>
               ))}
+            </div>
+            <div className="mt-3 rounded-lg border border-slate-200 bg-white p-2.5">
+              <p className="text-[11px] font-semibold uppercase text-slate-500">Dial Pad</p>
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  value={dialPadNumber}
+                  onChange={(e) => setDialPadNumber(e.target.value)}
+                  placeholder="+1 555 123 4567"
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={backspaceDialPad}
+                  className="rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Del
+                </button>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-1.5">
+                {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map((digit) => (
+                  <button
+                    key={digit}
+                    type="button"
+                    onClick={() => appendDialPadDigit(digit)}
+                    className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+                  >
+                    {digit}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void startInAppCall(`manual-${Date.now()}`, dialPadSanitized)}
+                  disabled={!dialPadValid || voiceState === 'CONNECTING' || voiceState === 'IN_CALL'}
+                  className="flex-1 rounded-md border border-sky-200 bg-sky-50 px-2 py-1.5 text-[11px] font-semibold text-sky-700 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Call in app
+                </button>
+                <a
+                  href={dialPadValid ? `tel:${dialPadSanitized}` : '#'}
+                  onClick={(e) => {
+                    if (!dialPadValid) e.preventDefault();
+                  }}
+                  className={`flex-1 rounded-md px-2 py-1.5 text-center text-[11px] font-semibold ${
+                    dialPadValid
+                      ? 'border border-lime-300 bg-lime-200 text-slate-800 hover:bg-lime-300'
+                      : 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
+                  }`}
+                >
+                  Call
+                </a>
+              </div>
             </div>
             {voiceState !== 'IDLE' || voiceError ? (
               <div className="mt-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[11px] text-slate-600">
