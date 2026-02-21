@@ -13,6 +13,7 @@ const BOT_HANDOFF_WAITING = 'Hi, thank you for requesting to chat with an agent.
 const VOICE_TOKEN_TTL_SECONDS = 60 * 60;
 
 const sanitizePhone = (value?: string) => (value || '').replace(/[^\d+]/g, '');
+const isAssignmentMessage = (body: string) => body.includes(ASSIGNMENT_PREFIX);
 const isVoiceConfigured = () =>
   Boolean(
     config.voice.twilioAccountSid &&
@@ -33,8 +34,9 @@ const resolveThreadTitle = (guest?: { firstName: string; lastName: string }, boo
 };
 
 function parseAssignedUser(body: string) {
-  if (!body.startsWith(ASSIGNMENT_PREFIX)) return null;
-  const jsonText = body.slice(ASSIGNMENT_PREFIX.length).trim();
+  const start = body.indexOf(ASSIGNMENT_PREFIX);
+  if (start < 0) return null;
+  const jsonText = body.slice(start + ASSIGNMENT_PREFIX.length).trim();
   try {
     const parsed = JSON.parse(jsonText) as {
       userId: string;
@@ -69,11 +71,9 @@ const serializeThreadSummary = (
     }>;
   }
 ) => {
-  const visibleMessages = conversation.messages.filter(
-    (msg) => !(msg.senderType === 'SYSTEM' && msg.body.startsWith(ASSIGNMENT_PREFIX))
-  );
+  const visibleMessages = conversation.messages.filter((msg) => !isAssignmentMessage(msg.body));
   const lastMessage = visibleMessages[0];
-  const assignmentMessage = conversation.messages.find((msg) => msg.senderType === 'SYSTEM' && msg.body.startsWith(ASSIGNMENT_PREFIX));
+  const assignmentMessage = conversation.messages.find((msg) => isAssignmentMessage(msg.body));
   const assignedSupport = assignmentMessage ? parseAssignedUser(assignmentMessage.body) : null;
   return {
     id: conversation.id,
@@ -216,11 +216,9 @@ export async function getThread(
     const assignmentMessage = conversation.messages
       .slice()
       .reverse()
-      .find((message) => message.senderType === 'SYSTEM' && message.body.startsWith(ASSIGNMENT_PREFIX));
+      .find((message) => isAssignmentMessage(message.body));
     const assignedSupport = assignmentMessage ? parseAssignedUser(assignmentMessage.body) : null;
-    const visibleMessages = conversation.messages.filter(
-      (message) => !(message.senderType === 'SYSTEM' && message.body.startsWith(ASSIGNMENT_PREFIX))
-    );
+    const visibleMessages = conversation.messages.filter((message) => !isAssignmentMessage(message.body));
 
     res.json({
       success: true,
@@ -482,7 +480,6 @@ export async function listSupportAgents(
     const onlineSince = new Date(Date.now() - 2 * 60 * 1000);
     const recentMessageSince = new Date(Date.now() - 10 * 60 * 1000);
     const recentActivitySince = new Date(Date.now() - 10 * 60 * 1000);
-    const recentSessionSince = new Date(Date.now() - 12 * 60 * 60 * 1000);
     const recentLoginSince = new Date(Date.now() - 8 * 60 * 60 * 1000);
     const roles: Role[] = ['ADMIN', 'MANAGER', 'RECEPTIONIST'];
 
@@ -535,7 +532,6 @@ export async function listSupportAgents(
           where: {
             userId: { in: agentIds },
             expiresAt: { gt: new Date() },
-            createdAt: { gte: recentSessionSince },
           },
           select: { userId: true },
         })
