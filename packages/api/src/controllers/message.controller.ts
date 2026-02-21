@@ -478,9 +478,8 @@ export async function listSupportAgents(
   try {
     const hotelId = req.user!.hotelId;
     const onlineSince = new Date(Date.now() - 2 * 60 * 1000);
-    const recentMessageSince = new Date(Date.now() - 10 * 60 * 1000);
-    const recentActivitySince = new Date(Date.now() - 10 * 60 * 1000);
-    const recentLoginSince = new Date(Date.now() - 8 * 60 * 60 * 1000);
+    const recentMessageSince = new Date(Date.now() - 12 * 60 * 60 * 1000);
+    const recentActivitySince = new Date(Date.now() - 12 * 60 * 60 * 1000);
     const roles: Role[] = ['ADMIN', 'MANAGER', 'RECEPTIONIST'];
 
     const agents = await prisma.user.findMany({
@@ -501,7 +500,7 @@ export async function listSupportAgents(
           where: {
             userId: { in: agentIds },
             action: SUPPORT_HEARTBEAT_ACTION,
-            createdAt: { gte: onlineSince },
+            createdAt: { gte: recentActivitySince },
           },
           select: { userId: true, createdAt: true },
           orderBy: { createdAt: 'desc' },
@@ -537,18 +536,28 @@ export async function listSupportAgents(
         })
       : [];
 
-    const activeById = new Map<string, Date>();
+    const latestHeartbeatById = new Map<string, Date>();
+    const onlineHeartbeatById = new Set<string>();
     for (const log of heartbeatLogs) {
-      if (!activeById.has(log.userId)) {
-        activeById.set(log.userId, log.createdAt);
+      if (!latestHeartbeatById.has(log.userId)) {
+        latestHeartbeatById.set(log.userId, log.createdAt);
+      }
+      if (log.createdAt >= onlineSince) {
+        onlineHeartbeatById.add(log.userId);
       }
     }
-    const recentActivityById = new Set(recentActivityLogs.map((log) => log.userId));
-    const messageActiveById = new Set(
-      recentStaffMessages
-        .map((row) => row.senderUserId)
-        .filter((value): value is string => Boolean(value))
-    );
+    const latestActivityById = new Map<string, Date>();
+    for (const log of recentActivityLogs) {
+      if (!latestActivityById.has(log.userId)) {
+        latestActivityById.set(log.userId, log.createdAt);
+      }
+    }
+    const latestStaffMessageById = new Map<string, Date>();
+    for (const row of recentStaffMessages) {
+      if (row.senderUserId && !latestStaffMessageById.has(row.senderUserId)) {
+        latestStaffMessageById.set(row.senderUserId, row.createdAt);
+      }
+    }
     const activeSessionById = new Set(activeSessions.map((row) => row.userId));
 
     res.json({
@@ -560,12 +569,12 @@ export async function listSupportAgents(
         role: agent.role,
         online:
           agent.id === req.user!.id ||
-          activeById.has(agent.id) ||
-          messageActiveById.has(agent.id) ||
-          recentActivityById.has(agent.id) ||
-          activeSessionById.has(agent.id) ||
-          Boolean(agent.lastLoginAt && agent.lastLoginAt >= recentLoginSince),
-        lastSeenAt: activeById.get(agent.id) || agent.lastLoginAt,
+          (activeSessionById.has(agent.id) && onlineHeartbeatById.has(agent.id)),
+        lastSeenAt:
+          latestHeartbeatById.get(agent.id) ||
+          latestStaffMessageById.get(agent.id) ||
+          latestActivityById.get(agent.id) ||
+          agent.lastLoginAt,
       })),
     });
   } catch (error) {
