@@ -40,6 +40,18 @@ const resolveThreadName = (thread: MessageThreadSummary) => {
   return thread.subject || 'Guest';
 };
 
+const getStoredAvatarByUserId = (userId?: string | null) => {
+  if (!userId) return null;
+  try {
+    return (
+      localStorage.getItem(`laflo-user-avatar:${userId}`) ||
+      localStorage.getItem(`laflo-profile-avatar:${userId}`)
+    );
+  } catch {
+    return null;
+  }
+};
+
 const sanitizePhone = (value?: string) => (value || '').replace(/[^\d+]/g, '');
 
 const fallbackPhoneByThread: Record<string, string> = {
@@ -391,17 +403,27 @@ export default function MessagesPage() {
                 const senderName = resolveSenderName(message);
                 const guestMsg = message.senderType === 'GUEST';
                 const systemMsg = message.senderType === 'SYSTEM';
+                const matchedAgent =
+                  message.senderType === 'STAFF' && message.senderUser
+                    ? (supportAgentsQuery.data || []).find(
+                        (agent) =>
+                          agent.firstName.toLowerCase() === message.senderUser?.firstName.toLowerCase() &&
+                          agent.lastName.toLowerCase() === message.senderUser?.lastName.toLowerCase() &&
+                          agent.role === message.senderUser?.role
+                      )
+                    : undefined;
+                const resolvedSenderUserId = message.senderUser?.id || matchedAgent?.id;
                 const isCurrentUserMessage = Boolean(
                   message.senderType === 'STAFF' &&
                     user &&
-                    (message.senderUser?.id === user.id ||
-                      (!message.senderUser?.id &&
+                    (resolvedSenderUserId === user.id ||
+                      (!resolvedSenderUserId &&
                         senderName.toLowerCase() === `${user.firstName} ${user.lastName}`.toLowerCase()))
                 );
                 const alignLeft = guestMsg || systemMsg || (message.senderType === 'STAFF' && !isCurrentUserMessage);
                 const senderRole = message.senderUser?.role;
-                const senderOnline = message.senderUser?.id
-                  ? supportAgentOnlineMap.get(message.senderUser.id) === true
+                const senderOnline = resolvedSenderUserId
+                  ? supportAgentOnlineMap.get(resolvedSenderUserId) === true
                   : false;
                 const currentUserName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
                 const senderLabel = systemMsg
@@ -411,12 +433,21 @@ export default function MessagesPage() {
                         ? ` (${senderRole || user?.role})`
                         : ''
                     }`;
+                const senderAvatar =
+                  (isCurrentUserMessage ? currentUserAvatar : null) ||
+                  getStoredAvatarByUserId(resolvedSenderUserId);
                 return (
                   <div key={message.id} className={`flex gap-2 ${alignLeft ? 'justify-start' : 'justify-end'}`}>
                     {alignLeft ? (
                       <div className="relative">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-lime-200 text-xs font-bold text-slate-800">
-                          {systemMsg ? 'AI' : getInitials(senderName)}
+                        <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-lime-200 text-xs font-bold text-slate-800">
+                          {systemMsg ? (
+                            'AI'
+                          ) : senderAvatar ? (
+                            <img src={senderAvatar} alt={senderName} className="h-full w-full object-cover" />
+                          ) : (
+                            getInitials(senderName)
+                          )}
                         </div>
                         {!systemMsg && senderOnline ? (
                           <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white bg-emerald-500" />
@@ -441,8 +472,8 @@ export default function MessagesPage() {
                     {!alignLeft && !systemMsg ? (
                       <div className="relative">
                         <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-lime-200 text-xs font-bold text-slate-800">
-                          {isCurrentUserMessage && currentUserAvatar ? (
-                            <img src={currentUserAvatar} alt="You" className="h-full w-full object-cover" />
+                          {senderAvatar ? (
+                            <img src={senderAvatar} alt={isCurrentUserMessage ? 'You' : senderName} className="h-full w-full object-cover" />
                           ) : (
                             getInitials(senderName)
                           )}
