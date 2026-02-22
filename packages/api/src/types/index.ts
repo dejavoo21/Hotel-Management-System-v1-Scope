@@ -10,6 +10,7 @@ export interface AuthenticatedRequest extends Request {
     hotelId: string;
     firstName: string;
     lastName: string;
+    mustChangePassword?: boolean;
   };
 }
 

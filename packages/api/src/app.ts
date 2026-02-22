@@ -32,6 +32,7 @@ import messageRoutes from './routes/message.routes.js';
 import accessRequestRoutes from './routes/accessRequest.routes.js';
 import purchaseOrderRoutes from './routes/purchaseOrder.routes.js';
 import floorRoutes from './routes/floor.routes.js';
+import callRoutes from './routes/call.routes.js';
 
 const normalizeOrigin = (value?: string): string | undefined =>
   value ? value.replace(/\/+$/, '') : undefined;
@@ -205,6 +206,7 @@ export function createApp(): Application {
     app.use('/api/access-requests', accessRequestRoutes);
     app.use('/api/floors', floorRoutes);
     app.use('/api/purchase-orders', purchaseOrderRoutes);
+    app.use('/api/calls', callRoutes);
   }
 
   // API documentation endpoint
@@ -237,6 +239,7 @@ export function createApp(): Application {
           messages: '/api/messages',
           accessRequests: '/api/access-requests',
           purchaseOrders: '/api/purchase-orders',
+          calls: '/api/calls',
         },
       },
     });

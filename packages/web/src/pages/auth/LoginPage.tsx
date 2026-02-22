@@ -81,7 +81,8 @@ export default function LoginPage() {
         const response = await login({ email, password });
 
         if (response.requiresPasswordChange) {
-          toast.error('Password reset required. Use "Forgot password" to continue.');
+          toast('Password change required before you can access the app.');
+          navigate('/force-password-change');
           return;
         }
 

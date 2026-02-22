@@ -80,7 +80,58 @@ export async function login(
   }
 
   if (user.mustChangePassword) {
-    return { requiresPasswordChange: true };
+    const accessToken = generateAccessToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      hotelId: user.hotelId,
+    });
+
+    const refreshToken = await generateRefreshToken(user.id);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    await prisma.activityLog.createMany({
+      data: [
+        {
+          userId: user.id,
+          action: 'TEMP_PASSWORD_LOGIN',
+          entity: 'user',
+          entityId: user.id,
+          details: { ipAddress, userAgent },
+          ipAddress,
+          userAgent,
+        },
+        {
+          userId: user.id,
+          action: 'PASSWORD_CHANGE_REQUIRED',
+          entity: 'user',
+          entityId: user.id,
+          details: { reason: 'mustChangePassword', ipAddress, userAgent },
+          ipAddress,
+          userAgent,
+        },
+      ],
+    });
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        hotelId: user.hotelId,
+        hotel: user.hotel,
+      },
+      accessToken,
+      refreshToken,
+      expiresIn: config.jwt.expiresIn,
+      requiresPasswordChange: true,
+    };
   }
 
   if (user.twoFactorEnabled) {
@@ -708,6 +759,7 @@ export async function getUserById(userId: string) {
       role: true,
       hotelId: true,
       isActive: true,
+      mustChangePassword: true,
       lastLoginAt: true,
       createdAt: true,
       hotel: {

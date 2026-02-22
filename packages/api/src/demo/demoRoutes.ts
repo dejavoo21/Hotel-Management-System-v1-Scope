@@ -3027,6 +3027,26 @@ router.post('/messages/support/presence', authenticateDemo, (req: Request, res: 
   res.json({ success: true, data: { ok: true } });
 });
 
+router.post('/calls', authenticateDemo, (req: Request, res: Response) => {
+  const to = String(req.body?.to || '').trim();
+  const source = req.body?.source === 'quick_contact' ? 'quick_contact' : 'dialpad';
+  if (!to) {
+    return res.status(400).json({ success: false, error: 'Destination is required' });
+  }
+  const callId = `demo_call_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  return res.status(201).json({
+    success: true,
+    data: {
+      callId,
+      status: 'queued',
+      to,
+      source,
+      metadata: req.body?.metadata || {},
+    },
+    message: 'Call request accepted',
+  });
+});
+
 router.get('/messages/support/video/token', authenticateDemo, (req: Request, res: Response) => {
   const accountSid = config.voice.twilioAccountSid || config.sms.twilioAccountSid;
   const apiKeySid = config.voice.twilioApiKeySid;

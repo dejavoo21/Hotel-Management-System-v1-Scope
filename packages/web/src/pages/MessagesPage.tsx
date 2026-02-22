@@ -190,7 +190,6 @@ export default function MessagesPage() {
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [draftMessage, setDraftMessage] = useState('');
   const [dialPadNumber, setDialPadNumber] = useState('');
-  const [dialPadMode, setDialPadMode] = useState<'DIGITS' | 'ALT'>('DIGITS');
   const [callStatus, setCallStatus] = useState<Record<string, 'PENDING' | 'IN_PROGRESS' | 'DONE'>>({});
   const [callNotes, setCallNotes] = useState<Record<string, string>>({});
   const [voiceState, setVoiceState] = useState<'IDLE' | 'CONNECTING' | 'IN_CALL' | 'ERROR'>('IDLE');
@@ -199,7 +198,8 @@ export default function MessagesPage() {
   const [presenceOverrides, setPresenceOverrides] = useState<Record<string, PresenceStatus>>({});
   const voiceDeviceRef = useRef<Device | null>(null);
   const voiceCallRef = useRef<Call | null>(null);
-  const lastDialPadTapRef = useRef<{ key: string; at: number; index: number } | null>(null);
+  const zeroHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const zeroHoldTriggeredRef = useRef(false);
 
   const { data: threadsData, isLoading, refetch: refetchThreads } = useQuery({
     queryKey: ['message-threads', search],
@@ -456,43 +456,32 @@ export default function MessagesPage() {
     setVoiceState('IDLE');
   };
 
-  const appendDialPadKey = (entry: { digit: string; letters: string }) => {
-    if (dialPadMode === 'DIGITS') {
-      setDialPadNumber((prev) => `${prev}${entry.digit}`);
-      lastDialPadTapRef.current = null;
-      return;
-    }
+  const appendDialPadKey = (entry: { digit: string }) => {
+    setDialPadNumber((prev) => `${prev}${entry.digit}`);
+  };
 
-    if (entry.digit === '0' && entry.letters === '+') {
+  const startZeroHold = () => {
+    zeroHoldTriggeredRef.current = false;
+    if (zeroHoldTimerRef.current) clearTimeout(zeroHoldTimerRef.current);
+    zeroHoldTimerRef.current = setTimeout(() => {
+      zeroHoldTriggeredRef.current = true;
       setDialPadNumber((prev) => `${prev}+`);
-      lastDialPadTapRef.current = null;
+    }, 500);
+  };
+
+  const endZeroHold = () => {
+    if (zeroHoldTimerRef.current) {
+      clearTimeout(zeroHoldTimerRef.current);
+      zeroHoldTimerRef.current = null;
+    }
+  };
+
+  const clickZero = () => {
+    if (zeroHoldTriggeredRef.current) {
+      zeroHoldTriggeredRef.current = false;
       return;
     }
-
-    if (!entry.letters) {
-      setDialPadNumber((prev) => `${prev}${entry.digit}`);
-      lastDialPadTapRef.current = null;
-      return;
-    }
-
-    const now = Date.now();
-    const previousTap = lastDialPadTapRef.current;
-    setDialPadNumber((prev) => {
-      const letters = entry.letters.split('');
-      if (
-        previousTap &&
-        previousTap.key === entry.digit &&
-        now - previousTap.at < 1200 &&
-        prev.length > 0
-      ) {
-        const nextIndex = (previousTap.index + 1) % letters.length;
-        lastDialPadTapRef.current = { key: entry.digit, at: now, index: nextIndex };
-        return `${prev.slice(0, -1)}${letters[nextIndex]}`;
-      }
-
-      lastDialPadTapRef.current = { key: entry.digit, at: now, index: 0 };
-      return `${prev}${letters[0]}`;
-    });
+    setDialPadNumber((prev) => `${prev}0`);
   };
 
   const backspaceDialPad = () => {
@@ -923,26 +912,6 @@ export default function MessagesPage() {
                   Del
                 </button>
               </div>
-              <div className="mt-2 inline-flex rounded-md border border-slate-200 bg-slate-50 p-1">
-                <button
-                  type="button"
-                  onClick={() => setDialPadMode('DIGITS')}
-                  className={`rounded px-2 py-1 text-[11px] font-semibold transition ${
-                    dialPadMode === 'DIGITS' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  123
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDialPadMode('ALT')}
-                  className={`rounded px-2 py-1 text-[11px] font-semibold transition ${
-                    dialPadMode === 'ALT' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  ABC / +
-                </button>
-              </div>
               <div className="mt-3 grid grid-cols-3 gap-y-2">
                 {[
                   { digit: '1', letters: '' },
@@ -961,27 +930,23 @@ export default function MessagesPage() {
                   <button
                     key={entry.digit}
                     type="button"
-                    onClick={() => appendDialPadKey(entry)}
+                    onClick={entry.digit === '0' ? clickZero : () => appendDialPadKey(entry)}
+                    onMouseDown={entry.digit === '0' ? startZeroHold : undefined}
+                    onMouseUp={entry.digit === '0' ? endZeroHold : undefined}
+                    onMouseLeave={entry.digit === '0' ? endZeroHold : undefined}
+                    onTouchStart={entry.digit === '0' ? startZeroHold : undefined}
+                    onTouchEnd={entry.digit === '0' ? endZeroHold : undefined}
                     className="group flex flex-col items-center rounded-md py-1.5 text-center text-slate-700 transition hover:bg-primary-50/60"
                   >
                     <span className="text-sm font-semibold leading-none tracking-tight text-slate-700">
-                      {dialPadMode === 'ALT' && (entry.letters || entry.digit === '0')
-                        ? entry.digit === '0'
-                          ? '+'
-                          : entry.letters
-                        : entry.digit}
+                      {entry.digit}
                     </span>
                     <span className="mt-0.5 min-h-[12px] text-[9px] font-semibold tracking-wide text-slate-400">
-                      {dialPadMode === 'ALT' ? entry.digit : entry.letters}
+                      {entry.letters}
                     </span>
                   </button>
                 ))}
               </div>
-              <p className="mt-2 text-[10px] text-slate-500">
-                {dialPadMode === 'ALT'
-                  ? 'ABC/+ mode: tap 2-9 repeatedly to cycle letters.'
-                  : '123 mode: numbers and symbols for direct dialing.'}
-              </p>
               <div className="mt-2 flex gap-2">
                 <button
                   type="button"

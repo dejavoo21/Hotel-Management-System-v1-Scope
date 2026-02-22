@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import SkipLink from '@/components/SkipLink';
 
@@ -30,10 +30,12 @@ import InventoryPage from '@/pages/InventoryPage';
 import CalendarPage from '@/pages/CalendarPage';
 import MessagesPage from '@/pages/MessagesPage';
 import CallsPage from '@/pages/CallsPage';
+import ForcePasswordChangePage from '@/pages/auth/ForcePasswordChangePage';
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading, user } = useAuthStore();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -47,12 +49,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
+  if (user?.mustChangePassword && location.pathname !== '/force-password-change') {
+    return <Navigate to="/force-password-change" replace />;
+  }
+
   return <>{children}</>;
 }
 
 // Public Route wrapper (redirect if already authenticated)
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading, user } = useAuthStore();
 
   if (isLoading) {
     return (
@@ -63,6 +69,9 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (isAuthenticated) {
+    if (user?.mustChangePassword) {
+      return <Navigate to="/force-password-change" replace />;
+    }
     return <Navigate to="/" replace />;
   }
 
@@ -118,6 +127,7 @@ export default function App() {
           </ProtectedRoute>
         }
       >
+        <Route path="force-password-change" element={<ForcePasswordChangePage />} />
         <Route index element={<DashboardPage />} />
         <Route path="rooms" element={<RoomsPage />} />
         <Route path="bookings" element={<BookingsPage />} />

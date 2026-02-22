@@ -14,6 +14,7 @@ export interface User {
   };
   twoFactorEnabled?: boolean;
   isActive: boolean;
+  mustChangePassword?: boolean;
   lastLoginAt?: string;
   createdAt: string;
 }

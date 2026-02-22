@@ -14,6 +14,7 @@ export { default as reviewService } from './reviews';
 export { default as conciergeService } from './concierge';
 export { default as hotelService } from './hotels';
 export { default as messageService } from './messages';
+export { default as callsService } from './calls';
 export { default as purchaseOrderService } from './purchaseOrders';
 export { default as reportService } from './reports';
 export { default as accessRequestService } from './accessRequests';

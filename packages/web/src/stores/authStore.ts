@@ -89,6 +89,20 @@ export const useAuthStore = create<AuthState>()(
           return response;
         }
 
+        if (response.requiresPasswordChange) {
+          set({
+            user: response.user || null,
+            accessToken: response.accessToken || null,
+            refreshToken: response.refreshToken || null,
+            isAuthenticated: Boolean(response.accessToken),
+            requiresTwoFactor: false,
+            requiresOtpRevalidation: false,
+            pendingEmail: null,
+            pendingPassword: null,
+          });
+          return response;
+        }
+
         set({
           user: response.user,
           accessToken: response.accessToken,

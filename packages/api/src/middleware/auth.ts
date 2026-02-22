@@ -6,6 +6,13 @@ import { prisma } from '../config/database.js';
 import { AuthenticatedRequest, TokenPayload, ApiResponse } from '../types/index.js';
 import { logger } from '../config/logger.js';
 
+function isPasswordChangeAllowedRoute(req: AuthenticatedRequest): boolean {
+  const base = req.baseUrl || '';
+  const path = req.path || '';
+  if (!base.endsWith('/auth')) return false;
+  return path === '/password' || path === '/logout' || path === '/me';
+}
+
 /**
  * Middleware to verify JWT token and attach user to request
  */
@@ -41,6 +48,7 @@ export async function authenticate(
           role: true,
           hotelId: true,
           isActive: true,
+          mustChangePassword: true,
         },
       });
 
@@ -59,7 +67,16 @@ export async function authenticate(
         lastName: user.lastName,
         role: user.role,
         hotelId: user.hotelId,
+        mustChangePassword: user.mustChangePassword,
       };
+
+      if (user.mustChangePassword && !isPasswordChangeAllowedRoute(req)) {
+        res.status(403).json({
+          success: false,
+          error: 'Password change required',
+        });
+        return;
+      }
 
       next();
     } catch (jwtError) {
@@ -159,6 +176,7 @@ export async function optionalAuth(
         role: true,
         hotelId: true,
         isActive: true,
+        mustChangePassword: true,
       },
     });
 
@@ -170,6 +188,7 @@ export async function optionalAuth(
         lastName: user.lastName,
         role: user.role,
         hotelId: user.hotelId,
+        mustChangePassword: user.mustChangePassword,
       };
     }
   } catch {
