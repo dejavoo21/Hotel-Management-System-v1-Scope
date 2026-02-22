@@ -243,6 +243,13 @@ export interface SupportVoiceToken {
   enabled: boolean;
 }
 
+export interface SupportVideoToken {
+  token: string;
+  identity: string;
+  room: string;
+  enabled: boolean;
+}
+
 export interface MessageThreadDetail extends MessageThreadSummary {
   messages: ConversationMessage[];
 }

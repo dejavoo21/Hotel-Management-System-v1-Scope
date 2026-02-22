@@ -3027,6 +3027,43 @@ router.post('/messages/support/presence', authenticateDemo, (req: Request, res: 
   res.json({ success: true, data: { ok: true } });
 });
 
+router.get('/messages/support/video/token', authenticateDemo, (req: Request, res: Response) => {
+  const accountSid = config.voice.twilioAccountSid || config.sms.twilioAccountSid;
+  const apiKeySid = config.voice.twilioApiKeySid;
+  const apiKeySecret = config.voice.twilioApiKeySecret;
+  if (!accountSid || !apiKeySid || !apiKeySecret) {
+    return res.status(503).json({ success: false, error: 'In-app video calling is not configured yet' });
+  }
+
+  const requestedRoom = String((req.query?.room as string | undefined) || '')
+    .replace(/[^a-zA-Z0-9_-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 64);
+  const room = requestedRoom || 'laflo-demo-support';
+  const user = (req as any).user;
+  const identity = `support-video:${user?.hotelId || 'demo'}:${user?.id || 'demo-user'}`;
+
+  try {
+    const AccessToken = (twilio as any).jwt.AccessToken;
+    const VideoGrant = AccessToken.VideoGrant;
+    const token = new AccessToken(accountSid, apiKeySid, apiKeySecret, { identity, ttl: 60 * 60 });
+    token.addGrant(new VideoGrant({ room }));
+    return res.json({
+      success: true,
+      data: {
+        token: token.toJwt(),
+        identity,
+        room,
+        enabled: true,
+      },
+    });
+  } catch (error) {
+    const message = (error as Error)?.message || 'Failed to create video token';
+    return res.status(500).json({ success: false, error: message });
+  }
+});
+
 router.post('/messages/support/voice/call-phone', authenticateDemo, async (req: Request, res: Response) => {
   const to = sanitizePhone(req.body?.to);
   const from = sanitizePhone(config.voice.fromPhone || config.sms.fromPhone);

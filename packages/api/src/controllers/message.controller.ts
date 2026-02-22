@@ -13,6 +13,12 @@ const BOT_HANDOFF_WAITING = 'Hi, thank you for requesting to chat with an agent.
 const VOICE_TOKEN_TTL_SECONDS = 60 * 60;
 
 const sanitizePhone = (value?: string) => (value || '').replace(/[^\d+]/g, '');
+const sanitizeVideoRoom = (value?: string) =>
+  (value || '')
+    .replace(/[^a-zA-Z0-9_-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 64);
 const isAssignmentMessage = (body: string) => body.includes(ASSIGNMENT_PREFIX);
 const isVoiceConfigured = () =>
   Boolean(
@@ -27,6 +33,12 @@ const isPhoneCallConfigured = () =>
     config.voice.twilioAccountSid &&
       config.voice.twilioAuthToken &&
       config.voice.fromPhone
+  );
+const isVideoConfigured = () =>
+  Boolean(
+    config.voice.twilioAccountSid &&
+      config.voice.twilioApiKeySid &&
+      config.voice.twilioApiKeySecret
   );
 
 const resolveThreadTitle = (guest?: { firstName: string; lastName: string }, bookingRef?: string) => {
@@ -437,6 +449,52 @@ export async function getSupportVoiceToken(
         token: token.toJwt(),
         identity,
         fromPhone: config.voice.fromPhone,
+        enabled: true,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getSupportVideoToken(
+  req: AuthenticatedRequest,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> {
+  try {
+    if (!isVideoConfigured()) {
+      res.status(503).json({ success: false, error: 'In-app video calling is not configured yet' });
+      return;
+    }
+
+    const requestedRoom =
+      (req.query?.room as string | undefined) ||
+      (req.body?.room as string | undefined) ||
+      '';
+    const room = sanitizeVideoRoom(requestedRoom) || `laflo-support-${req.user!.hotelId}`;
+    const identity = `support-video:${req.user!.hotelId}:${req.user!.id}`;
+
+    const AccessToken = twilio.jwt.AccessToken;
+    const VideoGrant = AccessToken.VideoGrant;
+    const token = new AccessToken(
+      config.voice.twilioAccountSid,
+      config.voice.twilioApiKeySid,
+      config.voice.twilioApiKeySecret,
+      {
+        identity,
+        ttl: VOICE_TOKEN_TTL_SECONDS,
+      }
+    );
+
+    token.addGrant(new VideoGrant({ room }));
+
+    res.json({
+      success: true,
+      data: {
+        token: token.toJwt(),
+        identity,
+        room,
         enabled: true,
       },
     });

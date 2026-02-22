@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { messageService } from '@/services';
 import { PAGE_TITLE_CLASS } from '@/styles/typography';
 import { useAuthStore } from '@/stores/authStore';
+import SupportVideoPanel from '@/components/calls/SupportVideoPanel';
 import type {
   ConversationMessage,
   MessageThreadDetail,
@@ -1034,6 +1035,13 @@ export default function MessagesPage() {
             <p className="mt-2 text-[11px] text-slate-500">
               `Call in app` uses Twilio Voice (WebRTC). `Call via Twilio` starts a PSTN test call from your Twilio number.
             </p>
+            <div className="mt-3">
+              <SupportVideoPanel
+                roomName={`laflo-thread-${activeThreadId || 'live-support'}`}
+                title="In-app video (current conversation)"
+                compact
+              />
+            </div>
             <div className="mt-3">
               <label className="text-xs font-semibold uppercase text-slate-500">Call notes</label>
               <textarea

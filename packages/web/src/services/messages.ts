@@ -4,6 +4,7 @@ import type {
   MessageThreadDetail,
   MessageThreadSummary,
   SupportVoiceToken,
+  SupportVideoToken,
   SupportAgent,
 } from '@/types';
 
@@ -47,6 +48,11 @@ export const messageService = {
 
   async getSupportVoiceToken(): Promise<SupportVoiceToken> {
     const response = await api.get('/messages/support/voice/token');
+    return response.data.data;
+  },
+
+  async getSupportVideoToken(room: string): Promise<SupportVideoToken> {
+    const response = await api.get('/messages/support/video/token', { params: { room } });
     return response.data.data;
   },
 

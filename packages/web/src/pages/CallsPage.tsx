@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { PAGE_TITLE_CLASS } from '@/styles/typography';
 import { messageService } from '@/services';
+import SupportVideoPanel from '@/components/calls/SupportVideoPanel';
 import type { MessageThreadSummary, SupportVoiceToken } from '@/types';
 import type { Device, Call } from '@twilio/voice-sdk';
 
@@ -390,6 +391,10 @@ export default function CallsPage() {
               {voiceError}
             </p>
           ) : null}
+
+          <div className="mt-4">
+            <SupportVideoPanel roomName={`laflo-calls-${dialable || 'support'}`} title="In-app video (support)" />
+          </div>
         </section>
 
         <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
