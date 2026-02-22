@@ -29,7 +29,6 @@ export default function LoginPage() {
       return false;
     }
   });
-  const [rememberDevice, setRememberDevice] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -69,7 +68,7 @@ export default function LoginPage() {
           email,
           otpCode,
           otpPurpose,
-          otpPurpose === 'ACCESS_REVALIDATION' && rememberDevice
+          otpPurpose === 'ACCESS_REVALIDATION' && rememberMe
         );
         if (response.requiresTwoFactor) {
           navigate('/2fa');
@@ -281,17 +280,6 @@ export default function LoginPage() {
                 {isSendingOtp ? 'Sending...' : otpSent ? 'Resend' : 'Send code'}
               </button>
             </div>
-            {otpPurpose === 'ACCESS_REVALIDATION' && (
-              <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
-                <input
-                  type="checkbox"
-                  checked={rememberDevice}
-                  onChange={(e) => setRememberDevice(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                />
-                Remember this device for 30 days
-              </label>
-            )}
           </div>
         )}
 
@@ -304,7 +292,10 @@ export default function LoginPage() {
               onChange={(e) => setRememberMe(e.target.checked)}
               className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
             />
-            <span className="text-sm text-slate-600">Remember me</span>
+            <span className="text-sm text-slate-600">
+              Remember me
+              {otpMode && otpPurpose === 'ACCESS_REVALIDATION' ? ' (includes device trust for 30 days)' : ''}
+            </span>
           </label>
           <div className="flex items-center gap-3 text-sm">
             <Link to="/reset-password" className="font-medium text-primary-600 hover:text-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded px-1">
