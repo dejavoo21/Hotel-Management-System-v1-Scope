@@ -16,6 +16,8 @@ import {
 import toast from 'react-hot-toast';
 import { formatEnumLabel } from '@/utils';
 import { ackAccessRequest } from '@/utils/accessRequestAck';
+import ThemeSwitcher from '@/components/theme/ThemeSwitcher';
+import { useTheme } from '@/theme/ThemeProvider';
 
 type SettingsTab =
   | 'hotel'
@@ -56,7 +58,6 @@ export default function SettingsPage() {
     dailyReports: true,
   });
   const [appearancePrefs, setAppearancePrefs] = useState({
-    theme: 'laflo',
     background: 'mist',
   });
   const [auditSettings, setAuditSettings] = useState(getAuditSettings());
@@ -64,6 +65,7 @@ export default function SettingsPage() {
   const [auditFilter, setAuditFilter] = useState('');
 
   const { user, setUser } = useAuthStore();
+  const { theme } = useTheme();
   const queryClient = useQueryClient();
   const [hotelForm, setHotelForm] = useState({
     name: '',
@@ -80,15 +82,6 @@ export default function SettingsPage() {
     ],
     []
   );
-
-  const appearanceThemes = [
-    { value: 'laflo', label: 'LaFlo Green' },
-    { value: 'ocean', label: 'Ocean Blue' },
-    { value: 'sunset', label: 'Sunset Amber' },
-    { value: 'forest', label: 'Forest Green' },
-    { value: 'cobalt', label: 'Cobalt Blue' },
-    { value: 'sand', label: 'Desert Sand' },
-  ];
 
   const backgroundOptions = [
     { value: 'mist', label: 'Mist Gradient' },
@@ -144,8 +137,8 @@ export default function SettingsPage() {
     const stored = localStorage.getItem('laflo:appearance');
     if (stored) {
       try {
-        const parsed = JSON.parse(stored) as typeof appearancePrefs;
-        setAppearancePrefs((prev) => ({ ...prev, ...parsed }));
+        const parsed = JSON.parse(stored) as Partial<typeof appearancePrefs> & { theme?: string };
+        setAppearancePrefs((prev) => ({ ...prev, background: parsed.background ?? prev.background }));
       } catch {
         // Ignore malformed values.
       }
@@ -159,7 +152,6 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
-    document.body.dataset.theme = appearancePrefs.theme;
     document.body.dataset.bg = appearancePrefs.background;
   }, [appearancePrefs]);
 
@@ -518,7 +510,7 @@ export default function SettingsPage() {
       action: 'APPEARANCE_UPDATED',
       actorId: user?.id,
       actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
-      details: appearancePrefs,
+      details: { ...appearancePrefs, theme },
     });
     refreshAuditLogs();
     toast.success('Appearance saved');
@@ -1028,25 +1020,10 @@ export default function SettingsPage() {
               <div className="mt-6 space-y-6">
                 <div>
                   <label className="label">Theme</label>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    {appearanceThemes.map((theme) => (
-                      <button
-                        key={theme.value}
-                        type="button"
-                        onClick={() =>
-                          setAppearancePrefs((prev) => ({ ...prev, theme: theme.value }))
-                        }
-                        className={`rounded-lg border px-3 py-3 text-left text-sm transition-colors ${
-                          appearancePrefs.theme === theme.value
-                            ? 'border-primary-500 bg-primary-50 text-primary-700'
-                            : 'border-slate-200 bg-white text-slate-600 hover:border-primary-300'
-                        }`}
-                      >
-                        <div className="font-medium text-slate-900">{theme.label}</div>
-                        <div className="mt-1 text-xs text-slate-500">Primary accents</div>
-                      </button>
-                    ))}
-                  </div>
+                  <ThemeSwitcher />
+                  <p className="mt-2 text-xs text-slate-500">
+                    Active theme: <span className="font-medium capitalize">{theme}</span>
+                  </p>
                 </div>
 
                 <div>

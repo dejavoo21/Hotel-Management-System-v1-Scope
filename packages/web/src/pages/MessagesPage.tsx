@@ -14,6 +14,8 @@ import type {
 } from '@/types';
 import type { Device, Call } from '@twilio/voice-sdk';
 
+type PresenceStatus = 'AVAILABLE' | 'BUSY' | 'DND' | 'AWAY' | 'OFFLINE';
+
 const formatTime = (date: string) =>
   new Date(date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
@@ -53,7 +55,95 @@ const getStoredAvatarByUserId = (userId?: string | null) => {
   }
 };
 
-const sanitizePhone = (value?: string) => (value || '').replace(/[^\d+]/g, '');
+const LETTER_TO_DIGIT: Record<string, string> = {
+  A: '2',
+  B: '2',
+  C: '2',
+  D: '3',
+  E: '3',
+  F: '3',
+  G: '4',
+  H: '4',
+  I: '4',
+  J: '5',
+  K: '5',
+  L: '5',
+  M: '6',
+  N: '6',
+  O: '6',
+  P: '7',
+  Q: '7',
+  R: '7',
+  S: '7',
+  T: '8',
+  U: '8',
+  V: '8',
+  W: '9',
+  X: '9',
+  Y: '9',
+  Z: '9',
+};
+
+const sanitizePhone = (value?: string) => {
+  const input = (value || '').toUpperCase();
+  let output = '';
+  for (const ch of input) {
+    if (/\d/.test(ch)) {
+      output += ch;
+      continue;
+    }
+    if (ch === '+' && output.length === 0) {
+      output += ch;
+      continue;
+    }
+    if (LETTER_TO_DIGIT[ch]) {
+      output += LETTER_TO_DIGIT[ch];
+    }
+  }
+  return output;
+};
+
+const PRESENCE_STORAGE_KEY = 'laflo:user-presence';
+
+const PRESENCE_META: Record<
+  PresenceStatus,
+  { label: string; dotClass: string; pillClass: string }
+> = {
+  AVAILABLE: {
+    label: 'Available',
+    dotClass: 'bg-emerald-500',
+    pillClass: 'bg-emerald-100 text-emerald-700',
+  },
+  BUSY: {
+    label: 'Busy',
+    dotClass: 'bg-amber-500',
+    pillClass: 'bg-amber-100 text-amber-700',
+  },
+  DND: {
+    label: 'Do Not Disturb',
+    dotClass: 'bg-rose-500',
+    pillClass: 'bg-rose-100 text-rose-700',
+  },
+  AWAY: {
+    label: 'Away',
+    dotClass: 'bg-sky-500',
+    pillClass: 'bg-sky-100 text-sky-700',
+  },
+  OFFLINE: {
+    label: 'Offline',
+    dotClass: 'bg-slate-300',
+    pillClass: 'bg-slate-100 text-slate-500',
+  },
+};
+
+const normalizePresenceStatus = (value?: string | null): PresenceStatus | null => {
+  if (!value) return null;
+  const normalized = value.toUpperCase().replace(/\s+/g, '_');
+  if (['AVAILABLE', 'BUSY', 'DND', 'AWAY', 'OFFLINE'].includes(normalized)) {
+    return normalized as PresenceStatus;
+  }
+  return null;
+};
 
 const fallbackPhoneByThread: Record<string, string> = {
   m1: '+15551230001',
@@ -99,13 +189,16 @@ export default function MessagesPage() {
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [draftMessage, setDraftMessage] = useState('');
   const [dialPadNumber, setDialPadNumber] = useState('');
+  const [dialPadMode, setDialPadMode] = useState<'DIGITS' | 'ALT'>('DIGITS');
   const [callStatus, setCallStatus] = useState<Record<string, 'PENDING' | 'IN_PROGRESS' | 'DONE'>>({});
   const [callNotes, setCallNotes] = useState<Record<string, string>>({});
   const [voiceState, setVoiceState] = useState<'IDLE' | 'CONNECTING' | 'IN_CALL' | 'ERROR'>('IDLE');
   const [voiceError, setVoiceError] = useState('');
   const [activeVoiceThreadId, setActiveVoiceThreadId] = useState<string | null>(null);
+  const [presenceOverrides, setPresenceOverrides] = useState<Record<string, PresenceStatus>>({});
   const voiceDeviceRef = useRef<Device | null>(null);
   const voiceCallRef = useRef<Call | null>(null);
+  const lastDialPadTapRef = useRef<{ key: string; at: number; index: number } | null>(null);
 
   const { data: threadsData, isLoading, refetch: refetchThreads } = useQuery({
     queryKey: ['message-threads', search],
@@ -135,6 +228,45 @@ export default function MessagesPage() {
       return null;
     }
   }, [user?.id]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PRESENCE_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Record<string, string>;
+      const next: Record<string, PresenceStatus> = {};
+      for (const [key, value] of Object.entries(parsed)) {
+        const normalized = normalizePresenceStatus(value);
+        if (normalized) next[key] = normalized;
+      }
+      setPresenceOverrides(next);
+    } catch {
+      // Ignore malformed presence cache.
+    }
+  }, []);
+
+  const persistPresenceOverride = (userId: string, status: PresenceStatus) => {
+    setPresenceOverrides((prev) => {
+      const next = { ...prev, [userId]: status };
+      try {
+        localStorage.setItem(PRESENCE_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // Ignore persistence failure.
+      }
+      return next;
+    });
+  };
+
+  const resolveSupportAgentPresence = (agent: SupportAgent): PresenceStatus => {
+    const effectiveOnline = supportAgentOnlineMap.get(agent.id) ?? agent.online;
+    const override = presenceOverrides[agent.id];
+    if (override && override !== 'OFFLINE') {
+      return effectiveOnline ? override : 'OFFLINE';
+    }
+    if (override === 'OFFLINE') return 'OFFLINE';
+    return effectiveOnline ? 'AVAILABLE' : 'OFFLINE';
+  };
+
   const supportAgentOnlineMap = useMemo(() => {
     const map = new Map<string, boolean>();
     for (const agent of supportAgentsQuery.data || []) {
@@ -180,6 +312,13 @@ export default function MessagesPage() {
     if (activeThread && activeThread.messages.length > 0) return activeThread.messages;
     return mockMessages;
   }, [activeThread]);
+  const activeThreadAssignedSupportPresence = useMemo(() => {
+    const assigned = activeThread?.assignedSupport;
+    if (!assigned) return null;
+    const agentFromList = (supportAgentsQuery.data || []).find((agent) => agent.id === assigned.userId);
+    if (!agentFromList) return null;
+    return resolveSupportAgentPresence(agentFromList);
+  }, [activeThread?.assignedSupport, supportAgentsQuery.data, presenceOverrides, supportAgentOnlineMap]);
   const callQueue = useMemo(
     () =>
       threads.slice(0, 6).map((thread) => ({
@@ -316,8 +455,43 @@ export default function MessagesPage() {
     setVoiceState('IDLE');
   };
 
-  const appendDialPadDigit = (digit: string) => {
-    setDialPadNumber((prev) => `${prev}${digit}`);
+  const appendDialPadKey = (entry: { digit: string; letters: string }) => {
+    if (dialPadMode === 'DIGITS') {
+      setDialPadNumber((prev) => `${prev}${entry.digit}`);
+      lastDialPadTapRef.current = null;
+      return;
+    }
+
+    if (entry.digit === '0' && entry.letters === '+') {
+      setDialPadNumber((prev) => `${prev}+`);
+      lastDialPadTapRef.current = null;
+      return;
+    }
+
+    if (!entry.letters) {
+      setDialPadNumber((prev) => `${prev}${entry.digit}`);
+      lastDialPadTapRef.current = null;
+      return;
+    }
+
+    const now = Date.now();
+    const previousTap = lastDialPadTapRef.current;
+    setDialPadNumber((prev) => {
+      const letters = entry.letters.split('');
+      if (
+        previousTap &&
+        previousTap.key === entry.digit &&
+        now - previousTap.at < 1200 &&
+        prev.length > 0
+      ) {
+        const nextIndex = (previousTap.index + 1) % letters.length;
+        lastDialPadTapRef.current = { key: entry.digit, at: now, index: nextIndex };
+        return `${prev.slice(0, -1)}${letters[nextIndex]}`;
+      }
+
+      lastDialPadTapRef.current = { key: entry.digit, at: now, index: 0 };
+      return `${prev}${letters[0]}`;
+    });
   };
 
   const backspaceDialPad = () => {
@@ -573,6 +747,20 @@ export default function MessagesPage() {
                 ? `${activeThread.assignedSupport.firstName} ${activeThread.assignedSupport.lastName} (${activeThread.assignedSupport.role})`
                 : 'Not assigned yet'}
             </p>
+            {activeThread?.assignedSupport && activeThreadAssignedSupportPresence ? (
+              <div className="mt-2 flex items-center gap-2">
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${PRESENCE_META[activeThreadAssignedSupportPresence].dotClass}`}
+                />
+                <span
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                    PRESENCE_META[activeThreadAssignedSupportPresence].pillClass
+                  }`}
+                >
+                  {PRESENCE_META[activeThreadAssignedSupportPresence].label}
+                </span>
+              </div>
+            ) : null}
             {activeThread?.assignedSupport?.assignedAt ? (
               <p className="text-xs text-slate-500">Assigned {formatDateTime(activeThread.assignedSupport.assignedAt)}</p>
             ) : null}
@@ -594,12 +782,18 @@ export default function MessagesPage() {
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold uppercase text-slate-400">Support Team</p>
               <span className="text-xs text-slate-500">
-                {supportAgentsQuery.data?.filter((a) => a.online).length || 0} online
+                {supportAgentsQuery.data?.filter((a) => resolveSupportAgentPresence(a) !== 'OFFLINE').length || 0} online
               </span>
             </div>
             <div className="mt-2 space-y-2">
               {(supportAgentsQuery.data || []).map((agent) => {
                 const isOnline = supportAgentOnlineMap.get(agent.id) === true;
+                const presence = resolveSupportAgentPresence({
+                  ...agent,
+                  online: isOnline,
+                });
+                const presenceMeta = PRESENCE_META[presence];
+                const isCurrentUser = Boolean(user?.id && agent.id === user.id);
                 return (
                 <div
                   key={agent.id}
@@ -607,19 +801,33 @@ export default function MessagesPage() {
                 >
                   <div>
                     <p className="flex items-center gap-1.5 text-sm font-medium text-slate-800">
-                      <span className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                      <span className={`h-2 w-2 rounded-full ${presenceMeta.dotClass}`} />
                       {agent.firstName} {agent.lastName}
                     </p>
                     <p className="text-xs text-slate-500">{agent.role}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                        isOnline ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                      }`}
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${presenceMeta.pillClass}`}
                     >
-                      {isOnline ? 'Online' : 'Offline'}
+                      {presenceMeta.label}
                     </span>
+                    {isCurrentUser ? (
+                      <select
+                        value={presence}
+                        onChange={(event) =>
+                          persistPresenceOverride(agent.id, normalizePresenceStatus(event.target.value) || 'AVAILABLE')
+                        }
+                        className="rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[11px] font-semibold text-slate-700"
+                        title="Set your availability"
+                      >
+                        <option value="AVAILABLE">Available</option>
+                        <option value="BUSY">Busy</option>
+                        <option value="DND">Do Not Disturb</option>
+                        <option value="AWAY">Away</option>
+                        <option value="OFFLINE">Offline</option>
+                      </select>
+                    ) : null}
                     <button
                       type="button"
                       onClick={async () => {
@@ -714,6 +922,26 @@ export default function MessagesPage() {
                   Del
                 </button>
               </div>
+              <div className="mt-2 inline-flex rounded-md border border-slate-200 bg-slate-50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setDialPadMode('DIGITS')}
+                  className={`rounded px-2 py-1 text-[11px] font-semibold transition ${
+                    dialPadMode === 'DIGITS' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  123
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDialPadMode('ALT')}
+                  className={`rounded px-2 py-1 text-[11px] font-semibold transition ${
+                    dialPadMode === 'ALT' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  ABC / +
+                </button>
+              </div>
               <div className="mt-3 grid grid-cols-3 gap-y-2">
                 {[
                   { digit: '1', letters: '' },
@@ -732,16 +960,27 @@ export default function MessagesPage() {
                   <button
                     key={entry.digit}
                     type="button"
-                    onClick={() => appendDialPadDigit(entry.digit)}
-                    className="group flex flex-col items-center rounded-md py-1 text-center text-indigo-700 transition hover:bg-indigo-50/60"
+                    onClick={() => appendDialPadKey(entry)}
+                    className="group flex flex-col items-center rounded-md py-1.5 text-center text-slate-700 transition hover:bg-primary-50/60"
                   >
-                    <span className="text-[19px] font-semibold leading-none">{entry.digit}</span>
-                    <span className="mt-0.5 min-h-[12px] text-[10px] font-semibold tracking-wide text-indigo-500">
-                      {entry.letters}
+                    <span className="text-sm font-semibold leading-none tracking-tight text-slate-700">
+                      {dialPadMode === 'ALT' && (entry.letters || entry.digit === '0')
+                        ? entry.digit === '0'
+                          ? '+'
+                          : entry.letters
+                        : entry.digit}
+                    </span>
+                    <span className="mt-0.5 min-h-[12px] text-[9px] font-semibold tracking-wide text-slate-400">
+                      {dialPadMode === 'ALT' ? entry.digit : entry.letters}
                     </span>
                   </button>
                 ))}
               </div>
+              <p className="mt-2 text-[10px] text-slate-500">
+                {dialPadMode === 'ALT'
+                  ? 'ABC/+ mode: tap 2-9 repeatedly to cycle letters.'
+                  : '123 mode: numbers and symbols for direct dialing.'}
+              </p>
               <div className="mt-2 flex gap-2">
                 <button
                   type="button"

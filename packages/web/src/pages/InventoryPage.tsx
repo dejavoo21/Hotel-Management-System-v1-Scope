@@ -17,10 +17,10 @@ const inventoryImageByName: Record<string, string> = {
 function getInventoryImage(name: string) {
   const n = name.toLowerCase();
   if (n.includes('towel')) return inventoryImageByName.towels;
-  if (n.includes('shampoo')) return inventoryImageByName.shampoo;
+  if (n.includes('shampoo') || n.includes('conditioner') || n.includes('soap')) return inventoryImageByName.shampoo;
   if (n.includes('coffee')) return inventoryImageByName.coffee;
   if (n.includes('key')) return inventoryImageByName.key;
-  if (n.includes('clean')) return inventoryImageByName.cleaning;
+  if (n.includes('clean') || n.includes('detergent') || n.includes('toilet')) return inventoryImageByName.cleaning;
   if (n.includes('snack')) return inventoryImageByName.snack;
   return inventoryImageByName.cleaning;
 }

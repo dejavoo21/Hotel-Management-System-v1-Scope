@@ -6,7 +6,53 @@ import { messageService } from '@/services';
 import type { MessageThreadSummary, SupportVoiceToken } from '@/types';
 import type { Device, Call } from '@twilio/voice-sdk';
 
-const sanitizePhone = (value?: string) => (value || '').replace(/[^\d+]/g, '');
+const LETTER_TO_DIGIT: Record<string, string> = {
+  A: '2',
+  B: '2',
+  C: '2',
+  D: '3',
+  E: '3',
+  F: '3',
+  G: '4',
+  H: '4',
+  I: '4',
+  J: '5',
+  K: '5',
+  L: '5',
+  M: '6',
+  N: '6',
+  O: '6',
+  P: '7',
+  Q: '7',
+  R: '7',
+  S: '7',
+  T: '8',
+  U: '8',
+  V: '8',
+  W: '9',
+  X: '9',
+  Y: '9',
+  Z: '9',
+};
+
+const sanitizePhone = (value?: string) => {
+  const input = (value || '').toUpperCase();
+  let output = '';
+  for (const ch of input) {
+    if (/\d/.test(ch)) {
+      output += ch;
+      continue;
+    }
+    if (ch === '+' && output.length === 0) {
+      output += ch;
+      continue;
+    }
+    if (LETTER_TO_DIGIT[ch]) {
+      output += LETTER_TO_DIGIT[ch];
+    }
+  }
+  return output;
+};
 
 const formatThreadName = (thread: MessageThreadSummary) => {
   if (thread.guest) return `${thread.guest.firstName} ${thread.guest.lastName}`;
@@ -18,10 +64,12 @@ type RecentCallStatus = 'Dialed' | 'Failed' | 'Ended';
 
 export default function CallsPage() {
   const [dialNumber, setDialNumber] = useState('');
+  const [keypadMode, setKeypadMode] = useState<'DIGITS' | 'ALT'>('DIGITS');
   const [voiceState, setVoiceState] = useState<'IDLE' | 'CONNECTING' | 'IN_CALL' | 'ERROR'>('IDLE');
   const [voiceError, setVoiceError] = useState('');
   const [activeCallTarget, setActiveCallTarget] = useState<string>('');
   const [recentCalls, setRecentCalls] = useState<Array<{ number: string; at: string; status: RecentCallStatus }>>([]);
+  const lastKeypadTapRef = useRef<{ key: string; at: number; index: number } | null>(null);
   const voiceDeviceRef = useRef<Device | null>(null);
   const voiceCallRef = useRef<Call | null>(null);
 
@@ -48,8 +96,43 @@ export default function CallsPage() {
     [threadData]
   );
 
-  const appendDigit = (digit: string) => {
-    setDialNumber((prev) => `${prev}${digit}`);
+  const appendDialKey = (key: { digit: string; letters: string }) => {
+    if (keypadMode === 'DIGITS') {
+      setDialNumber((prev) => `${prev}${key.digit}`);
+      lastKeypadTapRef.current = null;
+      return;
+    }
+
+    if (key.digit === '0' && key.letters === '+') {
+      setDialNumber((prev) => `${prev}+`);
+      lastKeypadTapRef.current = null;
+      return;
+    }
+
+    if (!key.letters) {
+      setDialNumber((prev) => `${prev}${key.digit}`);
+      lastKeypadTapRef.current = null;
+      return;
+    }
+
+    const now = Date.now();
+    const previousTap = lastKeypadTapRef.current;
+    setDialNumber((prev) => {
+      const letters = key.letters.split('');
+      if (
+        previousTap &&
+        previousTap.key === key.digit &&
+        now - previousTap.at < 1200 &&
+        prev.length > 0
+      ) {
+        const nextIndex = (previousTap.index + 1) % letters.length;
+        lastKeypadTapRef.current = { key: key.digit, at: now, index: nextIndex };
+        return `${prev.slice(0, -1)}${letters[nextIndex]}`;
+      }
+
+      lastKeypadTapRef.current = { key: key.digit, at: now, index: 0 };
+      return `${prev}${letters[0]}`;
+    });
   };
 
   const backspace = () => {
@@ -215,18 +298,45 @@ export default function CallsPage() {
               Del
             </button>
           </div>
+          <div className="mt-2 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+            <button
+              type="button"
+              onClick={() => setKeypadMode('DIGITS')}
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+                keypadMode === 'DIGITS' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              123
+            </button>
+            <button
+              type="button"
+              onClick={() => setKeypadMode('ALT')}
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+                keypadMode === 'ALT' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              ABC / +
+            </button>
+          </div>
+          <p className="mt-2 text-[11px] text-slate-500">
+            {keypadMode === 'ALT'
+              ? 'ABC/+ mode: tap 2-9 repeatedly to cycle letters (A-B-C, etc.).'
+              : '123 mode: tap to enter dialable digits and symbols.'}
+          </p>
 
           <div className="mt-4 grid grid-cols-3 gap-y-4">
             {keypad.map((key) => (
               <button
                 key={key.digit}
                 type="button"
-                onClick={() => appendDigit(key.digit)}
-                className="group flex flex-col items-center rounded-xl py-2 text-center text-indigo-700 transition hover:bg-indigo-50/60"
+                onClick={() => appendDialKey(key)}
+                className="group flex flex-col items-center rounded-xl py-2 text-center text-slate-700 transition hover:bg-primary-50/60"
               >
-                <span className="text-4xl font-semibold leading-none">{key.digit}</span>
-                <span className="mt-1 min-h-[14px] text-xs font-semibold tracking-wide text-indigo-500">
-                  {key.letters}
+                <span className="text-xl font-semibold leading-none tracking-tight text-slate-700">
+                  {keypadMode === 'ALT' && (key.letters || key.digit === '0') ? (key.digit === '0' ? '+' : key.letters) : key.digit}
+                </span>
+                <span className="mt-1 min-h-[14px] text-[10px] font-semibold tracking-wide text-slate-400">
+                  {keypadMode === 'ALT' ? key.digit : key.letters}
                 </span>
               </button>
             ))}
