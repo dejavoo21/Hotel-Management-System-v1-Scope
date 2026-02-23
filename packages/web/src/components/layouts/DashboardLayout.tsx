@@ -608,7 +608,7 @@ export default function DashboardLayout() {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto p-4 space-y-1" aria-label="Application navigation">
+          <nav className="flex-1 overflow-y-auto overflow-x-visible p-4 space-y-1" aria-label="Application navigation">
             {dashboardItem && hasAccess(dashboardItem.permission) ? (
               <NavItem key={dashboardItem.name} item={dashboardItem} onClick={() => setSidebarOpen(false)} />
             ) : null}

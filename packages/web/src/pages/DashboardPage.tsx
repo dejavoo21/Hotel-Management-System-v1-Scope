@@ -52,9 +52,29 @@ type ChannelPerformance = {
   tone: 'emerald' | 'sky' | 'amber';
 };
 
+type TaskTemplate = Omit<TaskRow, 'completed'>;
+
 function formatCurrency(value: number, currency = 'USD') {
   return value.toLocaleString(undefined, { style: 'currency', currency, maximumFractionDigits: 0 });
 }
+
+function scaleInt(value: number, factor: number) {
+  return Math.max(0, Math.round(value * factor));
+}
+
+const DASHBOARD_RANGE_LABELS: Record<DashboardRange, string> = {
+  '7d': 'Last 7 Days',
+  '3m': 'Last 3 Months',
+  '6m': 'Last 6 Months',
+  '1y': 'Last 1 Year',
+};
+
+const DASHBOARD_RANGE_FACTORS: Record<DashboardRange, number> = {
+  '7d': 0.24,
+  '3m': 0.62,
+  '6m': 1,
+  '1y': 1.45,
+};
 
 function TrendPill({ pct }: { pct: number }) {
   const up = pct >= 0;
@@ -180,7 +200,7 @@ export default function DashboardPage() {
 
   // MOCK DATA - replace with real data
   const currency = 'USD';
-  const summary = useMemo(
+  const baseSummary = useMemo(
     () => ({
       newBookings: 840,
       checkIn: 231,
@@ -192,11 +212,39 @@ export default function DashboardPage() {
   );
 
   // MOCK DATA - replace with real data
-  const roomAvailability = useMemo(() => ({ occupied: 286, reserved: 87, available: 32, notReady: 13 }), []);
+  const baseRoomAvailability = useMemo(() => ({ occupied: 286, reserved: 87, available: 32, notReady: 13 }), []);
 
   const [dashboardGlobalRange, setDashboardGlobalRange] = useState<DashboardRange>('6m');
   const [showDashboardGlobalRangeMenu, setShowDashboardGlobalRangeMenu] = useState(false);
   const [revenueRange, setRevenueRange] = useState<DashboardRange>('6m');
+
+  const summary = useMemo(() => {
+    const factor = DASHBOARD_RANGE_FACTORS[dashboardGlobalRange];
+    return {
+      newBookings: scaleInt(baseSummary.newBookings, factor),
+      checkIn: scaleInt(baseSummary.checkIn, factor),
+      checkOut: scaleInt(baseSummary.checkOut, factor),
+      totalRevenue: scaleInt(baseSummary.totalRevenue, factor),
+      trends: {
+        newBookings: baseSummary.trends.newBookings + (dashboardGlobalRange === '7d' ? -1.2 : dashboardGlobalRange === '1y' ? 0.9 : 0),
+        checkIn: baseSummary.trends.checkIn + (dashboardGlobalRange === '3m' ? 0.4 : dashboardGlobalRange === '1y' ? -0.3 : 0),
+        checkOut: baseSummary.trends.checkOut + (dashboardGlobalRange === '7d' ? -0.55 : dashboardGlobalRange === '1y' ? 0.42 : 0),
+        totalRevenue:
+          baseSummary.trends.totalRevenue + (dashboardGlobalRange === '7d' ? -0.9 : dashboardGlobalRange === '3m' ? -0.35 : dashboardGlobalRange === '1y' ? 1.05 : 0),
+      },
+    };
+  }, [baseSummary, dashboardGlobalRange]);
+
+  const roomAvailability = useMemo(() => {
+    const factor = DASHBOARD_RANGE_FACTORS[dashboardGlobalRange];
+    if (dashboardGlobalRange === '6m') return baseRoomAvailability;
+    return {
+      occupied: scaleInt(baseRoomAvailability.occupied, factor),
+      reserved: scaleInt(baseRoomAvailability.reserved, factor),
+      available: Math.max(8, scaleInt(baseRoomAvailability.available, factor * (dashboardGlobalRange === '7d' ? 1.15 : 0.95))),
+      notReady: Math.max(2, scaleInt(baseRoomAvailability.notReady, factor * (dashboardGlobalRange === '1y' ? 1.05 : 1))),
+    };
+  }, [baseRoomAvailability, dashboardGlobalRange]);
 
   // MOCK DATA - replace with real data
   const revenue6m = useMemo(
@@ -328,14 +376,7 @@ export default function DashboardPage() {
     };
   }, [showDashboardGlobalRangeMenu]);
 
-  const dashboardRangeLabel =
-    dashboardGlobalRange === '7d'
-      ? 'Last 7 Days'
-      : dashboardGlobalRange === '3m'
-        ? 'Last 3 Months'
-        : dashboardGlobalRange === '6m'
-          ? 'Last 6 Months'
-          : 'This Year';
+  const dashboardRangeLabel = DASHBOARD_RANGE_LABELS[dashboardGlobalRange];
   const reservationsByDay = useMemo(
     () =>
       reservationsRange === '7d'
@@ -349,39 +390,118 @@ export default function DashboardPage() {
   );
 
   // MOCK DATA - replace with real data
-  const bookingByPlatform = useMemo(
-    () => [
-      { name: 'Direct Booking', pct: 61 },
-      { name: 'Booking.com', pct: 12 },
-      { name: 'Agoda', pct: 11 },
-      { name: 'Airbnb', pct: 9 },
-      { name: 'Hotels.com', pct: 5 },
-      { name: 'Others', pct: 2 },
-    ],
-    [],
-  );
-
-  // MOCK DATA - replace with real data
-  const reviewSummary = useMemo(
-    () => ({
-      rating: 4.6,
-      reviewsCount: 2546,
-      responseRate: 94,
-      sentiment: { positive: 2180, neutral: 256, negative: 110 },
-      categories: [
-        { name: 'Facilities', value: 4.4 },
-        { name: 'Cleanliness', value: 4.7 },
-        { name: 'Services', value: 4.6 },
-        { name: 'Comfort', value: 4.8 },
-        { name: 'Location', value: 4.5 },
-        { name: 'Food & Dining', value: 4.4 },
+  const bookingByPlatform = useMemo(() => {
+    const byRange: Record<DashboardRange, { name: string; pct: number }[]> = {
+      '7d': [
+        { name: 'Direct Booking', pct: 57 },
+        { name: 'Booking.com', pct: 14 },
+        { name: 'Agoda', pct: 10 },
+        { name: 'Airbnb', pct: 11 },
+        { name: 'Hotels.com', pct: 6 },
+        { name: 'Others', pct: 2 },
       ],
-    }),
-    [],
-  );
+      '3m': [
+        { name: 'Direct Booking', pct: 59 },
+        { name: 'Booking.com', pct: 13 },
+        { name: 'Agoda', pct: 11 },
+        { name: 'Airbnb', pct: 10 },
+        { name: 'Hotels.com', pct: 5 },
+        { name: 'Others', pct: 2 },
+      ],
+      '6m': [
+        { name: 'Direct Booking', pct: 61 },
+        { name: 'Booking.com', pct: 12 },
+        { name: 'Agoda', pct: 11 },
+        { name: 'Airbnb', pct: 9 },
+        { name: 'Hotels.com', pct: 5 },
+        { name: 'Others', pct: 2 },
+      ],
+      '1y': [
+        { name: 'Direct Booking', pct: 63 },
+        { name: 'Booking.com', pct: 11 },
+        { name: 'Agoda', pct: 10 },
+        { name: 'Airbnb', pct: 8 },
+        { name: 'Hotels.com', pct: 5 },
+        { name: 'Others', pct: 3 },
+      ],
+    };
+    return byRange[dashboardGlobalRange];
+  }, [dashboardGlobalRange]);
 
   // MOCK DATA - replace with real data
-  const recentActivities = useMemo(
+  const reviewSummary = useMemo(() => {
+    const byRange: Record<
+      DashboardRange,
+      {
+        rating: number;
+        reviewsCount: number;
+        responseRate: number;
+        sentiment: { positive: number; neutral: number; negative: number };
+        categories: { name: string; value: number }[];
+      }
+    > = {
+      '7d': {
+        rating: 4.5,
+        reviewsCount: 312,
+        responseRate: 92,
+        sentiment: { positive: 258, neutral: 37, negative: 17 },
+        categories: [
+          { name: 'Facilities', value: 4.3 },
+          { name: 'Cleanliness', value: 4.6 },
+          { name: 'Services', value: 4.5 },
+          { name: 'Comfort', value: 4.7 },
+          { name: 'Location', value: 4.5 },
+          { name: 'Food & Dining', value: 4.3 },
+        ],
+      },
+      '3m': {
+        rating: 4.6,
+        reviewsCount: 1188,
+        responseRate: 93,
+        sentiment: { positive: 998, neutral: 128, negative: 62 },
+        categories: [
+          { name: 'Facilities', value: 4.4 },
+          { name: 'Cleanliness', value: 4.6 },
+          { name: 'Services', value: 4.6 },
+          { name: 'Comfort', value: 4.7 },
+          { name: 'Location', value: 4.5 },
+          { name: 'Food & Dining', value: 4.4 },
+        ],
+      },
+      '6m': {
+        rating: 4.6,
+        reviewsCount: 2546,
+        responseRate: 94,
+        sentiment: { positive: 2180, neutral: 256, negative: 110 },
+        categories: [
+          { name: 'Facilities', value: 4.4 },
+          { name: 'Cleanliness', value: 4.7 },
+          { name: 'Services', value: 4.6 },
+          { name: 'Comfort', value: 4.8 },
+          { name: 'Location', value: 4.5 },
+          { name: 'Food & Dining', value: 4.4 },
+        ],
+      },
+      '1y': {
+        rating: 4.7,
+        reviewsCount: 5012,
+        responseRate: 95,
+        sentiment: { positive: 4336, neutral: 468, negative: 208 },
+        categories: [
+          { name: 'Facilities', value: 4.5 },
+          { name: 'Cleanliness', value: 4.7 },
+          { name: 'Services', value: 4.7 },
+          { name: 'Comfort', value: 4.8 },
+          { name: 'Location', value: 4.6 },
+          { name: 'Food & Dining', value: 4.5 },
+        ],
+      },
+    };
+    return byRange[dashboardGlobalRange];
+  }, [dashboardGlobalRange]);
+
+  // MOCK DATA - replace with real data
+  const recentActivitiesBase = useMemo(
     () => [
       {
         id: 'ra-1',
@@ -423,16 +543,39 @@ export default function DashboardPage() {
     [],
   );
 
-  // MOCK DATA - replace with real data
-  const [tasks, setTasks] = useState<TaskRow[]>([
-    { id: 't1', dateLabel: 'June 19, 2028', title: 'Set Up Conference Room B for 10 AM Meeting', subtitle: 'Meeting', completed: false },
-    { id: 't2', dateLabel: 'June 19, 2028', title: 'Restock Housekeeping Supplies on 3rd Floor', subtitle: '', completed: false },
-    { id: 't3', dateLabel: 'June 20, 2028', title: 'Inspect and Clean the Pool Area', subtitle: '', completed: false },
-    { id: 't4', dateLabel: 'June 20, 2028', title: 'Check-In Assistance During Peak Hours (4 PM - 6 PM)', subtitle: '', completed: false },
-  ]);
+  const recentActivities = useMemo(() => {
+    if (dashboardGlobalRange === '7d') return recentActivitiesBase.slice(0, 4);
+    if (dashboardGlobalRange === '3m') return recentActivitiesBase.slice(0, 5);
+    return recentActivitiesBase;
+  }, [dashboardGlobalRange, recentActivitiesBase]);
 
   // MOCK DATA - replace with real data
-  const bookings: BookingRow[] = useMemo(
+  const taskTemplates = useMemo<TaskTemplate[]>(
+    () => [
+      { id: 't1', dateLabel: 'June 19, 2028', title: 'Set Up Conference Room B for 10 AM Meeting', subtitle: 'Meeting' },
+      { id: 't2', dateLabel: 'June 19, 2028', title: 'Restock Housekeeping Supplies on 3rd Floor', subtitle: '' },
+      { id: 't3', dateLabel: 'June 20, 2028', title: 'Inspect and Clean the Pool Area', subtitle: '' },
+      { id: 't4', dateLabel: 'June 20, 2028', title: 'Check-In Assistance During Peak Hours (4 PM - 6 PM)', subtitle: '' },
+      { id: 't5', dateLabel: 'June 21, 2028', title: 'Mini-bar audit for premium rooms', subtitle: 'Inventory' },
+      { id: 't6', dateLabel: 'June 21, 2028', title: 'VIP early check-in preparation', subtitle: 'Guest' },
+    ],
+    [],
+  );
+  const [taskCompletionById, setTaskCompletionById] = useState<Record<string, boolean>>({});
+  const tasks = useMemo<TaskRow[]>(() => {
+    const visible =
+      dashboardGlobalRange === '7d'
+        ? taskTemplates.slice(0, 4)
+        : dashboardGlobalRange === '3m'
+          ? taskTemplates.slice(0, 5)
+          : dashboardGlobalRange === '6m'
+            ? taskTemplates.slice(0, 4)
+            : taskTemplates;
+    return visible.map((t) => ({ ...t, completed: !!taskCompletionById[t.id] }));
+  }, [dashboardGlobalRange, taskCompletionById, taskTemplates]);
+
+  // MOCK DATA - replace with real data
+  const allBookings: BookingRow[] = useMemo(
     () => [
       {
         id: 'b1',
@@ -517,29 +660,69 @@ export default function DashboardPage() {
     ],
     [],
   );
+  const bookings: BookingRow[] = useMemo(() => {
+    if (dashboardGlobalRange === '7d') return allBookings.slice(0, 5);
+    if (dashboardGlobalRange === '3m') return allBookings.slice(0, 6);
+    if (dashboardGlobalRange === '6m') return allBookings;
+    return [...allBookings].reverse();
+  }, [allBookings, dashboardGlobalRange]);
 
   const [bookingSearch, setBookingSearch] = useState('');
   const [bookingStatus, setBookingStatus] = useState<'All Status' | BookingStatus>('All Status');
 
   // MOCK DATA - replace with real data
-  const roomSignals = useMemo<RoomSignal[]>(
-    () => [
-      { label: 'Priority Clean', value: '3 rooms', tone: 'amber' },
-      { label: 'Maintenance Alerts', value: '2 open', tone: 'sky' },
-      { label: 'Late Check-Outs', value: '4 today', tone: 'lime' },
-    ],
-    [],
-  );
+  const roomSignals = useMemo<RoomSignal[]>(() => {
+    const byRange: Record<DashboardRange, RoomSignal[]> = {
+      '7d': [
+        { label: 'Priority Clean', value: '2 rooms', tone: 'amber' },
+        { label: 'Maintenance Alerts', value: '1 open', tone: 'sky' },
+        { label: 'Late Check-Outs', value: '2 today', tone: 'lime' },
+      ],
+      '3m': [
+        { label: 'Priority Clean', value: '4 rooms', tone: 'amber' },
+        { label: 'Maintenance Alerts', value: '2 open', tone: 'sky' },
+        { label: 'Late Check-Outs', value: '3 today', tone: 'lime' },
+      ],
+      '6m': [
+        { label: 'Priority Clean', value: '3 rooms', tone: 'amber' },
+        { label: 'Maintenance Alerts', value: '2 open', tone: 'sky' },
+        { label: 'Late Check-Outs', value: '4 today', tone: 'lime' },
+      ],
+      '1y': [
+        { label: 'Priority Clean', value: '5 rooms', tone: 'amber' },
+        { label: 'Maintenance Alerts', value: '3 open', tone: 'sky' },
+        { label: 'Late Check-Outs', value: '6 today', tone: 'lime' },
+      ],
+    };
+    return byRange[dashboardGlobalRange];
+  }, [dashboardGlobalRange]);
 
   // MOCK DATA - replace with real data
-  const channelPerformance = useMemo<ChannelPerformance[]>(
-    () => [
-      { label: 'Top Channel', value: 'Direct Booking', hint: '61% share', tone: 'emerald' },
-      { label: 'Best Conversion', value: 'Booking.com', hint: '4.8% CVR', tone: 'sky' },
-      { label: 'Highest ADR', value: '$214', hint: 'Agoda', tone: 'amber' },
-    ],
-    [],
-  );
+  const channelPerformance = useMemo<ChannelPerformance[]>(() => {
+    const byRange: Record<DashboardRange, ChannelPerformance[]> = {
+      '7d': [
+        { label: 'Top Channel', value: 'Direct Booking', hint: '57% share', tone: 'emerald' },
+        { label: 'Best Conversion', value: 'Airbnb', hint: '5.1% CVR', tone: 'sky' },
+        { label: 'Highest ADR', value: '$228', hint: 'Direct', tone: 'amber' },
+      ],
+      '3m': [
+        { label: 'Top Channel', value: 'Direct Booking', hint: '59% share', tone: 'emerald' },
+        { label: 'Best Conversion', value: 'Booking.com', hint: '4.9% CVR', tone: 'sky' },
+        { label: 'Highest ADR', value: '$219', hint: 'Agoda', tone: 'amber' },
+      ],
+      '6m': [
+        { label: 'Top Channel', value: 'Direct Booking', hint: '61% share', tone: 'emerald' },
+        { label: 'Best Conversion', value: 'Booking.com', hint: '4.8% CVR', tone: 'sky' },
+        { label: 'Highest ADR', value: '$214', hint: 'Agoda', tone: 'amber' },
+      ],
+      '1y': [
+        { label: 'Top Channel', value: 'Direct Booking', hint: '63% share', tone: 'emerald' },
+        { label: 'Best Conversion', value: 'Booking.com', hint: '5.2% CVR', tone: 'sky' },
+        { label: 'Highest ADR', value: '$236', hint: 'Hotels.com', tone: 'amber' },
+      ],
+    };
+    return byRange[dashboardGlobalRange];
+  }, [dashboardGlobalRange]);
 
   const filteredBookings = useMemo(() => {
     const q = bookingSearch.trim().toLowerCase();
@@ -928,7 +1111,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold text-slate-900">Booking by Platform</div>
-                <div className="text-xs font-semibold text-slate-500">Last 30 Days</div>
+                <div className="text-xs font-semibold text-slate-500">{dashboardRangeLabel}</div>
               </div>
               <button
                 type="button"
@@ -1002,7 +1185,7 @@ export default function DashboardPage() {
               >
                 Booking List
               </button>
-              <div className="mt-1 text-xs font-semibold text-slate-500">Arrivals and departures today</div>
+              <div className="mt-1 text-xs font-semibold text-slate-500">Filtered by {dashboardRangeLabel}</div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
@@ -1080,7 +1263,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold text-slate-900">Overall Rating</div>
-                <div className="text-xs font-semibold text-slate-500">Based on recent reviews</div>
+                <div className="text-xs font-semibold text-slate-500">Based on {dashboardRangeLabel.toLowerCase()} reviews</div>
               </div>
               <button
                 type="button"
@@ -1175,7 +1358,7 @@ export default function DashboardPage() {
                     onChange={(e) => {
                       e.stopPropagation();
                       const checked = e.target.checked;
-                      setTasks((prev) => prev.map((x) => (x.id === t.id ? { ...x, completed: checked } : x)));
+                      setTaskCompletionById((prev) => ({ ...prev, [t.id]: checked }));
                     }}
                     onClick={(e) => e.stopPropagation()}
                     className="mt-1 h-4 w-4 rounded border-slate-300 text-lime-600"

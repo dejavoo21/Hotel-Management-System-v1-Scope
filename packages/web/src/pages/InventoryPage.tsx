@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inventoryService, purchaseOrderService } from '@/services';
 import type { InventoryItem } from '@/types';
@@ -30,6 +30,7 @@ export default function InventoryPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showPoModal, setShowPoModal] = useState(false);
   const [selectedItems, setSelectedItems] = useState<InventoryItem[]>([]);
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
   const queryClient = useQueryClient();
 
   const { data: items, isLoading } = useQuery({
@@ -86,6 +87,31 @@ export default function InventoryPage() {
         return prev.filter((existing) => existing.id !== item.id);
       }
       return [...prev, item];
+    });
+  };
+
+  const visibleItems = items ?? [];
+  const visibleItemIds = useMemo(() => new Set(visibleItems.map((item) => item.id)), [visibleItems]);
+  const selectedVisibleCount = useMemo(
+    () => selectedItems.filter((item) => visibleItemIds.has(item.id)).length,
+    [selectedItems, visibleItemIds],
+  );
+  const allVisibleSelected = visibleItems.length > 0 && selectedVisibleCount === visibleItems.length;
+  const partiallyVisibleSelected = selectedVisibleCount > 0 && selectedVisibleCount < visibleItems.length;
+
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = partiallyVisibleSelected;
+  }, [partiallyVisibleSelected]);
+
+  const toggleSelectAllVisible = () => {
+    setSelectedItems((prev) => {
+      if (visibleItems.length === 0) return prev;
+      if (allVisibleSelected) {
+        return prev.filter((item) => !visibleItemIds.has(item.id));
+      }
+      const merged = new Map(prev.map((item) => [item.id, item] as const));
+      visibleItems.forEach((item) => merged.set(item.id, item));
+      return Array.from(merged.values());
     });
   };
 
@@ -178,7 +204,19 @@ export default function InventoryPage() {
                   <th className="pb-3">Quantity in Reorder</th>
                   <th className="pb-3">Status</th>
                   <th className="pb-3">Action</th>
-                  <th className="pb-3">Select</th>
+                  <th className="pb-3">
+                    <label className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <input
+                        ref={selectAllRef}
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        onChange={toggleSelectAllVisible}
+                        disabled={visibleItems.length === 0}
+                        aria-label="Select all visible inventory items"
+                      />
+                      <span>Select</span>
+                    </label>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -188,8 +226,8 @@ export default function InventoryPage() {
                       Loading inventory...
                     </td>
                   </tr>
-                ) : items && items.length > 0 ? (
-                  items.map((item) => {
+                ) : visibleItems.length > 0 ? (
+                  visibleItems.map((item) => {
                     const isLow = item.quantityOnHand <= item.reorderPoint;
                     const selected = selectedItems.some((entry) => entry.id === item.id);
                     return (
