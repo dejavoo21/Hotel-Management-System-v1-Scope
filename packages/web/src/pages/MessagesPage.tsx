@@ -785,53 +785,54 @@ export default function MessagesPage() {
                 const presenceMeta = PRESENCE_META[presence];
                 const isCurrentUser = Boolean(user?.id && agent.id === user.id);
                 return (
-                <div
-                  key={agent.id}
-                  className="rounded-lg border border-slate-200 px-2 py-1.5"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-1.5 text-sm font-medium text-slate-800">
-                      <span className={`h-2 w-2 rounded-full ${presenceMeta.dotClass}`} />
-                      {agent.firstName} {agent.lastName}
-                    </p>
-                    <p className="text-xs text-slate-500">{agent.role}</p>
-                  </div>
-                  <div className="mt-0.5 flex max-w-[170px] flex-wrap items-center justify-end gap-1.5">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${presenceMeta.pillClass}`}
-                    >
-                      {presenceMeta.label}
-                    </span>
-                    {isCurrentUser ? (
-                      <select
-                        value={presence}
-                        onChange={(event) =>
-                          persistPresenceOverride(agent.id, normalizePresenceStatus(event.target.value) || 'AVAILABLE')
-                        }
-                        className="min-w-0 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[11px] font-semibold text-slate-700"
-                        title="Set your availability"
+                  <div
+                    key={agent.id}
+                    className="rounded-lg border border-slate-200 px-2 py-1.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="flex items-center gap-1.5 text-sm font-medium text-slate-800">
+                          <span className={`h-2 w-2 rounded-full ${presenceMeta.dotClass}`} />
+                          {agent.firstName} {agent.lastName}
+                        </p>
+                        <p className="text-xs text-slate-500">{agent.role}</p>
+                      </div>
+                      <span
+                        className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${presenceMeta.pillClass}`}
                       >
-                        <option value="AVAILABLE">Available</option>
-                        <option value="BUSY">Busy</option>
-                        <option value="DND">Do Not Disturb</option>
-                        <option value="AWAY">Away</option>
-                        <option value="OFFLINE">Offline</option>
-                      </select>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await assignMutation.mutateAsync(agent.id);
-                      }}
-                      disabled={!activeThreadId || assignMutation.isPending}
-                      className="rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                    >
-                      Assign
-                    </button>
+                        {presenceMeta.label}
+                      </span>
+                    </div>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {isCurrentUser ? (
+                        <select
+                          value={presence}
+                          onChange={(event) =>
+                            persistPresenceOverride(agent.id, normalizePresenceStatus(event.target.value) || 'AVAILABLE')
+                          }
+                          className="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[11px] font-semibold text-slate-700"
+                          title="Set your availability"
+                        >
+                          <option value="AVAILABLE">Available</option>
+                          <option value="BUSY">Busy</option>
+                          <option value="DND">Do Not Disturb</option>
+                          <option value="AWAY">Away</option>
+                          <option value="OFFLINE">Offline</option>
+                        </select>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await assignMutation.mutateAsync(agent.id);
+                        }}
+                        disabled={!activeThreadId || assignMutation.isPending}
+                        className="rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        Assign
+                      </button>
+                    </div>
                   </div>
-                </div>
-                </div>
                 );
               })}
             </div>
