@@ -151,7 +151,6 @@ export default function CallsPage() {
         <section className="rounded-3xl border border-border bg-card p-4 shadow-card">
           <div className="mb-4">
             <h2 className="text-base font-semibold text-text-main">Dialer</h2>
-            <p className="text-xs text-text-muted">Long press `0` to enter `+` for international numbers.</p>
           </div>
 
           <DialerNumberDisplay
@@ -216,4 +215,3 @@ export default function CallsPage() {
     </div>
   );
 }
-

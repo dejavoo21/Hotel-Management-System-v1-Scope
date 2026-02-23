@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { KPI_VALUE_CLASS, KPI_VALUE_CLASS_SM } from '@/styles/typography';
 import {
@@ -42,6 +42,8 @@ type RoomSignal = {
   value: string;
   tone: 'lime' | 'amber' | 'sky';
 };
+
+type DashboardRange = '7d' | '3m' | '6m' | '1y';
 
 type ChannelPerformance = {
   label: string;
@@ -174,6 +176,7 @@ function RoomTypeBadge({ roomType }: { roomType: BookingRow['roomType'] }) {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const globalRangeMenuRef = useRef<HTMLDivElement | null>(null);
 
   // MOCK DATA - replace with real data
   const currency = 'USD';
@@ -191,7 +194,9 @@ export default function DashboardPage() {
   // MOCK DATA - replace with real data
   const roomAvailability = useMemo(() => ({ occupied: 286, reserved: 87, available: 32, notReady: 13 }), []);
 
-  const [revenueRange, setRevenueRange] = useState<'7d' | '3m' | '6m' | '1y'>('6m');
+  const [dashboardGlobalRange, setDashboardGlobalRange] = useState<DashboardRange>('6m');
+  const [showDashboardGlobalRangeMenu, setShowDashboardGlobalRangeMenu] = useState(false);
+  const [revenueRange, setRevenueRange] = useState<DashboardRange>('6m');
 
   // MOCK DATA - replace with real data
   const revenue6m = useMemo(
@@ -296,7 +301,41 @@ export default function DashboardPage() {
     [],
   );
 
-  const [reservationsRange, setReservationsRange] = useState<'7d' | '3m' | '6m' | '1y'>('7d');
+  const [reservationsRange, setReservationsRange] = useState<DashboardRange>('7d');
+  const applyDashboardGlobalRange = (range: DashboardRange) => {
+    setDashboardGlobalRange(range);
+    setRevenueRange(range);
+    setReservationsRange(range);
+    setShowDashboardGlobalRangeMenu(false);
+  };
+
+  useEffect(() => {
+    if (!showDashboardGlobalRangeMenu) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (globalRangeMenuRef.current?.contains(target)) return;
+      setShowDashboardGlobalRangeMenu(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowDashboardGlobalRangeMenu(false);
+    };
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [showDashboardGlobalRangeMenu]);
+
+  const dashboardRangeLabel =
+    dashboardGlobalRange === '7d'
+      ? 'Last 7 Days'
+      : dashboardGlobalRange === '3m'
+        ? 'Last 3 Months'
+        : dashboardGlobalRange === '6m'
+          ? 'Last 6 Months'
+          : 'This Year';
   const reservationsByDay = useMemo(
     () =>
       reservationsRange === '7d'
@@ -545,7 +584,50 @@ export default function DashboardPage() {
     <div className="space-y-5">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard</h1>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div ref={globalRangeMenuRef} className="relative">
+            <button
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={showDashboardGlobalRangeMenu}
+              aria-label="Open dashboard global time filter"
+              onClick={() => setShowDashboardGlobalRangeMenu((prev) => !prev)}
+              className="inline-flex min-w-[148px] items-center justify-between rounded-xl border border-border bg-card px-3 py-2.5 text-sm font-semibold text-text-main shadow-sm transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary-200"
+            >
+              <span>{dashboardRangeLabel}</span>
+              <svg className="ml-2 h-4 w-4 text-text-muted" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M6 8l4 4 4-4" />
+              </svg>
+            </button>
+
+            {showDashboardGlobalRangeMenu && (
+              <div
+                role="menu"
+                className="absolute right-0 top-full z-30 mt-2 min-w-[156px] overflow-hidden rounded-xl border border-border bg-card p-1 shadow-lg"
+              >
+                {[
+                  { value: '7d', label: 'Last 7 Days' },
+                  { value: '3m', label: 'Last 3 Months' },
+                  { value: '6m', label: 'Last 6 Months' },
+                  { value: '1y', label: 'Last 1 Year' },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => applyDashboardGlobalRange(option.value as DashboardRange)}
+                    className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
+                      dashboardGlobalRange === option.value
+                        ? 'bg-primary-50 text-text-main'
+                        : 'text-text-muted hover:bg-slate-50 hover:text-text-main'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => navigate('/bookings?action=new')}

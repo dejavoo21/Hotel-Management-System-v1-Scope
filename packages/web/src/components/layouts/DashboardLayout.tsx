@@ -223,6 +223,7 @@ export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showFinancialFlyout, setShowFinancialFlyout] = useState(false);
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [globalSearchActiveIndex, setGlobalSearchActiveIndex] = useState(0);
@@ -259,6 +260,7 @@ export default function DashboardLayout() {
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const globalSearchRef = useRef<HTMLDivElement | null>(null);
+  const financialFlyoutRef = useRef<HTMLDivElement | null>(null);
   const [accessRequestAck, setAccessRequestAck] = useState(() => loadAccessRequestAckMap());
 
   const avatarStorageKey = `laflo-profile-avatar:${user?.id || 'guest'}`;
@@ -400,6 +402,29 @@ export default function DashboardLayout() {
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [showGlobalSearch]);
+
+  useEffect(() => {
+    setShowFinancialFlyout(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!showFinancialFlyout) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (financialFlyoutRef.current?.contains(target)) return;
+      setShowFinancialFlyout(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowFinancialFlyout(false);
+    };
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [showFinancialFlyout]);
 
   useEffect(() => {
     if (!user) return;
@@ -610,51 +635,55 @@ export default function DashboardLayout() {
             {openSections.backOffice &&
               financialItem &&
               hasAccess(financialItem.permission) && (
-                <>
+                <div ref={financialFlyoutRef} className="relative">
                   <button
                     type="button"
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all duration-200"
-                    onClick={() =>
-                      setOpenSections((prev) => ({ ...prev, financials: !prev.financials }))
-                    }
-                    aria-expanded={openSections.financials}
+                    className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-sm font-medium text-text-muted transition-all duration-200 hover:bg-card hover:text-text-main"
+                    onClick={() => setShowFinancialFlyout((prev) => !prev)}
+                    onMouseEnter={() => setShowFinancialFlyout(true)}
+                    aria-expanded={showFinancialFlyout}
+                    aria-haspopup="menu"
                   >
                     {financialItem.icon}
                     <span className="flex-1">Financials</span>
-                    <svg className={`h-4 w-4 text-slate-400 transition-transform ${openSections.financials ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className={`h-4 w-4 text-slate-400 transition-transform ${showFinancialFlyout ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
 
-                  {openSections.financials && (
-                    <div className="ml-8 mt-1 space-y-1">
+                  {showFinancialFlyout && (
+                    <div
+                      role="menu"
+                      className="absolute left-full top-0 z-40 ml-2 min-w-[180px] rounded-2xl border border-border bg-card p-2 shadow-lg"
+                      onMouseLeave={() => setShowFinancialFlyout(false)}
+                    >
                       <NavLink
                         to="/invoices"
                         onClick={() => setSidebarOpen(false)}
-                        className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                        className={`flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                           location.pathname.startsWith('/invoices')
-                            ? 'bg-slate-100 text-slate-900'
-                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                            ? 'bg-primary-50 text-text-main'
+                            : 'text-text-muted hover:bg-card hover:text-text-main'
                         }`}
+                        role="menuitem"
                       >
-                        <span className="inline-flex h-2 w-2 rounded-full bg-primary-400" />
                         Invoicing
                       </NavLink>
                       <NavLink
                         to="/expenses"
                         onClick={() => setSidebarOpen(false)}
-                        className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                        className={`mt-1 flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                           location.pathname.startsWith('/expenses')
-                            ? 'bg-slate-100 text-slate-900'
-                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                            ? 'bg-primary-50 text-text-main'
+                            : 'text-text-muted hover:bg-card hover:text-text-main'
                         }`}
+                        role="menuitem"
                       >
-                        <span className="inline-flex h-2 w-2 rounded-full bg-primary-400" />
                         Expenses
                       </NavLink>
                     </div>
                   )}
-                </>
+                </div>
               )}
 
             {visibleExperienceItems.length > 0 && (

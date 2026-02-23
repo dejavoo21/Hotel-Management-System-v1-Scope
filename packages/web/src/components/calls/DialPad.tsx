@@ -51,7 +51,7 @@ export default function DialPad({ onKeyPress, onPlusInsert }: Props) {
   };
 
   return (
-    <div className="grid grid-cols-3 gap-x-4 gap-y-3">
+    <div className="grid grid-cols-3 gap-x-3 gap-y-2.5">
       {KEYPAD.map((key) => (
         <button
           key={key.digit}
@@ -63,12 +63,12 @@ export default function DialPad({ onKeyPress, onPlusInsert }: Props) {
           onMouseLeave={key.digit === '0' ? endZeroHold : undefined}
           onTouchStart={key.digit === '0' ? startZeroHold : undefined}
           onTouchEnd={key.digit === '0' ? endZeroHold : undefined}
-          className="group inline-flex h-[70px] flex-col items-center justify-center rounded-2xl border border-border bg-card text-text-main shadow-sm transition duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary-200"
+          className="group inline-flex h-[60px] flex-col items-center justify-center rounded-2xl border border-border bg-card text-text-main shadow-sm transition duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary-200"
         >
-          <span className="text-[32px] font-semibold leading-none tracking-tight tabular-nums">
+          <span className="text-[22px] font-semibold leading-none tracking-tight tabular-nums">
             {key.digit}
           </span>
-          <span className="mt-1 min-h-[12px] text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+          <span className="mt-0.5 min-h-[10px] text-[9px] font-semibold uppercase tracking-[0.1em] text-text-muted">
             {key.letters}
           </span>
         </button>
@@ -76,4 +76,3 @@ export default function DialPad({ onKeyPress, onPlusInsert }: Props) {
     </div>
   );
 }
-
