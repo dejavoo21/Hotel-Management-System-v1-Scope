@@ -787,16 +787,17 @@ export default function MessagesPage() {
                 return (
                 <div
                   key={agent.id}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 px-2 py-1.5"
+                  className="rounded-lg border border-slate-200 px-2 py-1.5"
                 >
-                  <div>
+                  <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-1.5 text-sm font-medium text-slate-800">
                       <span className={`h-2 w-2 rounded-full ${presenceMeta.dotClass}`} />
                       {agent.firstName} {agent.lastName}
                     </p>
                     <p className="text-xs text-slate-500">{agent.role}</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="mt-0.5 flex max-w-[170px] flex-wrap items-center justify-end gap-1.5">
                     <span
                       className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${presenceMeta.pillClass}`}
                     >
@@ -808,7 +809,7 @@ export default function MessagesPage() {
                         onChange={(event) =>
                           persistPresenceOverride(agent.id, normalizePresenceStatus(event.target.value) || 'AVAILABLE')
                         }
-                        className="rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[11px] font-semibold text-slate-700"
+                        className="min-w-0 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[11px] font-semibold text-slate-700"
                         title="Set your availability"
                       >
                         <option value="AVAILABLE">Available</option>
@@ -829,6 +830,7 @@ export default function MessagesPage() {
                       Assign
                     </button>
                   </div>
+                </div>
                 </div>
                 );
               })}
