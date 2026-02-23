@@ -224,6 +224,7 @@ export default function DashboardLayout() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showFinancialFlyout, setShowFinancialFlyout] = useState(false);
+  const [showSettingsFlyout, setShowSettingsFlyout] = useState(false);
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [globalSearchActiveIndex, setGlobalSearchActiveIndex] = useState(0);
@@ -261,6 +262,7 @@ export default function DashboardLayout() {
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const globalSearchRef = useRef<HTMLDivElement | null>(null);
   const financialFlyoutRef = useRef<HTMLDivElement | null>(null);
+  const settingsFlyoutRef = useRef<HTMLDivElement | null>(null);
   const [accessRequestAck, setAccessRequestAck] = useState(() => loadAccessRequestAckMap());
 
   const avatarStorageKey = `laflo-profile-avatar:${user?.id || 'guest'}`;
@@ -341,6 +343,19 @@ export default function DashboardLayout() {
     ).length;
   }, [accessRequests, accessRequestAck]);
 
+  const settingsFlyoutItems = useMemo(
+    () => [
+      { label: 'Hotel Info', href: '/settings?tab=hotel' },
+      { label: 'Room Types', href: '/settings?tab=room-types' },
+      { label: 'Security', href: '/settings?tab=security' },
+      { label: 'Notifications', href: '/settings?tab=notifications' },
+      { label: 'Appearance', href: '/settings?tab=appearance' },
+      { label: 'Audit Trail', href: '/settings?tab=audit-trail' },
+      { label: 'Access Requests', href: '/settings?tab=access-requests' },
+    ],
+    []
+  );
+
   useEffect(() => {
     if (!isAdmin) return;
     if (lastPendingCount.current === null) {
@@ -405,6 +420,7 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     setShowFinancialFlyout(false);
+    setShowSettingsFlyout(false);
   }, [location.pathname]);
 
   useEffect(() => {
@@ -425,6 +441,25 @@ export default function DashboardLayout() {
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [showFinancialFlyout]);
+
+  useEffect(() => {
+    if (!showSettingsFlyout) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (settingsFlyoutRef.current?.contains(target)) return;
+      setShowSettingsFlyout(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowSettingsFlyout(false);
+    };
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [showSettingsFlyout]);
 
   useEffect(() => {
     if (!user) return;
@@ -703,6 +738,83 @@ export default function DashboardLayout() {
                 {openSections.admin &&
                   adminNavigation.map((item) => {
                     if (!hasAccess(item.permission)) return null;
+                    if (item.name === 'Settings') {
+                      const isSettingsActive = location.pathname.startsWith('/settings');
+                      const settingsBadge = pendingAccessCount > 0 ? pendingAccessCount : undefined;
+
+                      return (
+                        <div key={item.name} ref={settingsFlyoutRef} className="relative">
+                          <button
+                            type="button"
+                            className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-sm font-medium transition-all duration-200 ${
+                              isSettingsActive
+                                ? 'bg-primary-solid text-on-primary shadow-sm'
+                                : 'text-text-muted hover:bg-card hover:text-text-main'
+                            }`}
+                            onClick={() => setShowSettingsFlyout((prev) => !prev)}
+                            onMouseEnter={() => setShowSettingsFlyout(true)}
+                            aria-expanded={showSettingsFlyout}
+                            aria-haspopup="menu"
+                          >
+                            {item.icon}
+                            <span className="flex-1 text-left">{item.name}</span>
+                            {settingsBadge ? (
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                  isSettingsActive ? 'bg-white/20 text-on-primary' : 'bg-red-500 text-white'
+                                }`}
+                              >
+                                {settingsBadge}
+                              </span>
+                            ) : null}
+                            <svg
+                              className={`h-4 w-4 transition-transform ${
+                                showSettingsFlyout ? 'rotate-180' : ''
+                              } ${isSettingsActive ? 'text-on-primary/90' : 'text-slate-400'}`}
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+
+                          {showSettingsFlyout && (
+                            <div
+                              role="menu"
+                              className="absolute left-full top-0 z-40 ml-2 min-w-[220px] rounded-2xl border border-border bg-card p-2 shadow-lg"
+                              onMouseLeave={() => setShowSettingsFlyout(false)}
+                            >
+                              {settingsFlyoutItems.map((subItem, index) => {
+                                const subTab = new URL(subItem.href, 'https://laflo.local').searchParams.get('tab');
+                                const active =
+                                  location.pathname.startsWith('/settings') &&
+                                  new URLSearchParams(location.search).get('tab') === subTab;
+
+                                return (
+                                  <NavLink
+                                    key={subItem.href}
+                                    to={subItem.href}
+                                    onClick={() => {
+                                      setSidebarOpen(false);
+                                      setShowSettingsFlyout(false);
+                                    }}
+                                    className={`flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                                      active
+                                        ? 'bg-primary-50 text-text-main'
+                                        : 'text-text-muted hover:bg-card hover:text-text-main'
+                                    } ${index > 0 ? 'mt-1' : ''}`}
+                                    role="menuitem"
+                                  >
+                                    {subItem.label}
+                                  </NavLink>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
                     return (
                       <NavItem
                         key={item.name}

@@ -437,9 +437,9 @@ export default function MessagesPage() {
     }
     try {
       const started = await messageService.startSupportPhoneCall({ to: sanitized, threadId });
-      toast.success(`Twilio call started (${started.sid.slice(-8)})`);
+      toast.success(`Call started (${started.sid.slice(-8)})`);
     } catch (error: any) {
-      const message = error?.response?.data?.error || 'Failed to start Twilio phone call';
+      const message = error?.response?.data?.error || 'Failed to start phone call';
       toast.error(message);
     }
   };
@@ -505,10 +505,10 @@ export default function MessagesPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className={PAGE_TITLE_CLASS}>Messages</h1>
+      <h1 className={PAGE_TITLE_CLASS}>Chat</h1>
 
-      <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_300px]">
-        <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+      <div className="grid gap-4 xl:grid-cols-[300px_280px_minmax(0,1fr)]">
+        <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 xl:order-2">
           <div className="mb-3 flex items-center gap-2">
             <div className="relative flex-1">
               <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -557,7 +557,7 @@ export default function MessagesPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+        <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 xl:order-3">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-lime-200 text-xs font-bold text-slate-800">
@@ -706,7 +706,7 @@ export default function MessagesPage() {
           </form>
         </div>
 
-        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 xl:order-1">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-slate-900">Profile</h2>
             <div className="flex items-center gap-2">
@@ -889,7 +889,7 @@ export default function MessagesPage() {
                       disabled={!item.phone}
                       className="rounded-md border border-lime-300 bg-lime-200 px-2 py-1 text-[11px] font-semibold text-slate-800 hover:bg-lime-300 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Call via Twilio
+                      Call
                     </button>
                   </div>
                 </div>
@@ -962,7 +962,7 @@ export default function MessagesPage() {
                   disabled={!dialPadValid}
                   className="flex-1 rounded-md border border-lime-300 bg-lime-200 px-2 py-1.5 text-[11px] font-semibold text-slate-800 hover:bg-lime-300 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Call via Twilio
+                  Call
                 </button>
               </div>
               <a
@@ -998,7 +998,7 @@ export default function MessagesPage() {
               </div>
             ) : null}
             <p className="mt-2 text-[11px] text-slate-500">
-              `Call in app` uses Twilio Voice (WebRTC). `Call via Twilio` starts a PSTN test call from your Twilio number.
+              In-app call uses the configured calling provider. External call uses the backend calling service.
             </p>
             <div className="mt-3">
               <SupportVideoPanel

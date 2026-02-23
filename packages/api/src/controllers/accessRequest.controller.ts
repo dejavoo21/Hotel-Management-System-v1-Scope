@@ -39,6 +39,8 @@ async function sendRequesterUpdate(
   let subject = `Access request update [AR-${requestId}]`;
   let intro = 'Your access request has been updated.';
   let title = 'Access request update';
+  let cta: { label: string; url: string } | undefined = { label: 'Go to login', url: loginUrl };
+  let bodyHtml: string | undefined = undefined;
 
   if (action === 'APPROVED') {
     subject = `Your LaFlo access is approved [AR-${requestId}]`;
@@ -50,8 +52,16 @@ async function sendRequesterUpdate(
     title = 'Access request rejected';
   } else if (action === 'NEEDS_INFO') {
     subject = `Additional information needed for your access request [AR-${requestId}]`;
-    intro = 'We need a bit more information to complete your access request.';
+    intro = 'We need a bit more information to complete your access request. Please reply to this email with the requested information.';
     title = 'More information needed';
+    cta = undefined;
+  }
+
+  if (notes) {
+    bodyHtml = `<p style="margin:0 0 10px; color:#334155;"><strong>Notes:</strong> ${escapeEmailText(notes)}</p>`;
+  }
+  if (action === 'NEEDS_INFO') {
+    bodyHtml = `${bodyHtml || ''}<p style="margin:0 0 10px; color:#334155;">Please reply directly to this email with the requested information or attachments.</p>`;
   }
 
   const { html, text } = renderLafloEmail({
@@ -60,12 +70,8 @@ async function sendRequesterUpdate(
     greeting: `Hello ${fullName},`,
     intro,
     meta: [{ label: 'Reference', value: `AR-${requestId}` }],
-    bodyHtml: notes
-      ? `<p style="margin:0 0 10px; color:#334155;"><strong>Notes:</strong> ${escapeEmailText(
-          notes
-        )}</p>`
-      : undefined,
-    cta: { label: 'Go to login', url: loginUrl },
+    bodyHtml,
+    cta,
   });
 
   await sendEmail({
