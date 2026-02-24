@@ -74,8 +74,12 @@ model Hotel {
   id          String     @id @default(cuid())
   name        String
   address     String
+  addressLine1 String?   @map("address_line1")
   city        String
   country     String
+  latitude    Float?     @db.DoublePrecision
+  longitude   Float?     @db.DoublePrecision
+  locationUpdatedAt DateTime? @map("location_updated_at")
   phone       String
   email       String
   website     String?
@@ -98,8 +102,27 @@ model Hotel {
   purchaseOrders PurchaseOrder[]
   floors      Floor[]
   conversations Conversation[]
+  externalSignals ExternalSignal[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+}
+
+model ExternalSignal {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hotelId       String
+  hotel         Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  type          String
+  dateLocal     DateTime  @map("date_local") @db.Date
+  timezone      String
+  metricsJson   Json      @map("metrics_json")
+  source        String    @default("openweathermap")
+  fetchedAtUtc  DateTime  @map("fetched_at_utc")
+  rawJson       Json?     @map("raw_json")
+  createdAtUtc  DateTime  @default(now()) @map("created_at_utc")
+
+  @@unique([hotelId, type, dateLocal, source])
+  @@index([hotelId, dateLocal])
+  @@map("external_signals")
 }
 
 // ===========================================

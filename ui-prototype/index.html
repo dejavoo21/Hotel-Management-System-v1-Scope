@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HotelPro Admin</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --card: #ffffff;
+        --text: #0f172a;
+        --muted: #64748b;
+        --border: #e5e7eb;
+        --shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+        --r: 16px;
+        --gap: 24px;
+
+        --lime-50: #f7fee7;
+        --lime-100: #ecfccb;
+        --lime-200: #d9f99d;
+        --lime-300: #bef264;
+        --emerald-100: #d1fae5;
+        --rose-100: #ffe4e6;
+        --rose-500: #f43f5e;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--text);
+        background: var(--bg);
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        grid-template-rows: 72px 1fr;
+        min-height: 100vh;
+      }
+      aside {
+        grid-row: 1 / span 2;
+        background: var(--card);
+        border-right: 1px solid var(--border);
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow: auto;
+      }
+      header {
+        grid-column: 2;
+        background: var(--card);
+        border-bottom: 1px solid var(--border);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      main {
+        grid-column: 2;
+        padding: 28px;
+        min-width: 0;
+      }
+
+      @media (max-width: 980px) {
+        .app { grid-template-columns: 240px 1fr; }
+        main { padding: 20px; }
+      }
+      @media (max-width: 768px) {
+        .app { grid-template-columns: 220px 1fr; }
+        main { padding: 16px; }
+      }
+
+      .topbar {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 16px;
+        padding: 14px 20px;
+      }
+      .page-title {
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin: 0;
+      }
+      .search { display: flex; justify-content: center; }
+      .search .field { width: min(720px, 100%); position: relative; }
+      .search input {
+        width: 100%;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        border-radius: 999px;
+        padding: 12px 14px 12px 42px;
+        outline: none;
+        transition: background 0.2s ease, border-color 0.2s ease;
+        font-size: 14px;
+      }
+      .search input:focus { background: #fff; border-color: #b7f052; }
+      .search .icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        pointer-events: none;
+        font-size: 14px;
+      }
+      .top-actions { display: flex; align-items: center; gap: 12px; }
+      .bell {
+        width: 40px; height: 40px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        position: relative;
+      }
+      .bell .dot {
+        position: absolute;
+        right: 8px; top: 8px;
+        width: 10px; height: 10px;
+        border-radius: 999px;
+        background: var(--rose-500);
+        outline: 2px solid #fff;
+      }
+      .user {
+        display: grid;
+        grid-template-columns: 42px 1fr;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 10px;
+        border-radius: 16px;
+        cursor: pointer;
+      }
+      .user:hover { background: #f8fafc; }
+      .avatar {
+        width: 42px; height: 42px;
+        border-radius: 999px;
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        color: #b45309;
+      }
+      .user .name { font-size: 13px; font-weight: 800; line-height: 1.1; }
+      .user .role { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 3px; }
+
+      .brand { padding: 18px 18px 10px; border-bottom: 1px solid #f1f5f9; }
+      .brand .logo { display: flex; align-items: center; gap: 10px; }
+      .mark {
+        width: 38px; height: 38px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, var(--lime-200), #c7d2fe);
+        box-shadow: 0 10px 18px rgba(132, 204, 22, 0.12);
+      }
+      .brand .appname { font-weight: 900; letter-spacing: -0.02em; font-size: 16px; }
+
+      .nav { padding: 14px 12px 18px; }
+      .nav-group { margin-top: 10px; }
+      .nav-label {
+        font-size: 11px;
+        font-weight: 800;
+        color: #94a3b8;
+        padding: 14px 12px 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .nav-item, .nav-parent {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 999px;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        font-weight: 700;
+        color: #334155;
+        text-align: left;
+      }
+      .nav-item:hover, .nav-parent:hover { background: #f8fafc; }
+      .nav-item.active { background: var(--lime-200); color: #0f172a; }
+      .nav-icon { width: 18px; height: 18px; display: inline-block; }
+      .badge {
+        margin-left: auto;
+        min-width: 22px;
+        height: 20px;
+        padding: 0 7px;
+        border-radius: 999px;
+        background: var(--rose-500);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 900;
+        display: grid;
+        place-items: center;
+      }
+      .caret { margin-left: auto; color: #94a3b8; font-weight: 900; }
+      .subnav { display: none; padding: 8px 0 0 34px; }
+      .subnav.open { display: block; }
+      .subnav .nav-item { border-radius: 12px; padding: 9px 12px; font-weight: 700; }
+      .subnav .nav-item.active { background: #eef2ff; border: 1px solid #e2e8f0; }
+
+      .card {
+        background: var(--card);
+        border-radius: var(--r);
+        box-shadow: var(--shadow);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+      }
+      .card.pad { padding: 24px; }
+      .card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+      .card-title { margin: 0; font-size: 16px; font-weight: 900; letter-spacing: -0.01em; }
+      .card-sub { margin: 5px 0 0; font-size: 13px; color: var(--muted); font-weight: 600; }
+      .kebab {
+        border: 0; background: transparent;
+        padding: 6px 8px;
+        border-radius: 10px;
+        cursor: pointer;
+        color: #94a3b8;
+        font-weight: 900;
+      }
+      .kebab:hover { background: #f1f5f9; }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+      .pill.green { background: var(--emerald-100); color: #065f46; }
+      .pill.red { background: var(--rose-100); color: #9f1239; }
+
+      .dash { display: grid; grid-template-columns: 1fr; gap: var(--gap); }
+      .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--gap); }
+      .stat-value {
+        font-size: 34px;
+        font-weight: 1000;
+        letter-spacing: -0.03em;
+        margin: 18px 0 8px;
+      }
+      .stat-label { color: var(--muted); font-size: 13px; font-weight: 700; margin: 0; }
+      .stat-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+      .stat-icon {
+        width: 36px; height: 36px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        font-weight: 1000;
+        color: #0f172a;
+        background: var(--lime-50);
+        border: 1px solid #e2e8f0;
+      }
+
+      .main-grid {
+        display: grid;
+        grid-template-columns: 1.05fr 1.55fr 1fr;
+        gap: var(--gap);
+        align-items: start;
+      }
+      .col { display: grid; gap: var(--gap); }
+
+      @media (max-width: 1199px) {
+        .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .main-grid { grid-template-columns: 1fr 1fr; }
+        .main-grid .col:last-child { grid-column: 1 / -1; }
+      }
+      @media (max-width: 767px) {
+        .stats { grid-template-columns: 1fr; }
+        .main-grid { grid-template-columns: 1fr; }
+      }
+
+      .segbar {
+        height: 16px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        display: flex;
+      }
+      .seg { height: 100%; }
+      .seg.occupied { background: #bbf7d0; }
+      .seg.reserved { background: #d9f99d; }
+      .seg.available { background: #e2e8f0; }
+      .seg.notready { background: #fde68a; }
+
+      .availability-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        margin-top: 18px;
+      }
+      .mini-stat .k { font-size: 12px; font-weight: 900; color: #64748b; }
+      .mini-stat .v { font-size: 30px; font-weight: 1000; margin-top: 6px; }
+
+      canvas { display: block; }
+      .chart-wrap { margin-top: 18px; height: 260px; }
+      .chart-wrap.tall { height: 300px; }
+      .chart-wrap.short { height: 220px; }
+
+      .fake-dd {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 999px;
+        padding: 8px 12px;
+        background: var(--lime-200);
+        font-weight: 900;
+        font-size: 12px;
+        border: 0;
+        cursor: pointer;
+      }
+
+      .legend {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-top: 8px;
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 800;
+      }
+      .dot {
+        width: 10px; height: 10px;
+        border-radius: 999px;
+        display: inline-block;
+        margin-right: 8px;
+      }
+
+      .rating-head { display: flex; align-items: baseline; gap: 12px; margin-top: 16px; }
+      .rating-big { font-size: 40px; font-weight: 1100; letter-spacing: -0.03em; }
+      .rating-meta { font-size: 13px; color: var(--muted); font-weight: 700; }
+      .bars { margin-top: 18px; display: grid; gap: 12px; }
+      .barrow {
+        display: grid;
+        grid-template-columns: 96px 1fr 36px;
+        align-items: center;
+        gap: 12px;
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 800;
+      }
+      .track { height: 8px; background: #eef2f7; border-radius: 999px; overflow: hidden; }
+      .fill { height: 100%; background: var(--lime-300); border-radius: 999px; }
+      .barrow .score { text-align: right; color: #334155; }
+
+      .tasks-head { display: flex; align-items: center; justify-content: space-between; }
+      .plus {
+        width: 34px; height: 34px;
+        border-radius: 12px;
+        border: 0;
+        background: var(--lime-200);
+        cursor: pointer;
+        font-weight: 1000;
+      }
+      .task-list { display: grid; gap: 12px; margin-top: 16px; }
+      .task {
+        display: grid;
+        grid-template-columns: 22px 1fr 26px;
+        gap: 10px;
+        padding: 14px;
+        border-radius: 14px;
+        background: var(--lime-50);
+        border: 1px solid #e2e8f0;
+      }
+      .task.completed { background: #f1f5f9; color: #64748b; }
+      .task.completed .task-title { text-decoration: line-through; }
+      .task-date { font-size: 11px; color: #64748b; font-weight: 900; }
+      .task-title { margin: 6px 0 3px; font-weight: 1000; }
+      .task-desc { margin: 0; font-size: 12px; color: #64748b; font-weight: 700; }
+      .task-more { border: 0; background: transparent; cursor: pointer; color: #94a3b8; font-weight: 1000; }
+
+      .table-tools {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+      .toolrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+      .mini-input {
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        border-radius: 999px;
+        padding: 10px 12px;
+        font-size: 12px;
+        font-weight: 800;
+        outline: none;
+      }
+      .mini-input:focus { background: #fff; border-color: #b7f052; }
+
+      .tbl {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin-top: 14px;
+        overflow: hidden;
+        border-radius: 14px;
+        border: 1px solid #eef2f7;
+      }
+      .tbl thead th {
+        background: #f8fafc;
+        padding: 12px 14px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #64748b;
+        font-weight: 900;
+        text-align: left;
+        border-bottom: 1px solid #eef2f7;
+      }
+      .tbl tbody td {
+        padding: 14px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 13px;
+        color: #334155;
+        font-weight: 700;
+        vertical-align: middle;
+      }
+      .tbl tbody tr:hover td { background: #fbfdff; }
+      .tbl tbody tr:last-child td { border-bottom: 0; }
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 1000;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+      }
+      .tag.roomtype { background: #f8fafc; }
+      .tag.status.in { background: var(--lime-100); border-color: var(--lime-200); color: #365314; }
+      .tag.status.out { background: #e0f2fe; border-color: #bae6fd; color: #075985; }
+      .tag.status.pending { background: #fef3c7; border-color: #fde68a; color: #92400e; }
+
+      .dd { position: relative; display: inline-block; }
+      .dd-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        border-radius: 999px;
+        padding: 10px 12px;
+        font-size: 12px;
+        font-weight: 900;
+        color: #334155;
+        cursor: pointer;
+      }
+      .dd-menu {
+        position: absolute;
+        right: 0;
+        top: calc(100% + 8px);
+        min-width: 180px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        padding: 6px;
+        display: none;
+        z-index: 50;
+      }
+      .dd.open .dd-menu { display: block; }
+      .dd-item {
+        width: 100%;
+        border: 0;
+        background: transparent;
+        text-align: left;
+        padding: 10px 10px;
+        border-radius: 12px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 900;
+        color: #334155;
+      }
+      .dd-item:hover { background: #f8fafc; }
+
+      .view { display: none; }
+      .view.active { display: block; }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside aria-label="Sidebar navigation">
+        <div class="brand">
+          <div class="logo" aria-label="HotelPro brand">
+            <div class="mark" aria-hidden="true"></div>
+            <div>
+              <div class="appname">HotelPro</div>
+              <div style="font-size:12px;color:#64748b;font-weight:700;margin-top:2px">Hotel Management</div>
+            </div>
+          </div>
+        </div>
+
+        <nav class="nav" aria-label="Primary">
+          <div class="nav-group">
+            <div class="nav-label">Operations</div>
+            <button class="nav-item active" data-route="dashboard" type="button">
+              <span class="nav-icon" aria-hidden="true">▦</span>
+              <span>Dashboard</span>
+            </button>
+            <button class="nav-item" data-route="noop" type="button">
+              <span class="nav-icon" aria-hidden="true">🗓</span>
+              <span>Reservation</span>
+            </button>
+            <button class="nav-item" data-route="noop" type="button">
+              <span class="nav-icon" aria-hidden="true">🏨</span>
+              <span>Rooms</span>
+            </button>
+            <button class="nav-item" data-route="noop" type="button">
+              <span class="nav-icon" aria-hidden="true">💬</span>
+              <span>Messages</span>
+              <span class="badge" aria-label="5 unread messages">5</span>
+            </button>
+            <button class="nav-item" data-route="noop" type="button">
+              <span class="nav-icon" aria-hidden="true">🧹</span>
+              <span>Housekeeping</span>
+            </button>
+            <button class="nav-item" data-route="noop" type="button">
+              <span class="nav-icon" aria-hidden="true">📦</span>
+              <span>Inventory</span>
+            </button>
+            <button class="nav-item" data-route="noop" type="button">
+              <span class="nav-icon" aria-hidden="true">📅</span>
+              <span>Calendar</span>
+            </button>
+          </div>
+
+          <div class="nav-group">
+            <div class="nav-label">Back office</div>
+            <button class="nav-parent" id="financials-parent" type="button" aria-expanded="true">
+              <span class="nav-icon" aria-hidden="true">📊</span>
+              <span>Financials</span>
+              <span class="caret" aria-hidden="true">▾</span>
+            </button>
+            <div class="subnav open" id="financials-subnav" aria-label="Financials sub navigation">
+              <button class="nav-item" data-route="noop" type="button">Invoice</button>
+              <button class="nav-item" data-route="expenses" type="button">Expenses</button>
+            </div>
+          </div>
+
+          <div class="nav-group">
+            <div class="nav-label">Experience</div>
+            <button class="nav-item" data-route="noop" type="button">
+              <span class="nav-icon" aria-hidden="true">★</span>
+              <span>Reviews</span>
+            </button>
+            <button class="nav-item" data-route="noop" type="button">
+              <span class="nav-icon" aria-hidden="true">🧭</span>
+              <span>Concierge</span>
+            </button>
+          </div>
+        </nav>
+      </aside>
+
+      <header role="banner">
+        <div class="topbar">
+          <div>
+            <h1 class="page-title" id="pageTitle">Dashboard</h1>
+          </div>
+
+          <div class="search" role="search">
+            <div class="field">
+              <span class="icon" aria-hidden="true">🔎</span>
+              <input id="globalSearch" type="search" placeholder="Search room, guest, book, etc" aria-label="Global search" />
+            </div>
+          </div>
+
+          <div class="top-actions">
+            <button class="bell" type="button" aria-label="Notifications">
+              🔔
+              <span class="dot" aria-hidden="true"></span>
+            </button>
+            <div class="user" role="button" tabindex="0" aria-label="User menu (static)">
+              <div class="avatar" id="userInitials">JD</div>
+              <div>
+                <div class="name" id="userName">Jaylon Dorwart</div>
+                <div class="role" id="userRole">Admin</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section id="view-dashboard" class="view active" aria-label="Dashboard view">
+          <div class="dash">
+            <section class="stats" aria-label="Summary stats">
+              <article class="card pad">
+                <div class="stat-top">
+                  <div class="stat-icon" aria-hidden="true">🧾</div>
+                  <button class="kebab" type="button" aria-label="Menu">⋯</button>
+                </div>
+                <div class="stat-value" data-bind="dash.newBookings"></div>
+                <p class="stat-label">New Bookings</p>
+                <div style="margin-top:12px"><span class="pill green" data-bind="dash.newBookingsChange"></span></div>
+              </article>
+              <article class="card pad">
+                <div class="stat-top">
+                  <div class="stat-icon" aria-hidden="true">↩</div>
+                  <button class="kebab" type="button" aria-label="Menu">⋯</button>
+                </div>
+                <div class="stat-value" data-bind="dash.checkIn"></div>
+                <p class="stat-label">Check-In</p>
+                <div style="margin-top:12px"><span class="pill green" data-bind="dash.checkInChange"></span></div>
+              </article>
+              <article class="card pad">
+                <div class="stat-top">
+                  <div class="stat-icon" aria-hidden="true">↪</div>
+                  <button class="kebab" type="button" aria-label="Menu">⋯</button>
+                </div>
+                <div class="stat-value" data-bind="dash.checkOut"></div>
+                <p class="stat-label">Check-Out</p>
+                <div style="margin-top:12px"><span class="pill red" data-bind="dash.checkOutChange"></span></div>
+              </article>
+              <article class="card pad">
+                <div class="stat-top">
+                  <div class="stat-icon" aria-hidden="true">$</div>
+                  <button class="kebab" type="button" aria-label="Menu">⋯</button>
+                </div>
+                <div class="stat-value" data-bind="dash.totalRevenue"></div>
+                <p class="stat-label">Total Revenue</p>
+                <div style="margin-top:12px"><span class="pill green" data-bind="dash.totalRevenueChange"></span></div>
+              </article>
+            </section>
+
+            <section class="main-grid" aria-label="Dashboard content">
+              <div class="col" aria-label="Dashboard left column">
+                <article class="card pad" aria-label="Room availability">
+                  <div class="card-header">
+                    <div>
+                      <h2 class="card-title">Room Availability</h2>
+                      <p class="card-sub">Snapshot for today</p>
+                    </div>
+                    <button class="kebab" type="button" aria-label="Menu">⋯</button>
+                  </div>
+                  <div style="margin-top:18px">
+                    <div class="segbar" aria-label="Room availability bar">
+                      <div class="seg occupied" data-bind-style="availability.occupiedPct" title="Occupied"></div>
+                      <div class="seg reserved" data-bind-style="availability.reservedPct" title="Reserved"></div>
+                      <div class="seg available" data-bind-style="availability.availablePct" title="Available"></div>
+                      <div class="seg notready" data-bind-style="availability.notReadyPct" title="Not ready"></div>
+                    </div>
+                    <div class="availability-grid" aria-label="Room availability counts">
+                      <div class="mini-stat"><div class="k">Occupied</div><div class="v" data-bind="availability.occupied"></div></div>
+                      <div class="mini-stat"><div class="k">Reserved</div><div class="v" data-bind="availability.reserved"></div></div>
+                      <div class="mini-stat"><div class="k">Available</div><div class="v" data-bind="availability.available"></div></div>
+                      <div class="mini-stat"><div class="k">Not Ready</div><div class="v" data-bind="availability.notReady"></div></div>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="card pad" aria-label="Reservations chart">
+                  <div class="card-header">
+                    <div>
+                      <h2 class="card-title">Reservations</h2>
+                      <p class="card-sub">Last 7 Days</p>
+                    </div>
+                    <button class="fake-dd" type="button" aria-label="Last 7 Days dropdown">Last 7 Days ▼</button>
+                  </div>
+                  <div class="legend" aria-label="Reservations legend">
+                    <span><span class="dot" style="background:#bbf7d0"></span>Booked</span>
+                    <span><span class="dot" style="background:#d9f99d"></span>Canceled</span>
+                  </div>
+                  <div class="chart-wrap short">
+                    <canvas id="chartReservations" aria-label="Reservations bar chart"></canvas>
+                  </div>
+                </article>
+              </div>
+
+              <div class="col" aria-label="Dashboard center column">
+                <article class="card pad" aria-label="Revenue chart">
+                  <div class="card-header">
+                    <div>
+                      <h2 class="card-title">Revenue</h2>
+                      <p class="card-sub">Last 6 Months</p>
+                    </div>
+                    <button class="fake-dd" type="button" aria-label="Last 6 Months dropdown">Last 6 Months ▼</button>
+                  </div>
+                  <div class="chart-wrap tall">
+                    <canvas id="chartRevenue" aria-label="Revenue line chart"></canvas>
+                  </div>
+                </article>
+
+                <article class="card pad" aria-label="Booking by platform">
+                  <div class="card-header">
+                    <div>
+                      <h2 class="card-title">Booking by Platform</h2>
+                      <p class="card-sub">Last 30 Days</p>
+                    </div>
+                    <button class="kebab" type="button" aria-label="Menu">⋯</button>
+                  </div>
+                  <div style="display:grid;grid-template-columns: 1fr 1fr;gap: 16px;align-items:center;margin-top:10px">
+                    <div class="chart-wrap short" style="height:220px">
+                      <canvas id="chartPlatform" aria-label="Platform doughnut chart"></canvas>
+                    </div>
+                    <div id="platformLegend" aria-label="Platform legend"></div>
+                  </div>
+                </article>
+              </div>
+
+              <div class="col" aria-label="Dashboard right column">
+                <article class="card pad" aria-label="Overall rating">
+                  <div class="card-header">
+                    <div>
+                      <h2 class="card-title">Overall Rating</h2>
+                      <p class="card-sub">Based on recent reviews</p>
+                    </div>
+                    <button class="kebab" type="button" aria-label="Menu">⋯</button>
+                  </div>
+                  <div class="rating-head">
+                    <div class="rating-big" data-bind="ratings.ratingText"></div>
+                    <div>
+                      <div style="font-weight:1000">Impressive</div>
+                      <div class="rating-meta"><span data-bind="ratings.reviewCount"></span> reviews</div>
+                    </div>
+                  </div>
+                  <div class="bars" id="ratingsBars" aria-label="Rating bars"></div>
+                </article>
+
+                <article class="card pad" aria-label="Tasks">
+                  <div class="tasks-head">
+                    <h2 class="card-title" style="margin:0">Tasks</h2>
+                    <button class="plus" type="button" id="addTaskBtn" aria-label="Add task">＋</button>
+                  </div>
+                  <div class="task-list" id="taskList"></div>
+                </article>
+              </div>
+            </section>
+
+            <article class="card pad" aria-label="Booking list table">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title">Booking List</h2>
+                  <p class="card-sub">Arrivals and departures today</p>
+                </div>
+                <button class="kebab" type="button" aria-label="Menu">⋯</button>
+              </div>
+
+              <div class="table-tools" aria-label="Booking list tools">
+                <div class="toolrow">
+                  <input class="mini-input" id="bookingSearch" placeholder="Search guest, status, etc" aria-label="Booking search" />
+                </div>
+                <div class="toolrow">
+                  <div class="dd" data-dd="bookingStatus">
+                    <button class="dd-btn" type="button" aria-haspopup="menu">
+                      <span id="bookingStatusLabel">All Status</span> ▼
+                    </button>
+                    <div class="dd-menu" role="menu">
+                      <button class="dd-item" type="button" data-value="ALL">All Status</button>
+                      <button class="dd-item" type="button" data-value="CHECKED_IN">Checked-In</button>
+                      <button class="dd-item" type="button" data-value="CHECKED_OUT">Checked-Out</button>
+                      <button class="dd-item" type="button" data-value="PENDING">Pending</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <table class="tbl" aria-label="Booking list table">
+                <thead>
+                  <tr>
+                    <th>Booking ID</th>
+                    <th>Guest Name</th>
+                    <th>Room Type</th>
+                    <th>Room Number</th>
+                    <th>Duration</th>
+                    <th>Check-in & Check-out</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="bookingRows"></tbody>
+              </table>
+            </article>
+          </div>
+        </section>
+
+        <section id="view-expenses" class="view" aria-label="Expenses view">
+          <div class="dash">
+            <article class="card pad">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title">Expenses</h2>
+                  <p class="card-sub">This prototype includes the full expenses page in the next chunk.</p>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script>
+      // MOCK DATA - replace with real data
+      const userProfile = { name: 'Jaylon Dorwart', role: 'Admin' };
+
+      // MOCK DATA - replace with real data
+      const dashboardSummary = {
+        newBookings: 840,
+        checkIn: 231,
+        checkOut: 124,
+        totalRevenue: 123980,
+        changes: { newBookingsPct: 8.7, checkInPct: 3.56, checkOutPct: -1.06, totalRevenuePct: 5.7 },
+      };
+
+      // MOCK DATA - replace with real data
+      const roomAvailability = { occupied: 286, reserved: 87, available: 32, notReady: 13 };
+
+      // MOCK DATA - replace with real data
+      const revenueByMonth = [
+        { month: 'Dec 2027', revenue: 250000 },
+        { month: 'Jan 2028', revenue: 285000 },
+        { month: 'Feb 2028', revenue: 315060 },
+        { month: 'Mar 2028', revenue: 298000 },
+        { month: 'Apr 2028', revenue: 340000 },
+        { month: 'May 2028', revenue: 305000 },
+      ];
+
+      // MOCK DATA - replace with real data
+      const ratings = {
+        overall: 4.6,
+        reviewCount: 2546,
+        categories: [
+          { name: 'Facilities', value: 4.4 },
+          { name: 'Cleanliness', value: 4.7 },
+          { name: 'Services', value: 4.6 },
+          { name: 'Comfort', value: 4.8 },
+          { name: 'Location', value: 4.5 },
+        ],
+      };
+
+      // MOCK DATA - replace with real data
+      const reservationsByDay = [
+        { day: 'Mon', booked: 62, canceled: 8 },
+        { day: 'Tue', booked: 74, canceled: 10 },
+        { day: 'Wed', booked: 69, canceled: 9 },
+        { day: 'Thu', booked: 81, canceled: 12 },
+        { day: 'Fri', booked: 77, canceled: 11 },
+        { day: 'Sat', booked: 90, canceled: 14 },
+        { day: 'Sun', booked: 84, canceled: 13 },
+      ];
+
+      // MOCK DATA - replace with real data
+      const bookingByPlatform = [
+        { name: 'Direct Booking', pct: 61 },
+        { name: 'Booking.com', pct: 12 },
+        { name: 'Agoda', pct: 11 },
+        { name: 'Airbnb', pct: 9 },
+        { name: 'Hotels.com', pct: 5 },
+        { name: 'Others', pct: 2 },
+      ];
+
+      // MOCK DATA - replace with real data
+      const tasks = [
+        { id: 't1', date: 'June 19, 2028', title: 'Set Up Conference Room B for 10 AM Meeting', desc: 'Meeting', completed: false },
+        { id: 't2', date: 'June 19, 2028', title: 'Restock Housekeeping Supplies on 3rd Floor', desc: 'Floor 3', completed: false },
+        { id: 't3', date: 'June 20, 2028', title: 'Inspect and Clean the Pool Area', desc: 'Pool deck', completed: false },
+        { id: 't4', date: 'June 20, 2028', title: 'Check-in Assistance During Peak Hours (4 PM - 6 PM)', desc: 'Front desk', completed: false },
+      ];
+
+      // MOCK DATA - replace with real data
+      const bookings = [
+        { id: 'BK-2024-001', guest: 'John Smith', roomTypeTag: 'Standard', room: 102, duration: '2 night(s)', range: '2/4/2026 - 2/6/2026', status: 'CHECKED_IN' },
+        { id: 'BK-2024-002', guest: 'Emily Johnson', roomTypeTag: 'Deluxe', room: 302, duration: '3 night(s)', range: '2/4/2026 - 2/7/2026', status: 'CHECKED_IN' },
+        { id: 'BK-2024-003', guest: 'Michael Brown', roomTypeTag: 'Deluxe', room: 202, duration: '2 night(s)', range: '2/5/2026 - 2/7/2026', status: 'CHECKED_IN' },
+        { id: 'BK-2024-004', guest: 'John Smith', roomTypeTag: 'Deluxe', room: 201, duration: '1 night(s)', range: '2/6/2026 - 2/7/2026', status: 'PENDING' },
+        { id: 'BK-2026-876', guest: 'James Paul', roomTypeTag: 'Standard', room: 101, duration: '2 night(s)', range: '2/9/2026 - 2/11/2026', status: 'CHECKED_OUT' },
+      ];
+
+      const fmtMoney = (value) =>
+        new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(Number(value || 0));
+
+      const pctText = (pct) => {
+        const v = Number(pct || 0);
+        const arrow = v >= 0 ? '▲' : '▼';
+        const abs = Math.abs(v).toFixed(2);
+        return `${arrow} ${abs}% from last week`;
+      };
+
+      const statusLabel = (s) => String(s).replaceAll('_', ' ').toLowerCase().replace(/(^|\\s)\\S/g, (c) => c.toUpperCase());
+
+      const bindText = (key, value) => {
+        document.querySelectorAll(`[data-bind="${key}"]`).forEach((el) => (el.textContent = value));
+      };
+      const bindWidthPct = (key, pct) => {
+        document.querySelectorAll(`[data-bind-style="${key}"]`).forEach((el) => {
+          el.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+        });
+      };
+
+      function computeAvailability() {
+        const total = roomAvailability.occupied + roomAvailability.reserved + roomAvailability.available + roomAvailability.notReady;
+        const toPct = (v) => (total ? (v / total) * 100 : 0);
+        return {
+          occupiedPct: toPct(roomAvailability.occupied),
+          reservedPct: toPct(roomAvailability.reserved),
+          availablePct: toPct(roomAvailability.available),
+          notReadyPct: toPct(roomAvailability.notReady),
+        };
+      }
+
+      function renderUser() {
+        const initials = userProfile.name
+          .split(' ')
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((p) => p[0].toUpperCase())
+          .join('');
+        document.getElementById('userInitials').textContent = initials;
+        document.getElementById('userName').textContent = userProfile.name;
+        document.getElementById('userRole').textContent = userProfile.role;
+      }
+
+      function renderDashboardBindings() {
+        bindText('dash.newBookings', dashboardSummary.newBookings.toLocaleString());
+        bindText('dash.checkIn', dashboardSummary.checkIn.toLocaleString());
+        bindText('dash.checkOut', dashboardSummary.checkOut.toLocaleString());
+        bindText('dash.totalRevenue', fmtMoney(dashboardSummary.totalRevenue));
+
+        bindText('dash.newBookingsChange', pctText(dashboardSummary.changes.newBookingsPct));
+        bindText('dash.checkInChange', pctText(dashboardSummary.changes.checkInPct));
+        bindText('dash.checkOutChange', pctText(dashboardSummary.changes.checkOutPct));
+        bindText('dash.totalRevenueChange', pctText(dashboardSummary.changes.totalRevenuePct));
+
+        bindText('availability.occupied', roomAvailability.occupied.toLocaleString());
+        bindText('availability.reserved', roomAvailability.reserved.toLocaleString());
+        bindText('availability.available', roomAvailability.available.toLocaleString());
+        bindText('availability.notReady', roomAvailability.notReady.toLocaleString());
+
+        const av = computeAvailability();
+        bindWidthPct('availability.occupiedPct', av.occupiedPct);
+        bindWidthPct('availability.reservedPct', av.reservedPct);
+        bindWidthPct('availability.availablePct', av.availablePct);
+        bindWidthPct('availability.notReadyPct', av.notReadyPct);
+
+        bindText('ratings.ratingText', `${ratings.overall.toFixed(1)}/5`);
+        bindText('ratings.reviewCount', ratings.reviewCount.toLocaleString());
+
+        const bars = document.getElementById('ratingsBars');
+        bars.innerHTML = '';
+        ratings.categories.forEach((c) => {
+          const row = document.createElement('div');
+          row.className = 'barrow';
+          row.innerHTML = `
+            <div>${c.name}</div>
+            <div class="track"><div class="fill" style="width:${(c.value / 5) * 100}%"></div></div>
+            <div class="score">${c.value.toFixed(1)}</div>
+          `;
+          bars.appendChild(row);
+        });
+      }
+
+      function renderTasks() {
+        const list = document.getElementById('taskList');
+        list.innerHTML = '';
+        tasks.forEach((t) => {
+          const card = document.createElement('div');
+          card.className = `task${t.completed ? ' completed' : ''}`;
+          card.dataset.taskId = t.id;
+          card.innerHTML = `
+            <input type="checkbox" ${t.completed ? 'checked' : ''} aria-label="Complete task ${t.title}" />
+            <div>
+              <div class="task-date">${t.date}</div>
+              <div class="task-title">${t.title}</div>
+              <p class="task-desc">${t.desc}</p>
+            </div>
+            <button class="task-more" type="button" aria-label="More">⋯</button>
+          `;
+          card.querySelector('input').addEventListener('change', (e) => {
+            const checked = e.target.checked;
+            t.completed = checked;
+            card.classList.toggle('completed', checked);
+          });
+          list.appendChild(card);
+        });
+      }
+
+      function renderBookingTable(filters) {
+        const tbody = document.getElementById('bookingRows');
+        tbody.innerHTML = '';
+
+        const q = (filters.query || '').trim().toLowerCase();
+        const status = filters.status || 'ALL';
+
+        const filtered = bookings.filter((b) => {
+          const matchesQuery =
+            !q ||
+            b.id.toLowerCase().includes(q) ||
+            b.guest.toLowerCase().includes(q) ||
+            statusLabel(b.status).toLowerCase().includes(q);
+          const matchesStatus = status === 'ALL' ? true : b.status === status;
+          return matchesQuery && matchesStatus;
+        });
+
+        filtered.forEach((b) => {
+          const tr = document.createElement('tr');
+          const typeBadge = `<span class="tag roomtype">${b.roomTypeTag}</span>`;
+          const statusClass = b.status === 'CHECKED_IN' ? 'in' : b.status === 'CHECKED_OUT' ? 'out' : 'pending';
+          const statusBadge = `<span class="tag status ${statusClass}">${statusLabel(b.status)}</span>`;
+
+          tr.innerHTML = `
+            <td>${b.id}</td>
+            <td>${b.guest}</td>
+            <td>${typeBadge}</td>
+            <td>${b.room}</td>
+            <td>${b.duration}</td>
+            <td>${b.range}</td>
+            <td>${statusBadge}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      function roundRect(ctx, x, y, w, h, r) {
+        const rr = Math.min(r, w / 2, h / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + rr, y);
+        ctx.arcTo(x + w, y, x + w, y + h, rr);
+        ctx.arcTo(x + w, y + h, x, y + h, rr);
+        ctx.arcTo(x, y + h, x, y, rr);
+        ctx.arcTo(x, y, x + w, y, rr);
+        ctx.closePath();
+      }
+
+      function initDashboardCharts() {
+        const revenueCallout = {
+          id: 'revenueCallout',
+          afterDatasetsDraw(chart) {
+            const { ctx } = chart;
+            const meta = chart.getDatasetMeta(0);
+            if (!meta || !meta.data || !meta.data.length) return;
+
+            const data = chart.data.datasets[0].data;
+            let maxIdx = 0;
+            let maxVal = -Infinity;
+            data.forEach((v, i) => {
+              if (Number(v) > maxVal) { maxVal = Number(v); maxIdx = i; }
+            });
+            const total = data.reduce((sum, v) => sum + Number(v || 0), 0);
+            const pt = meta.data[maxIdx];
+            const x = pt.x;
+            const y = pt.y - 18;
+
+            const label1 = 'Total Revenue';
+            const label2 = fmtMoney(total);
+            ctx.save();
+            ctx.font = '900 10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            const w = Math.max(ctx.measureText(label1).width, ctx.measureText(label2).width) + 18;
+            const h = 40;
+            const rx = Math.min(Math.max(12, x - w / 2), chart.chartArea.right - w - 12);
+            const ry = Math.max(chart.chartArea.top + 8, y - h);
+
+            ctx.fillStyle = 'rgba(236, 252, 203, 0.95)';
+            ctx.strokeStyle = 'rgba(190, 242, 100, 0.9)';
+            ctx.lineWidth = 1;
+            roundRect(ctx, rx, ry, w, h, 12);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#64748b';
+            ctx.fillText(label1, rx + 9, ry + 15);
+            ctx.font = '1000 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillStyle = '#0f172a';
+            ctx.fillText(label2, rx + 9, ry + 32);
+            ctx.restore();
+          },
+        };
+
+        new Chart(document.getElementById('chartRevenue'), {
+          type: 'line',
+          data: {
+            labels: revenueByMonth.map((r) => r.month),
+            datasets: [{
+              label: 'Revenue',
+              data: revenueByMonth.map((r) => r.revenue),
+              borderColor: '#65a30d',
+              backgroundColor: 'rgba(132, 204, 22, 0.14)',
+              fill: true,
+              tension: 0.35,
+              pointRadius: 3,
+              pointHoverRadius: 5,
+              pointBackgroundColor: '#65a30d',
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { grid: { display: false }, ticks: { color: '#64748b', font: { weight: '700' } } },
+              y: { grid: { color: 'rgba(226,232,240,0.9)' }, ticks: { color: '#64748b', font: { weight: '700' }, callback: (v) => `${Number(v) / 1000}K` } },
+            },
+          },
+          plugins: [revenueCallout],
+        });
+
+        new Chart(document.getElementById('chartReservations'), {
+          type: 'bar',
+          data: {
+            labels: reservationsByDay.map((r) => r.day),
+            datasets: [
+              { label: 'Booked', data: reservationsByDay.map((r) => r.booked), backgroundColor: '#bbf7d0', borderRadius: 10 },
+              { label: 'Canceled', data: reservationsByDay.map((r) => r.canceled), backgroundColor: '#d9f99d', borderRadius: 10 },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { grid: { display: false }, ticks: { color: '#64748b', font: { weight: '800' } } },
+              y: { grid: { color: 'rgba(226,232,240,0.9)' }, ticks: { color: '#64748b', font: { weight: '800' } } },
+            },
+          },
+        });
+
+        const colors = ['#bbf7d0', '#d9f99d', '#c7d2fe', '#fde68a', '#fecaca', '#e2e8f0'];
+        const legend = document.getElementById('platformLegend');
+        legend.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.style.display = 'grid';
+        wrap.style.gap = '10px';
+        wrap.style.fontSize = '12px';
+        wrap.style.color = '#334155';
+        wrap.style.fontWeight = '900';
+        bookingByPlatform.forEach((row, idx) => {
+          const item = document.createElement('div');
+          item.style.display = 'grid';
+          item.style.gridTemplateColumns = '1fr auto';
+          item.style.gap = '12px';
+          item.style.alignItems = 'center';
+          item.innerHTML = `<div><span class="dot" style="background:${colors[idx]};vertical-align:middle"></span>${row.name}</div><div style="color:#64748b;font-weight:900">${row.pct}%</div>`;
+          wrap.appendChild(item);
+        });
+        legend.appendChild(wrap);
+
+        new Chart(document.getElementById('chartPlatform'), {
+          type: 'doughnut',
+          data: {
+            labels: bookingByPlatform.map((p) => p.name),
+            datasets: [{ data: bookingByPlatform.map((p) => p.pct), backgroundColor: colors, borderColor: '#ffffff', borderWidth: 2 }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '62%',
+            plugins: { legend: { display: false } },
+          },
+        });
+      }
+
+      function initNav() {
+        const pageTitle = document.getElementById('pageTitle');
+        const viewDashboard = document.getElementById('view-dashboard');
+        const viewExpenses = document.getElementById('view-expenses');
+        const navItems = Array.from(document.querySelectorAll('.nav-item[data-route]'));
+        const financialsParent = document.getElementById('financials-parent');
+        const financialsSubnav = document.getElementById('financials-subnav');
+
+        financialsParent.addEventListener('click', () => {
+          const isOpen = financialsSubnav.classList.toggle('open');
+          financialsParent.setAttribute('aria-expanded', String(isOpen));
+          financialsParent.querySelector('.caret').textContent = isOpen ? '▾' : '▸';
+        });
+
+        const setActiveNav = (route) => {
+          navItems.forEach((btn) => btn.classList.remove('active'));
+          const match = navItems.find((b) => b.dataset.route === route);
+          if (match) match.classList.add('active');
+        };
+
+        const showRoute = (route) => {
+          if (route === 'dashboard') {
+            pageTitle.textContent = 'Dashboard';
+            viewDashboard.classList.add('active');
+            viewExpenses.classList.remove('active');
+            setActiveNav('dashboard');
+          } else if (route === 'expenses') {
+            pageTitle.textContent = 'Expense';
+            viewDashboard.classList.remove('active');
+            viewExpenses.classList.add('active');
+            setActiveNav('expenses');
+            financialsSubnav.classList.add('open');
+            financialsParent.setAttribute('aria-expanded', 'true');
+            financialsParent.querySelector('.caret').textContent = '▾';
+          } else {
+            alert('This nav item is a visual placeholder in the prototype.');
+          }
+        };
+
+        navItems.forEach((btn) => btn.addEventListener('click', () => showRoute(btn.dataset.route)));
+        showRoute('dashboard');
+      }
+
+      function initDropdowns(onSelect) {
+        const dds = Array.from(document.querySelectorAll('.dd'));
+        const closeAll = () => dds.forEach((d) => d.classList.remove('open'));
+        document.addEventListener('click', (e) => {
+          const target = e.target;
+          const dd = target.closest ? target.closest('.dd') : null;
+          if (!dd) closeAll();
+        });
+
+        dds.forEach((dd) => {
+          const btn = dd.querySelector('.dd-btn');
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = dd.classList.contains('open');
+            closeAll();
+            dd.classList.toggle('open', !isOpen);
+          });
+          dd.querySelectorAll('.dd-item').forEach((item) => {
+            item.addEventListener('click', () => {
+              dd.classList.remove('open');
+              const group = dd.getAttribute('data-dd');
+              const value = item.getAttribute('data-value');
+              onSelect(group, value, item.textContent.trim());
+            });
+          });
+        });
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        renderUser();
+        renderDashboardBindings();
+        renderTasks();
+        initDashboardCharts();
+
+        const bookingFilterState = { query: '', status: 'ALL' };
+        renderBookingTable(bookingFilterState);
+        document.getElementById('bookingSearch').addEventListener('input', (e) => {
+          bookingFilterState.query = e.target.value;
+          renderBookingTable(bookingFilterState);
+        });
+
+        initDropdowns((group, value, label) => {
+          if (group === 'bookingStatus') {
+            bookingFilterState.status = value;
+            document.getElementById('bookingStatusLabel').textContent = label;
+            renderBookingTable(bookingFilterState);
+          }
+        });
+
+        document.getElementById('addTaskBtn').addEventListener('click', () => {
+          tasks.unshift({
+            id: `t${Date.now()}`,
+            date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+            title: 'New task (mock)',
+            desc: 'Created from + button',
+            completed: false,
+          });
+          renderTasks();
+        });
+
+        initNav();
+      });
+    </script>
+  </body>
+</html>

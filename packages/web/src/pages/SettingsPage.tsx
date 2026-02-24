@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
-import { roomService, authService, hotelService, accessRequestService } from '@/services';
+import { roomService, authService, hotelService, accessRequestService, weatherSignalsService } from '@/services';
 import api from '@/services/api';
 import { currencyOptions, timezoneOptions } from '@/data/options';
 import type { AccessRequest, AccessRequestReply } from '@/types';
@@ -69,9 +69,14 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const [hotelForm, setHotelForm] = useState({
     name: '',
+    address: '',
+    addressLine1: '',
+    city: '',
+    country: '',
     currency: 'USD',
     timezone: 'UTC',
   });
+  const isAdmin = user?.role === 'ADMIN';
 
   const roleOptions = useMemo(
     () => [
@@ -115,6 +120,10 @@ export default function SettingsPage() {
     if (user?.hotel) {
       setHotelForm({
         name: user.hotel.name || '',
+        address: user.hotel.address || '',
+        addressLine1: user.hotel.addressLine1 || '',
+        city: user.hotel.city || '',
+        country: user.hotel.country || '',
         currency: user.hotel.currency || 'USD',
         timezone: user.hotel.timezone || 'UTC',
       });
@@ -340,6 +349,24 @@ export default function SettingsPage() {
     },
     onError: () => {
       toast.error('Failed to update hotel settings');
+    },
+  });
+
+  const weatherStatusQuery = useQuery({
+    queryKey: ['weatherSignalsStatus', user?.hotel?.id],
+    queryFn: () => weatherSignalsService.getStatus(user!.hotel.id),
+    enabled: activeTab === 'hotel' && isAdmin && Boolean(user?.hotel?.id),
+    retry: false,
+  });
+
+  const syncWeatherMutation = useMutation({
+    mutationFn: (hotelId: string) => weatherSignalsService.sync(hotelId),
+    onSuccess: (data) => {
+      toast.success(`Weather synced (${data.daysStored} days stored)`);
+      queryClient.invalidateQueries({ queryKey: ['weatherSignalsStatus', data.hotelId] });
+    },
+    onError: () => {
+      toast.error('Weather sync failed');
     },
   });
 
@@ -670,10 +697,17 @@ export default function SettingsPage() {
                 className="mt-6 space-y-4"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  updateHotelMutation.mutate({
+                  const payload = {
                     name: hotelForm.name,
                     currency: hotelForm.currency,
                     timezone: hotelForm.timezone,
+                    ...(hotelForm.address.trim() ? { address: hotelForm.address.trim() } : {}),
+                    ...(hotelForm.addressLine1.trim() ? { addressLine1: hotelForm.addressLine1.trim() } : {}),
+                    ...(hotelForm.city.trim() ? { city: hotelForm.city.trim() } : {}),
+                    ...(hotelForm.country.trim() ? { country: hotelForm.country.trim() } : {}),
+                  };
+                  updateHotelMutation.mutate({
+                    ...payload,
                   });
                 }}
               >
@@ -685,6 +719,54 @@ export default function SettingsPage() {
                     onChange={(e) => setHotelForm((prev) => ({ ...prev, name: e.target.value }))}
                     className="input"
                   />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="label">City</label>
+                    <input
+                      type="text"
+                      value={hotelForm.city}
+                      onChange={(e) => setHotelForm((prev) => ({ ...prev, city: e.target.value }))}
+                      className="input"
+                      placeholder="e.g. Lagos"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Country</label>
+                    <input
+                      type="text"
+                      value={hotelForm.country}
+                      onChange={(e) => setHotelForm((prev) => ({ ...prev, country: e.target.value }))}
+                      className="input"
+                      placeholder="e.g. Nigeria"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="label">Address (optional)</label>
+                    <input
+                      type="text"
+                      value={hotelForm.address}
+                      onChange={(e) => setHotelForm((prev) => ({ ...prev, address: e.target.value }))}
+                      className="input"
+                      placeholder="Full address"
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Address Line 1 (optional)</label>
+                    <input
+                      type="text"
+                      value={hotelForm.addressLine1}
+                      onChange={(e) => setHotelForm((prev) => ({ ...prev, addressLine1: e.target.value }))}
+                      className="input"
+                      placeholder="Street / building"
+                    />
+                  </div>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -724,6 +806,79 @@ export default function SettingsPage() {
                   </button>
                 </div>
               </form>
+
+              {isAdmin && (
+                <div className="mt-8 rounded-lg border border-border bg-card p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <h3 className="text-base font-semibold text-text-main">Weather Signals</h3>
+                      <p className="text-sm text-text-muted">
+                        Sync OpenWeatherMap forecast into backend signals (timezone-correct per hotel).
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      disabled={
+                        syncWeatherMutation.isPending ||
+                        !user?.hotel?.id ||
+                        !hotelForm.city.trim() ||
+                        !hotelForm.country.trim() ||
+                        !hotelForm.timezone.trim()
+                      }
+                      onClick={() => {
+                        if (!user?.hotel?.id) return;
+                        syncWeatherMutation.mutate(user.hotel.id);
+                      }}
+                    >
+                      {syncWeatherMutation.isPending ? 'Syncing...' : 'Sync Weather Now'}
+                    </button>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-lg border border-border p-3">
+                      <div className="text-xs uppercase tracking-wide text-text-muted">Last Sync</div>
+                      <div className="mt-1 text-sm font-medium text-text-main">
+                        {weatherStatusQuery.data?.lastSyncTime
+                          ? new Date(weatherStatusQuery.data.lastSyncTime).toLocaleString()
+                          : 'Not synced yet'}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-border p-3">
+                      <div className="text-xs uppercase tracking-wide text-text-muted">Days Available</div>
+                      <div className="mt-1 text-sm font-medium text-text-main">
+                        {weatherStatusQuery.data?.daysAvailable ?? 0}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-border p-3">
+                      <div className="text-xs uppercase tracking-wide text-text-muted">Coordinates</div>
+                      <div className="mt-1 text-sm font-medium text-text-main">
+                        {weatherStatusQuery.data?.lat != null && weatherStatusQuery.data?.lon != null
+                          ? `${weatherStatusQuery.data.lat.toFixed(4)}, ${weatherStatusQuery.data.lon.toFixed(4)}`
+                          : 'Not geocoded yet'}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-border p-3">
+                      <div className="text-xs uppercase tracking-wide text-text-muted">Status</div>
+                      <div className="mt-1 text-sm font-medium text-text-main">
+                        {weatherStatusQuery.isLoading
+                          ? 'Loading...'
+                          : weatherStatusQuery.isError
+                          ? 'Unavailable'
+                          : hotelForm.city && hotelForm.country && hotelForm.timezone
+                          ? 'Ready to sync'
+                          : 'City/Country/Timezone required'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {(!hotelForm.city.trim() || !hotelForm.country.trim() || !hotelForm.timezone.trim()) && (
+                    <p className="mt-3 text-sm text-amber-700">
+                      Add City, Country, and Timezone above before syncing weather.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

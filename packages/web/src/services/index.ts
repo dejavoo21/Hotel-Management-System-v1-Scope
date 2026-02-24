@@ -18,3 +18,4 @@ export { default as callsService } from './calls';
 export { default as purchaseOrderService } from './purchaseOrders';
 export { default as reportService } from './reports';
 export { default as accessRequestService } from './accessRequests';
+export { default as weatherSignalsService } from './weatherSignals';

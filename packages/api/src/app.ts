@@ -33,6 +33,7 @@ import accessRequestRoutes from './routes/accessRequest.routes.js';
 import purchaseOrderRoutes from './routes/purchaseOrder.routes.js';
 import floorRoutes from './routes/floor.routes.js';
 import callRoutes from './routes/call.routes.js';
+import weatherSignalRoutes from './routes/weatherSignal.routes.js';
 
 const normalizeOrigin = (value?: string): string | undefined =>
   value ? value.replace(/\/+$/, '') : undefined;
@@ -207,6 +208,7 @@ export function createApp(): Application {
     app.use('/api/floors', floorRoutes);
     app.use('/api/purchase-orders', purchaseOrderRoutes);
     app.use('/api/calls', callRoutes);
+    app.use('/api/signals/weather', weatherSignalRoutes);
   }
 
   // API documentation endpoint
@@ -240,6 +242,7 @@ export function createApp(): Application {
           accessRequests: '/api/access-requests',
           purchaseOrders: '/api/purchase-orders',
           calls: '/api/calls',
+          weatherSignals: '/api/signals/weather',
         },
       },
     });

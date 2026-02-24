@@ -32,6 +32,7 @@ export async function updateMyHotel(
       data: {
         name: req.body.name,
         address: req.body.address,
+        addressLine1: req.body.addressLine1,
         city: req.body.city,
         country: req.body.country,
         phone: req.body.phone,
@@ -39,6 +40,10 @@ export async function updateMyHotel(
         website: req.body.website,
         timezone: req.body.timezone,
         currency: req.body.currency,
+        latitude: req.body.latitude,
+        longitude: req.body.longitude,
+        locationUpdatedAt:
+          req.body.latitude !== undefined || req.body.longitude !== undefined ? new Date() : undefined,
       },
     });
     res.json({ success: true, data: hotel });

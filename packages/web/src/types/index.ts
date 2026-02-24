@@ -9,8 +9,18 @@ export interface User {
   hotel: {
     id: string;
     name: string;
+    address?: string;
+    addressLine1?: string | null;
+    city?: string;
+    country?: string;
+    phone?: string;
+    email?: string;
+    website?: string | null;
     currency?: string;
     timezone?: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    locationUpdatedAt?: string | null;
   };
   twoFactorEnabled?: boolean;
   isActive: boolean;
@@ -197,6 +207,31 @@ export interface ConciergeRequest {
   room?: { number: string };
   booking?: { bookingRef: string };
   assignedTo?: { firstName: string; lastName: string };
+}
+
+export interface WeatherSignalStatus {
+  hotelId: string;
+  lastSyncTime: string | null;
+  daysAvailable: number;
+  hasCity: boolean;
+  hasLatLon: boolean;
+  city?: string | null;
+  country?: string | null;
+  timezone?: string | null;
+  lat?: number | null;
+  lon?: number | null;
+}
+
+export interface WeatherSignalDaily {
+  id: string;
+  hotelId: string;
+  type: 'WEATHER' | string;
+  dateLocal: string;
+  timezone: string;
+  metrics: Record<string, unknown>;
+  source: string;
+  fetchedAtUtc: string;
+  rawJson?: Record<string, unknown> | null;
 }
 
 export interface MessageItem {

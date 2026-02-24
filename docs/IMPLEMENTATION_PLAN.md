@@ -219,4 +219,149 @@ This document captures the implementation plan for hardening the Hotel Managemen
 6. Phase 6 UI/UX improvements
 7. Phase 7 feature additions (safe subsets first)
 8. Phase 8 documentation + README updates
+# Weather Signals Integration (OpenWeatherMap) — Scoped Plan
+
+This section documents the implementation plan and acceptance criteria for the first backend integration step: weather signals stored in Postgres and aggregated by hotel-local date.
+
+## Architecture Detection (Confirmed)
+
+- Frontend: React + Vite (`packages/web`)
+- Backend: Express API (`packages/api`)
+- Database: PostgreSQL via Prisma (`packages/api/prisma/schema.prisma`)
+- Hotel settings source-of-truth is persisted in the `Hotel` model and exposed via `/api/hotels/me`
+
+## Prioritized Tasks
+
+### 1. Database schema updates (Hotel + ExternalSignal)
+Priority: Critical
+
+Tasks:
+- Add location fields to `Hotel`:
+  - `address_line1`
+  - `latitude`
+  - `longitude`
+  - `location_updated_at`
+- Add `external_signals` table for normalized third-party signals
+- Add uniqueness and lookup indexes for weather signal upsert/query
+
+Acceptance Criteria:
+- Prisma schema includes `ExternalSignal` model and `Hotel` relation
+- Migration SQL exists and targets Postgres
+- Can upsert one weather row per hotel/date/source/type
+
+Risks / Assumptions:
+- Existing hotel IDs in this repo are string/cuid, not UUID. `external_signals.hotel_id` must match existing `Hotel.id` type.
+
+### 2. Backend OpenWeather connector service
+Priority: Critical
+
+Tasks:
+- Add `OPENWEATHER_API_KEY` backend env support
+- Geocode city/country if coordinates are missing
+- Fetch forecast from OpenWeatherMap 5-day endpoint
+- Convert forecast timestamps to hotel-local date via IANA timezone
+- Aggregate 3-hour entries into daily metrics
+- Upsert records into `external_signals`
+
+Acceptance Criteria:
+- Weather sync returns lat/lon and `daysStored`
+- Aggregated metrics are persisted for local dates
+- No OpenWeather calls from frontend
+
+Risks / Assumptions:
+- Node runtime supports `fetch` and `Intl` timezone formatting
+- OpenWeather API key present in runtime env
+
+### 3. Weather API endpoints (status/latest/sync)
+Priority: Critical
+
+Tasks:
+- Implement:
+  - `POST /api/signals/weather/sync`
+  - `GET /api/signals/weather/status`
+  - `GET /api/signals/weather/latest`
+- Validate `hotelId` query (optional; fallback to authenticated user hotel)
+- Enforce auth + manager/admin access
+
+Acceptance Criteria:
+- Endpoints mounted in Express app
+- `sync` performs geocode/fetch/aggregate/upsert pipeline
+- `status` and `latest` return expected shape
+
+Risks / Assumptions:
+- Existing auth middleware attaches `req.user.hotelId`
+
+### 4. Audit events for weather sync
+Priority: High
+
+Tasks:
+- Log:
+  - `WEATHER_SYNC_START`
+  - `WEATHER_SYNC_SUCCESS`
+  - `WEATHER_SYNC_FAIL`
+- Capture provider, hotelId, success/failure details
+
+Acceptance Criteria:
+- Weather sync requests generate activity logs when authenticated user is present
+
+Risks / Assumptions:
+- Current `ActivityLog` schema requires a `userId`; “system-only” events are not supported without schema change
+
+### 5. Settings > Hotel Info admin weather card
+Priority: High
+
+Tasks:
+- Add hotel fields in UI:
+  - City (required for sync)
+  - Country
+  - Address / Address Line 1
+- Show coordinates if geocoded
+- Admin-only Weather Signals card:
+  - last sync time
+  - days available
+  - coordinates
+  - sync button
+  - friendly missing-city/country/timezone message
+
+Acceptance Criteria:
+- Admin can save city/country/timezone and trigger sync
+- Weather status loads from backend
+- Sync button disabled when required fields are missing
+
+Risks / Assumptions:
+- Existing hotel update schema rejects empty strings (`min(1)`), so frontend should omit blank optional fields
+
+### 6. Docs + manual testing
+Priority: Medium
+
+Tasks:
+- Add `docs/WEATHER_SIGNALS.md`
+- Document env vars, provider limits, timezone grouping, and test checklist
+
+Acceptance Criteria:
+- Team can set up and verify weather sync without reading code
+
+## How To Run Locally (Weather Integration)
+
+Backend (`packages/api`):
+- Set `DATABASE_URL` (Postgres)
+- Set `OPENWEATHER_API_KEY`
+- Run Prisma migration / schema sync and generate client
+- Start API server
+
+Frontend (`packages/web`):
+- Start the web app
+- Log in as Admin/Manager
+- Open `Settings > Hotel Info`
+- Enter City, Country, Timezone and click `Sync Weather Now`
+
+## Verification Checklist (Quick)
+
+- [ ] Backend is not in demo mode (if production-like test is required)
+- [ ] `OPENWEATHER_API_KEY` is present
+- [ ] Hotel has `city`, `country`, `timezone`
+- [ ] `/api/signals/weather/status` returns data
+- [ ] `/api/signals/weather/sync` stores rows
+- [ ] `/api/signals/weather/latest` returns ordered local dates
+- [ ] Weather sync audit events appear in activity log
 

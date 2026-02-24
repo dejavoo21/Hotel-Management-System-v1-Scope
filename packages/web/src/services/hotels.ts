@@ -7,7 +7,22 @@ export const hotelService = {
     return response.data.data;
   },
 
-  async updateMyHotel(payload: Partial<User['hotel']> & { name?: string; address?: string; city?: string; country?: string; phone?: string; email?: string; website?: string }): Promise<User['hotel']> {
+  async updateMyHotel(
+    payload: Partial<User['hotel']> & {
+      name?: string;
+      address?: string;
+      addressLine1?: string;
+      city?: string;
+      country?: string;
+      phone?: string;
+      email?: string;
+      website?: string;
+      timezone?: string;
+      currency?: string;
+      latitude?: number;
+      longitude?: number;
+    }
+  ): Promise<User['hotel']> {
     const response = await api.patch('/hotels/me', payload);
     return response.data.data;
   },

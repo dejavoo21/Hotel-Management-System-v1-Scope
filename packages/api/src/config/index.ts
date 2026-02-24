@@ -62,6 +62,9 @@ export const config = {
     twimlAppSid: process.env.TWILIO_VOICE_TWIML_APP_SID || '',
     fromPhone: process.env.TWILIO_VOICE_FROM_PHONE || process.env.SMS_FROM_PHONE || '',
   },
+  openWeather: {
+    apiKey: process.env.OPENWEATHER_API_KEY || '',
+  },
   smtp: {
     host: process.env.SMTP_HOST || '',
     port: parseInt(process.env.SMTP_PORT || '465', 10),
