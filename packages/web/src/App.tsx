@@ -4,7 +4,7 @@ import SkipLink from '@/components/SkipLink';
 
 // Layouts
 import AuthLayout from '@/components/layouts/AuthLayout';
-import DashboardLayout from '@/components/layouts/DashboardLayout';
+import DashboardLayout from '@/components/layouts/DashboardLayoutNew';
 
 // Auth Pages
 import LoginPage from '@/pages/auth/LoginPage';
@@ -28,7 +28,7 @@ import ReviewsPage from '@/pages/ReviewsPage';
 import ConciergePage from '@/pages/ConciergePage';
 import InventoryPage from '@/pages/InventoryPage';
 import CalendarPage from '@/pages/CalendarPage';
-import MessagesPage from '@/pages/MessagesPage';
+import MessagesPage from '@/pages/MessagesPageRedesigned';
 import CallsPage from '@/pages/CallsPage';
 import ForcePasswordChangePage from '@/pages/auth/ForcePasswordChangePage';
 

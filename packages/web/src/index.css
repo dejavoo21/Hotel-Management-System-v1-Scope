@@ -2,35 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Semantic design tokens (default = LaFlo) */
+/* Semantic design tokens (default = LaFlo Professional) */
 :root {
-  --color-primary: 101 163 13;
-  --color-primary-hover: 77 124 15;
+  /* Primary accent - Sky blue (professional, calm) */
+  --color-primary: 14 165 233;
+  --color-primary-hover: 2 132 199;
   --color-on-primary: 255 255 255;
+  
+  /* Neutral backgrounds */
   --color-bg: 248 250 252;
   --color-bg-card: 255 255 255;
+  
+  /* Text colors */
   --color-text-main: 15 23 42;
   --color-text-muted: 100 116 139;
+  
+  /* Borders and states */
   --color-border: 226 232 240;
   --color-success: 16 185 129;
   --color-warning: 217 119 6;
   --color-danger: 220 38 38;
+  
+  /* Accent - Lime green for success highlights only */
+  --color-accent: 132 204 22;
 
-  /* Primary scale used by existing Tailwind classes like bg-primary-50 */
-  --color-primary-50: 247 254 231;
-  --color-primary-100: 236 252 203;
-  --color-primary-200: 217 249 157;
-  --color-primary-300: 190 242 100;
-  --color-primary-400: 163 230 53;
-  --color-primary-500: 197 232 108;
-  --color-primary-600: 132 204 22;
-  --color-primary-700: 101 163 13;
-  --color-primary-800: 77 124 15;
-  --color-primary-900: 54 83 20;
-  --color-primary-950: 26 46 5;
+  /* Primary scale - Sky blue */
+  --color-primary-50: 240 249 255;
+  --color-primary-100: 224 242 254;
+  --color-primary-200: 186 230 253;
+  --color-primary-300: 125 211 252;
+  --color-primary-400: 56 189 248;
+  --color-primary-500: 14 165 233;
+  --color-primary-600: 2 132 199;
+  --color-primary-700: 3 105 161;
+  --color-primary-800: 7 89 133;
+  --color-primary-900: 12 74 110;
+  --color-primary-950: 8 47 73;
 }
 
 [data-theme='laflo'] {
+  /* LaFlo theme retains lime green as the main brand color */
   --color-primary: 101 163 13;
   --color-primary-hover: 77 124 15;
   --color-on-primary: 255 255 255;
@@ -42,6 +53,7 @@
   --color-success: 16 185 129;
   --color-warning: 217 119 6;
   --color-danger: 220 38 38;
+  --color-accent: 132 204 22;
 
   --color-primary-50: 247 254 231;
   --color-primary-100: 236 252 203;
