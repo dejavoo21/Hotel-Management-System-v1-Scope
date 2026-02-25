@@ -23,7 +23,8 @@
     "db:generate": "prisma generate",
     "db:reset": "prisma migrate reset --force",
     "db:backfill": "tsx scripts/backfill-data.ts",
-    "db:backfill:dry": "tsx scripts/backfill-data.ts --dry-run --verbose"
+    "db:backfill:dry": "tsx scripts/backfill-data.ts --dry-run --verbose",
+    "tickets:backfill": "tsx scripts/backfillTickets.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

@@ -6,6 +6,7 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import { processSlaEscalations, SLA_JOB_SECRET } from '../services/ticket.service.js';
 
 const router = Router();
@@ -23,7 +24,22 @@ function validateJobSecret(req: Request, res: Response, next: NextFunction): voi
     return;
   }
 
-  if (!secret || secret !== SLA_JOB_SECRET) {
+  // Use timing-safe comparison to prevent timing attacks
+  if (!secret) {
+    res.status(401).json({
+      success: false,
+      error: 'Invalid or missing X-Job-Secret header',
+    });
+    return;
+  }
+
+  const secretBuffer = Buffer.from(secret);
+  const expectedBuffer = Buffer.from(SLA_JOB_SECRET);
+  const isValidSecret =
+    secretBuffer.length === expectedBuffer.length &&
+    crypto.timingSafeEqual(secretBuffer, expectedBuffer);
+
+  if (!isValidSecret) {
     res.status(401).json({
       success: false,
       error: 'Invalid or missing X-Job-Secret header',
