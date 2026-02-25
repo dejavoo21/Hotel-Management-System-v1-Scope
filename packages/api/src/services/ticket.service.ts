@@ -106,9 +106,9 @@ const DEFAULT_SLA = {
 
 // Escalation configuration (minutes without response triggers escalation)
 const ESCALATION_LEVELS = [
-  { level: 1, afterMinutes: 60 },   // Level 1: after 1 hour
-  { level: 2, afterMinutes: 120 },  // Level 2: after 2 hours
-  { level: 3, afterMinutes: 240 },  // Level 3: after 4 hours
+  { level: 1, afterMinutes: 60, notifyRoles: ['MANAGER'] },   // Level 1: after 1 hour - notify department lead
+  { level: 2, afterMinutes: 120, notifyRoles: ['MANAGER', 'ADMIN'] },  // Level 2: after 2 hours - notify ops manager
+  { level: 3, afterMinutes: 240, notifyRoles: ['ADMIN'] },  // Level 3: after 4 hours - notify senior manager
 ];
 
 // ============================================
@@ -325,6 +325,24 @@ export async function processSlaEscalations(): Promise<{
         });
         result.breached++;
 
+        // Log SLA_BREACH to audit trail
+        await prisma.activityLog.create({
+          data: {
+            userId: 'system',
+            entity: 'TICKET',
+            entityId: ticket.id,
+            action: 'SLA_BREACH',
+            details: {
+              ticketId: ticket.id,
+              conversationId: ticket.conversationId,
+              category: ticket.category,
+              responseDueAt: ticket.responseDueAtUtc?.toISOString(),
+              breachedAt: now.toISOString(),
+              delayMinutes: Math.round((now.getTime() - ticket.responseDueAtUtc.getTime()) / (60 * 1000)),
+            },
+          },
+        });
+
         // Send notifications to managers about SLA breach
         try {
           await notificationService.notifySlaBreach(
@@ -365,9 +383,51 @@ export async function processSlaEscalations(): Promise<{
         });
         result.escalated++;
 
-        // Find the escalation step and notify the appropriate roles
-        const escalationStep = ESCALATION_LEVELS.find(e => e.level === newLevel);
-        const notifyRoles = escalationStep?.notifyRoles || ['MANAGER', 'ADMIN'];
+        // Log ESCALATION_TRIGGERED to audit trail
+        await prisma.activityLog.create({
+          data: {
+            userId: 'system',
+            entity: 'TICKET',
+            entityId: ticket.id,
+            action: 'ESCALATION_TRIGGERED',
+            details: {
+              ticketId: ticket.id,
+              conversationId: ticket.conversationId,
+              category: ticket.category,
+              previousLevel: ticket.escalatedLevel,
+              newLevel,
+              ticketAgeMinutes: Math.round(ticketAgeMinutes),
+              escalatedAt: now.toISOString(),
+            },
+          },
+        });
+
+        // Try to read escalation steps from SLA policy in database
+        let notifyRoles: string[] = ['MANAGER', 'ADMIN'];
+        try {
+          const slaPolicy = await prisma.sLAPolicy.findFirst({
+            where: {
+              category: ticket.category,
+              department: ticket.department,
+              isActive: true,
+            },
+          });
+          if (slaPolicy?.escalationStepsJson) {
+            const steps = slaPolicy.escalationStepsJson as Array<{ level: number; notifyRoles: string[] }>;
+            const step = steps.find(s => s.level === newLevel);
+            if (step?.notifyRoles) {
+              notifyRoles = step.notifyRoles;
+            }
+          }
+        } catch (policyError) {
+          console.error('Failed to read SLA policy, using default escalation:', policyError);
+        }
+
+        // Fallback to hardcoded escalation levels if no policy found
+        if (notifyRoles.length === 0) {
+          const escalationStep = ESCALATION_LEVELS.find(e => e.level === newLevel);
+          notifyRoles = escalationStep?.notifyRoles || ['MANAGER', 'ADMIN'];
+        }
 
         try {
           await notificationService.notifyTicketEscalated(
