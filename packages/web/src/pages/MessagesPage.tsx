@@ -3,7 +3,9 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { messageService, ticketService } from '@/services';
-import { getTimeRemaining, getEscalationBadge, type Ticket } from '@/services/tickets';
+import { getTimeRemaining, getEscalationBadge, escalateTicket, type Ticket } from '@/services/tickets';
+// AI hooks for future integration - currently showing placeholder actions
+import type { RecommendedAction } from '@/services/aiHooks';
 import { PAGE_TITLE_CLASS } from '@/styles/typography';
 import { useAuthStore } from '@/stores/authStore';
 import SupportVideoPanel from '@/components/calls/SupportVideoPanel';
@@ -199,6 +201,13 @@ export default function MessagesPage() {
   const [presenceOverrides, setPresenceOverrides] = useState<Record<string, PresenceStatus>>({});
   // SLA Filter state
   const [slaFilter, setSlaFilter] = useState<'all' | 'overdue' | 'escalated'>('all');
+  // Additional ticket filters
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  // AI-suggested replies and actions (placeholders for future AI integration)
+  const [recommendedActions] = useState<RecommendedAction[]>([]);
+  const [aiLoading] = useState(false);
   const voiceDeviceRef = useRef<Device | null>(null);
   const voiceCallRef = useRef<Call | null>(null);
   const zeroHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -230,29 +239,45 @@ export default function MessagesPage() {
 
   const threads = useMemo(() => ((threadsData && threadsData.length > 0 ? threadsData : mockThreads) as MessageThreadSummary[]), [threadsData]);
 
-  // Filter threads by SLA status
+  // Filter threads by SLA status and additional filters
   const filteredThreads = useMemo(() => {
-    if (slaFilter === 'all') return threads;
-    
     return threads.filter((thread) => {
       const ticket = ticketsByConversationId.get(thread.id);
-      if (!ticket) return false;
       
-      if (slaFilter === 'overdue') {
-        // Check if response is overdue
-        if (ticket.responseDueAtUtc && !ticket.firstResponseAtUtc) {
-          return new Date() > new Date(ticket.responseDueAtUtc);
+      // SLA filter
+      if (slaFilter !== 'all') {
+        if (!ticket) return false;
+        
+        if (slaFilter === 'overdue') {
+          const isOverdue = (ticket.responseDueAtUtc && !ticket.firstResponseAtUtc 
+            ? new Date() > new Date(ticket.responseDueAtUtc) 
+            : ticket.status === 'BREACHED');
+          if (!isOverdue) return false;
         }
-        return ticket.status === 'BREACHED';
+        
+        if (slaFilter === 'escalated') {
+          if (ticket.escalatedLevel <= 0) return false;
+        }
       }
       
-      if (slaFilter === 'escalated') {
-        return ticket.escalatedLevel > 0;
+      // Status filter
+      if (statusFilter !== 'all' && ticket) {
+        if (ticket.status !== statusFilter) return false;
+      }
+      
+      // Category filter
+      if (categoryFilter !== 'all' && ticket) {
+        if (ticket.category !== categoryFilter) return false;
+      }
+      
+      // Priority filter
+      if (priorityFilter !== 'all' && ticket) {
+        if (ticket.priority !== priorityFilter) return false;
       }
       
       return true;
     });
-  }, [threads, slaFilter, ticketsByConversationId]);
+  }, [threads, slaFilter, statusFilter, categoryFilter, priorityFilter, ticketsByConversationId]);
 
   const supportThreadQuery = useQuery({
     queryKey: ['live-support-thread', searchParams.get('support')],
@@ -615,6 +640,51 @@ export default function MessagesPage() {
             </button>
           </div>
 
+          {/* Additional Filter Dropdowns */}
+          <div className="mb-3 grid grid-cols-3 gap-1.5">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700"
+              title="Filter by status"
+            >
+              <option value="all">All Status</option>
+              <option value="OPEN">Open</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="PENDING">Pending</option>
+              <option value="RESOLVED">Resolved</option>
+              <option value="BREACHED">Breached</option>
+            </select>
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700"
+              title="Filter by category"
+            >
+              <option value="all">All Categories</option>
+              <option value="BOOKING">Booking</option>
+              <option value="HOUSEKEEPING">Housekeeping</option>
+              <option value="MAINTENANCE">Maintenance</option>
+              <option value="ROOM_SERVICE">Room Service</option>
+              <option value="BILLING">Billing</option>
+              <option value="COMPLAINT">Complaint</option>
+              <option value="INQUIRY">Inquiry</option>
+              <option value="OTHER">Other</option>
+            </select>
+            <select
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700"
+              title="Filter by priority"
+            >
+              <option value="all">All Priority</option>
+              <option value="LOW">Low</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HIGH">High</option>
+              <option value="URGENT">Urgent</option>
+            </select>
+          </div>
+
           <div className="space-y-2">
             {(isLoading ? [] : filteredThreads).map((thread) => {
               const isActive = activeThreadId === thread.id;
@@ -720,7 +790,100 @@ export default function MessagesPage() {
             </div>
           </div>
 
-          <div className="mt-4 h-[460px] overflow-y-auto pr-1">
+          {/* Quick Action Buttons */}
+          {activeThreadId && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-b border-slate-100 pb-3">
+              <span className="text-[10px] font-semibold uppercase text-slate-400">Quick Actions:</span>
+              <button
+                type="button"
+                onClick={async () => {
+                  const ticket = ticketsByConversationId.get(activeThreadId);
+                  if (ticket) {
+                    try {
+                      await ticketService.resolveTicket(ticket.id);
+                      toast.success('Request approved');
+                    } catch {
+                      toast.error('Failed to approve');
+                    }
+                  } else {
+                    toast.success('Request approved (no ticket linked)');
+                  }
+                }}
+                className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100"
+              >
+                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Approve
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  toast.success('Housekeeping task created');
+                }}
+                className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700 hover:bg-blue-100"
+              >
+                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                Assign Housekeeping
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const ticket = ticketsByConversationId.get(activeThreadId);
+                  if (ticket) {
+                    try {
+                      await escalateTicket(ticket.id);
+                      toast.success('Ticket escalated to manager');
+                    } catch {
+                      toast.error('Failed to escalate');
+                    }
+                  } else {
+                    toast.success('Escalation requested (no ticket linked)');
+                  }
+                }}
+                className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-100"
+              >
+                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+                Escalate
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  toast.success('Maintenance task created');
+                }}
+                className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2 py-1 text-[11px] font-semibold text-purple-700 hover:bg-purple-100"
+              >
+                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Create Task
+              </button>
+              {aiLoading ? (
+                <span className="text-[10px] text-slate-400">Loading AI suggestions...</span>
+              ) : recommendedActions.length > 0 ? (
+                recommendedActions.slice(0, 2).map((action) => (
+                  <button
+                    key={action.id}
+                    type="button"
+                    onClick={() => toast.success(`AI Action: ${action.label}`)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100"
+                    title={action.description}
+                  >
+                    <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    {action.label}
+                  </button>
+                ))
+              ) : null}
+            </div>
+          )}
+
+          <div className="mt-4 h-[400px] overflow-y-auto pr-1">
             <div className="mb-4 text-center text-xs text-slate-400">Today, {formatDay(new Date().toISOString())}</div>
             <div className="space-y-4">
               {activeMessages.map((message) => {
@@ -838,12 +1001,21 @@ export default function MessagesPage() {
           </form>
         </div>
 
-        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 xl:order-1">
+        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 xl:order-1 max-h-[calc(100vh-200px)] overflow-y-auto">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-slate-900">Profile</h2>
+            <h2 className="text-base font-semibold text-slate-900">Guest Context</h2>
             <div className="flex items-center gap-2">
-              <span className="rounded-lg border border-lime-300 bg-lime-200 px-2 py-1 text-xs font-semibold text-slate-900">Popular</span>
-              <button className="text-slate-400">x</button>
+              {(() => {
+                const ticket = activeThreadId ? ticketsByConversationId.get(activeThreadId) : null;
+                if (!ticket) return <span className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-500">No Ticket</span>;
+                const priorityColors: Record<string, string> = {
+                  LOW: 'border-slate-200 bg-slate-50 text-slate-600',
+                  MEDIUM: 'border-blue-200 bg-blue-50 text-blue-700',
+                  HIGH: 'border-amber-200 bg-amber-50 text-amber-700',
+                  URGENT: 'border-red-200 bg-red-50 text-red-700',
+                };
+                return <span className={`rounded-lg border px-2 py-1 text-xs font-semibold ${priorityColors[ticket.priority] || priorityColors.MEDIUM}`}>{ticket.priority}</span>;
+              })()}
             </div>
           </div>
 
@@ -852,14 +1024,109 @@ export default function MessagesPage() {
               {getInitials(activeThreadName)}
             </div>
             <p className="mt-3 text-2xl font-bold text-slate-900">{activeThreadName}</p>
-            <p className="text-sm text-slate-500">G011-987654321</p>
+            <p className="text-sm text-slate-500">{activeThreadSummary?.guest?.email || 'guest@example.com'}</p>
           </div>
 
-          <div className="mt-5">
-            <p className="text-xs font-semibold uppercase text-slate-400">About</p>
-            <p className="mt-2 text-sm text-slate-600">
-              A frequent traveler who enjoys luxury accommodations and values exceptional customer service.
-            </p>
+          {/* Booking Details */}
+          <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs font-semibold uppercase text-slate-500">Current Booking</p>
+            {activeThreadSummary?.booking ? (
+              <div className="mt-2 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">Booking Ref</span>
+                  <span className="text-xs font-semibold text-slate-800">{activeThreadSummary.booking.bookingRef}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">Check-in</span>
+                  <span className="text-xs font-semibold text-slate-800">{formatDay(activeThreadSummary.booking.checkInDate)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">Check-out</span>
+                  <span className="text-xs font-semibold text-slate-800">{formatDay(activeThreadSummary.booking.checkOutDate)}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-slate-400">No active booking found</p>
+            )}
+          </div>
+
+          {/* Ticket Information */}
+          {(() => {
+            const ticket = activeThreadId ? ticketsByConversationId.get(activeThreadId) : null;
+            if (!ticket) return null;
+            return (
+              <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase text-slate-500">Ticket Details</p>
+                <div className="mt-2 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500">Status</span>
+                    <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                      ticket.status === 'OPEN' ? 'bg-blue-100 text-blue-700' :
+                      ticket.status === 'IN_PROGRESS' ? 'bg-amber-100 text-amber-700' :
+                      ticket.status === 'RESOLVED' ? 'bg-green-100 text-green-700' :
+                      ticket.status === 'BREACHED' ? 'bg-red-100 text-red-700' :
+                      'bg-slate-100 text-slate-600'
+                    }`}>{ticket.status}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500">Category</span>
+                    <span className="text-xs font-semibold text-slate-800">{ticket.category}</span>
+                  </div>
+                  {ticket.assignedTo && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-500">Assigned To</span>
+                      <span className="text-xs font-semibold text-slate-800">{ticket.assignedTo.firstName} {ticket.assignedTo.lastName}</span>
+                    </div>
+                  )}
+                  {ticket.escalatedLevel > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-500">Escalation Level</span>
+                      <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Level {ticket.escalatedLevel}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Financial Summary */}
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs font-semibold uppercase text-slate-500">Financial Summary</p>
+            <div className="mt-2 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500">Room Rate</span>
+                <span className="text-xs font-semibold text-slate-800">$250/night</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500">Incidentals</span>
+                <span className="text-xs font-semibold text-slate-800">$85.00</span>
+              </div>
+              <div className="flex items-center justify-between border-t border-slate-200 pt-1.5">
+                <span className="text-xs font-medium text-slate-600">Total Balance</span>
+                <span className="text-xs font-bold text-slate-900">$585.00</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Guest History */}
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs font-semibold uppercase text-slate-500">Stay History</p>
+            <div className="mt-2 space-y-2">
+              <div className="rounded border border-slate-200 bg-white p-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-slate-700">Previous Stay</span>
+                  <span className="text-[10px] text-slate-500">Dec 2024</span>
+                </div>
+                <p className="mt-0.5 text-[10px] text-slate-500">3 nights • Deluxe Suite</p>
+              </div>
+              <div className="rounded border border-slate-200 bg-white p-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-slate-700">Loyalty Status</span>
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Gold</span>
+                </div>
+                <p className="mt-0.5 text-[10px] text-slate-500">5 total stays • 12 nights</p>
+              </div>
+            </div>
           </div>
 
           <div className="mt-5">

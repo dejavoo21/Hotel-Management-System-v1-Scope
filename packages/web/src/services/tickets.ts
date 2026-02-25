@@ -131,6 +131,17 @@ async function closeTicket(id: string): Promise<Ticket> {
   return response.data.data;
 }
 
+/**
+ * Escalate a ticket (increase priority or escalation level)
+ */
+async function escalateTicket(id: string): Promise<Ticket> {
+  const response = await api.patch(`/tickets/${id}`, { 
+    priority: 'URGENT',
+    status: 'IN_PROGRESS'
+  });
+  return response.data.data;
+}
+
 // SLA Helper functions
 export function isOverdue(ticket: Ticket): boolean {
   if (!ticket.responseDueAtUtc || ticket.firstResponseAtUtc) return false;
@@ -222,4 +233,8 @@ export default {
   assignTicket,
   resolveTicket,
   closeTicket,
+  escalateTicket,
 };
+
+// Also export individual functions for direct import
+export { escalateTicket };
