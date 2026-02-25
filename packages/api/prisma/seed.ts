@@ -26,6 +26,46 @@ async function main() {
 
   console.log(`Created hotel: ${hotel.name}`);
 
+  // Create default SLA policies for all ticket categories
+  const slaCategories = [
+    { category: 'COMPLAINT', responseMinutes: 30, resolutionMinutes: 240 },      // 30 min response, 4 hour resolution
+    { category: 'BILLING', responseMinutes: 60, resolutionMinutes: 480 },        // 1 hour response, 8 hour resolution
+    { category: 'HOUSEKEEPING', responseMinutes: 30, resolutionMinutes: 120 },   // 30 min response, 2 hour resolution
+    { category: 'MAINTENANCE', responseMinutes: 60, resolutionMinutes: 480 },    // 1 hour response, 8 hour resolution
+    { category: 'CONCIERGE', responseMinutes: 15, resolutionMinutes: 60 },       // 15 min response, 1 hour resolution
+    { category: 'ROOM_SERVICE', responseMinutes: 15, resolutionMinutes: 60 },    // 15 min response, 1 hour resolution
+    { category: 'CHECK_IN_OUT', responseMinutes: 15, resolutionMinutes: 30 },    // 15 min response, 30 min resolution
+    { category: 'BOOKING', responseMinutes: 60, resolutionMinutes: 240 },        // 1 hour response, 4 hour resolution
+    { category: 'OTHER', responseMinutes: 60, resolutionMinutes: 480 },          // 1 hour response, 8 hour resolution
+  ] as const;
+
+  const escalationSteps = JSON.stringify([
+    { level: 1, afterMinutes: 60, notifyRoles: ['MANAGER'] },
+    { level: 2, afterMinutes: 120, notifyRoles: ['MANAGER', 'ADMIN'] },
+    { level: 3, afterMinutes: 240, notifyRoles: ['ADMIN'] },
+  ]);
+
+  const slaPolicies = await Promise.all(
+    slaCategories.map((sla, index) =>
+      prisma.sLAPolicy.upsert({
+        where: { id: `sla-${sla.category.toLowerCase()}` },
+        update: {},
+        create: {
+          id: `sla-${sla.category.toLowerCase()}`,
+          hotelId: hotel.id,
+          category: sla.category,
+          department: 'FRONT_DESK', // Default department, can be overridden
+          responseMinutes: sla.responseMinutes,
+          resolutionMinutes: sla.resolutionMinutes,
+          escalationStepsJson: escalationSteps,
+          isActive: true,
+        },
+      })
+    )
+  );
+
+  console.log(`Created ${slaPolicies.length} SLA policies`);
+
   // Create room types
   const roomTypes = await Promise.all([
     prisma.roomType.upsert({

@@ -4,6 +4,7 @@ import { prisma } from '../config/database.js';
 import { config } from '../config/index.js';
 import { Role } from '@prisma/client';
 import twilio from 'twilio';
+import { ensureTicketForConversation, recordFirstResponse } from '../services/ticket.service.js';
 
 const LIVE_SUPPORT_SUBJECT = 'Live Support';
 const SUPPORT_HEARTBEAT_ACTION = 'SUPPORT_HEARTBEAT';
@@ -819,6 +820,15 @@ export async function createMessage(
       where: { id: conversation.id },
       data: { lastMessageAt: message.createdAt },
     });
+
+    // Ensure ticket exists and record first response (staff replying means response)
+    try {
+      const ticket = await ensureTicketForConversation(conversation.id, req.user!.id);
+      await recordFirstResponse(ticket.id, req.user!.id);
+    } catch (ticketError) {
+      // Log but don't fail the message send
+      console.error('Ticket creation/response error:', ticketError);
+    }
 
     res.status(201).json({
       success: true,

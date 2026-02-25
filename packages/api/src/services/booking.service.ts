@@ -1,6 +1,7 @@
 import { prisma } from '../config/database.js';
 import { Prisma } from '@prisma/client';
 import { AppError, ValidationError, NotFoundError } from '../middleware/errorHandler.js';
+import { ensureTicketForConversation } from './ticket.service.js';
 
 interface BookingFilters {
   status?: string;
@@ -232,7 +233,7 @@ export async function createBooking(hotelId: string, userId: string, data: any) 
     },
   });
 
-  await prisma.conversation.create({
+  const conversation = await prisma.conversation.create({
     data: {
       hotelId,
       guestId,
@@ -248,6 +249,13 @@ export async function createBooking(hotelId: string, userId: string, data: any) 
       },
     },
   });
+
+  // Auto-create ticket for the new conversation
+  try {
+    await ensureTicketForConversation(conversation.id, userId);
+  } catch (ticketError) {
+    console.error('Ticket creation error for booking conversation:', ticketError);
+  }
 
   return booking;
 }

@@ -42,6 +42,7 @@ model User {
   emailOtps    EmailOtp[]
   purchaseOrders PurchaseOrder[]
   sentMessages Message[] @relation("MessageSender")
+  assignedTickets Ticket[] @relation("TicketAssignee")
 
   @@index([hotelId])
   @@index([email])
@@ -103,6 +104,8 @@ model Hotel {
   floors      Floor[]
   conversations Conversation[]
   externalSignals ExternalSignal[]
+  tickets      Ticket[]
+  slaPolicies  SLAPolicy[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 }
@@ -504,6 +507,7 @@ model Conversation {
   status        ConversationStatus  @default(OPEN)
   lastMessageAt DateTime?
   messages      Message[]
+  ticket        Ticket?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 
@@ -541,6 +545,108 @@ enum MessageSender {
   GUEST
   STAFF
   SYSTEM
+}
+
+// ===========================================
+// Tickets & SLA
+// ===========================================
+
+model Ticket {
+  id                  String           @id @default(cuid())
+  hotelId             String
+  hotel               Hotel            @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  conversationId      String           @unique
+  conversation        Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  type                TicketType       @default(GENERAL_INQUIRY)
+  category            TicketCategory   @default(OTHER)
+  department          Department       @default(FRONT_DESK)
+  priority            TicketPriority   @default(MEDIUM)
+  status              TicketStatus     @default(OPEN)
+
+  assignedToId        String?
+  assignedTo          User?            @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  responseDueAtUtc    DateTime?        @map("response_due_at_utc")
+  resolutionDueAtUtc  DateTime?        @map("resolution_due_at_utc")
+  firstResponseAtUtc  DateTime?        @map("first_response_at_utc")
+  resolvedAtUtc       DateTime?        @map("resolved_at_utc")
+
+  escalatedLevel      Int              @default(0) @map("escalated_level")
+  lastEscalationAtUtc DateTime?        @map("last_escalation_at_utc")
+
+  createdAtUtc        DateTime         @default(now()) @map("created_at_utc")
+  updatedAtUtc        DateTime         @updatedAt @map("updated_at_utc")
+
+  @@index([hotelId])
+  @@index([status])
+  @@index([priority])
+  @@index([department])
+  @@index([responseDueAtUtc])
+  @@index([resolutionDueAtUtc])
+  @@map("tickets")
+}
+
+model SLAPolicy {
+  id                   String         @id @default(cuid())
+  hotelId              String
+  hotel                Hotel          @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  category             TicketCategory
+  department           Department
+  responseMinutes      Int
+  resolutionMinutes    Int
+  escalationStepsJson  Json           @map("escalation_steps_json")
+  isActive             Boolean        @default(true)
+
+  createdAtUtc         DateTime       @default(now()) @map("created_at_utc")
+
+  @@unique([hotelId, category, department])
+  @@index([hotelId])
+  @@map("sla_policies")
+}
+
+enum TicketType {
+  BOOKING_RELATED
+  GENERAL_INQUIRY
+}
+
+enum TicketStatus {
+  OPEN
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  BREACHED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum Department {
+  FRONT_DESK
+  HOUSEKEEPING
+  MAINTENANCE
+  CONCIERGE
+  BILLING
+  MANAGEMENT
+}
+
+enum TicketCategory {
+  COMPLAINT
+  BILLING
+  HOUSEKEEPING
+  MAINTENANCE
+  CONCIERGE
+  ROOM_SERVICE
+  CHECK_IN_OUT
+  BOOKING
+  OTHER
 }
 
 // ===========================================
