@@ -26,6 +26,7 @@ export async function getAllUsers(
         isActive: true,
         lastLoginAt: true,
         createdAt: true,
+        modulePermissions: true,
       },
       orderBy: { lastName: 'asc' },
     });
@@ -57,6 +58,7 @@ export async function getUserById(
         lastLoginAt: true,
         createdAt: true,
         updatedAt: true,
+        modulePermissions: true,
       },
     });
 
@@ -263,6 +265,53 @@ export async function resetUserPassword(
     await prisma.refreshToken.deleteMany({ where: { userId: id } });
 
     res.json({ success: true, message: 'Password reset successfully' });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Update user module permissions (access profile)
+ */
+export async function updateUserPermissions(
+  req: AuthenticatedRequest,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const hotelId = req.user!.hotelId;
+    const { id } = req.params;
+    const { modulePermissions } = req.body;
+
+    const user = await prisma.user.findFirst({ where: { id, hotelId } });
+    if (!user) throw new NotFoundError('User');
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { modulePermissions },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        modulePermissions: true,
+        updatedAt: true,
+      },
+    });
+
+    // Emit socket event to notify the user of permission changes
+    const { getIo } = await import('../index.js');
+    const io = getIo();
+    if (io) {
+      // Emit to user-specific room
+      io.to(`user:${id}`).emit('permissions:update', {
+        userId: id,
+        modulePermissions: updated.modulePermissions,
+      });
+    }
+
+    res.json({ success: true, data: updated, message: 'Permissions updated' });
   } catch (error) {
     next(error);
   }

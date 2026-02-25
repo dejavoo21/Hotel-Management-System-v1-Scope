@@ -256,9 +256,10 @@ export default function DashboardLayout() {
     navigate('/login');
   };
 
+  // Use backend modulePermissions as primary source, fall back to local storage / role defaults
   const userPermissions = useMemo(
-    () => getUserPermissions(user?.id, user?.role),
-    [user?.id, user?.role]
+    () => getUserPermissions(user?.id, user?.role, user?.modulePermissions as PermissionId[] | undefined),
+    [user?.id, user?.role, user?.modulePermissions]
   );
   const isSuperAdmin = isSuperAdminUser(user?.id);
   const hasAccess = (permission?: PermissionId) =>

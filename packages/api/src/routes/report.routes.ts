@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
-import { authenticate, requireManager } from '../middleware/auth.js';
+import { authenticate, requireManager, requireModuleAccess } from '../middleware/auth.js';
 import * as reportController from '../controllers/report.controller.js';
 
 const router = Router();
@@ -13,9 +13,10 @@ const dateRangeSchema = z.object({
   groupBy: z.enum(['day', 'week', 'month']).optional().default('day'),
 });
 
-// All routes require authentication and manager role
+// All routes require authentication, manager role, and financials module access
 router.use(authenticate);
 router.use(requireManager);
+router.use(requireModuleAccess('financials'));
 
 // Routes
 router.get('/revenue', validate(dateRangeSchema, 'query'), reportController.getRevenueReport);

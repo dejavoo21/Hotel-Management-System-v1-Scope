@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
-import { authenticate, requireAdmin, requireManager } from '../middleware/auth.js';
+import { authenticate, requireAdmin, requireManager, requireModuleAccess } from '../middleware/auth.js';
 import * as userController from '../controllers/user.controller.js';
 
 const router = Router();
@@ -45,14 +45,24 @@ const deleteUserSchema = z.object({
   reason: z.string().min(1, 'Reason is required').optional(),
 });
 
-// All routes require authentication
+const updatePermissionsSchema = z.object({
+  modulePermissions: z.array(z.enum([
+    'dashboard', 'bookings', 'rooms', 'messages', 'housekeeping',
+    'inventory', 'calendar', 'guests', 'financials', 'reviews',
+    'concierge', 'users', 'settings'
+  ])),
+});
+
+// All routes require authentication and users module access
 router.use(authenticate);
+router.use(requireModuleAccess('users'));
 
 // Routes
 router.get('/', requireManager, userController.getAllUsers);
 router.get('/:id', requireManager, userController.getUserById);
 router.post('/', requireAdmin, validate(createUserSchema), userController.createUser);
 router.patch('/:id', requireAdmin, validate(updateUserSchema), userController.updateUser);
+router.patch('/:id/permissions', requireAdmin, validate(updatePermissionsSchema), userController.updateUserPermissions);
 router.delete('/:id', requireAdmin, validate(deleteUserSchema), userController.deleteUser);
 router.post('/:id/reset-password', requireAdmin, validate(resetPasswordSchema), userController.resetUserPassword);
 

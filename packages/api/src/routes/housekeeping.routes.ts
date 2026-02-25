@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireModuleAccess } from '../middleware/auth.js';
 import * as housekeepingController from '../controllers/housekeeping.controller.js';
 
 const router = Router();
@@ -29,8 +29,9 @@ const querySchema = z.object({
   priority: z.enum(['arrivals', 'departures', 'stayovers']).optional(),
 });
 
-// All routes require authentication
+// All routes require authentication and housekeeping module access
 router.use(authenticate);
+router.use(requireModuleAccess('housekeeping'));
 
 // Routes
 router.get('/rooms', validate(querySchema, 'query'), housekeepingController.getRoomsByStatus);

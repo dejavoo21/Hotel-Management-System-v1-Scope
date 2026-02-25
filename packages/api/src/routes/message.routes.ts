@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireModuleAccess } from '../middleware/auth.js';
 import * as messageController from '../controllers/message.controller.js';
 
 const router = Router();
@@ -8,6 +8,7 @@ const router = Router();
 router.post('/support/voice/twiml', messageController.supportVoiceTwiml);
 
 router.use(authenticate);
+router.use(requireModuleAccess('messages'));
 
 router.get('/', messageController.listThreads);
 router.post('/support/presence', messageController.heartbeatSupportPresence);

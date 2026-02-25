@@ -81,10 +81,39 @@ const saveStorage = <T>(key: string, value: T) => {
 
 export const getPermissionOptions = () => permissionOptions;
 
-export const getUserPermissions = (userId?: string, role?: UserRole): PermissionId[] => {
+/**
+ * Get user permissions - prefers backend modulePermissions, falls back to local storage, then role defaults
+ * @param userId - User ID
+ * @param role - User role for default permissions
+ * @param backendPermissions - Module permissions from backend (from user.modulePermissions)
+ */
+export const getUserPermissions = (
+  userId?: string,
+  role?: UserRole,
+  backendPermissions?: PermissionId[]
+): PermissionId[] => {
+  // If backend provides permissions, use those (source of truth)
+  if (backendPermissions && backendPermissions.length > 0) {
+    return backendPermissions;
+  }
+  
+  // Fallback to local storage for backwards compatibility
   if (!userId) return role ? defaultPermissions[role] : [];
   const stored = loadStorage<Record<string, PermissionId[]>>(PERMISSIONS_KEY, {});
   return stored[userId] || (role ? defaultPermissions[role] : []);
+};
+
+/**
+ * Check if user has access to a specific module
+ */
+export const hasModuleAccess = (
+  permission: PermissionId,
+  userId?: string,
+  role?: UserRole,
+  backendPermissions?: PermissionId[]
+): boolean => {
+  const permissions = getUserPermissions(userId, role, backendPermissions);
+  return permissions.includes(permission);
 };
 
 export const setUserPermissions = (userId: string, permissions: PermissionId[]) => {

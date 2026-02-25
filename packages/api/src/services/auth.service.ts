@@ -762,12 +762,25 @@ export async function getUserById(userId: string) {
       mustChangePassword: true,
       lastLoginAt: true,
       createdAt: true,
+      modulePermissions: true,
+      presenceStatus: true,
+      lastSeenAt: true,
       hotel: {
         select: {
           id: true,
           name: true,
+          address: true,
+          addressLine1: true,
+          city: true,
+          country: true,
+          phone: true,
+          email: true,
+          website: true,
           currency: true,
           timezone: true,
+          latitude: true,
+          longitude: true,
+          locationUpdatedAt: true,
         },
       },
     },
@@ -777,7 +790,21 @@ export async function getUserById(userId: string) {
     throw new NotFoundError('User');
   }
 
-  return user;
+  // Default permissions by role if modulePermissions not set
+  const DEFAULT_PERMISSIONS: Record<string, string[]> = {
+    ADMIN: ['dashboard', 'bookings', 'rooms', 'messages', 'housekeeping', 'inventory', 'calendar', 'guests', 'financials', 'reviews', 'concierge', 'users', 'settings'],
+    MANAGER: ['dashboard', 'bookings', 'rooms', 'messages', 'housekeeping', 'inventory', 'calendar', 'guests', 'financials', 'reviews', 'concierge', 'settings'],
+    RECEPTIONIST: ['dashboard', 'bookings', 'rooms', 'messages', 'calendar', 'guests', 'financials'],
+    HOUSEKEEPING: ['dashboard', 'rooms', 'housekeeping', 'calendar', 'messages'],
+  };
+
+  // Return user with resolved modulePermissions
+  return {
+    ...user,
+    modulePermissions: user.modulePermissions.length > 0
+      ? user.modulePermissions
+      : DEFAULT_PERMISSIONS[user.role] || [],
+  };
 }
 
 /**

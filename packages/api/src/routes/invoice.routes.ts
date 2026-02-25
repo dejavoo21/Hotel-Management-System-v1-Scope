@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
-import { authenticate, requireReceptionist, requireManager } from '../middleware/auth.js';
+import { authenticate, requireReceptionist, requireManager, requireModuleAccess } from '../middleware/auth.js';
 import * as invoiceController from '../controllers/invoice.controller.js';
 
 const router = Router();
@@ -23,8 +23,9 @@ const emailSchema = z.object({
   recipientEmail: z.string().email().optional(),
 });
 
-// All routes require authentication
+// All routes require authentication and financials module access
 router.use(authenticate);
+router.use(requireModuleAccess('financials'));
 
 // Routes
 router.get('/', validate(querySchema, 'query'), invoiceController.getAllInvoices);

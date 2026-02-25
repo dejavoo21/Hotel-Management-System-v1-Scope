@@ -28,6 +28,9 @@ model User {
   isActive      Boolean        @default(true)
   mustChangePassword Boolean   @default(false)
   lastLoginAt   DateTime?
+  // Module permissions (access profile)
+  // Stores allowed modules: dashboard, bookings, rooms, messages, housekeeping, inventory, calendar, guests, financials, reviews, concierge, users, settings
+  modulePermissions String[]   @default([])
   // Presence fields
   presenceStatus   PresenceStatus @default(AVAILABLE)
   lastSeenAt       DateTime?

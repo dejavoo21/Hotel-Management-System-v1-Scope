@@ -53,6 +53,9 @@ export function setupSocketHandlers(io: SocketIOServer): void {
     // Join role-specific room
     socket.join(`role:${user.role}`);
 
+    // Join user-specific room for personal notifications (e.g., permission updates)
+    socket.join(`user:${user.userId}`);
+
     // === PRESENCE: Mark user online and broadcast ===
     try {
       const presenceUpdate = await presenceService.markUserOnline(

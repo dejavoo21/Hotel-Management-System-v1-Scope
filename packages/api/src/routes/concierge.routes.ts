@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireModuleAccess } from '../middleware/auth.js';
 import * as conciergeController from '../controllers/concierge.controller.js';
 
 const router = Router();
@@ -30,6 +30,7 @@ const updateSchema = z.object({
 });
 
 router.use(authenticate);
+router.use(requireModuleAccess('concierge'));
 
 router.get('/requests', conciergeController.listConciergeRequests);
 router.post('/requests', validate(createSchema), conciergeController.createConciergeRequest);

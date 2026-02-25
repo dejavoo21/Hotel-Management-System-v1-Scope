@@ -6,6 +6,30 @@ import { prisma } from '../config/database.js';
 import { AuthenticatedRequest, TokenPayload, ApiResponse } from '../types/index.js';
 import { logger } from '../config/logger.js';
 
+// Module permission IDs that can be assigned to users
+export type ModulePermission =
+  | 'dashboard'
+  | 'bookings'
+  | 'rooms'
+  | 'messages'
+  | 'housekeeping'
+  | 'inventory'
+  | 'calendar'
+  | 'guests'
+  | 'financials'
+  | 'reviews'
+  | 'concierge'
+  | 'users'
+  | 'settings';
+
+// Default permissions by role (used when user has no modulePermissions set)
+const DEFAULT_PERMISSIONS: Record<Role, ModulePermission[]> = {
+  ADMIN: ['dashboard', 'bookings', 'rooms', 'messages', 'housekeeping', 'inventory', 'calendar', 'guests', 'financials', 'reviews', 'concierge', 'users', 'settings'],
+  MANAGER: ['dashboard', 'bookings', 'rooms', 'messages', 'housekeeping', 'inventory', 'calendar', 'guests', 'financials', 'reviews', 'concierge', 'settings'],
+  RECEPTIONIST: ['dashboard', 'bookings', 'rooms', 'messages', 'calendar', 'guests', 'financials'],
+  HOUSEKEEPING: ['dashboard', 'rooms', 'housekeeping', 'calendar', 'messages'],
+};
+
 function isPasswordChangeAllowedRoute(req: AuthenticatedRequest): boolean {
   const base = req.baseUrl || '';
   const path = req.path || '';
@@ -49,6 +73,7 @@ export async function authenticate(
           hotelId: true,
           isActive: true,
           mustChangePassword: true,
+          modulePermissions: true,
         },
       });
 
@@ -60,6 +85,11 @@ export async function authenticate(
         return;
       }
 
+      // Resolve effective permissions: use stored permissions if set, otherwise use role defaults
+      const effectivePermissions = user.modulePermissions.length > 0
+        ? user.modulePermissions as ModulePermission[]
+        : DEFAULT_PERMISSIONS[user.role];
+
       req.user = {
         id: user.id,
         email: user.email,
@@ -68,6 +98,7 @@ export async function authenticate(
         role: user.role,
         hotelId: user.hotelId,
         mustChangePassword: user.mustChangePassword,
+        modulePermissions: effectivePermissions,
       };
 
       if (user.mustChangePassword && !isPasswordChangeAllowedRoute(req)) {
@@ -148,6 +179,37 @@ export const requireManager = requireRole(Role.ADMIN, Role.MANAGER);
 export const requireReceptionist = requireRole(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST);
 
 /**
+ * Middleware to require access to specific module(s)
+ * Checks user's modulePermissions array
+ */
+export function requireModuleAccess(...modules: ModulePermission[]) {
+  return (req: AuthenticatedRequest, res: Response<ApiResponse>, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+      });
+      return;
+    }
+
+    const userPermissions = req.user.modulePermissions || [];
+    
+    // Check if user has access to at least one of the required modules
+    const hasAccess = modules.some(module => userPermissions.includes(module));
+    
+    if (!hasAccess) {
+      res.status(403).json({
+        success: false,
+        error: `Access denied. Required module access: ${modules.join(' or ')}`,
+      });
+      return;
+    }
+
+    next();
+  };
+}
+
+/**
  * Optional authentication - attaches user if token present, continues otherwise
  */
 export async function optionalAuth(
@@ -177,10 +239,15 @@ export async function optionalAuth(
         hotelId: true,
         isActive: true,
         mustChangePassword: true,
+        modulePermissions: true,
       },
     });
 
     if (user && user.isActive) {
+      const effectivePermissions = user.modulePermissions.length > 0
+        ? user.modulePermissions as ModulePermission[]
+        : DEFAULT_PERMISSIONS[user.role];
+        
       req.user = {
         id: user.id,
         email: user.email,
@@ -189,6 +256,7 @@ export async function optionalAuth(
         role: user.role,
         hotelId: user.hotelId,
         mustChangePassword: user.mustChangePassword,
+        modulePermissions: effectivePermissions,
       };
     }
   } catch {

@@ -12,6 +12,21 @@ export interface PresenceUpdate {
 }
 
 // User types
+export type ModulePermission =
+  | 'dashboard'
+  | 'bookings'
+  | 'rooms'
+  | 'messages'
+  | 'housekeeping'
+  | 'inventory'
+  | 'calendar'
+  | 'guests'
+  | 'financials'
+  | 'reviews'
+  | 'concierge'
+  | 'users'
+  | 'settings';
+
 export interface User {
   id: string;
   email: string;
@@ -35,6 +50,7 @@ export interface User {
     longitude?: number | null;
     locationUpdatedAt?: string | null;
   };
+  modulePermissions?: ModulePermission[];
   twoFactorEnabled?: boolean;
   isActive: boolean;
   mustChangePassword?: boolean;

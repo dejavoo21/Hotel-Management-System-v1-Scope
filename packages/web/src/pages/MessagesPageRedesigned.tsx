@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -7,7 +7,8 @@ import { escalateTicket, type Ticket } from '@/services/tickets';
 import { useAuthStore } from '@/stores/authStore';
 import { ConversationList } from '@/components/support/ConversationList';
 import { TicketMetaBar } from '@/components/support/TicketMetaBar';
-import { ContextDrawer } from '@/components/support/ContextDrawer';
+import { SupportLayout } from '@/components/support/SupportLayout';
+import { SupportRightPanel } from '@/components/support/SupportRightPanel';
 import type {
   ConversationMessage,
   MessageThreadDetail,
@@ -15,6 +16,7 @@ import type {
   SupportAgent,
 } from '@/types';
 
+type SupportRailItem = 'activity' | 'chat' | 'calls' | 'files';
 type PresenceStatus = 'AVAILABLE' | 'BUSY' | 'DND' | 'AWAY' | 'OFFLINE';
 
 const formatTime = (date: string) =>
@@ -111,7 +113,8 @@ export default function MessagesPageRedesigned() {
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [draftMessage, setDraftMessage] = useState('');
   const [activeTab, setActiveTab] = useState<'open' | 'assigned' | 'breach' | 'resolved'>('open');
-  const [showContextDrawer, setShowContextDrawer] = useState(false);
+  const [showRightPanel, setShowRightPanel] = useState(false);
+  const [activeRailItem, setActiveRailItem] = useState<SupportRailItem>('chat');
   
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -236,6 +239,64 @@ export default function MessagesPageRedesigned() {
     setSearchParams({ thread: threadId });
   };
 
+  const handleRailItemChange = useCallback((item: SupportRailItem) => {
+    setActiveRailItem(item);
+    // Future: Handle switching between Activity, Chat, Calls, Files views
+    if (item !== 'chat') {
+      toast(`${item.charAt(0).toUpperCase() + item.slice(1)} view coming soon`);
+    }
+  }, []);
+
+  // Transform thread/ticket data for right panel
+  const rightPanelGuest = useMemo(() => {
+    if (!activeThreadSummary?.guest) return null;
+    const guest = activeThreadSummary.guest;
+    return {
+      id: activeThreadSummary.id,
+      name: `${guest.firstName} ${guest.lastName}`,
+      email: guest.email || '',
+      phone: guest.phone || '',
+      roomNumber: activeThreadSummary.booking?.bookingRef?.replace('BK-', ''),
+      checkIn: activeThreadSummary.booking?.checkInDate 
+        ? new Date(activeThreadSummary.booking.checkInDate).toLocaleDateString() 
+        : undefined,
+      checkOut: activeThreadSummary.booking?.checkOutDate 
+        ? new Date(activeThreadSummary.booking.checkOutDate).toLocaleDateString() 
+        : undefined,
+    };
+  }, [activeThreadSummary]);
+
+  const rightPanelTicket = useMemo(() => {
+    if (!activeTicket) return null;
+    return {
+      id: activeTicket.id,
+      status: (activeTicket.status?.toLowerCase() || 'open') as 'open' | 'in_progress' | 'resolved' | 'closed',
+      priority: (activeTicket.priority?.toLowerCase() || 'medium') as 'low' | 'medium' | 'high' | 'urgent',
+      category: activeTicket.category || 'General',
+      subject: activeTicket.conversation?.subject || activeThreadSummary?.subject || 'Support Request',
+      createdAt: activeTicket.createdAtUtc,
+      updatedAt: activeTicket.updatedAtUtc,
+      assignedTo: activeThread?.assignedSupport 
+        ? `${activeThread.assignedSupport.firstName} ${activeThread.assignedSupport.lastName}` 
+        : activeTicket.assignedTo 
+          ? `${activeTicket.assignedTo.firstName} ${activeTicket.assignedTo.lastName}`
+          : undefined,
+      slaDeadline: activeTicket.responseDueAtUtc || activeTicket.resolutionDueAtUtc,
+      slaBreached: activeTicket.status === 'BREACHED',
+    };
+  }, [activeTicket, activeThread, activeThreadSummary]);
+
+  const rightPanelActivities = useMemo(() => {
+    // Transform messages to activity items
+    return activeMessages.slice(-10).map((msg) => ({
+      id: msg.id,
+      type: 'message' as const,
+      description: msg.body.length > 50 ? msg.body.slice(0, 50) + '...' : msg.body,
+      timestamp: msg.createdAt,
+      actor: resolveSenderName(msg),
+    }));
+  }, [activeMessages]);
+
   // Simple phone call via backend
   const startTwilioPhoneCall = async (phone: string, threadId?: string) => {
     const sanitized = sanitizePhone(phone);
@@ -253,46 +314,60 @@ export default function MessagesPageRedesigned() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-72px)]">
-      {/* Page Header */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white shrink-0">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Support</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            {threads.length} conversations • {ticketsByConversationId.size} tickets
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-500">
-            {supportAgentsQuery.data?.filter((a) => resolveSupportAgentPresence(a) !== 'OFFLINE').length || 0} agents online
-          </span>
-          <button
-            type="button"
-            onClick={() => setShowContextDrawer(true)}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Guest Info
-          </button>
-        </div>
-      </header>
+    <SupportLayout
+      activeRailItem={activeRailItem}
+      onRailItemChange={handleRailItemChange}
+      rightPanelOpen={showRightPanel}
+      rightPanelTitle="Details"
+      onRightPanelClose={() => setShowRightPanel(false)}
+      rightPanelContent={
+        <SupportRightPanel
+          guest={rightPanelGuest}
+          ticket={rightPanelTicket}
+          activities={rightPanelActivities}
+        />
+      }
+    >
+      <div className="flex flex-col h-full">
+        {/* Page Header */}
+        <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white shrink-0">
+          <div>
+            <h1 className="text-xl font-semibold text-slate-900">Support</h1>
+            <p className="text-sm text-slate-500 mt-0.5">
+              {threads.length} conversations • {ticketsByConversationId.size} tickets
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500">
+              {supportAgentsQuery.data?.filter((a) => resolveSupportAgentPresence(a) !== 'OFFLINE').length || 0} agents online
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowRightPanel(true)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Guest Info
+            </button>
+          </div>
+        </header>
 
-      {/* Ticket Meta Bar */}
-      <TicketMetaBar
-        ticket={activeTicket}
-        assignedTo={activeThread?.assignedSupport?.firstName 
-          ? `${activeThread.assignedSupport.firstName} ${activeThread.assignedSupport.lastName}` 
-          : undefined}
-        onAssign={() => assignMutation.mutate(user?.id)}
-        onMarkResolved={() => resolveTicketMutation.mutate()}
-        onEscalate={() => escalateTicketMutation.mutate()}
-        onViewDetails={() => setShowContextDrawer(true)}
-      />
+        {/* Ticket Meta Bar */}
+        <TicketMetaBar
+          ticket={activeTicket}
+          assignedTo={activeThread?.assignedSupport?.firstName 
+            ? `${activeThread.assignedSupport.firstName} ${activeThread.assignedSupport.lastName}` 
+            : undefined}
+          onAssign={() => assignMutation.mutate(user?.id)}
+          onMarkResolved={() => resolveTicketMutation.mutate()}
+          onEscalate={() => escalateTicketMutation.mutate()}
+          onViewDetails={() => setShowRightPanel(true)}
+        />
 
-      {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden">
+        {/* Main Content Area */}
+        <div className="flex flex-1 overflow-hidden">
         {/* Left: Conversation List */}
         <ConversationList
           threads={threads}
@@ -339,7 +414,7 @@ export default function MessagesPageRedesigned() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowContextDrawer(true)}
+                    onClick={() => setShowRightPanel(true)}
                     className="p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors"
                     title="View guest details"
                   >
@@ -501,15 +576,7 @@ export default function MessagesPageRedesigned() {
           )}
         </main>
       </div>
-
-      {/* Context Drawer */}
-      <ContextDrawer
-        isOpen={showContextDrawer}
-        onClose={() => setShowContextDrawer(false)}
-        thread={activeThreadSummary || null}
-        ticket={activeTicket || null}
-        onChargeGuest={() => toast.success('Opening charge dialog')}
-      />
-    </div>
+      </div>
+    </SupportLayout>
   );
 }

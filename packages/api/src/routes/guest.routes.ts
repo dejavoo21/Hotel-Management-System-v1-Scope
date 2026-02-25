@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
-import { authenticate, requireReceptionist, requireManager } from '../middleware/auth.js';
+import { authenticate, requireReceptionist, requireManager, requireModuleAccess } from '../middleware/auth.js';
 import * as guestController from '../controllers/guest.controller.js';
 
 const router = Router();
@@ -46,8 +46,9 @@ const querySchema = z.object({
   limit: z.string().optional(),
 });
 
-// All routes require authentication
+// All routes require authentication and guests module access
 router.use(authenticate);
+router.use(requireModuleAccess('guests'));
 
 // Routes
 router.get('/', validate(querySchema, 'query'), guestController.getAllGuests);

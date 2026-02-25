@@ -1,6 +1,22 @@
 import { Request } from 'express';
 import { Role } from '@prisma/client';
 
+// Module permission IDs for access profile
+export type ModulePermission =
+  | 'dashboard'
+  | 'bookings'
+  | 'rooms'
+  | 'messages'
+  | 'housekeeping'
+  | 'inventory'
+  | 'calendar'
+  | 'guests'
+  | 'financials'
+  | 'reviews'
+  | 'concierge'
+  | 'users'
+  | 'settings';
+
 // Extend Express Request with user info
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -11,6 +27,7 @@ export interface AuthenticatedRequest extends Request {
     firstName: string;
     lastName: string;
     mustChangePassword?: boolean;
+    modulePermissions?: ModulePermission[];
   };
 }
 

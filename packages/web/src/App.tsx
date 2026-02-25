@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
+import { getUserPermissions, isSuperAdminUser, type PermissionId } from '@/utils/userAccess';
 import SkipLink from '@/components/SkipLink';
 
 // Layouts
@@ -31,6 +32,7 @@ import CalendarPage from '@/pages/CalendarPage';
 import MessagesPage from '@/pages/MessagesPageRedesigned';
 import CallsPage from '@/pages/CallsPage';
 import ForcePasswordChangePage from '@/pages/auth/ForcePasswordChangePage';
+import NotAuthorizedPage from '@/pages/NotAuthorizedPage';
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -51,6 +53,31 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (user?.mustChangePassword && location.pathname !== '/force-password-change') {
     return <Navigate to="/force-password-change" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+// Module-protected route wrapper - checks module permissions
+function ModuleRoute({ 
+  children, 
+  requiredModule 
+}: { 
+  children: React.ReactNode; 
+  requiredModule: PermissionId;
+}) {
+  const { user } = useAuthStore();
+  
+  const userPermissions = getUserPermissions(
+    user?.id, 
+    user?.role, 
+    user?.modulePermissions as PermissionId[] | undefined
+  );
+  const isSuperAdmin = isSuperAdminUser(user?.id);
+  const hasAccess = isSuperAdmin || userPermissions.includes(requiredModule);
+
+  if (!hasAccess) {
+    return <NotAuthorizedPage />;
   }
 
   return <>{children}</>;
@@ -128,23 +155,24 @@ export default function App() {
         }
       >
         <Route path="force-password-change" element={<ForcePasswordChangePage />} />
-        <Route index element={<DashboardPage />} />
-        <Route path="rooms" element={<RoomsPage />} />
-        <Route path="bookings" element={<BookingsPage />} />
-        <Route path="bookings/:id" element={<BookingDetailPage />} />
-        <Route path="inventory" element={<InventoryPage />} />
-        <Route path="messages" element={<MessagesPage />} />
-        <Route path="calls" element={<CallsPage />} />
-        <Route path="calendar" element={<CalendarPage />} />
-        <Route path="guests" element={<GuestsPage />} />
-        <Route path="housekeeping" element={<HousekeepingPage />} />
-        <Route path="reports" element={<ReportsPage />} />
-        <Route path="invoices" element={<InvoicesPage />} />
-        <Route path="expenses" element={<ExpensesPage />} />
-        <Route path="reviews" element={<ReviewsPage />} />
-        <Route path="concierge" element={<ConciergePage />} />
-        <Route path="settings" element={<SettingsPage />} />
-        <Route path="users" element={<UsersPage />} />
+        <Route index element={<ModuleRoute requiredModule="dashboard"><DashboardPage /></ModuleRoute>} />
+        <Route path="rooms" element={<ModuleRoute requiredModule="rooms"><RoomsPage /></ModuleRoute>} />
+        <Route path="bookings" element={<ModuleRoute requiredModule="bookings"><BookingsPage /></ModuleRoute>} />
+        <Route path="bookings/:id" element={<ModuleRoute requiredModule="bookings"><BookingDetailPage /></ModuleRoute>} />
+        <Route path="inventory" element={<ModuleRoute requiredModule="inventory"><InventoryPage /></ModuleRoute>} />
+        <Route path="messages" element={<ModuleRoute requiredModule="messages"><MessagesPage /></ModuleRoute>} />
+        <Route path="calls" element={<ModuleRoute requiredModule="messages"><CallsPage /></ModuleRoute>} />
+        <Route path="calendar" element={<ModuleRoute requiredModule="calendar"><CalendarPage /></ModuleRoute>} />
+        <Route path="guests" element={<ModuleRoute requiredModule="guests"><GuestsPage /></ModuleRoute>} />
+        <Route path="housekeeping" element={<ModuleRoute requiredModule="housekeeping"><HousekeepingPage /></ModuleRoute>} />
+        <Route path="reports" element={<ModuleRoute requiredModule="financials"><ReportsPage /></ModuleRoute>} />
+        <Route path="invoices" element={<ModuleRoute requiredModule="financials"><InvoicesPage /></ModuleRoute>} />
+        <Route path="expenses" element={<ModuleRoute requiredModule="financials"><ExpensesPage /></ModuleRoute>} />
+        <Route path="reviews" element={<ModuleRoute requiredModule="reviews"><ReviewsPage /></ModuleRoute>} />
+        <Route path="concierge" element={<ModuleRoute requiredModule="concierge"><ConciergePage /></ModuleRoute>} />
+        <Route path="settings" element={<ModuleRoute requiredModule="settings"><SettingsPage /></ModuleRoute>} />
+        <Route path="users" element={<ModuleRoute requiredModule="users"><UsersPage /></ModuleRoute>} />
+        <Route path="not-authorized" element={<NotAuthorizedPage />} />
       </Route>
 
       {/* 404 */}

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireModuleAccess } from '../middleware/auth.js';
 import * as inventoryController from '../controllers/inventory.controller.js';
 
 const router = Router();
@@ -28,6 +28,7 @@ const updateSchema = z.object({
 });
 
 router.use(authenticate);
+router.use(requireModuleAccess('inventory'));
 
 router.get('/', inventoryController.listInventoryItems);
 router.post('/', validate(createSchema), inventoryController.createInventoryItem);

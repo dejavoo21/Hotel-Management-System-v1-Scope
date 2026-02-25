@@ -1,18 +1,27 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import { usePresenceStore } from '@/stores/presenceStore';
-import type { PresenceUpdate } from '@/types';
+import { authService } from '@/services/auth';
+import type { PresenceUpdate, ModulePermission } from '@/types';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+interface PermissionsUpdateEvent {
+  userId: string;
+  modulePermissions: ModulePermission[];
+}
 
 /**
  * Hook to manage Socket.IO connection and presence subscriptions
  * Connects when user is authenticated, disconnects on logout
+ * Also handles permissions:update events to keep user permissions in sync
  */
 export function useSocketPresence() {
   const socketRef = useRef<Socket | null>(null);
-  const { accessToken, isAuthenticated, user } = useAuthStore();
+  const queryClient = useQueryClient();
+  const { accessToken, isAuthenticated, user, setUser } = useAuthStore();
   const { 
     setConnected, 
     updatePresence, 
@@ -79,6 +88,24 @@ export function useSocketPresence() {
     socket.on('presence:list', (list: PresenceUpdate[]) => {
       console.log('[Socket] Presence list:', list.length, 'users');
       setPresenceList(list);
+    });
+
+    // Permissions update - refetch user data when admin changes permissions
+    socket.on('permissions:update', async (data: PermissionsUpdateEvent) => {
+      console.log('[Socket] Permissions update:', data);
+      if (user && data.userId === user.id) {
+        // Refetch current user to get updated permissions
+        try {
+          const updatedUser = await authService.getCurrentUser();
+          if (updatedUser) {
+            setUser(updatedUser);
+            // Invalidate any queries that depend on user permissions
+            queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+          }
+        } catch (error) {
+          console.error('[Socket] Failed to refetch user after permissions update:', error);
+        }
+      }
     });
 
     // Error handler
