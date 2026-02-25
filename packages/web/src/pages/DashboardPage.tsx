@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { KPI_VALUE_CLASS, KPI_VALUE_CLASS_SM } from '@/styles/typography';
+import { useAuthStore } from '@/stores/authStore';
 import {
   Area,
   AreaChart,
@@ -197,6 +198,12 @@ function RoomTypeBadge({ roomType }: { roomType: BookingRow['roomType'] }) {
 export default function DashboardPage() {
   const navigate = useNavigate();
   const globalRangeMenuRef = useRef<HTMLDivElement | null>(null);
+  
+  // Permission check for financial data
+  // Receptionists should NOT see financial KPIs on dashboard (Total Revenue, ADR, Revenue chart)
+  // Only ADMIN and MANAGER roles can view financial metrics
+  const { user } = useAuthStore();
+  const canViewFinancials = user?.role === 'ADMIN' || user?.role === 'MANAGER';
 
   // MOCK DATA - replace with real data
   const currency = 'USD';
@@ -864,22 +871,24 @@ export default function DashboardPage() {
             </svg>
           }
         />
-        <KpiCard
-          title="Total Revenue"
-          value={formatCurrency(summary.totalRevenue, currency)}
-          trendPct={summary.trends.totalRevenue}
-          to="/invoices"
-          icon={
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.7}
-                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
-              />
-            </svg>
-          }
-        />
+        {canViewFinancials && (
+          <KpiCard
+            title="Total Revenue"
+            value={formatCurrency(summary.totalRevenue, currency)}
+            trendPct={summary.trends.totalRevenue}
+            to="/invoices"
+            icon={
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.7}
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
+                />
+              </svg>
+            }
+          />
+        )}
         <KpiCard
           title="Occupancy"
           value={`${Math.round((roomAvailability.occupied / totalRooms) * 100)}%`}
@@ -891,17 +900,19 @@ export default function DashboardPage() {
             </svg>
           }
         />
-        <KpiCard
-          title="ADR"
-          value={formatCurrency(Math.round(summary.totalRevenue / Math.max(summary.newBookings, 1)), currency)}
-          trendPct={1.92}
-          to="/reports"
-          icon={
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M4 18h16M7 15l3-3 3 2 4-5" />
-            </svg>
-          }
-        />
+        {canViewFinancials && (
+          <KpiCard
+            title="ADR"
+            value={formatCurrency(Math.round(summary.totalRevenue / Math.max(summary.newBookings, 1)), currency)}
+            trendPct={1.92}
+            to="/reports"
+            icon={
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M4 18h16M7 15l3-3 3 2 4-5" />
+              </svg>
+            }
+          />
+        )}
       </div>
 
         <div className="grid gap-5 xl:grid-cols-[0.72fr_1.28fr]">
@@ -996,13 +1007,14 @@ export default function DashboardPage() {
             </div>
           </ClickableCard>
 
-          <ClickableCard to="/expenses" ariaLabel="Go to revenue and expenses" className="min-w-0 h-full overflow-hidden rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-slate-900">Revenue</div>
-                <div className="text-xs font-semibold text-slate-500">
-                  {revenueRange === '7d'
-                    ? 'Last 7 Days'
+          {canViewFinancials && (
+            <ClickableCard to="/expenses" ariaLabel="Go to revenue and expenses" className="min-w-0 h-full overflow-hidden rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-slate-900">Revenue</div>
+                  <div className="text-xs font-semibold text-slate-500">
+                    {revenueRange === '7d'
+                      ? 'Last 7 Days'
                     : revenueRange === '3m'
                       ? 'Last 3 Months'
                       : revenueRange === '6m'
@@ -1061,6 +1073,7 @@ export default function DashboardPage() {
               </ResponsiveContainer>
             </div>
           </ClickableCard>
+          )}
 
           <ClickableCard to="/bookings" ariaLabel="Go to reservations" className="h-full rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <div className="flex items-center justify-between">
