@@ -835,6 +835,26 @@ export default function SettingsPage() {
                     </button>
                   </div>
 
+                  {/* Location Summary */}
+                  <div className="mt-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                      <div>
+                        <span className="text-text-muted">Location:</span>{' '}
+                        <span className="font-medium text-text-main">
+                          {hotelForm.city && hotelForm.country
+                            ? `${hotelForm.city}, ${hotelForm.country}`
+                            : 'Not configured'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-text-muted">Timezone:</span>{' '}
+                        <span className="font-medium text-text-main">
+                          {hotelForm.timezone || 'Not set'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="rounded-lg border border-border p-3">
                       <div className="text-xs uppercase tracking-wide text-text-muted">Last Sync</div>
