@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { messageService } from '@/services';
+import { messageService, ticketService } from '@/services';
+import { getTimeRemaining, getEscalationBadge, type Ticket } from '@/services/tickets';
 import { PAGE_TITLE_CLASS } from '@/styles/typography';
 import { useAuthStore } from '@/stores/authStore';
 import SupportVideoPanel from '@/components/calls/SupportVideoPanel';
@@ -196,6 +197,8 @@ export default function MessagesPage() {
   const [voiceError, setVoiceError] = useState('');
   const [activeVoiceThreadId, setActiveVoiceThreadId] = useState<string | null>(null);
   const [presenceOverrides, setPresenceOverrides] = useState<Record<string, PresenceStatus>>({});
+  // SLA Filter state
+  const [slaFilter, setSlaFilter] = useState<'all' | 'overdue' | 'escalated'>('all');
   const voiceDeviceRef = useRef<Device | null>(null);
   const voiceCallRef = useRef<Call | null>(null);
   const zeroHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -207,7 +210,49 @@ export default function MessagesPage() {
     refetchInterval: 7000,
   });
 
+  // Fetch tickets for SLA data
+  const { data: ticketsData } = useQuery({
+    queryKey: ['tickets-for-threads'],
+    queryFn: () => ticketService.getTickets({ limit: 100 }),
+    refetchInterval: 15000,
+  });
+
+  // Map conversation IDs to tickets
+  const ticketsByConversationId = useMemo(() => {
+    const map = new Map<string, Ticket>();
+    if (ticketsData?.tickets) {
+      for (const ticket of ticketsData.tickets) {
+        map.set(ticket.conversationId, ticket);
+      }
+    }
+    return map;
+  }, [ticketsData]);
+
   const threads = useMemo(() => ((threadsData && threadsData.length > 0 ? threadsData : mockThreads) as MessageThreadSummary[]), [threadsData]);
+
+  // Filter threads by SLA status
+  const filteredThreads = useMemo(() => {
+    if (slaFilter === 'all') return threads;
+    
+    return threads.filter((thread) => {
+      const ticket = ticketsByConversationId.get(thread.id);
+      if (!ticket) return false;
+      
+      if (slaFilter === 'overdue') {
+        // Check if response is overdue
+        if (ticket.responseDueAtUtc && !ticket.firstResponseAtUtc) {
+          return new Date() > new Date(ticket.responseDueAtUtc);
+        }
+        return ticket.status === 'BREACHED';
+      }
+      
+      if (slaFilter === 'escalated') {
+        return ticket.escalatedLevel > 0;
+      }
+      
+      return true;
+    });
+  }, [threads, slaFilter, ticketsByConversationId]);
 
   const supportThreadQuery = useQuery({
     queryKey: ['live-support-thread', searchParams.get('support')],
@@ -523,10 +568,65 @@ export default function MessagesPage() {
             </button>
           </div>
 
+          {/* SLA Filter Buttons */}
+          <div className="mb-3 flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => setSlaFilter('all')}
+              className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
+                slaFilter === 'all'
+                  ? 'bg-slate-700 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setSlaFilter('overdue')}
+              className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
+                slaFilter === 'overdue'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-red-50 text-red-600 hover:bg-red-100'
+              }`}
+            >
+              <span className="flex items-center justify-center gap-1">
+                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Overdue
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSlaFilter('escalated')}
+              className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
+                slaFilter === 'escalated'
+                  ? 'bg-amber-600 text-white'
+                  : 'bg-amber-50 text-amber-600 hover:bg-amber-100'
+              }`}
+            >
+              <span className="flex items-center justify-center gap-1">
+                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+                Escalated
+              </span>
+            </button>
+          </div>
+
           <div className="space-y-2">
-            {(isLoading ? [] : threads).map((thread) => {
+            {(isLoading ? [] : filteredThreads).map((thread) => {
               const isActive = activeThreadId === thread.id;
               const name = resolveThreadName(thread);
+              const ticket = ticketsByConversationId.get(thread.id);
+              const isOverdue = ticket && ticket.responseDueAtUtc && !ticket.firstResponseAtUtc 
+                ? new Date() > new Date(ticket.responseDueAtUtc) 
+                : ticket?.status === 'BREACHED';
+              const isEscalated = ticket && ticket.escalatedLevel > 0;
+              const timeRemaining = ticket ? getTimeRemaining(ticket) : null;
+              const escalationBadge = ticket ? getEscalationBadge(ticket) : null;
+              
               return (
                 <button
                   key={thread.id}
@@ -539,16 +639,48 @@ export default function MessagesPage() {
                       return next;
                     });
                   }}
-                  className={`w-full rounded-xl p-2 text-left ${isActive ? 'bg-slate-100' : 'hover:bg-slate-50'}`}
+                  className={`w-full rounded-xl p-2 text-left ${isActive ? 'bg-slate-100' : 'hover:bg-slate-50'} ${isOverdue ? 'ring-1 ring-red-200' : ''}`}
                 >
                   <div className="flex items-start gap-2">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-lime-200 text-xs font-bold text-slate-800">{getInitials(name)}</div>
+                    <div className="relative">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-lime-200 text-xs font-bold text-slate-800">{getInitials(name)}</div>
+                      {isEscalated && (
+                        <span className="absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[8px] font-bold text-white">
+                          ↑
+                        </span>
+                      )}
+                    </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate text-sm font-semibold text-slate-900">{name}</p>
                         <span className="text-[11px] text-slate-500">{formatTime(thread.lastMessageAt)}</span>
                       </div>
                       <p className="truncate text-xs text-slate-500">{thread.lastMessage?.body || 'No message'}</p>
+                      
+                      {/* SLA Status Bar */}
+                      {ticket && (
+                        <div className="mt-1 flex items-center gap-1.5">
+                          {timeRemaining && (
+                            <span className={`inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium ${
+                              timeRemaining.isOverdue
+                                ? 'bg-red-100 text-red-700'
+                                : timeRemaining.minutes < 30
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : 'bg-green-100 text-green-700'
+                            }`}>
+                              <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              {timeRemaining.isOverdue ? `${timeRemaining.display} overdue` : timeRemaining.display}
+                            </span>
+                          )}
+                          {escalationBadge && (
+                            <span className={`inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium ${escalationBadge.className}`}>
+                              {escalationBadge.label}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </button>

@@ -18,6 +18,7 @@ import {
   TicketCategory,
   Prisma,
 } from '@prisma/client';
+import * as notificationService from './notification.service.js';
 
 // ============================================
 // Configuration & Constants
@@ -324,8 +325,18 @@ export async function processSlaEscalations(): Promise<{
         });
         result.breached++;
 
-        // Log the breach (skipped in cron - no user context)
-        // Activity logging for SLA breaches should be done via alerts/notifications instead
+        // Send notifications to managers about SLA breach
+        try {
+          await notificationService.notifySlaBreach(
+            ticket.id,
+            ticket.conversationId,
+            ticket.hotelId,
+            'response',
+            ticket.category
+          );
+        } catch (notifError) {
+          console.error('Failed to send breach notification:', notifError);
+        }
 
         continue;
       }
@@ -354,8 +365,22 @@ export async function processSlaEscalations(): Promise<{
         });
         result.escalated++;
 
-        // Escalation logging is skipped in cron - no user context
-        // Escalations should trigger notifications via a separate mechanism
+        // Find the escalation step and notify the appropriate roles
+        const escalationStep = ESCALATION_LEVELS.find(e => e.level === newLevel);
+        const notifyRoles = escalationStep?.notifyRoles || ['MANAGER', 'ADMIN'];
+
+        try {
+          await notificationService.notifyTicketEscalated(
+            ticket.id,
+            ticket.conversationId,
+            ticket.hotelId,
+            newLevel,
+            ticket.category,
+            notifyRoles
+          );
+        } catch (notifError) {
+          console.error('Failed to send escalation notification:', notifError);
+        }
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

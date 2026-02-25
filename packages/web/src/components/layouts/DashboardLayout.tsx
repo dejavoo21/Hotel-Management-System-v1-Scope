@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
-import { useQuery } from '@tanstack/react-query';
-import { accessRequestService, messageService } from '@/services';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { accessRequestService, messageService, notificationService } from '@/services';
+import { getNotificationIcon, getNotificationColor, formatNotificationTime } from '@/services/notifications';
 import { getUserPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
 import toast from 'react-hot-toast';
 import { useUiStore } from '@/stores/uiStore';
@@ -312,6 +313,34 @@ export default function DashboardLayout() {
     queryFn: accessRequestService.list,
     enabled: isAdmin,
     refetchInterval: isAdmin ? 30000 : false,
+  });
+
+  // System notifications query
+  const queryClient = useQueryClient();
+  const { data: systemNotifications } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => notificationService.getNotifications({ isRead: false, limit: 10 }),
+    refetchInterval: 15000,
+  });
+
+  const { data: unreadNotificationCount } = useQuery({
+    queryKey: ['notifications', 'unreadCount'],
+    queryFn: notificationService.getUnreadCount,
+    refetchInterval: 15000,
+  });
+
+  const markNotificationAsReadMutation = useMutation({
+    mutationFn: notificationService.markAsRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+
+  const markAllNotificationsReadMutation = useMutation({
+    mutationFn: notificationService.markAllAsRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
   });
 
   const pendingAccessCount = useMemo(() => {
@@ -1063,23 +1092,71 @@ export default function DashboardLayout() {
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                   </svg>
-                  {isAdmin && pendingAccessCount > 0 && (
+                  {((isAdmin && pendingAccessCount > 0) || (unreadNotificationCount && unreadNotificationCount > 0)) && (
                     <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-semibold text-white">
-                      {pendingAccessCount}
+                      {(isAdmin ? pendingAccessCount : 0) + (unreadNotificationCount || 0)}
                     </span>
                   )}
                 </button>
                 {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-80 rounded-xl border border-slate-200 bg-white shadow-lg">
-                    <div className="border-b border-slate-100 px-4 py-3">
-                      <p className="text-sm font-semibold text-slate-900">Notifications</p>
-                      <p className="text-xs text-slate-500">
-                        {pendingAccessCount > 0 ? `${pendingAccessCount} pending access requests` : 'No new access requests'}
-                      </p>
+                  <div className="absolute right-0 mt-2 w-96 rounded-xl border border-slate-200 bg-white shadow-lg z-50">
+                    <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">Notifications</p>
+                        <p className="text-xs text-slate-500">
+                          {(unreadNotificationCount || 0) + (isAdmin ? pendingAccessCount : 0)} unread
+                        </p>
+                      </div>
+                      {(unreadNotificationCount || 0) > 0 && (
+                        <button
+                          onClick={() => markAllNotificationsReadMutation.mutate()}
+                          className="text-xs font-medium text-primary-600 hover:text-primary-700"
+                        >
+                          Mark all read
+                        </button>
+                      )}
                     </div>
-                    <div className="max-h-72 overflow-y-auto">
-                      {pendingAccessRequests.length > 0 ? (
+                    <div className="max-h-96 overflow-y-auto">
+                      {/* System Notifications */}
+                      {systemNotifications && systemNotifications.notifications && systemNotifications.notifications.length > 0 && (
                         <div className="divide-y divide-slate-100">
+                          {systemNotifications.notifications.map((notification) => (
+                            <button
+                              key={notification.id}
+                              onClick={() => {
+                                markNotificationAsReadMutation.mutate(notification.id);
+                                setShowNotifications(false);
+                                // Navigate based on notification type
+                                if (notification.type === 'TICKET_ESCALATED' || notification.type === 'TICKET_BREACHED' || notification.type === 'TICKET_ASSIGNED') {
+                                  navigate(`/messages?thread=${notification.conversationId}`);
+                                } else if (notification.type === 'MESSAGE_RECEIVED') {
+                                  navigate(`/messages?thread=${notification.conversationId}`);
+                                }
+                              }}
+                              className={`flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-slate-50 ${!notification.isRead ? 'bg-blue-50/50' : ''}`}
+                            >
+                              <div className={`mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${getNotificationColor(notification.type)}`}>
+                                <span className="text-sm">{getNotificationIcon(notification.type)}</span>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-slate-900">{notification.title}</p>
+                                <p className="text-xs text-slate-600 line-clamp-2">{notification.body}</p>
+                                <p className="mt-1 text-xs text-slate-400">{formatNotificationTime(notification.createdAt)}</p>
+                              </div>
+                              {!notification.isRead && (
+                                <div className="mt-2 h-2 w-2 flex-shrink-0 rounded-full bg-blue-500" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Access Request Notifications (Admin only) */}
+                      {isAdmin && pendingAccessRequests.length > 0 && (
+                        <div className="divide-y divide-slate-100 border-t border-slate-200">
+                          <div className="bg-slate-50 px-4 py-2">
+                            <p className="text-xs font-semibold text-slate-600">Access Requests</p>
+                          </div>
                           {pendingAccessRequests.map((request) => (
                             <button
                               key={request.id}
@@ -1092,28 +1169,42 @@ export default function DashboardLayout() {
                               }}
                               className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-slate-50"
                             >
-                              <div className="mt-1 h-2 w-2 rounded-full bg-amber-400" />
-                              <div>
-                                <p className="text-sm font-medium text-slate-900">{request.fullName}</p>
-                                <p className="text-xs text-slate-500">{request.email}</p>
-                                <p className="text-xs text-slate-500">Company: {request.company || '-'}</p>
+                              <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-amber-100">
+                                <span className="text-sm">👤</span>
                               </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-slate-900">{request.fullName}</p>
+                                <p className="text-xs text-slate-600">{request.email}</p>
+                                <p className="text-xs text-slate-400">Company: {request.company || '-'}</p>
+                              </div>
+                              <div className="mt-2 h-2 w-2 flex-shrink-0 rounded-full bg-amber-400" />
                             </button>
                           ))}
                         </div>
-                      ) : (
-                        <div className="px-4 py-6 text-center text-sm text-slate-500">You are all caught up.</div>
+                      )}
+                      
+                      {/* Empty state */}
+                      {(!systemNotifications?.notifications?.length && !pendingAccessRequests.length) && (
+                        <div className="px-4 py-8 text-center">
+                          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
+                            <svg className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                          </div>
+                          <p className="text-sm text-slate-500">You're all caught up!</p>
+                          <p className="text-xs text-slate-400">No new notifications</p>
+                        </div>
                       )}
                     </div>
                     <div className="border-t border-slate-100 px-4 py-3">
                       <button
                         onClick={() => {
                           setShowNotifications(false);
-                          navigate('/settings?tab=access-requests');
+                          navigate('/settings?tab=notifications');
                         }}
                         className="w-full text-sm font-medium text-primary-600 hover:text-primary-700"
                       >
-                        View access requests
+                        Notification settings
                       </button>
                     </div>
                   </div>

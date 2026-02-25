@@ -43,6 +43,7 @@ model User {
   purchaseOrders PurchaseOrder[]
   sentMessages Message[] @relation("MessageSender")
   assignedTickets Ticket[] @relation("TicketAssignee")
+  notifications Notification[]
 
   @@index([hotelId])
   @@index([email])
@@ -106,6 +107,7 @@ model Hotel {
   externalSignals ExternalSignal[]
   tickets      Ticket[]
   slaPolicies  SLAPolicy[]
+  notifications Notification[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 }
@@ -647,6 +649,46 @@ enum TicketCategory {
   CHECK_IN_OUT
   BOOKING
   OTHER
+}
+
+// ===========================================
+// Notifications
+// ===========================================
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hotelId     String
+  hotel       Hotel            @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  type        NotificationType
+  title       String
+  body        String
+  isRead      Boolean          @default(false)
+  readAt      DateTime?
+
+  // Optional link to ticket that triggered the notification
+  ticketId    String?
+  conversationId String?
+
+  createdAt   DateTime         @default(now())
+
+  @@index([userId])
+  @@index([hotelId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  TICKET_ASSIGNED
+  TICKET_ESCALATED
+  TICKET_BREACHED
+  TICKET_UPDATED
+  TICKET_RESOLVED
+  MESSAGE_RECEIVED
+  SYSTEM
 }
 
 // ===========================================

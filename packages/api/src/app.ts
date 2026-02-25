@@ -36,6 +36,7 @@ import callRoutes from './routes/call.routes.js';
 import weatherSignalRoutes from './routes/weatherSignal.routes.js';
 import jobRoutes from './routes/job.routes.js';
 import ticketRoutes from './routes/ticket.routes.js';
+import notificationRoutes from './routes/notification.routes.js';
 
 const normalizeOrigin = (value?: string): string | undefined =>
   value ? value.replace(/\/+$/, '') : undefined;
@@ -213,6 +214,7 @@ export function createApp(): Application {
     app.use('/api/signals/weather', weatherSignalRoutes);
     app.use('/api/jobs', jobRoutes);
     app.use('/api/tickets', ticketRoutes);
+    app.use('/api/notifications', notificationRoutes);
   }
 
   // API documentation endpoint
