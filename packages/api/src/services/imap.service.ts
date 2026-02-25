@@ -119,6 +119,12 @@ async function processMessage(message: ImapMessage): Promise<boolean> {
   }
 
   // Production mode: Use Prisma
+  // If no requestId was extracted from the email, skip
+  if (!requestId) {
+    logger.debug('No access request ID found in email', { fromEmail, subject });
+    return false;
+  }
+  
   const accessRequest = await prisma.accessRequest.findFirst({ where: { id: requestId } });
   if (!accessRequest) {
     logger.warn('Access request not found for ID', { requestId });
