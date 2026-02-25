@@ -261,7 +261,7 @@ export default function DashboardLayout() {
     () => getUserPermissions(user?.id, user?.role, user?.modulePermissions as PermissionId[] | undefined),
     [user?.id, user?.role, user?.modulePermissions]
   );
-  const isSuperAdmin = isSuperAdminUser(user?.id);
+  const isSuperAdmin = isSuperAdminUser(user?.id, user?.role as UserRole | undefined);
   const hasAccess = (permission?: PermissionId) =>
     !permission || isSuperAdmin || userPermissions.includes(permission);
 

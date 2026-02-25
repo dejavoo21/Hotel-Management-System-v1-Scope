@@ -2,7 +2,7 @@ import { memo, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { navSections, type NavSection } from './navConfig';
 import { NavIcon } from './NavIcon';
-import { getUserPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
+import { getExplicitPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
 import { useAuthStore } from '@/stores/authStore';
 
 type SidebarRailProps = {
@@ -25,11 +25,12 @@ export const SidebarRail = memo(function SidebarRail({
   const { user } = useAuthStore();
   const location = useLocation();
 
+  // Use EXPLICIT permissions only (what admin has granted, no role defaults)
   const userPermissions = useMemo(
-    () => getUserPermissions(user?.id, user?.role),
-    [user?.id, user?.role]
+    () => getExplicitPermissions(user?.id, user?.modulePermissions as PermissionId[] | undefined),
+    [user?.id, user?.modulePermissions]
   );
-  const isSuperAdmin = isSuperAdminUser(user?.id);
+  const isSuperAdmin = isSuperAdminUser(user?.id, user?.role as UserRole | undefined);
   
   const hasAccess = (permission?: PermissionId) =>
     !permission || isSuperAdmin || userPermissions.includes(permission);

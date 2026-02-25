@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
-import { getUserPermissions, isSuperAdminUser, type PermissionId } from '@/utils/userAccess';
+import { getUserPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
 import SkipLink from '@/components/SkipLink';
 
 // Layouts
@@ -73,7 +73,7 @@ function ModuleRoute({
     user?.role, 
     user?.modulePermissions as PermissionId[] | undefined
   );
-  const isSuperAdmin = isSuperAdminUser(user?.id);
+  const isSuperAdmin = isSuperAdminUser(user?.id, user?.role as UserRole | undefined);
   const hasAccess = isSuperAdmin || userPermissions.includes(requiredModule);
 
   if (!hasAccess) {

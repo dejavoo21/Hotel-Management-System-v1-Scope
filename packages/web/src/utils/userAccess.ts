@@ -82,6 +82,27 @@ const saveStorage = <T>(key: string, value: T) => {
 export const getPermissionOptions = () => permissionOptions;
 
 /**
+ * Get EXPLICIT user permissions - from backend modulePermissions or localStorage ONLY (no role defaults)
+ * Use this for enforcing access control based on what admin has explicitly granted
+ * @param userId - User ID  
+ * @param backendPermissions - Module permissions from backend (from user.modulePermissions)
+ */
+export const getExplicitPermissions = (
+  userId?: string,
+  backendPermissions?: PermissionId[]
+): PermissionId[] => {
+  // If backend provides permissions, use those (source of truth)
+  if (backendPermissions && backendPermissions.length > 0) {
+    return backendPermissions;
+  }
+  
+  // Check local storage for admin-set permissions
+  if (!userId) return [];
+  const stored = loadStorage<Record<string, PermissionId[]>>(PERMISSIONS_KEY, {});
+  return stored[userId] || [];
+};
+
+/**
  * Get user permissions - prefers backend modulePermissions, falls back to local storage, then role defaults
  * @param userId - User ID
  * @param role - User role for default permissions
@@ -148,7 +169,10 @@ export const setSuperAdmin = (userId: string, enabled: boolean) => {
   saveStorage(SUPER_ADMIN_KEY, Array.from(ids));
 };
 
-export const isSuperAdminUser = (userId?: string) => {
+export const isSuperAdminUser = (userId?: string, role?: UserRole) => {
+  // If user has ADMIN role, they are always a super admin
+  if (role === 'ADMIN') return true;
+  // Also check localStorage for explicitly set super admins
   if (!userId) return false;
   return getSuperAdminIds().includes(userId);
 };

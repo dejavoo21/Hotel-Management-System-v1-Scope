@@ -79,7 +79,7 @@ export default function UsersPage() {
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const queryClient = useQueryClient();
   const permissionOptions = getPermissionOptions();
-  const currentUserIsSuperAdmin = isSuperAdminUser(currentUser?.id);
+  const currentUserIsSuperAdmin = isSuperAdminUser(currentUser?.id, currentUser?.role as UserRole | undefined);
 
   const { data: users, isLoading } = useQuery({
     queryKey: ['users'],
@@ -204,7 +204,7 @@ export default function UsersPage() {
     if (!selectedUser) return;
     setEditPermissions(getUserPermissions(selectedUser.id, selectedUser.role));
     setEditTitle(getUserTitles()[selectedUser.id] || '');
-    setEditSuperAdmin(isSuperAdminUser(selectedUser.id));
+    setEditSuperAdmin(isSuperAdminUser(selectedUser.id, selectedUser.role as UserRole | undefined));
     setEditTwoFactor(Boolean(selectedUser.twoFactorEnabled));
     setEditUserAvatar(getStoredUserAvatar(selectedUser.id));
     const prefsMap = loadSecurityPrefsMap();
@@ -281,7 +281,7 @@ export default function UsersPage() {
                 <tr key={user.id}>
                   <td>
                     <div className="flex items-center gap-3">
-                      {getRoleIcon(user.role, isSuperAdminUser(user.id))}
+                      {getRoleIcon(user.role, isSuperAdminUser(user.id, user.role as UserRole | undefined))}
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 text-sm font-medium text-primary-700">
                         {getStoredUserAvatar(user.id) ? (
                           <img

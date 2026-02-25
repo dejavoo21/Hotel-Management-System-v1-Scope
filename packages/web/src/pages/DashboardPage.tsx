@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { KPI_VALUE_CLASS, KPI_VALUE_CLASS_SM } from '@/styles/typography';
 import { useAuthStore } from '@/stores/authStore';
+import { getExplicitPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
 import {
   Area,
   AreaChart,
@@ -199,11 +200,21 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const globalRangeMenuRef = useRef<HTMLDivElement | null>(null);
   
-  // Permission check for financial data
-  // Receptionists should NOT see financial KPIs on dashboard (Total Revenue, ADR, Revenue chart)
-  // Only ADMIN and MANAGER roles can view financial metrics
+  // Permission check - use EXPLICIT permissions only (what admin has granted)
   const { user } = useAuthStore();
-  const canViewFinancials = user?.role === 'ADMIN' || user?.role === 'MANAGER';
+  const userPermissions = useMemo(
+    () => getExplicitPermissions(user?.id, user?.modulePermissions as PermissionId[] | undefined),
+    [user?.id, user?.modulePermissions]
+  );
+  const isSuperAdmin = isSuperAdminUser(user?.id, user?.role as UserRole | undefined);
+  
+  // Check specific permissions for dashboard elements
+  const canViewDashboard = isSuperAdmin || userPermissions.includes('dashboard');
+  const canViewBookings = isSuperAdmin || userPermissions.includes('bookings');
+  const canViewRooms = isSuperAdmin || userPermissions.includes('rooms');
+  const canViewFinancials = isSuperAdmin || userPermissions.includes('financials');
+  const canViewReviews = isSuperAdmin || userPermissions.includes('reviews');
+  const canViewHousekeeping = isSuperAdmin || userPermissions.includes('housekeeping');
 
   // MOCK DATA - replace with real data
   const currency = 'USD';
@@ -838,39 +849,45 @@ export default function DashboardPage() {
       <div className="grid items-stretch gap-6 2xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-5">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-        <KpiCard
-          title="New Bookings"
-          value={summary.newBookings.toLocaleString()}
-          trendPct={summary.trends.newBookings}
-          to="/bookings"
-          icon={
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M7 7h10M7 12h10M7 17h6" />
-            </svg>
-          }
-        />
-        <KpiCard
-          title="Check-In"
-          value={summary.checkIn.toLocaleString()}
-          trendPct={summary.trends.checkIn}
-          to="/bookings"
-          icon={
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M3 12h18M7 8l-4 4 4 4" />
-            </svg>
-          }
-        />
-        <KpiCard
-          title="Check-Out"
-          value={summary.checkOut.toLocaleString()}
-          trendPct={summary.trends.checkOut}
-          to="/bookings"
-          icon={
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M21 12H3m14 4l4-4-4-4" />
-            </svg>
-          }
-        />
+        {canViewBookings && (
+          <KpiCard
+            title="New Bookings"
+            value={summary.newBookings.toLocaleString()}
+            trendPct={summary.trends.newBookings}
+            to="/bookings"
+            icon={
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M7 7h10M7 12h10M7 17h6" />
+              </svg>
+            }
+          />
+        )}
+        {canViewBookings && (
+          <KpiCard
+            title="Check-In"
+            value={summary.checkIn.toLocaleString()}
+            trendPct={summary.trends.checkIn}
+            to="/bookings"
+            icon={
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M3 12h18M7 8l-4 4 4 4" />
+              </svg>
+            }
+          />
+        )}
+        {canViewBookings && (
+          <KpiCard
+            title="Check-Out"
+            value={summary.checkOut.toLocaleString()}
+            trendPct={summary.trends.checkOut}
+            to="/bookings"
+            icon={
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M21 12H3m14 4l4-4-4-4" />
+              </svg>
+            }
+          />
+        )}
         {canViewFinancials && (
           <KpiCard
             title="Total Revenue"
@@ -889,17 +906,19 @@ export default function DashboardPage() {
             }
           />
         )}
-        <KpiCard
-          title="Occupancy"
-          value={`${Math.round((roomAvailability.occupied / totalRooms) * 100)}%`}
-          trendPct={2.14}
-          to="/rooms"
-          icon={
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M4 20h16M7 20V9l5-4 5 4v11M9 12h6" />
-            </svg>
-          }
-        />
+        {canViewRooms && (
+          <KpiCard
+            title="Occupancy"
+            value={`${Math.round((roomAvailability.occupied / totalRooms) * 100)}%`}
+            trendPct={2.14}
+            to="/rooms"
+            icon={
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M4 20h16M7 20V9l5-4 5 4v11M9 12h6" />
+              </svg>
+            }
+          />
+        )}
         {canViewFinancials && (
           <KpiCard
             title="ADR"
@@ -916,96 +935,98 @@ export default function DashboardPage() {
       </div>
 
         <div className="grid gap-5 xl:grid-cols-[0.72fr_1.28fr]">
-          <ClickableCard to="/rooms" ariaLabel="Go to rooms" className="h-full rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-slate-900">Room Availability</div>
-              <button
-                type="button"
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-50"
-                aria-label="More"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6h.01M12 12h.01M12 18h.01" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="mt-4">
-              <div className="h-6 w-full overflow-hidden rounded-full bg-slate-100">
-                <div className="flex h-full w-full">
-                  <div
-                    className="h-full bg-emerald-200"
-                    style={{ width: `${Math.round((roomAvailability.occupied / totalRooms) * 100)}%` }}
-                    title="Occupied"
-                  />
-                  <div
-                    className="h-full bg-lime-200"
-                    style={{ width: `${Math.round((roomAvailability.reserved / totalRooms) * 100)}%` }}
-                    title="Reserved"
-                  />
-                  <div
-                    className="h-full bg-emerald-50"
-                    style={{ width: `${Math.round((roomAvailability.available / totalRooms) * 100)}%` }}
-                    title="Available"
-                  />
-                  <div
-                    className="h-full bg-slate-200"
-                    style={{ width: `${Math.round((roomAvailability.notReady / totalRooms) * 100)}%` }}
-                    title="Not Ready"
-                  />
-                </div>
+          {canViewRooms && (
+            <ClickableCard to="/rooms" ariaLabel="Go to rooms" className="h-full rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold text-slate-900">Room Availability</div>
+                <button
+                  type="button"
+                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-50"
+                  aria-label="More"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6h.01M12 12h.01M12 18h.01" />
+                  </svg>
+                </button>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-4">
-                <div className="flex items-start gap-3">
-                  <span className="mt-1 h-10 w-1 rounded-full bg-emerald-200" aria-hidden="true" />
-                  <div>
-                    <div className="text-xs font-semibold text-slate-500">Occupied</div>
-                    <div className={`mt-1 ${KPI_VALUE_CLASS_SM}`}>{roomAvailability.occupied}</div>
+              <div className="mt-4">
+                <div className="h-6 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div className="flex h-full w-full">
+                    <div
+                      className="h-full bg-emerald-200"
+                      style={{ width: `${Math.round((roomAvailability.occupied / totalRooms) * 100)}%` }}
+                      title="Occupied"
+                    />
+                    <div
+                      className="h-full bg-lime-200"
+                      style={{ width: `${Math.round((roomAvailability.reserved / totalRooms) * 100)}%` }}
+                      title="Reserved"
+                    />
+                    <div
+                      className="h-full bg-emerald-50"
+                      style={{ width: `${Math.round((roomAvailability.available / totalRooms) * 100)}%` }}
+                      title="Available"
+                    />
+                    <div
+                      className="h-full bg-slate-200"
+                      style={{ width: `${Math.round((roomAvailability.notReady / totalRooms) * 100)}%` }}
+                      title="Not Ready"
+                    />
                   </div>
                 </div>
-                <div className="flex items-start gap-3">
-                  <span className="mt-1 h-10 w-1 rounded-full bg-lime-200" aria-hidden="true" />
-                  <div>
-                    <div className="text-xs font-semibold text-slate-500">Reserved</div>
-                    <div className={`mt-1 ${KPI_VALUE_CLASS_SM}`}>{roomAvailability.reserved}</div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <span className="mt-1 h-10 w-1 rounded-full bg-emerald-100" aria-hidden="true" />
-                  <div>
-                    <div className="text-xs font-semibold text-slate-500">Available</div>
-                    <div className={`mt-1 ${KPI_VALUE_CLASS_SM}`}>{roomAvailability.available}</div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <span className="mt-1 h-10 w-1 rounded-full bg-slate-200" aria-hidden="true" />
-                  <div>
-                    <div className="text-xs font-semibold text-slate-500">Not Ready</div>
-                    <div className={`mt-1 ${KPI_VALUE_CLASS_SM}`}>{roomAvailability.notReady}</div>
-                  </div>
-                </div>
-              </div>
 
-              <div className="mt-10 grid gap-2 sm:grid-cols-3">
-                {roomSignals.map((signal) => {
-                  const toneClass =
-                    signal.tone === 'amber'
-                      ? 'bg-amber-50 text-amber-800 ring-amber-100'
-                      : signal.tone === 'sky'
-                        ? 'bg-sky-50 text-sky-800 ring-sky-100'
-                        : 'bg-lime-50 text-lime-800 ring-lime-100';
-                  return (
-                    <div key={signal.label} className={`rounded-xl px-3 py-2 ring-1 ${toneClass}`}>
-                      <div className="text-[11px] font-semibold text-slate-500">{signal.label}</div>
-                      <div className="mt-1 text-sm font-semibold">{signal.value}</div>
+                <div className="mt-4 grid grid-cols-2 gap-4">
+                  <div className="flex items-start gap-3">
+                    <span className="mt-1 h-10 w-1 rounded-full bg-emerald-200" aria-hidden="true" />
+                    <div>
+                      <div className="text-xs font-semibold text-slate-500">Occupied</div>
+                      <div className={`mt-1 ${KPI_VALUE_CLASS_SM}`}>{roomAvailability.occupied}</div>
                     </div>
-                  );
-                })}
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="mt-1 h-10 w-1 rounded-full bg-lime-200" aria-hidden="true" />
+                    <div>
+                      <div className="text-xs font-semibold text-slate-500">Reserved</div>
+                      <div className={`mt-1 ${KPI_VALUE_CLASS_SM}`}>{roomAvailability.reserved}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="mt-1 h-10 w-1 rounded-full bg-emerald-100" aria-hidden="true" />
+                    <div>
+                      <div className="text-xs font-semibold text-slate-500">Available</div>
+                      <div className={`mt-1 ${KPI_VALUE_CLASS_SM}`}>{roomAvailability.available}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="mt-1 h-10 w-1 rounded-full bg-slate-200" aria-hidden="true" />
+                    <div>
+                      <div className="text-xs font-semibold text-slate-500">Not Ready</div>
+                      <div className={`mt-1 ${KPI_VALUE_CLASS_SM}`}>{roomAvailability.notReady}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-10 grid gap-2 sm:grid-cols-3">
+                  {roomSignals.map((signal) => {
+                    const toneClass =
+                      signal.tone === 'amber'
+                        ? 'bg-amber-50 text-amber-800 ring-amber-100'
+                        : signal.tone === 'sky'
+                          ? 'bg-sky-50 text-sky-800 ring-sky-100'
+                          : 'bg-lime-50 text-lime-800 ring-lime-100';
+                    return (
+                      <div key={signal.label} className={`rounded-xl px-3 py-2 ring-1 ${toneClass}`}>
+                        <div className="text-[11px] font-semibold text-slate-500">{signal.label}</div>
+                        <div className="mt-1 text-sm font-semibold">{signal.value}</div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          </ClickableCard>
+            </ClickableCard>
+          )}
 
           {canViewFinancials && (
             <ClickableCard to="/expenses" ariaLabel="Go to revenue and expenses" className="min-w-0 h-full overflow-hidden rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
@@ -1075,58 +1096,61 @@ export default function DashboardPage() {
           </ClickableCard>
           )}
 
-          <ClickableCard to="/bookings" ariaLabel="Go to reservations" className="h-full rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-slate-900">Reservations</div>
-              <select
-                className="min-w-[126px] rounded-full bg-lime-200 py-1.5 pl-4 pr-10 text-[11px] font-semibold text-slate-900"
-                value={reservationsRange}
-                onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-                onChange={(e) => {
-                  e.stopPropagation();
-                  setReservationsRange(e.target.value as any);
-                }}
-              >
-                <option value="7d">Last 7 Days</option>
-                <option value="3m">Last 3 Months</option>
-                <option value="6m">Last 6 Months</option>
-                <option value="1y">Last 1 Year</option>
-              </select>
-            </div>
-
-            <div className="mt-3 flex items-center gap-4 text-xs font-semibold text-slate-500">
-              <span className="inline-flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-200" />
-                Booked
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-lime-200" />
-                Canceled
-              </span>
-            </div>
-
-            <div className="mt-4 h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={reservationsByDay} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#e2e8f0" />
-                  <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} width={32} />
-                  <Tooltip contentStyle={{ borderRadius: 12, borderColor: '#e2e8f0' }} />
-                  <Bar dataKey="booked" fill="#bbf7d0" radius={[10, 10, 10, 10]} />
-                  <Bar dataKey="canceled" fill="#d9f99d" radius={[10, 10, 10, 10]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </ClickableCard>
-
-          <ClickableCard to="/reports" ariaLabel="Go to booking platform report" className="min-w-0 h-full rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-slate-900">Booking by Platform</div>
-                <div className="text-xs font-semibold text-slate-500">{dashboardRangeLabel}</div>
+          {canViewBookings && (
+            <ClickableCard to="/bookings" ariaLabel="Go to reservations" className="h-full rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold text-slate-900">Reservations</div>
+                <select
+                  className="min-w-[126px] rounded-full bg-lime-200 py-1.5 pl-4 pr-10 text-[11px] font-semibold text-slate-900"
+                  value={reservationsRange}
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    setReservationsRange(e.target.value as any);
+                  }}
+                >
+                  <option value="7d">Last 7 Days</option>
+                  <option value="3m">Last 3 Months</option>
+                  <option value="6m">Last 6 Months</option>
+                  <option value="1y">Last 1 Year</option>
+                </select>
               </div>
-              <button
+
+              <div className="mt-3 flex items-center gap-4 text-xs font-semibold text-slate-500">
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-200" />
+                  Booked
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-lime-200" />
+                  Canceled
+                </span>
+              </div>
+
+              <div className="mt-4 h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={reservationsByDay} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#e2e8f0" />
+                    <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} width={32} />
+                    <Tooltip contentStyle={{ borderRadius: 12, borderColor: '#e2e8f0' }} />
+                    <Bar dataKey="booked" fill="#bbf7d0" radius={[10, 10, 10, 10]} />
+                    <Bar dataKey="canceled" fill="#d9f99d" radius={[10, 10, 10, 10]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </ClickableCard>
+          )}
+
+          {canViewFinancials && (
+            <ClickableCard to="/reports" ariaLabel="Go to booking platform report" className="min-w-0 h-full rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-slate-900">Booking by Platform</div>
+                  <div className="text-xs font-semibold text-slate-500">{dashboardRangeLabel}</div>
+                </div>
+                <button
                 type="button"
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-50"
                 aria-label="More"
@@ -1186,14 +1210,16 @@ export default function DashboardPage() {
               </div>
             </div>
           </ClickableCard>
+          )}
         </div>
 
-        <div className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <button
-                type="button"
-                className="text-sm font-semibold text-slate-900 hover:underline"
+        {canViewBookings && (
+          <div className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <button
+                  type="button"
+                  className="text-sm font-semibold text-slate-900 hover:underline"
                 onClick={() => navigate('/bookings')}
               >
                 Booking List
@@ -1267,21 +1293,23 @@ export default function DashboardPage() {
           {filteredBookings.length === 0 ? (
             <div className="mt-4 rounded-2xl bg-slate-50 p-6 text-sm text-slate-600">No bookings match your search.</div>
           ) : null}
-        </div>
+          </div>
+        )}
 
         </div>
 
         <div className="min-w-0 flex h-full flex-col gap-5">
-          <ClickableCard to="/reviews" ariaLabel="Go to reviews" className="min-h-[460px] rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-slate-900">Overall Rating</div>
-                <div className="text-xs font-semibold text-slate-500">Based on {dashboardRangeLabel.toLowerCase()} reviews</div>
-              </div>
-              <button
-                type="button"
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-50"
-                aria-label="More"
+          {canViewReviews && (
+            <ClickableCard to="/reviews" ariaLabel="Go to reviews" className="min-h-[460px] rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-slate-900">Overall Rating</div>
+                  <div className="text-xs font-semibold text-slate-500">Based on {dashboardRangeLabel.toLowerCase()} reviews</div>
+                </div>
+                <button
+                  type="button"
+                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-50"
+                  aria-label="More"
                 onClick={(e) => e.stopPropagation()}
               >
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -1337,39 +1365,41 @@ export default function DashboardPage() {
                 <div className="mt-1 text-sm font-semibold text-lime-700">{reviewSummary.responseRate}%</div>
               </div>
             </div>
-          </ClickableCard>
+            </ClickableCard>
+          )}
 
-          <ClickableCard to="/housekeeping" ariaLabel="Go to housekeeping tasks" className="min-h-[420px] rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-slate-900">Tasks</div>
-              <button
-                type="button"
-                className="rounded-full bg-lime-200 p-2 text-slate-900 hover:bg-lime-300"
-                aria-label="Add"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate('/housekeeping');
-                }}
-              >
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {tasks.map((t) => (
-                <div
-                  key={t.id}
-                  className={`group flex items-start gap-3 rounded-2xl p-3 ring-1 transition ${
-                    t.completed ? 'bg-slate-50 ring-slate-100' : 'bg-lime-50 ring-lime-100 hover:bg-lime-100'
-                  }`}
+          {canViewHousekeeping && (
+            <ClickableCard to="/housekeeping" ariaLabel="Go to housekeeping tasks" className="min-h-[420px] rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold text-slate-900">Tasks</div>
+                <button
+                  type="button"
+                  className="rounded-full bg-lime-200 p-2 text-slate-900 hover:bg-lime-300"
+                  aria-label="Add"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate('/housekeeping');
+                  }}
                 >
-                  <input
-                    type="checkbox"
-                    checked={t.completed}
-                    onChange={(e) => {
-                      e.stopPropagation();
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {tasks.map((t) => (
+                  <div
+                    key={t.id}
+                    className={`group flex items-start gap-3 rounded-2xl p-3 ring-1 transition ${
+                      t.completed ? 'bg-slate-50 ring-slate-100' : 'bg-lime-50 ring-lime-100 hover:bg-lime-100'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={t.completed}
+                      onChange={(e) => {
+                        e.stopPropagation();
                       const checked = e.target.checked;
                       setTaskCompletionById((prev) => ({ ...prev, [t.id]: checked }));
                     }}
@@ -1397,17 +1427,19 @@ export default function DashboardPage() {
                   </button>
                 </div>
               ))}
-            </div>
-          </ClickableCard>
+              </div>
+            </ClickableCard>
+          )}
 
-          <ClickableCard to="/settings?tab=audit-trail" ariaLabel="Go to audit trail" className="min-h-[500px] rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-slate-900">Recent Activities</div>
-              <button
-                type="button"
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-50"
-                aria-label="More"
-                onClick={(e) => e.stopPropagation()}
+          {isSuperAdmin && (
+            <ClickableCard to="/settings?tab=audit-trail" ariaLabel="Go to audit trail" className="min-h-[500px] rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold text-slate-900">Recent Activities</div>
+                <button
+                  type="button"
+                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-50"
+                  aria-label="More"
+                  onClick={(e) => e.stopPropagation()}
               >
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6h.01M12 12h.01M12 18h.01" />
@@ -1432,8 +1464,9 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ))}
-            </div>
-          </ClickableCard>
+              </div>
+            </ClickableCard>
+          )}
         </div>
 
       </div>
@@ -1441,4 +1474,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-

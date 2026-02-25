@@ -2,7 +2,7 @@ import { memo, useMemo, useRef, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { navSections, type NavItem } from './navConfig';
 import { NavIcon } from './NavIcon';
-import { getUserPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
+import { getExplicitPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
 import { useAuthStore } from '@/stores/authStore';
 
 type SidebarFlyoutProps = {
@@ -28,11 +28,12 @@ export const SidebarFlyout = memo(function SidebarFlyout({
   const location = useLocation();
   const flyoutRef = useRef<HTMLDivElement>(null);
 
+  // Use EXPLICIT permissions only (what admin has granted, no role defaults)
   const userPermissions = useMemo(
-    () => getUserPermissions(user?.id, user?.role),
-    [user?.id, user?.role]
+    () => getExplicitPermissions(user?.id, user?.modulePermissions as PermissionId[] | undefined),
+    [user?.id, user?.modulePermissions]
   );
-  const isSuperAdmin = isSuperAdminUser(user?.id);
+  const isSuperAdmin = isSuperAdminUser(user?.id, user?.role as UserRole | undefined);
   
   const hasAccess = (permission?: PermissionId) =>
     !permission || isSuperAdmin || userPermissions.includes(permission);
@@ -57,6 +58,7 @@ export const SidebarFlyout = memo(function SidebarFlyout({
   // Click outside handler
   useEffect(() => {
     if (!openSection || !isLocked) return;
+
 
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
