@@ -1,0 +1,30 @@
+name: SLA Escalation Cron
+
+on:
+  schedule:
+    # Run every minute
+    - cron: '* * * * *'
+  workflow_dispatch:
+    # Allow manual trigger from GitHub Actions UI
+
+jobs:
+  sla-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger SLA Escalation Job
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://laflo-hms-production.up.railway.app/api/jobs/sla-escalation/run" \
+            -H "X-Job-Secret: ${{ secrets.SLA_JOB_SECRET }}" \
+            -H "Content-Type: application/json")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          
+          echo "HTTP Status: $http_code"
+          echo "Response: $body"
+          
+          if [ "$http_code" -ne 200 ]; then
+            echo "SLA job failed with status $http_code"
+            exit 1
+          fi
