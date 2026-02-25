@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
-import { authenticate, requireReceptionist } from '../middleware/auth.js';
+import { authenticate, requireReceptionist, requireManager } from '../middleware/auth.js';
 import * as guestController from '../controllers/guest.controller.js';
 
 const router = Router();
@@ -56,6 +56,6 @@ router.get('/:id', guestController.getGuestById);
 router.get('/:id/history', guestController.getGuestHistory);
 router.post('/', requireReceptionist, validate(createGuestSchema), guestController.createGuest);
 router.patch('/:id', requireReceptionist, validate(updateGuestSchema), guestController.updateGuest);
-router.delete('/:id', guestController.deleteGuest);
+router.delete('/:id', requireManager, guestController.deleteGuest);
 
 export default router;

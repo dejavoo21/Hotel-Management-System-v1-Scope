@@ -61,8 +61,20 @@ export interface DashboardSummary {
   availableRooms: number;
   outOfServiceRooms: number;
   inHouseGuests: number;
-  todayRevenue: number;
-  monthRevenue: number;
+  todayRevenue?: number;      // Only for ADMIN/MANAGER
+  monthRevenue?: number;      // Only for ADMIN/MANAGER
+}
+
+// Role-filtered dashboard response (financial data stripped for non-managers)
+export interface DashboardSummaryFiltered {
+  todayArrivals: number;
+  todayDepartures: number;
+  currentOccupancy: number;
+  totalRooms: number;
+  occupiedRooms: number;
+  availableRooms: number;
+  outOfServiceRooms: number;
+  inHouseGuests: number;
 }
 
 export interface DashboardArrival {

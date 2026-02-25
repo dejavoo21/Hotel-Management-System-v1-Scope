@@ -1,5 +1,5 @@
 import api from './api';
-import type { LoginCredentials, LoginResponse, User } from '@/types';
+import type { LoginCredentials, LoginResponse, User, PresenceStatus, PresenceUpdate } from '@/types';
 
 export const authService = {
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
@@ -86,6 +86,11 @@ export const authService = {
       purpose,
       rememberDevice,
     });
+    return response.data.data;
+  },
+
+  async updatePresence(presenceStatus: PresenceStatus): Promise<PresenceUpdate> {
+    const response = await api.patch('/auth/me/presence', { presenceStatus });
     return response.data.data;
   },
 };

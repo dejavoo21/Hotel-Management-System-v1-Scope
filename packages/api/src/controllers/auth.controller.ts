@@ -1,7 +1,10 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest, ApiResponse } from '../types/index.js';
 import * as authService from '../services/auth.service.js';
+import * as presenceService from '../services/presence.service.js';
+import type { PresenceStatus } from '../services/presence.service.js';
 import { logger } from '../config/logger.js';
+import { getIo } from '../index.js';
 
 /**
  * Login user and return tokens
@@ -363,6 +366,57 @@ export async function verifyEmailOtp(
       Boolean(rememberDevice)
     );
     res.json({ success: true, data: result, message: 'Login successful' });
+  } catch (error) {
+    next(error);
+  }
+}
+/**
+ * Update user presence status
+ * Persists to DB and broadcasts to hotel room via socket
+ */
+export async function updatePresence(
+  req: AuthenticatedRequest,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: 'Not authenticated',
+      });
+      return;
+    }
+
+    const { presenceStatus } = req.body as { presenceStatus: PresenceStatus };
+
+    // Update presence via service
+    const update = await presenceService.setPresenceOverride(req.user.id, presenceStatus);
+
+    if (!update) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update presence',
+      });
+      return;
+    }
+
+    // Broadcast to hotel room via socket
+    try {
+      const io = getIo();
+      if (io) {
+        io.to(`hotel:${req.user.hotelId}`).emit('presence:update', update);
+        logger.debug(`Presence broadcast via REST: ${req.user.email} -> ${presenceStatus}`);
+      }
+    } catch (err) {
+      logger.warn('Socket broadcast failed for presence update:', err);
+    }
+
+    res.json({
+      success: true,
+      data: update,
+      message: 'Presence updated',
+    });
   } catch (error) {
     next(error);
   }

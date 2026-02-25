@@ -1,6 +1,28 @@
 import { prisma } from '../config/database.js';
 import { DashboardSummary, DashboardArrival, DashboardDeparture, HousekeepingSummary, PriorityRoom } from '../types/index.js';
 import { startOfDay, endOfDay, subDays, format } from '../utils/date.js';
+import { Role } from '@prisma/client';
+
+// Roles that can see financial data
+const FINANCIAL_ROLES: Role[] = [Role.ADMIN, Role.MANAGER];
+
+/**
+ * Build dashboard payload filtered by role
+ * ADMIN/MANAGER: all metrics including financials
+ * RECEPTIONIST/HOUSEKEEPING: excludes financial data
+ */
+export function buildDashboardPayload(
+  fullSummary: DashboardSummary,
+  role: Role
+): DashboardSummary | Omit<DashboardSummary, 'todayRevenue' | 'monthRevenue'> {
+  // Non-financial roles get stripped data
+  if (!FINANCIAL_ROLES.includes(role)) {
+    const { todayRevenue, monthRevenue, ...safeData } = fullSummary;
+    return safeData;
+  }
+  // ADMIN/MANAGER get full data
+  return fullSummary;
+}
 
 /**
  * Get dashboard summary for a hotel

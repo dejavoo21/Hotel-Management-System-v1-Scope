@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
+import { usePresenceStore } from '@/stores/presenceStore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { accessRequestService, messageService, notificationService } from '@/services';
 import { getNotificationIcon, getNotificationColor, formatNotificationTime } from '@/services/notifications';
@@ -14,6 +15,8 @@ import {
   ackAccessRequest,
 } from '@/utils/accessRequestAck';
 import AppChatbot from '@/components/support/AppChatbot';
+import { PresenceDot, PresenceMenu } from '@/components/presence';
+import { useSocketPresence } from '@/hooks/useSocketPresence';
 
 type NavigationItem = {
   name: string;
@@ -242,6 +245,11 @@ export default function DashboardLayout() {
   const setGlobalSearch = useUiStore((s) => s.setGlobalSearch);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Socket presence - establishes connection and handles presence events
+  useSocketPresence();
+  const { isConnected, getEffectiveStatus } = usePresenceStore();
+  const currentUserEffectiveStatus = user ? getEffectiveStatus(user.id, true) : 'OFFLINE';
 
   const handleLogout = async () => {
     await logout();
@@ -977,7 +985,7 @@ export default function DashboardLayout() {
 
             {/* Right side (match reference ordering: avatar/name then icons) */}
             <div className="flex items-center justify-end gap-2">
-            {/* User avatar */}
+            {/* User avatar with presence */}
             <div ref={userMenuRef} className="relative flex items-center">
               <button
                 type="button"
@@ -990,22 +998,38 @@ export default function DashboardLayout() {
                   <p className="text-sm font-medium text-slate-900">{user?.firstName} {user?.lastName}</p>
                   <p className="text-xs text-slate-500">{user?.role}</p>
                 </div>
-                <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center overflow-hidden">
-                  {profileAvatar ? (
-                    <img src={profileAvatar} alt="Profile" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-sm font-medium text-amber-700">
-                      {user?.firstName?.[0]}{user?.lastName?.[0]}
-                    </span>
-                  )}
+                {/* Avatar with presence dot */}
+                <div className="relative">
+                  <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center overflow-hidden">
+                    {profileAvatar ? (
+                      <img src={profileAvatar} alt="Profile" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-sm font-medium text-amber-700">
+                        {user?.firstName?.[0]}{user?.lastName?.[0]}
+                      </span>
+                    )}
+                  </div>
+                  {/* Presence indicator dot */}
+                  <div className="absolute -bottom-0.5 -right-0.5">
+                    <PresenceDot status={currentUserEffectiveStatus} size="sm" />
+                  </div>
                 </div>
               </button>
 
               {showUserMenu && (
                 <div
                   role="menu"
-                  className="absolute right-0 top-14 w-48 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+                  className="absolute right-0 top-14 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
                 >
+                  {/* Presence status selector */}
+                  <div className="px-4 py-3 border-b border-slate-100">
+                    <p className="text-xs font-medium text-slate-500 mb-2">Set status</p>
+                    <PresenceMenu 
+                      currentStatus={currentUserEffectiveStatus}
+                      isConnected={isConnected}
+                    />
+                  </div>
+                  
                   <button
                     type="button"
                     role="menuitem"

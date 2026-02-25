@@ -1,9 +1,11 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest, ApiResponse, DashboardSummary, DashboardArrival, DashboardDeparture, HousekeepingSummary } from '../types/index.js';
 import * as dashboardService from '../services/dashboard.service.js';
+import { logger } from '../config/logger.js';
 
 /**
  * Get dashboard summary
+ * Financial data (todayRevenue, monthRevenue) only returned for ADMIN/MANAGER roles
  */
 export async function getSummary(
   req: AuthenticatedRequest,
@@ -12,11 +14,19 @@ export async function getSummary(
 ): Promise<void> {
   try {
     const hotelId = req.user!.hotelId;
-    const summary = await dashboardService.getDashboardSummary(hotelId);
+    const role = req.user!.role;
+    
+    // Get full summary from service
+    const fullSummary = await dashboardService.getDashboardSummary(hotelId);
+    
+    // Filter based on role (strips financial data for non-ADMIN/MANAGER)
+    const filteredSummary = dashboardService.buildDashboardPayload(fullSummary, role);
+    
+    logger.debug(`Dashboard summary for role=${role}: financial data ${('todayRevenue' in filteredSummary) ? 'included' : 'excluded'}`);
 
     res.json({
       success: true,
-      data: summary,
+      data: filteredSummary as DashboardSummary,
     });
   } catch (error) {
     next(error);

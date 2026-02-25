@@ -28,6 +28,9 @@ model User {
   isActive      Boolean        @default(true)
   mustChangePassword Boolean   @default(false)
   lastLoginAt   DateTime?
+  // Presence fields
+  presenceStatus   PresenceStatus @default(AVAILABLE)
+  lastSeenAt       DateTime?
   // 2FA fields
   twoFactorEnabled Boolean     @default(false)
   twoFactorSecret  String?     // Encrypted TOTP secret
@@ -54,6 +57,13 @@ enum Role {
   MANAGER
   RECEPTIONIST
   HOUSEKEEPING
+}
+
+enum PresenceStatus {
+  AVAILABLE
+  BUSY
+  DND
+  AWAY
 }
 
 model RefreshToken {

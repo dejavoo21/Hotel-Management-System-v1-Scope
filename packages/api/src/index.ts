@@ -9,6 +9,17 @@ import { startImapPolling } from './services/imap.service.js';
 
 const isDemoMode = !config.databaseUrl || process.env.DEMO_MODE === 'true';
 
+// Module-level io reference for getIo() export
+let ioInstance: SocketIOServer | null = null;
+
+/**
+ * Get the Socket.IO server instance
+ * Used by controllers to broadcast events
+ */
+export function getIo(): SocketIOServer | null {
+  return ioInstance;
+}
+
 async function startServer(): Promise<void> {
   try {
     if (isDemoMode) {
@@ -38,6 +49,8 @@ async function startServer(): Promise<void> {
     setupSocketHandlers(io);
     logger.info('Socket.IO initialized');
 
+    // Store io instance for getIo() export
+    ioInstance = io;
     app.set('io', io);
 
     httpServer.listen(config.port, () => {

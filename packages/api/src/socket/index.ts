@@ -3,6 +3,8 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config/index.js';
 import { logger } from '../config/logger.js';
 import { TokenPayload } from '../types/index.js';
+import * as presenceService from '../services/presence.service.js';
+import type { PresenceStatus } from '../services/presence.service.js';
 
 interface AuthenticatedSocket extends Socket {
   user?: {
@@ -39,7 +41,7 @@ export function setupSocketHandlers(io: SocketIOServer): void {
     }
   });
 
-  io.on('connection', (socket: AuthenticatedSocket) => {
+  io.on('connection', async (socket: AuthenticatedSocket) => {
     const user = socket.user;
     if (!user) return;
 
@@ -50,6 +52,27 @@ export function setupSocketHandlers(io: SocketIOServer): void {
 
     // Join role-specific room
     socket.join(`role:${user.role}`);
+
+    // === PRESENCE: Mark user online and broadcast ===
+    try {
+      const presenceUpdate = await presenceService.markUserOnline(
+        user.userId,
+        user.email,
+        user.hotelId,
+        socket.id
+      );
+      
+      // Broadcast to all users in the hotel
+      io.to(`hotel:${user.hotelId}`).emit('presence:update', presenceUpdate);
+      
+      // Send current online users list to the newly connected user
+      const onlineUsers = presenceService.getHotelOnlineUsers(user.hotelId);
+      socket.emit('presence:list', onlineUsers);
+      
+      logger.debug(`Presence broadcast: ${user.email} online in hotel ${user.hotelId}`);
+    } catch (err) {
+      logger.error(`Failed to mark user online: ${user.email}`, err);
+    }
 
     // Handle room subscription
     socket.on('subscribe:room', (roomId: string) => {
@@ -73,9 +96,47 @@ export function setupSocketHandlers(io: SocketIOServer): void {
       logger.debug(`Socket ${socket.id} unsubscribed from booking:${bookingId}`);
     });
 
+    // === PRESENCE: Handle presence override setting ===
+    socket.on('presence:set', async (status: string) => {
+      const validStatuses = ['AVAILABLE', 'BUSY', 'DND', 'AWAY'];
+      if (!validStatuses.includes(status)) {
+        socket.emit('error', { message: `Invalid presence status: ${status}` });
+        return;
+      }
+      
+      try {
+        const update = await presenceService.setPresenceOverride(
+          user.userId,
+          status as PresenceStatus
+        );
+        
+        if (update) {
+          // Broadcast updated presence to all hotel users
+          io.to(`hotel:${user.hotelId}`).emit('presence:update', update);
+          logger.debug(`Presence override: ${user.email} set to ${status}`);
+        }
+      } catch (err) {
+        logger.error(`Failed to set presence override: ${user.email}`, err);
+        socket.emit('error', { message: 'Failed to update presence' });
+      }
+    });
+
     // Handle disconnect
-    socket.on('disconnect', (reason) => {
+    socket.on('disconnect', async (reason) => {
       logger.info(`Socket disconnected: ${socket.id} (Reason: ${reason})`);
+      
+      // === PRESENCE: Mark user offline and broadcast ===
+      try {
+        const presenceUpdate = await presenceService.markUserOffline(user.userId);
+        
+        if (presenceUpdate) {
+          // Broadcast offline status to all hotel users
+          io.to(`hotel:${user.hotelId}`).emit('presence:update', presenceUpdate);
+          logger.debug(`Presence broadcast: ${user.email} offline`);
+        }
+      } catch (err) {
+        logger.error(`Failed to mark user offline: ${user.email}`, err);
+      }
     });
 
     socket.on('error', (error) => {
@@ -144,6 +205,13 @@ export interface ServerToClientEvents {
 
   // Notification events
   'notification': (data: { type: 'info' | 'success' | 'warning' | 'error'; title: string; message: string }) => void;
+
+  // Presence events
+  'presence:update': (data: { userId: string; email: string; isOnline: boolean; effectiveStatus: string; overrideStatus: string; lastSeenAt: Date | null }) => void;
+  'presence:list': (data: Array<{ userId: string; email: string; isOnline: boolean; effectiveStatus: string; overrideStatus: string; lastSeenAt: Date | null }>) => void;
+  
+  // Error events
+  'error': (data: { message: string }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -151,4 +219,5 @@ export interface ClientToServerEvents {
   'unsubscribe:room': (roomId: string) => void;
   'subscribe:booking': (bookingId: string) => void;
   'unsubscribe:booking': (bookingId: string) => void;
+  'presence:set': (status: 'AVAILABLE' | 'BUSY' | 'DND' | 'AWAY') => void;
 }

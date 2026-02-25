@@ -1,3 +1,16 @@
+// Presence types
+export type PresenceStatus = 'AVAILABLE' | 'BUSY' | 'DND' | 'AWAY';
+export type EffectiveStatus = PresenceStatus | 'OFFLINE';
+
+export interface PresenceUpdate {
+  userId: string;
+  email: string;
+  isOnline: boolean;
+  presenceStatus: PresenceStatus;
+  effectiveStatus: EffectiveStatus;
+  lastSeenAt: string | null;
+}
+
 // User types
 export interface User {
   id: string;
@@ -26,6 +39,8 @@ export interface User {
   isActive: boolean;
   mustChangePassword?: boolean;
   lastLoginAt?: string;
+  presenceStatus?: PresenceStatus;
+  lastSeenAt?: string | null;
   createdAt: string;
 }
 

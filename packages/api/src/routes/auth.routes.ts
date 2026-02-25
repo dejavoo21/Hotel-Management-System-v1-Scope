@@ -79,11 +79,16 @@ const verifyOtpSchema = z.object({
   rememberDevice: z.boolean().optional(),
 });
 
+const updatePresenceSchema = z.object({
+  presenceStatus: z.enum(['AVAILABLE', 'BUSY', 'DND', 'AWAY']),
+});
+
 // Routes
 router.post('/login', validate(loginSchema), authController.login);
 router.post('/logout', authenticate, authController.logout);
 router.post('/refresh', validate(refreshSchema), authController.refreshToken);
 router.get('/me', authenticate, authController.getCurrentUser);
+router.patch('/me/presence', authenticate, validate(updatePresenceSchema), authController.updatePresence);
 router.patch('/password', authenticate, validate(changePasswordSchema), authController.changePassword);
 
 // Password reset
