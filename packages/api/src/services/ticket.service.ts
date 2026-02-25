@@ -261,10 +261,32 @@ export async function applySlaPolicy(
   const responseMinutes = policy?.responseMinutes ?? DEFAULT_SLA.responseMinutes;
   const resolutionMinutes = policy?.resolutionMinutes ?? DEFAULT_SLA.resolutionMinutes;
 
-  return {
+  const dueDates = {
     responseDueAtUtc: new Date(now.getTime() + responseMinutes * 60 * 1000),
     resolutionDueAtUtc: new Date(now.getTime() + resolutionMinutes * 60 * 1000),
   };
+
+  // Log SLA_POLICY_APPLIED event
+  await prisma.activityLog.create({
+    data: {
+      userId: 'system',
+      entity: 'SLA_POLICY',
+      entityId: policy?.id || 'default',
+      action: 'SLA_POLICY_APPLIED',
+      details: {
+        hotelId,
+        category,
+        policyId: policy?.id || null,
+        policyName: policy ? `${policy.category}-${policy.department}` : 'DEFAULT',
+        responseMinutes,
+        resolutionMinutes,
+        responseDueAtUtc: dueDates.responseDueAtUtc.toISOString(),
+        resolutionDueAtUtc: dueDates.resolutionDueAtUtc.toISOString(),
+      },
+    },
+  });
+
+  return dueDates;
 }
 
 // ============================================
@@ -275,27 +297,30 @@ export async function applySlaPolicy(
  * Processes SLA escalations for all open tickets.
  * This is called by the cron job endpoint.
  *
- * @returns Summary of escalations processed
+ * @returns Summary of escalations processed (spec-compliant format)
  */
 export async function processSlaEscalations(): Promise<{
-  processed: number;
-  escalated: number;
-  breached: number;
+  checkedTickets: number;
+  escalationsTriggered: number;
+  overdueResponse: number;
+  overdueResolution: number;
   errors: string[];
 }> {
+  const jobStartTime = new Date();
   const result = {
-    processed: 0,
-    escalated: 0,
-    breached: 0,
+    checkedTickets: 0,
+    escalationsTriggered: 0,
+    overdueResponse: 0,
+    overdueResolution: 0,
     errors: [] as string[],
   };
 
   const now = new Date();
 
-  // Find all open tickets that haven't been responded to
+  // Find all open tickets (both responded and not responded)
   const openTickets = await prisma.ticket.findMany({
     where: {
-      status: { in: ['OPEN', 'PENDING'] },
+      status: { in: ['OPEN', 'PENDING', 'IN_PROGRESS'] },
       firstResponseAtUtc: null, // No response yet
     },
     include: {
@@ -308,22 +333,22 @@ export async function processSlaEscalations(): Promise<{
   });
 
   for (const ticket of openTickets) {
-    result.processed++;
+    result.checkedTickets++;
 
     try {
       const ticketAge = now.getTime() - ticket.createdAtUtc.getTime();
       const ticketAgeMinutes = ticketAge / (60 * 1000);
 
-      // Check if response SLA is breached
-      if (ticket.responseDueAtUtc && now > ticket.responseDueAtUtc) {
-        // SLA breached - mark as breached
+      // Check if response SLA is breached (no first response yet)
+      if (ticket.responseDueAtUtc && now > ticket.responseDueAtUtc && !ticket.firstResponseAtUtc) {
+        // Response SLA breached - mark as breached
         await prisma.ticket.update({
           where: { id: ticket.id },
           data: {
             status: 'BREACHED',
           },
         });
-        result.breached++;
+        result.overdueResponse++;
 
         // Log SLA_BREACH to audit trail
         await prisma.activityLog.create({
@@ -381,7 +406,6 @@ export async function processSlaEscalations(): Promise<{
             lastEscalationAtUtc: now,
           },
         });
-        result.escalated++;
 
         // Log ESCALATION_TRIGGERED to audit trail
         await prisma.activityLog.create({
@@ -441,12 +465,77 @@ export async function processSlaEscalations(): Promise<{
         } catch (notifError) {
           console.error('Failed to send escalation notification:', notifError);
         }
+
+        result.escalationsTriggered++;
+      }
+
+      // Check if resolution SLA is breached (responded but not resolved)
+      if (
+        ticket.resolutionDueAtUtc &&
+        now > ticket.resolutionDueAtUtc &&
+        ticket.firstResponseAtUtc &&
+        !ticket.resolvedAtUtc
+      ) {
+        result.overdueResolution++;
+
+        // Log resolution breach to audit trail if not already logged
+        await prisma.activityLog.create({
+          data: {
+            userId: 'system',
+            entity: 'TICKET',
+            entityId: ticket.id,
+            action: 'SLA_BREACH',
+            details: {
+              ticketId: ticket.id,
+              conversationId: ticket.conversationId,
+              category: ticket.category,
+              breachType: 'resolution',
+              resolutionDueAt: ticket.resolutionDueAtUtc?.toISOString(),
+              breachedAt: now.toISOString(),
+              delayMinutes: Math.round((now.getTime() - ticket.resolutionDueAtUtc.getTime()) / (60 * 1000)),
+            },
+          },
+        });
+
+        // Notify about resolution breach
+        try {
+          await notificationService.notifySlaBreach(
+            ticket.id,
+            ticket.conversationId,
+            ticket.hotelId,
+            'resolution',
+            ticket.category
+          );
+        } catch (notifError) {
+          console.error('Failed to send resolution breach notification:', notifError);
+        }
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       result.errors.push(`Ticket ${ticket.id}: ${errorMessage}`);
     }
   }
+
+  // Log SLA_JOB_RUN to audit trail
+  const jobEndTime = new Date();
+  await prisma.activityLog.create({
+    data: {
+      userId: 'system',
+      entity: 'SLA_JOB',
+      entityId: `run-${jobStartTime.toISOString()}`,
+      action: 'SLA_JOB_RUN',
+      details: {
+        startedAt: jobStartTime.toISOString(),
+        completedAt: jobEndTime.toISOString(),
+        runtimeMs: jobEndTime.getTime() - jobStartTime.getTime(),
+        checkedTickets: result.checkedTickets,
+        escalationsTriggered: result.escalationsTriggered,
+        overdueResponse: result.overdueResponse,
+        overdueResolution: result.overdueResolution,
+        errors: result.errors.length,
+      },
+    },
+  });
 
   return result;
 }

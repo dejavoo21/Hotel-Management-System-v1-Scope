@@ -58,7 +58,7 @@ router.post('/sla-escalation/run', validateJobSecret, async (req: Request, res: 
         durationMs,
         runAt: new Date().toISOString(),
       },
-      message: `Processed ${result.processed} tickets: ${result.escalated} escalated, ${result.breached} breached`,
+      message: `Checked ${result.checkedTickets} tickets: ${result.escalationsTriggered} escalated, ${result.overdueResponse} overdue response, ${result.overdueResolution} overdue resolution`,
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
