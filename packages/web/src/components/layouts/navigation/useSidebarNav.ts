@@ -8,7 +8,6 @@ export type SidebarNavState = {
 };
 
 export function useSidebarNav() {
-  const [openSection, setOpenSection] = useState<string | null>(null);
   const [lockedSection, setLockedSection] = useState<string | null>(null);
   const [hoveredSection, setHoveredSection] = useState<string | null>(null);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -17,7 +16,7 @@ export function useSidebarNav() {
   const leaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // The effective open section: locked takes priority, then hovered
-  const effectiveOpenSection = lockedSection || hoveredSection;
+  const openSection = lockedSection || hoveredSection;
 
   // Handle hover on icon - opens flyout as preview (unless locked to another section)
   const handleIconHover = useCallback((sectionId: string) => {
@@ -35,9 +34,6 @@ export function useSidebarNav() {
     // Small delay before showing flyout on hover
     hoverTimeoutRef.current = setTimeout(() => {
       setHoveredSection(sectionId);
-      if (!lockedSection) {
-        setOpenSection(sectionId);
-      }
     }, 100);
   }, [lockedSection]);
 
@@ -57,7 +53,6 @@ export function useSidebarNav() {
     // Small delay before closing to allow moving to flyout
     leaveTimeoutRef.current = setTimeout(() => {
       setHoveredSection(null);
-      setOpenSection(null);
     }, 150);
   }, [lockedSection]);
 
@@ -66,11 +61,9 @@ export function useSidebarNav() {
     if (lockedSection === sectionId) {
       // Already locked to this section, unlock
       setLockedSection(null);
-      setOpenSection(null);
     } else {
       // Lock to this section
       setLockedSection(sectionId);
-      setOpenSection(sectionId);
     }
   }, [lockedSection]);
 
@@ -88,7 +81,6 @@ export function useSidebarNav() {
     
     leaveTimeoutRef.current = setTimeout(() => {
       setHoveredSection(null);
-      setOpenSection(null);
     }, 150);
   }, [lockedSection]);
 
@@ -96,7 +88,6 @@ export function useSidebarNav() {
   const closeFlyout = useCallback(() => {
     setLockedSection(null);
     setHoveredSection(null);
-    setOpenSection(null);
   }, []);
 
   // Handle keyboard
@@ -130,7 +121,7 @@ export function useSidebarNav() {
   }, [handleKeyDown]);
 
   return {
-    openSection: effectiveOpenSection,
+    openSection,
     lockedSection,
     hoveredSection,
     isMobileOpen,
