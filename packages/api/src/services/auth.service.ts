@@ -790,20 +790,12 @@ export async function getUserById(userId: string) {
     throw new NotFoundError('User');
   }
 
-  // Default permissions by role if modulePermissions not set
-  const DEFAULT_PERMISSIONS: Record<string, string[]> = {
-    ADMIN: ['dashboard', 'bookings', 'rooms', 'messages', 'housekeeping', 'inventory', 'calendar', 'guests', 'financials', 'reviews', 'concierge', 'users', 'settings'],
-    MANAGER: ['dashboard', 'bookings', 'rooms', 'messages', 'housekeeping', 'inventory', 'calendar', 'guests', 'financials', 'reviews', 'concierge', 'settings'],
-    RECEPTIONIST: ['dashboard', 'bookings', 'rooms', 'messages', 'calendar', 'guests', 'financials'],
-    HOUSEKEEPING: ['dashboard', 'rooms', 'housekeeping', 'calendar', 'messages'],
-  };
-
-  // Return user with resolved modulePermissions
+  // Return user with EXPLICIT modulePermissions only - no role defaults
+  // Admin controls what each user can access via the user management page
+  // ADMIN role users are super admins and get all access via frontend check
   return {
     ...user,
-    modulePermissions: user.modulePermissions.length > 0
-      ? user.modulePermissions
-      : DEFAULT_PERMISSIONS[user.role] || [],
+    modulePermissions: user.modulePermissions || [],
   };
 }
 

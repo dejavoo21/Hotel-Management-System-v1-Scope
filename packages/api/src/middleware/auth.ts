@@ -22,13 +22,8 @@ export type ModulePermission =
   | 'users'
   | 'settings';
 
-// Default permissions by role (used when user has no modulePermissions set)
-const DEFAULT_PERMISSIONS: Record<Role, ModulePermission[]> = {
-  ADMIN: ['dashboard', 'bookings', 'rooms', 'messages', 'housekeeping', 'inventory', 'calendar', 'guests', 'financials', 'reviews', 'concierge', 'users', 'settings'],
-  MANAGER: ['dashboard', 'bookings', 'rooms', 'messages', 'housekeeping', 'inventory', 'calendar', 'guests', 'financials', 'reviews', 'concierge', 'settings'],
-  RECEPTIONIST: ['dashboard', 'bookings', 'rooms', 'messages', 'calendar', 'guests', 'financials'],
-  HOUSEKEEPING: ['dashboard', 'rooms', 'housekeeping', 'calendar', 'messages'],
-};
+// Note: No default permissions by role - permissions must be explicitly granted by admin
+// ADMIN role users are treated as super admins in the frontend
 
 function isPasswordChangeAllowedRoute(req: AuthenticatedRequest): boolean {
   const base = req.baseUrl || '';
@@ -85,10 +80,9 @@ export async function authenticate(
         return;
       }
 
-      // Resolve effective permissions: use stored permissions if set, otherwise use role defaults
-      const effectivePermissions = user.modulePermissions.length > 0
-        ? user.modulePermissions as ModulePermission[]
-        : DEFAULT_PERMISSIONS[user.role];
+      // Use EXPLICIT permissions only - no role defaults
+      // Admin controls access via user management page, ADMIN role = super admin (checked in frontend)
+      const effectivePermissions = (user.modulePermissions || []) as ModulePermission[];
 
       req.user = {
         id: user.id,
@@ -244,9 +238,8 @@ export async function optionalAuth(
     });
 
     if (user && user.isActive) {
-      const effectivePermissions = user.modulePermissions.length > 0
-        ? user.modulePermissions as ModulePermission[]
-        : DEFAULT_PERMISSIONS[user.role];
+      // Use EXPLICIT permissions only - no role defaults
+      const effectivePermissions = (user.modulePermissions || []) as ModulePermission[];
         
       req.user = {
         id: user.id,
