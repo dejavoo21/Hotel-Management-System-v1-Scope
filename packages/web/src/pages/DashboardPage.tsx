@@ -209,7 +209,6 @@ export default function DashboardPage() {
   const isSuperAdmin = isSuperAdminUser(user?.id, user?.role as UserRole | undefined);
   
   // Check specific permissions for dashboard elements
-  const canViewDashboard = isSuperAdmin || userPermissions.includes('dashboard');
   const canViewBookings = isSuperAdmin || userPermissions.includes('bookings');
   const canViewRooms = isSuperAdmin || userPermissions.includes('rooms');
   const canViewFinancials = isSuperAdmin || userPermissions.includes('financials');

@@ -12,6 +12,7 @@ import {
   setUserPermissions,
   setUserTitle,
   type PermissionId,
+  type UserRole,
 } from '@/utils/userAccess';
 import { appendAuditLog } from '@/utils/auditLog';
 import toast from 'react-hot-toast';
