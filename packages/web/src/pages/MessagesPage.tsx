@@ -205,6 +205,7 @@ export default function MessagesPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   // AI-suggested replies and actions (placeholders for future AI integration)
   const [recommendedActions] = useState<RecommendedAction[]>([]);
   const [aiLoading] = useState(false);
@@ -275,9 +276,14 @@ export default function MessagesPage() {
         if (ticket.priority !== priorityFilter) return false;
       }
       
+      // Department filter
+      if (departmentFilter !== 'all' && ticket) {
+        if (ticket.department !== departmentFilter) return false;
+      }
+      
       return true;
     });
-  }, [threads, slaFilter, statusFilter, categoryFilter, priorityFilter, ticketsByConversationId]);
+  }, [threads, slaFilter, statusFilter, categoryFilter, priorityFilter, departmentFilter, ticketsByConversationId]);
 
   const supportThreadQuery = useQuery({
     queryKey: ['live-support-thread', searchParams.get('support')],
@@ -641,7 +647,7 @@ export default function MessagesPage() {
           </div>
 
           {/* Additional Filter Dropdowns */}
-          <div className="mb-3 grid grid-cols-3 gap-1.5">
+          <div className="mb-3 grid grid-cols-2 gap-1.5">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -682,6 +688,20 @@ export default function MessagesPage() {
               <option value="MEDIUM">Medium</option>
               <option value="HIGH">High</option>
               <option value="URGENT">Urgent</option>
+            </select>
+            <select
+              value={departmentFilter}
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+              className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700"
+              title="Filter by department"
+            >
+              <option value="all">All Depts</option>
+              <option value="FRONT_DESK">Front Desk</option>
+              <option value="HOUSEKEEPING">Housekeeping</option>
+              <option value="MAINTENANCE">Maintenance</option>
+              <option value="CONCIERGE">Concierge</option>
+              <option value="BILLING">Billing</option>
+              <option value="MANAGEMENT">Management</option>
             </select>
           </div>
 
@@ -861,6 +881,18 @@ export default function MessagesPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
                 Create Task
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  toast.success('Charge added to guest folio');
+                }}
+                className="inline-flex items-center gap-1 rounded-lg border border-teal-200 bg-teal-50 px-2 py-1 text-[11px] font-semibold text-teal-700 hover:bg-teal-100"
+              >
+                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Charge Guest
               </button>
               {aiLoading ? (
                 <span className="text-[10px] text-slate-400">Loading AI suggestions...</span>
@@ -1088,6 +1120,29 @@ export default function MessagesPage() {
               </div>
             );
           })()}
+
+          {/* Room State/Status */}
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs font-semibold uppercase text-slate-500">Room Status</p>
+            <div className="mt-2 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500">Room Number</span>
+                <span className="text-xs font-semibold text-slate-800">305</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500">Occupancy</span>
+                <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">Occupied</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500">Housekeeping</span>
+                <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700">Clean</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500">Last Cleaned</span>
+                <span className="text-xs font-semibold text-slate-800">Today 10:30 AM</span>
+              </div>
+            </div>
+          </div>
 
           {/* Financial Summary */}
           <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
