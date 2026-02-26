@@ -6,6 +6,7 @@ import { messageService, ticketService } from '@/services';
 import { escalateTicket, type Ticket } from '@/services/tickets';
 import { useAuthStore } from '@/stores/authStore';
 import { usePresenceStore, getPresenceLabel } from '@/stores/presenceStore';
+import { useSocketPresence } from '@/hooks/useSocketPresence';
 import { PresenceDot } from '@/components/presence';
 import { ConversationList } from '@/components/support/ConversationList';
 import { TicketMetaBar } from '@/components/support/TicketMetaBar';
@@ -72,46 +73,18 @@ const sanitizePhone = (value?: string) => {
   return output;
 };
 
-const fallbackPhoneByThread: Record<string, string> = {
-  m1: '+15551230001',
-  m2: '+15551230002',
-};
-
 const resolveThreadPhone = (thread?: MessageThreadSummary | null) => {
   if (!thread) return '';
-  return sanitizePhone(thread.guest?.phone || fallbackPhoneByThread[thread.id] || '');
+  return sanitizePhone(thread.guest?.phone || '');
 };
-
-const mockThreads: MessageThreadSummary[] = [
-  {
-    id: 'm1',
-    subject: 'Alice Johnson',
-    status: 'OPEN',
-    guest: { firstName: 'Alice', lastName: 'Johnson', email: 'alice@example.com', phone: '+1 555 123 0001' },
-    booking: { bookingRef: 'BK-305', checkInDate: new Date().toISOString(), checkOutDate: new Date().toISOString() },
-    lastMessageAt: new Date().toISOString(),
-    lastMessage: { id: 'm1-last', body: 'Can I request a late check-out for Room 305?', senderType: 'GUEST', createdAt: new Date().toISOString(), guest: { firstName: 'Alice', lastName: 'Johnson' } },
-  },
-  {
-    id: 'm2',
-    subject: 'Michael Brown',
-    status: 'OPEN',
-    guest: { firstName: 'Michael', lastName: 'Brown', email: 'michael@example.com', phone: '+1 555 123 0002' },
-    booking: { bookingRef: 'BK-214', checkInDate: new Date().toISOString(), checkOutDate: new Date().toISOString() },
-    lastMessageAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-    lastMessage: { id: 'm2-last', body: "The air conditioning in my room isn't working.", senderType: 'GUEST', createdAt: new Date().toISOString(), guest: { firstName: 'Michael', lastName: 'Brown' } },
-  },
-];
-
-const mockMessages: ConversationMessage[] = [
-  { id: 'a1', body: 'Can I request a late check-out for Room 305?', senderType: 'GUEST', createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(), guest: { firstName: 'Alice', lastName: 'Johnson' } },
-  { id: 'a2', body: 'Yes, we can accommodate that. How late would you like to stay?', senderType: 'STAFF', createdAt: new Date(Date.now() - 50 * 60 * 1000).toISOString() },
-  { id: 'a3', body: 'I was hoping to stay until 2 PM. Is that possible?', senderType: 'GUEST', createdAt: new Date(Date.now() - 40 * 60 * 1000).toISOString(), guest: { firstName: 'Alice', lastName: 'Johnson' } },
-];
 
 export default function MessagesPageRedesigned() {
   const { user } = useAuthStore();
   const { getEffectiveStatus } = usePresenceStore();
+  
+  // Ensure socket connection for real-time presence updates
+  useSocketPresence();
+  
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
@@ -147,9 +120,10 @@ export default function MessagesPageRedesigned() {
     return map;
   }, [ticketsData]);
 
-  const threads = useMemo(() => (
-    (threadsData && threadsData.length > 0 ? threadsData : mockThreads) as MessageThreadSummary[]
-  ), [threadsData]);
+  const threads = useMemo(
+    () => (threadsData || []) as MessageThreadSummary[],
+    [threadsData]
+  );
 
   const supportAgentsQuery = useQuery<SupportAgent[]>({
     queryKey: ['support-agents'],
@@ -162,6 +136,15 @@ export default function MessagesPageRedesigned() {
     // Use presence store which has real socket data
     return getEffectiveStatus(agent.id);
   }, [getEffectiveStatus]);
+
+  // Real online agents count from presence store
+  const onlineAgentsCount = useMemo(() => {
+    const agents = supportAgentsQuery.data || [];
+    return agents.filter((a) => {
+      const status = getEffectiveStatus(a.id);
+      return status !== 'OFFLINE';
+    }).length;
+  }, [supportAgentsQuery.data, getEffectiveStatus]);
 
   // Close agents popover on outside click
   useEffect(() => {
@@ -207,7 +190,7 @@ export default function MessagesPageRedesigned() {
     : activeThread?.subject || 'Support';
   const activeMessages = useMemo(() => {
     if (activeThread && activeThread.messages.length > 0) return activeThread.messages;
-    return mockMessages;
+    return [];
   }, [activeThread]);
   const activeTicket = activeThreadId ? ticketsByConversationId.get(activeThreadId) : null;
 
@@ -383,7 +366,7 @@ export default function MessagesPageRedesigned() {
                 className="inline-flex items-center gap-2 text-xs text-slate-500 hover:text-slate-700 transition-colors"
               >
                 <span className="flex h-2 w-2 rounded-full bg-green-500" />
-                {supportAgentsQuery.data?.filter((a) => resolveSupportAgentPresence(a) !== 'OFFLINE').length || 0} agents online
+                {onlineAgentsCount} agents online
                 <svg className={`w-3 h-3 transition-transform ${showAgentsPopover ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
