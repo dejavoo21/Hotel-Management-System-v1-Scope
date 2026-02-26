@@ -1,11 +1,12 @@
 import { Router } from 'express';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireModuleAccess } from '../middleware/auth.js';
 import * as dashboardController from '../controllers/dashboard.controller.js';
 
 const router = Router();
 
-// All dashboard routes require authentication
+// All dashboard routes require authentication and dashboard permission
 router.use(authenticate);
+router.use(requireModuleAccess('dashboard'));
 
 // Dashboard endpoints
 router.get('/summary', dashboardController.getSummary);

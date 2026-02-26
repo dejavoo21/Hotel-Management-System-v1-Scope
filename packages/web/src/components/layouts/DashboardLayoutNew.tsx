@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
+import { usePresenceStore } from '@/stores/presenceStore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { accessRequestService, messageService, notificationService } from '@/services';
 import { getNotificationIcon, getNotificationColor, formatNotificationTime } from '@/services/notifications';
-import { getUserPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
+import { getExplicitPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
 import toast from 'react-hot-toast';
 import { useUiStore } from '@/stores/uiStore';
 import {
@@ -14,6 +15,8 @@ import {
   ackAccessRequest,
 } from '@/utils/accessRequestAck';
 import AppChatbot from '@/components/support/AppChatbot';
+import { PresenceDot } from '@/components/presence';
+import { useSocketPresence } from '@/hooks/useSocketPresence';
 import { SidebarRail, SidebarFlyout, useSidebarNav, navSections } from './navigation';
 
 type GlobalSearchTarget = {
@@ -62,12 +65,19 @@ export default function DashboardLayout() {
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   
   const { user, logout } = useAuthStore();
+  const { getEffectiveStatus } = usePresenceStore();
   const setGlobalSearch = useUiStore((s) => s.setGlobalSearch);
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Initialize socket connection and presence subscriptions
+  useSocketPresence();
+
   // Sidebar nav state
   const sidebarNav = useSidebarNav();
+
+  // Get current user's effective presence status
+  const userPresenceStatus = user ? getEffectiveStatus(user.id, true) : 'OFFLINE';
 
   const handleLogout = async () => {
     await logout();
@@ -75,8 +85,8 @@ export default function DashboardLayout() {
   };
 
   const userPermissions = useMemo(
-    () => getUserPermissions(user?.id, user?.role),
-    [user?.id, user?.role]
+    () => getExplicitPermissions(user?.id, user?.modulePermissions as PermissionId[] | undefined),
+    [user?.id, user?.modulePermissions]
   );
   const isSuperAdmin = isSuperAdminUser(user?.id, user?.role as UserRole | undefined);
   const hasAccess = (permission?: PermissionId) =>
@@ -540,14 +550,20 @@ export default function DashboardLayout() {
                     <p className="text-sm font-medium text-slate-900">{user?.firstName} {user?.lastName}</p>
                     <p className="text-xs text-slate-500">{user?.role}</p>
                   </div>
-                  <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden">
-                    {profileAvatar ? (
-                      <img src={profileAvatar} alt="Profile" className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="text-sm font-medium text-slate-600">
-                        {user?.firstName?.[0]}{user?.lastName?.[0]}
-                      </span>
-                    )}
+                  <div className="relative">
+                    <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden">
+                      {profileAvatar ? (
+                        <img src={profileAvatar} alt="Profile" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-sm font-medium text-slate-600">
+                          {user?.firstName?.[0]}{user?.lastName?.[0]}
+                        </span>
+                      )}
+                    </div>
+                    {/* Presence indicator dot */}
+                    <div className="absolute -bottom-0.5 -right-0.5">
+                      <PresenceDot status={userPresenceStatus} size="sm" />
+                    </div>
                   </div>
                 </button>
 

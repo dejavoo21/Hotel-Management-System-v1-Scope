@@ -2,6 +2,8 @@ import { memo, useMemo } from 'react';
 import type { MessageThreadSummary } from '@/types';
 import type { Ticket } from '@/services/tickets';
 import { getTimeRemaining, getEscalationBadge } from '@/services/tickets';
+import { PresenceDot } from '@/components/presence';
+import { usePresenceStore } from '@/stores/presenceStore';
 
 type ConversationListProps = {
   threads: MessageThreadSummary[];
@@ -46,6 +48,8 @@ export const ConversationList = memo(function ConversationList({
   onTabChange,
   currentUserId,
 }: ConversationListProps) {
+  const { getEffectiveStatus } = usePresenceStore();
+
   // Filter threads based on active tab
   const filteredThreads = useMemo(() => {
     return threads.filter((thread) => {
@@ -207,6 +211,9 @@ export const ConversationList = memo(function ConversationList({
             const escalationInfo = ticket ? getEscalationBadge(ticket) : null;
             const priorityDot = PRIORITY_DOTS[ticket?.priority || 'MEDIUM'];
             const hasUnread = Boolean(thread.lastMessage && thread.lastMessage.senderType === 'GUEST');
+            // Get presence status for the assigned support agent (if any)
+            const assignedUserId = ticket?.assignedToId;
+            const agentPresence = assignedUserId ? getEffectiveStatus(assignedUserId, false) : null;
 
             return (
               <button
@@ -223,7 +230,7 @@ export const ConversationList = memo(function ConversationList({
                 `}
               >
                 <div className="flex items-start gap-3">
-                  {/* Avatar with priority indicator */}
+                  {/* Avatar with priority indicator and presence dot */}
                   <div className="relative shrink-0">
                     <div className={`
                       w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold
@@ -231,7 +238,14 @@ export const ConversationList = memo(function ConversationList({
                     `}>
                       {getInitials(resolveThreadName(thread))}
                     </div>
+                    {/* Priority indicator on bottom-right */}
                     <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${priorityDot}`} />
+                    {/* Presence dot for assigned agent (top-right) */}
+                    {agentPresence && (
+                      <div className="absolute -top-0.5 -right-0.5">
+                        <PresenceDot status={agentPresence} size="xs" />
+                      </div>
+                    )}
                   </div>
 
                   {/* Content */}

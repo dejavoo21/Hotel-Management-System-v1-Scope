@@ -203,7 +203,13 @@ export default function UsersPage() {
 
   useEffect(() => {
     if (!selectedUser) return;
-    setEditPermissions(getUserPermissions(selectedUser.id, selectedUser.role));
+    // Use modulePermissions from database if available, otherwise fall back to localStorage/defaults
+    const dbPermissions = selectedUser.modulePermissions as PermissionId[] | undefined;
+    if (dbPermissions && dbPermissions.length > 0) {
+      setEditPermissions(dbPermissions);
+    } else {
+      setEditPermissions(getUserPermissions(selectedUser.id, selectedUser.role));
+    }
     setEditTitle(getUserTitles()[selectedUser.id] || '');
     setEditSuperAdmin(isSuperAdminUser(selectedUser.id, selectedUser.role as UserRole | undefined));
     setEditTwoFactor(Boolean(selectedUser.twoFactorEnabled));
@@ -537,6 +543,7 @@ export default function UsersPage() {
                     email: formData.get('email') as string,
                     role: formData.get('role') as User['role'],
                     twoFactorEnabled: editTwoFactor,
+                    modulePermissions: editPermissions,
                   },
                 });
                 setUserTitle(selectedUser.id, editTitle);

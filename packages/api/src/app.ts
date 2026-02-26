@@ -38,6 +38,7 @@ import jobRoutes from './routes/job.routes.js';
 import ticketRoutes from './routes/ticket.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import aiHooksRoutes from './routes/aiHooks.routes.js';
+import presenceRoutes from './routes/presence.routes.js';
 
 const normalizeOrigin = (value?: string): string | undefined =>
   value ? value.replace(/\/+$/, '') : undefined;
@@ -217,6 +218,7 @@ export function createApp(): Application {
     app.use('/api/tickets', ticketRoutes);
     app.use('/api/notifications', notificationRoutes);
     app.use('/api/ai', aiHooksRoutes);
+    app.use('/api/presence', presenceRoutes);
   }
 
   // API documentation endpoint

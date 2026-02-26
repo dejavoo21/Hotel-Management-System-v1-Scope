@@ -21,3 +21,4 @@ export { default as accessRequestService } from './accessRequests';
 export { default as weatherSignalsService } from './weatherSignals';
 export { default as ticketService } from './tickets';
 export { default as notificationService } from './notifications';
+export { default as presenceService } from './presence';

@@ -175,6 +175,7 @@ export const requireReceptionist = requireRole(Role.ADMIN, Role.MANAGER, Role.RE
 /**
  * Middleware to require access to specific module(s)
  * Checks user's modulePermissions array
+ * ADMIN role users bypass permission checks (super admin)
  */
 export function requireModuleAccess(...modules: ModulePermission[]) {
   return (req: AuthenticatedRequest, res: Response<ApiResponse>, next: NextFunction): void => {
@@ -183,6 +184,12 @@ export function requireModuleAccess(...modules: ModulePermission[]) {
         success: false,
         error: 'Authentication required',
       });
+      return;
+    }
+
+    // ADMIN role users are super admins - bypass permission checks
+    if (req.user.role === Role.ADMIN) {
+      next();
       return;
     }
 

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
-import { authenticate, requireReceptionist, requireManager } from '../middleware/auth.js';
+import { authenticate, requireReceptionist, requireManager, requireModuleAccess } from '../middleware/auth.js';
 import * as bookingController from '../controllers/booking.controller.js';
 
 const router = Router();
@@ -77,8 +77,9 @@ const querySchema = z.object({
   limit: z.string().optional(),
 });
 
-// All routes require authentication
+// All routes require authentication and bookings permission
 router.use(authenticate);
+router.use(requireModuleAccess('bookings'));
 
 // Routes
 router.get('/', validate(querySchema, 'query'), bookingController.getAllBookings);

@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
-import { getUserPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
+import { getExplicitPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
 import SkipLink from '@/components/SkipLink';
 
 // Layouts
@@ -58,6 +58,37 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Priority order for redirect when user doesn't have access to dashboard
+const MODULE_ROUTE_PRIORITY: { module: PermissionId; path: string }[] = [
+  { module: 'dashboard', path: '/' },
+  { module: 'bookings', path: '/bookings' },
+  { module: 'rooms', path: '/rooms' },
+  { module: 'housekeeping', path: '/housekeeping' },
+  { module: 'messages', path: '/messages' },
+  { module: 'guests', path: '/guests' },
+  { module: 'calendar', path: '/calendar' },
+  { module: 'inventory', path: '/inventory' },
+];
+
+// Helper to get first allowed page for a user
+function getFirstAllowedPath(user: { id?: string; role?: string; modulePermissions?: string[] } | null): string {
+  if (!user) return '/login';
+  
+  const isSuperAdmin = isSuperAdminUser(user.id, user.role as UserRole | undefined);
+  if (isSuperAdmin) return '/';
+  
+  const permissions = getExplicitPermissions(user.id, user.modulePermissions as PermissionId[] | undefined);
+  
+  for (const { module, path } of MODULE_ROUTE_PRIORITY) {
+    if (permissions.includes(module)) {
+      return path;
+    }
+  }
+  
+  // No allowed pages - go to not-authorized
+  return '/not-authorized';
+}
+
 // Module-protected route wrapper - checks module permissions
 function ModuleRoute({ 
   children, 
@@ -68,15 +99,19 @@ function ModuleRoute({
 }) {
   const { user } = useAuthStore();
   
-  const userPermissions = getUserPermissions(
+  const userPermissions = getExplicitPermissions(
     user?.id, 
-    user?.role, 
     user?.modulePermissions as PermissionId[] | undefined
   );
   const isSuperAdmin = isSuperAdminUser(user?.id, user?.role as UserRole | undefined);
   const hasAccess = isSuperAdmin || userPermissions.includes(requiredModule);
 
   if (!hasAccess) {
+    // Redirect to first allowed page instead of NotAuthorized
+    const firstAllowed = getFirstAllowedPath(user);
+    if (firstAllowed !== '/not-authorized') {
+      return <Navigate to={firstAllowed} replace />;
+    }
     return <NotAuthorizedPage />;
   }
 
@@ -99,7 +134,9 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
     if (user?.mustChangePassword) {
       return <Navigate to="/force-password-change" replace />;
     }
-    return <Navigate to="/" replace />;
+    // Redirect to first allowed page based on permissions
+    const firstAllowed = getFirstAllowedPath(user);
+    return <Navigate to={firstAllowed} replace />;
   }
 
   return <>{children}</>;

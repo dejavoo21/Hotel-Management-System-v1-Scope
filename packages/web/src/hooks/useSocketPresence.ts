@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import { usePresenceStore } from '@/stores/presenceStore';
 import { authService } from '@/services/auth';
+import { presenceService } from '@/services';
 import type { PresenceUpdate, ModulePermission } from '@/types';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -17,6 +18,7 @@ interface PermissionsUpdateEvent {
  * Hook to manage Socket.IO connection and presence subscriptions
  * Connects when user is authenticated, disconnects on logout
  * Also handles permissions:update events to keep user permissions in sync
+ * Fetches initial presence snapshot on connect
  */
 export function useSocketPresence() {
   const socketRef = useRef<Socket | null>(null);
@@ -29,6 +31,26 @@ export function useSocketPresence() {
     setMyPresence,
     clear: clearPresence,
   } = usePresenceStore();
+
+  // Fetch initial presence snapshot
+  const fetchPresenceSnapshot = useCallback(async () => {
+    try {
+      const snapshot = await presenceService.getSnapshot();
+      // Convert snapshot users to PresenceUpdate format
+      const updates: PresenceUpdate[] = snapshot.users.map(u => ({
+        userId: u.userId,
+        email: u.email,
+        isOnline: u.isOnline,
+        presenceStatus: u.presenceStatus,
+        effectiveStatus: u.effectiveStatus as PresenceUpdate['effectiveStatus'],
+        lastSeenAt: u.lastSeenAt,
+      }));
+      setPresenceList(updates);
+      console.log('[Presence] Snapshot loaded:', updates.length, 'users');
+    } catch (error) {
+      console.error('[Presence] Failed to fetch snapshot:', error);
+    }
+  }, [setPresenceList]);
 
   // Connect to socket when authenticated
   useEffect(() => {
@@ -62,6 +84,8 @@ export function useSocketPresence() {
     socket.on('connect', () => {
       console.log('[Socket] Connected:', socket.id);
       setConnected(true);
+      // Fetch presence snapshot after connection
+      fetchPresenceSnapshot();
     });
 
     socket.on('disconnect', (reason) => {
@@ -119,7 +143,7 @@ export function useSocketPresence() {
       socketRef.current = null;
       clearPresence();
     };
-  }, [isAuthenticated, accessToken, user?.id]);
+  }, [isAuthenticated, accessToken, user?.id, fetchPresenceSnapshot]);
 
   // Method to manually emit presence change via socket (optional, REST is primary)
   const emitPresenceSet = useCallback((status: string) => {
