@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
-import { usePresenceStore } from '@/stores/presenceStore';
+import { usePresenceStore, getPresenceLabel } from '@/stores/presenceStore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { accessRequestService, messageService, notificationService } from '@/services';
 import { getNotificationIcon, getNotificationColor, formatNotificationTime } from '@/services/notifications';
@@ -557,7 +557,7 @@ export default function DashboardLayout() {
                 >
                   <div className="hidden sm:block text-right">
                     <p className="text-sm font-medium text-slate-900">{user?.firstName} {user?.lastName}</p>
-                    <p className="text-xs text-slate-500">{user?.role}</p>
+                    <p className="text-xs text-slate-500">{getPresenceLabel(userPresenceStatus)} • {user?.role}</p>
                   </div>
                   <div className="relative">
                     <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden">
