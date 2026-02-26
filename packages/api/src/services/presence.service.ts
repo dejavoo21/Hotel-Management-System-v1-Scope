@@ -256,8 +256,8 @@ export function getHotelOnlineUsers(hotelId: string): PresenceUpdate[] {
   if (!userIds) return [];
 
   const results: PresenceUpdate[] = [];
-  for (const oderId of userIds) {
-    const entry = presenceStore.get(oderId);
+  for (const userId of userIds) {
+    const entry = presenceStore.get(userId);
     if (entry && entry.isOnline) {
       results.push({
         userId: entry.userId,
@@ -285,4 +285,39 @@ export function isUserOnline(userId: string): boolean {
  */
 export function getUserHotelId(userId: string): string | null {
   return presenceStore.get(userId)?.hotelId ?? null;
+}
+
+/**
+ * Get full hotel presence list (online + offline users)
+ * This makes the UI Teams-like: you can always see everyone.
+ */
+export async function getHotelPresenceSnapshot(hotelId: string): Promise<PresenceUpdate[]> {
+  // Pull all staff users for this hotel from DB
+  const users = await prisma.user.findMany({
+    where: { hotelId, isActive: true },
+    select: {
+      id: true,
+      email: true,
+      // @ts-ignore - fields may not exist until migration is applied
+      presenceStatus: true,
+      // @ts-ignore
+      lastSeenAt: true,
+    },
+    orderBy: [{ lastSeenAt: 'desc' }, { email: 'asc' }],
+  });
+
+  return users.map((u) => {
+    const onlineEntry = presenceStore.get(u.id);
+    const overrideStatus = (u.presenceStatus as PresenceStatus) ?? DEFAULT_PRESENCE_STATUS;
+    const isOnline = Boolean(onlineEntry?.isOnline);
+
+    return {
+      userId: u.id,
+      email: u.email,
+      isOnline,
+      effectiveStatus: getEffectiveStatus(isOnline, onlineEntry?.overrideStatus ?? overrideStatus),
+      overrideStatus: onlineEntry?.overrideStatus ?? overrideStatus,
+      lastSeenAt: u.lastSeenAt ?? null,
+    };
+  });
 }

@@ -68,9 +68,9 @@ export function setupSocketHandlers(io: SocketIOServer): void {
       // Broadcast to all users in the hotel
       io.to(`hotel:${user.hotelId}`).emit('presence:update', presenceUpdate);
       
-      // Send current online users list to the newly connected user
-      const onlineUsers = presenceService.getHotelOnlineUsers(user.hotelId);
-      socket.emit('presence:list', onlineUsers);
+      // Send full hotel presence snapshot (online + offline) - Teams behavior
+      const snapshot = await presenceService.getHotelPresenceSnapshot(user.hotelId);
+      io.to(`hotel:${user.hotelId}`).emit('presence:list', snapshot);
       
       logger.debug(`Presence broadcast: ${user.email} online in hotel ${user.hotelId}`);
     } catch (err) {
@@ -116,6 +116,11 @@ export function setupSocketHandlers(io: SocketIOServer): void {
         if (update) {
           // Broadcast updated presence to all hotel users
           io.to(`hotel:${user.hotelId}`).emit('presence:update', update);
+          
+          // Send full presence list for Teams-like instant update
+          const snapshot = await presenceService.getHotelPresenceSnapshot(user.hotelId);
+          io.to(`hotel:${user.hotelId}`).emit('presence:list', snapshot);
+          
           logger.debug(`Presence override: ${user.email} set to ${status}`);
         }
       } catch (err) {
@@ -135,6 +140,11 @@ export function setupSocketHandlers(io: SocketIOServer): void {
         if (presenceUpdate) {
           // Broadcast offline status to all hotel users
           io.to(`hotel:${user.hotelId}`).emit('presence:update', presenceUpdate);
+          
+          // Send full presence list for Teams-like instant update
+          const snapshot = await presenceService.getHotelPresenceSnapshot(user.hotelId);
+          io.to(`hotel:${user.hotelId}`).emit('presence:list', snapshot);
+          
           logger.debug(`Presence broadcast: ${user.email} offline`);
         }
       } catch (err) {
