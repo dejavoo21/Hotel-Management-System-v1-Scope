@@ -70,9 +70,7 @@ export async function markUserOnline(
       select: { id: true, presenceStatus: true, lastSeenAt: true },
     });
     if (user) {
-      // @ts-expect-error - presenceStatus added in migration
       overrideStatus = (user.presenceStatus as PresenceStatus) ?? DEFAULT_PRESENCE_STATUS;
-      // @ts-expect-error - lastSeenAt added in migration
       lastSeenAt = user.lastSeenAt ?? null;
     }
   } catch {
@@ -123,10 +121,7 @@ export async function markUserOffline(userId: string): Promise<PresenceUpdate | 
   try {
     await prisma.user.update({
       where: { id: userId },
-      data: { 
-        // @ts-expect-error - lastSeenAt added in migration
-        lastSeenAt: now 
-      },
+      data: { lastSeenAt: now },
     });
   } catch (err) {
     logger.error(`Failed to update lastSeenAt for user ${userId}:`, err);
@@ -170,15 +165,8 @@ export async function setPresenceOverride(
     try {
       const user = await prisma.user.update({
         where: { id: userId },
-        data: { 
-          // @ts-expect-error - presenceStatus added in migration
-          presenceStatus: status 
-        },
-        select: { 
-          email: true, 
-          // @ts-expect-error - lastSeenAt added in migration
-          lastSeenAt: true 
-        },
+        data: { presenceStatus: status },
+        select: { email: true, lastSeenAt: true },
       });
       logger.info(`Presence: Offline user ${user.email} override set to ${status}`);
       return {
@@ -187,7 +175,6 @@ export async function setPresenceOverride(
         isOnline: false,
         effectiveStatus: 'OFFLINE',
         overrideStatus: status,
-        // @ts-expect-error - lastSeenAt added in migration
         lastSeenAt: user.lastSeenAt,
       };
     } catch {
@@ -199,10 +186,7 @@ export async function setPresenceOverride(
   try {
     await prisma.user.update({
       where: { id: userId },
-      data: { 
-        // @ts-expect-error - presenceStatus added in migration
-        presenceStatus: status 
-      },
+      data: { presenceStatus: status },
     });
   } catch (err) {
     logger.error(`Failed to update presenceStatus for user ${userId}:`, err);
@@ -250,7 +234,6 @@ export async function getUserPresence(userId: string): Promise<PresenceUpdate | 
 
     if (!user) return null;
 
-    // @ts-expect-error - presenceStatus added in migration
     const presenceStatus = (user.presenceStatus as PresenceStatus) ?? DEFAULT_PRESENCE_STATUS;
     return {
       userId,
@@ -258,7 +241,6 @@ export async function getUserPresence(userId: string): Promise<PresenceUpdate | 
       isOnline: false,
       effectiveStatus: 'OFFLINE',
       overrideStatus: presenceStatus,
-      // @ts-expect-error - lastSeenAt added in migration
       lastSeenAt: user.lastSeenAt,
     };
   } catch {

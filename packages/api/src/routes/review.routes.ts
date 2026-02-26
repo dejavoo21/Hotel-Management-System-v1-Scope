@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireModuleAccess } from '../middleware/auth.js';
 import * as reviewController from '../controllers/review.controller.js';
 
 const router = Router();
@@ -19,6 +19,9 @@ const responseSchema = z.object({
 });
 
 router.use(authenticate);
+
+// Require reviews module access
+router.use(requireModuleAccess('reviews'));
 
 router.get('/', reviewController.listReviews);
 router.post('/', validate(createSchema), reviewController.createReview);

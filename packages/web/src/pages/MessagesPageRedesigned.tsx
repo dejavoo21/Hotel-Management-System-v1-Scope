@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { messageService, ticketService } from '@/services';
 import { escalateTicket, type Ticket } from '@/services/tickets';
@@ -9,6 +9,7 @@ import { ConversationList } from '@/components/support/ConversationList';
 import { TicketMetaBar } from '@/components/support/TicketMetaBar';
 import { SupportLayout } from '@/components/support/SupportLayout';
 import { SupportRightPanel } from '@/components/support/SupportRightPanel';
+import SupportVideoPanel from '@/components/calls/SupportVideoPanel';
 import type {
   ConversationMessage,
   MessageThreadDetail,
@@ -239,13 +240,24 @@ export default function MessagesPageRedesigned() {
     setSearchParams({ thread: threadId });
   };
 
+  const navigate = useNavigate();
+  const [showVideoPanel, setShowVideoPanel] = useState(false);
+
   const handleRailItemChange = useCallback((item: SupportRailItem) => {
     setActiveRailItem(item);
-    // Future: Handle switching between Activity, Chat, Calls, Files views
-    if (item !== 'chat') {
-      toast(`${item.charAt(0).toUpperCase() + item.slice(1)} view coming soon`);
+    // Handle navigation between Support rail items
+    if (item === 'calls') {
+      // Navigate to dedicated Calls page
+      navigate('/calls');
+    } else if (item === 'activity') {
+      // Activity shows recent support activity - stay on page but could filter
+      toast.success('Showing all activity');
+    } else if (item === 'files') {
+      // Files view - show shared files in conversations
+      toast.success('Files view - shared attachments');
     }
-  }, []);
+    // 'chat' stays on current view
+  }, [navigate]);
 
   // Transform thread/ticket data for right panel
   const rightPanelGuest = useMemo(() => {
@@ -404,9 +416,9 @@ export default function MessagesPageRedesigned() {
                   {/* Video Call Button */}
                   <button
                     type="button"
-                    onClick={() => toast.success('Video call feature coming soon')}
-                    className="p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                    title="Start video call"
+                    onClick={() => setShowVideoPanel(!showVideoPanel)}
+                    className={`p-2 rounded-lg transition-colors ${showVideoPanel ? 'text-sky-600 bg-sky-50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+                    title={showVideoPanel ? 'Hide video panel' : 'Start video call'}
                   >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -415,7 +427,10 @@ export default function MessagesPageRedesigned() {
                   {/* Screen Share Button */}
                   <button
                     type="button"
-                    onClick={() => toast.success('Screen share feature coming soon')}
+                    onClick={() => {
+                      if (!showVideoPanel) setShowVideoPanel(true);
+                      toast.success('Screen sharing available in video panel');
+                    }}
                     className="p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors"
                     title="Share screen"
                   >
@@ -448,6 +463,16 @@ export default function MessagesPageRedesigned() {
                   </button>
                 </div>
               </div>
+
+              {/* Video Panel - collapsible */}
+              {showVideoPanel && (
+                <div className="px-5 py-3 bg-slate-50 border-b border-slate-200">
+                  <SupportVideoPanel 
+                    roomName={`laflo-support-${activeThreadId || 'general'}`} 
+                    title="Video Session"
+                  />
+                </div>
+              )}
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">

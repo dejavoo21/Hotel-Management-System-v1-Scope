@@ -1,7 +1,7 @@
 import { Router, raw } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
-import { authenticate, requireReceptionist, requireManager } from '../middleware/auth.js';
+import { authenticate, requireReceptionist, requireManager, requireModuleAccess } from '../middleware/auth.js';
 import * as paymentController from '../controllers/payment.controller.js';
 
 const router = Router();
@@ -47,6 +47,9 @@ router.post(
 
 // All other routes require authentication
 router.use(authenticate);
+
+// Require financials module access
+router.use(requireModuleAccess('financials'));
 
 // Routes
 router.get('/', validate(querySchema, 'query'), paymentController.getAllPayments);

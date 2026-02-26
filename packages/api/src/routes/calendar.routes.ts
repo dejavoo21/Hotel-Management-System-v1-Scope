@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireModuleAccess } from '../middleware/auth.js';
 import * as calendarController from '../controllers/calendar.controller.js';
 
 const router = Router();
@@ -29,6 +29,9 @@ const updateSchema = z.object({
 });
 
 router.use(authenticate);
+
+// Require calendar module access
+router.use(requireModuleAccess('calendar'));
 
 router.get('/', calendarController.listCalendarEvents);
 router.post('/', validate(createSchema), calendarController.createCalendarEvent);

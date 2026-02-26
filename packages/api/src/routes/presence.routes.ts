@@ -41,9 +41,7 @@ router.get('/snapshot', async (
         email: true,
         firstName: true,
         lastName: true,
-        // @ts-expect-error - presenceStatus added in migration
         presenceStatus: true,
-        // @ts-expect-error - lastSeenAt added in migration  
         lastSeenAt: true,
       },
     });
@@ -52,7 +50,6 @@ router.get('/snapshot', async (
     const users = allUsers.map(user => {
       const onlineEntry = onlineUsers.find(o => o.userId === user.id);
       const isOnline = Boolean(onlineEntry);
-      // @ts-expect-error - presenceStatus added in migration
       const presenceStatus = user.presenceStatus || 'AVAILABLE';
       
       return {
@@ -63,7 +60,6 @@ router.get('/snapshot', async (
         isOnline,
         presenceStatus,
         effectiveStatus: isOnline ? presenceStatus : 'OFFLINE',
-        // @ts-expect-error - lastSeenAt added in migration
         lastSeenAt: user.lastSeenAt,
       };
     });
