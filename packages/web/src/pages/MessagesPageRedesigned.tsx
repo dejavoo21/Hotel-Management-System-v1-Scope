@@ -209,6 +209,10 @@ export default function MessagesPageRedesigned() {
       setDraftMessage('');
       await Promise.all([activeThreadQuery.refetch(), refetchThreads()]);
     },
+    onError: (err: Error & { response?: { data?: { error?: string } } }) => {
+      const msg = err?.response?.data?.error || err?.message || 'Failed to send message';
+      toast.error(msg);
+    },
   });
 
   const assignMutation = useMutation({
