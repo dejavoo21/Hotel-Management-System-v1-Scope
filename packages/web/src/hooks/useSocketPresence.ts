@@ -1,13 +1,20 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { usePresenceStore } from '@/stores/presenceStore';
 import { authService } from '@/services/auth';
 import { presenceService } from '@/services';
+import { canAccessRoute, firstAllowedRoute } from '@/lib/access';
 import type { PresenceUpdate, ModulePermission } from '@/types';
 
-const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// Derive socket URL: prefer VITE_SOCKET_URL, else strip /api from VITE_API_URL
+const apiUrl = import.meta.env.VITE_API_URL;
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ?? 
+  (apiUrl ? new URL(apiUrl).origin : 'http://localhost:3001');
+
+console.log('[Socket] URL configured:', SOCKET_URL);
 
 interface PermissionsUpdateEvent {
   userId: string;
@@ -23,6 +30,8 @@ interface PermissionsUpdateEvent {
 export function useSocketPresence() {
   const socketRef = useRef<Socket | null>(null);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { accessToken, isAuthenticated, user, setUser } = useAuthStore();
   const { 
     setConnected, 
@@ -116,15 +125,24 @@ export function useSocketPresence() {
 
     // Permissions update - refetch user data when admin changes permissions
     socket.on('permissions:update', async (data: PermissionsUpdateEvent) => {
-      console.log('[Socket] Permissions update:', data);
+      console.log('[Socket] Permissions update received:', data);
       if (user && data.userId === user.id) {
         // Refetch current user to get updated permissions
         try {
           const updatedUser = await authService.getCurrentUser();
           if (updatedUser) {
+            console.log('[Socket] User permissions updated:', updatedUser.modulePermissions);
             setUser(updatedUser);
             // Invalidate any queries that depend on user permissions
             queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+            
+            // Check if current route is still allowed
+            const currentPath = location.pathname;
+            if (!canAccessRoute(updatedUser, currentPath)) {
+              const allowedRoute = firstAllowedRoute(updatedUser);
+              console.log('[Socket] Current route no longer allowed, redirecting to:', allowedRoute);
+              navigate(allowedRoute, { replace: true });
+            }
           }
         } catch (error) {
           console.error('[Socket] Failed to refetch user after permissions update:', error);

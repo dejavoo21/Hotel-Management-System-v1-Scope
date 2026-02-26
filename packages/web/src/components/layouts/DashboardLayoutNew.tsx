@@ -561,7 +561,7 @@ export default function DashboardLayout() {
                       )}
                     </div>
                     {/* Presence indicator dot */}
-                    <div className="absolute -bottom-0.5 -right-0.5">
+                    <div className="absolute -bottom-0.5 -right-0.5 z-10">
                       <PresenceDot status={userPresenceStatus} size="sm" />
                     </div>
                   </div>

@@ -10,10 +10,10 @@ interface PresenceDotProps {
 }
 
 const sizeClasses = {
-  xs: 'h-1.5 w-1.5',
-  sm: 'h-2 w-2',
-  md: 'h-3 w-3',
-  lg: 'h-4 w-4',
+  xs: 'h-2 w-2',
+  sm: 'h-3 w-3',
+  md: 'h-4 w-4',
+  lg: 'h-5 w-5',
 };
 
 /**
@@ -35,7 +35,7 @@ export function PresenceDot({
   return (
     <span
       className={`
-        inline-block rounded-full
+        inline-block rounded-full shadow-sm
         ${sizeClasses[size]}
         ${colorClass}
         ${showBorder ? 'ring-2 ring-white' : ''}
