@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { PAGE_TITLE_CLASS } from '@/styles/typography';
 import { callsService, getApiError, messageService } from '@/services';
@@ -49,11 +50,16 @@ type RecentCall = {
 };
 
 export default function CallsPage() {
+  const [searchParams] = useSearchParams();
   const [dialNumber, setDialNumber] = useState('');
   const [isDialing, setIsDialing] = useState(false);
   const [callStatus, setCallStatus] = useState<CallLifecycleStatus | null>(null);
   const [callStatusText, setCallStatusText] = useState('');
   const [recentCalls, setRecentCalls] = useState<RecentCall[]>([]);
+
+  // Support internal calls via ?room= query param
+  const roomParam = searchParams.get('room');
+  const isInternalCall = roomParam?.startsWith('laflo-internal-');
 
   const { data: threadData } = useQuery({
     queryKey: ['calls-threads'],
@@ -142,15 +148,30 @@ export default function CallsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className={PAGE_TITLE_CLASS}>Calls</h1>
-          <p className="text-sm text-text-muted">Place internal or external calls from one dialer interface.</p>
+          <h1 className={PAGE_TITLE_CLASS}>{isInternalCall ? 'Internal Call' : 'Calls'}</h1>
+          <p className="text-sm text-text-muted">
+            {isInternalCall
+              ? 'Staff-to-staff video call. Join the room below to connect.'
+              : 'Place internal or external calls from one dialer interface.'}
+          </p>
         </div>
       </div>
+
+      {/* Show internal call video panel prominently when room param is present */}
+      {isInternalCall && roomParam && (
+        <section className="rounded-3xl border-2 border-primary-200 bg-primary-50 p-4 shadow-card">
+          <div className="mb-4">
+            <h2 className="text-base font-semibold text-primary-700">Internal Video Call</h2>
+            <p className="text-sm text-primary-600 mt-1">Room: {roomParam}</p>
+          </div>
+          <SupportVideoPanel roomName={roomParam} title="Join Call" />
+        </section>
+      )}
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,520px)_minmax(0,1fr)]">
         <section className="rounded-3xl border border-border bg-card p-4 shadow-card">
           <div className="mb-4">
-            <h2 className="text-base font-semibold text-text-main">Dialer</h2>
+            <h2 className="text-base font-semibold text-text-main">{isInternalCall ? 'Phone Dialer' : 'Dialer'}</h2>
           </div>
 
           <DialerNumberDisplay

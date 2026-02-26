@@ -5,6 +5,8 @@ import toast from 'react-hot-toast';
 import { messageService, ticketService } from '@/services';
 import { escalateTicket, type Ticket } from '@/services/tickets';
 import { useAuthStore } from '@/stores/authStore';
+import { usePresenceStore, getPresenceLabel } from '@/stores/presenceStore';
+import { PresenceDot } from '@/components/presence';
 import { ConversationList } from '@/components/support/ConversationList';
 import { TicketMetaBar } from '@/components/support/TicketMetaBar';
 import { SupportLayout } from '@/components/support/SupportLayout';
@@ -18,7 +20,7 @@ import type {
 } from '@/types';
 
 type SupportRailItem = 'activity' | 'chat' | 'calls' | 'files';
-type PresenceStatus = 'AVAILABLE' | 'BUSY' | 'DND' | 'AWAY' | 'OFFLINE';
+import type { EffectiveStatus } from '@/types';
 
 const formatTime = (date: string) =>
   new Date(date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -109,6 +111,7 @@ const mockMessages: ConversationMessage[] = [
 
 export default function MessagesPageRedesigned() {
   const { user } = useAuthStore();
+  const { getEffectiveStatus } = usePresenceStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
@@ -116,8 +119,10 @@ export default function MessagesPageRedesigned() {
   const [activeTab, setActiveTab] = useState<'open' | 'assigned' | 'breach' | 'resolved'>('open');
   const [showRightPanel, setShowRightPanel] = useState(false);
   const [activeRailItem, setActiveRailItem] = useState<SupportRailItem>('chat');
+  const [showAgentsPopover, setShowAgentsPopover] = useState(false);
   
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const agentsPopoverRef = useRef<HTMLDivElement>(null);
 
   // Data Fetching
   const { data: threadsData, refetch: refetchThreads } = useQuery({
@@ -152,10 +157,30 @@ export default function MessagesPageRedesigned() {
     refetchInterval: 10_000,
   });
 
-  const resolveSupportAgentPresence = (agent: SupportAgent): PresenceStatus => {
-    const isCurrentUser = Boolean(user?.id && agent.id === user.id);
-    return (agent.online || isCurrentUser) ? 'AVAILABLE' : 'OFFLINE';
-  };
+  // Use presence store for agent status (Teams-like real-time presence)
+  const resolveSupportAgentPresence = useCallback((agent: SupportAgent): EffectiveStatus => {
+    // Use presence store which has real socket data
+    return getEffectiveStatus(agent.id);
+  }, [getEffectiveStatus]);
+
+  // Close agents popover on outside click
+  useEffect(() => {
+    if (!showAgentsPopover) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (agentsPopoverRef.current && !agentsPopoverRef.current.contains(event.target as Node)) {
+        setShowAgentsPopover(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showAgentsPopover]);
+
+  // Generate internal call room name (sorted user IDs for consistency)
+  const getInternalCallRoom = useCallback((otherUserId: string) => {
+    if (!user?.id) return 'laflo-internal';
+    const sortedIds = [user.id, otherUserId].sort();
+    return `laflo-internal-${sortedIds.join('-')}`;
+  }, [user?.id]);
 
   // Set active thread on load
   useEffect(() => {
@@ -350,9 +375,82 @@ export default function MessagesPageRedesigned() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-500">
-              {supportAgentsQuery.data?.filter((a) => resolveSupportAgentPresence(a) !== 'OFFLINE').length || 0} agents online
-            </span>
+            {/* Agents Online - clickable with popover */}
+            <div className="relative" ref={agentsPopoverRef}>
+              <button
+                type="button"
+                onClick={() => setShowAgentsPopover(!showAgentsPopover)}
+                className="inline-flex items-center gap-2 text-xs text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                <span className="flex h-2 w-2 rounded-full bg-green-500" />
+                {supportAgentsQuery.data?.filter((a) => resolveSupportAgentPresence(a) !== 'OFFLINE').length || 0} agents online
+                <svg className={`w-3 h-3 transition-transform ${showAgentsPopover ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Agents Popover */}
+              {showAgentsPopover && supportAgentsQuery.data && (
+                <div className="absolute right-0 top-full mt-2 w-72 rounded-xl border border-slate-200 bg-white shadow-lg z-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-slate-100">
+                    <h3 className="text-sm font-semibold text-slate-900">Team Members</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">Click to start internal call</p>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {supportAgentsQuery.data.map((agent) => {
+                      const status = resolveSupportAgentPresence(agent);
+                      const isCurrentUser = agent.id === user?.id;
+                      return (
+                        <button
+                          key={agent.id}
+                          type="button"
+                          disabled={isCurrentUser}
+                          onClick={() => {
+                            if (!isCurrentUser) {
+                              setShowAgentsPopover(false);
+                              navigate(`/calls?room=${getInternalCallRoom(agent.id)}`);
+                            }
+                          }}
+                          className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+                            isCurrentUser
+                              ? 'bg-slate-50 cursor-default'
+                              : 'hover:bg-slate-50'
+                          }`}
+                        >
+                          {/* Agent Avatar with Presence Dot */}
+                          <div className="relative">
+                            <div className="w-9 h-9 rounded-full bg-slate-600 flex items-center justify-center">
+                              <span className="text-xs font-medium text-white">
+                                {agent.firstName?.[0]}{agent.lastName?.[0]}
+                              </span>
+                            </div>
+                            <div className="absolute -bottom-0.5 -right-0.5">
+                              <PresenceDot status={status} size="sm" />
+                            </div>
+                          </div>
+                          {/* Agent Info */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-900 truncate">
+                              {agent.firstName} {agent.lastName}
+                              {isCurrentUser && <span className="text-slate-400 font-normal"> (you)</span>}
+                            </p>
+                            <p className="text-xs text-slate-500 truncate">
+                              {getPresenceLabel(status)} • {agent.role || 'Staff'}
+                            </p>
+                          </div>
+                          {/* Call icon */}
+                          {!isCurrentUser && status !== 'OFFLINE' && (
+                            <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => setShowRightPanel(true)}

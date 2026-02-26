@@ -60,13 +60,14 @@ const scoreTarget = (query: string, target: GlobalSearchTarget) => {
 export default function DashboardLayout() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [globalSearchActiveIndex, setGlobalSearchActiveIndex] = useState(0);
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   
   const { user, logout } = useAuthStore();
-  const { getEffectiveStatus } = usePresenceStore();
+  const { getEffectiveStatus, isConnected } = usePresenceStore();
   const setGlobalSearch = useUiStore((s) => s.setGlobalSearch);
   const navigate = useNavigate();
   const location = useLocation();
@@ -580,58 +581,106 @@ export default function DashboardLayout() {
                 {showUserMenu && (
                   <div
                     role="menu"
-                    className="absolute right-0 top-14 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+                    className="absolute right-0 top-14 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg z-50"
                   >
-                    {/* Teams-like Status Picker */}
+                    {/* Teams-like Status Picker - Collapsed/Expanded */}
                     <div className="px-4 py-3">
-                      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                        Status
-                      </div>
-                      <div className="mt-2 grid grid-cols-2 gap-2">
-                        {presenceOptions.map((opt) => (
-                          <button
-                            key={opt.key}
-                            type="button"
-                            onClick={() => {
-                              emitPresenceSet(opt.key);
-                            }}
-                            className={`flex items-center justify-between rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors ${
-                              userPresenceStatus === opt.key || (opt.key === 'APPEAR_OFFLINE' && userPresenceStatus === 'OFFLINE')
-                                ? 'border-primary-500 bg-primary-50 text-primary-700'
-                                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                            }`}
-                          >
-                            <span>{opt.label}</span>
-                            <span className="ml-2">
-                              <PresenceDot status={opt.key === 'APPEAR_OFFLINE' ? 'OFFLINE' : opt.key} size="xs" showBorder={false} />
-                            </span>
-                          </button>
-                        ))}
-                      </div>
+                      {/* Current status row - click to expand */}
+                      <button
+                        type="button"
+                        onClick={() => setShowStatusPicker(!showStatusPicker)}
+                        className="w-full flex items-center justify-between rounded-lg px-2 py-2 text-sm hover:bg-slate-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <PresenceDot status={userPresenceStatus} size="sm" showBorder={false} />
+                          <span className="font-medium text-slate-700">
+                            {isConnected ? getPresenceLabel(userPresenceStatus) : 'Offline'}
+                          </span>
+                        </div>
+                        <svg
+                          className={`w-4 h-4 text-slate-400 transition-transform ${showStatusPicker ? 'rotate-180' : ''}`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+
+                      {/* Expanded status options */}
+                      {showStatusPicker && (
+                        <div className="mt-2 space-y-1">
+                          {!isConnected && (
+                            <p className="text-xs text-amber-600 px-2 py-1 bg-amber-50 rounded">
+                              You're offline. Reconnecting…
+                            </p>
+                          )}
+                          {presenceOptions.map((opt) => (
+                            <button
+                              key={opt.key}
+                              type="button"
+                              disabled={!isConnected}
+                              onClick={() => {
+                                emitPresenceSet(opt.key);
+                                setShowStatusPicker(false);
+                              }}
+                              className={`w-full flex items-center gap-3 rounded-lg px-2 py-2 text-sm transition-colors ${
+                                !isConnected
+                                  ? 'opacity-50 cursor-not-allowed'
+                                  : userPresenceStatus === opt.key || (opt.key === 'APPEAR_OFFLINE' && userPresenceStatus === 'OFFLINE' && isConnected)
+                                    ? 'bg-primary-50 text-primary-700'
+                                    : 'text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              <PresenceDot status={opt.key === 'APPEAR_OFFLINE' ? 'OFFLINE' : opt.key} size="sm" showBorder={false} />
+                              <div className="text-left">
+                                <span className="font-medium">{opt.label}</span>
+                                <span className="block text-xs text-slate-400">{opt.hint}</span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="h-px bg-slate-100" role="presentation" />
+                    {/* Profile & Appearance - available to all */}
                     <button
                       type="button"
                       role="menuitem"
                       onClick={() => {
                         setShowUserMenu(false);
-                        navigate('/settings?tab=profile');
+                        navigate('/settings?tab=appearance');
                       }}
                       className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
                     >
-                      Profile
+                      Profile & Appearance
                     </button>
+                    {/* Security - available to all */}
                     <button
                       type="button"
                       role="menuitem"
                       onClick={() => {
                         setShowUserMenu(false);
-                        navigate('/settings');
+                        navigate('/settings?tab=security');
                       }}
                       className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
                     >
-                      Settings
+                      Security & Password
                     </button>
+                    {/* Full Settings - admin/manager only */}
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          navigate('/settings');
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        Hotel Settings
+                      </button>
+                    )}
                     <input
                       ref={avatarInputRef}
                       type="file"
