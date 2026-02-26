@@ -1,6 +1,6 @@
 // Presence types
-export type PresenceStatus = 'AVAILABLE' | 'BUSY' | 'DND' | 'AWAY';
-export type EffectiveStatus = PresenceStatus | 'OFFLINE';
+export type PresenceStatus = 'AVAILABLE' | 'BUSY' | 'DND' | 'AWAY' | 'APPEAR_OFFLINE';
+export type EffectiveStatus = 'AVAILABLE' | 'BUSY' | 'DND' | 'AWAY' | 'OFFLINE';
 
 export interface PresenceUpdate {
   userId: string;

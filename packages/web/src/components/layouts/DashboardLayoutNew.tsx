@@ -66,7 +66,7 @@ export default function DashboardLayout() {
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   
   const { user, logout } = useAuthStore();
-  const { getEffectiveStatus, isConnected } = usePresenceStore();
+  const { getEffectiveStatus } = usePresenceStore();
   const setGlobalSearch = useUiStore((s) => s.setGlobalSearch);
   const navigate = useNavigate();
   const location = useLocation();
@@ -77,15 +77,16 @@ export default function DashboardLayout() {
   // Sidebar nav state
   const sidebarNav = useSidebarNav();
 
-  // Get current user's effective presence status (use socket connection state)
-  const userPresenceStatus = user ? getEffectiveStatus(user.id, isConnected) : 'OFFLINE';
+  // Get current user's effective presence status (always treat as current user)
+  const userPresenceStatus = user ? getEffectiveStatus(user.id, true) : 'OFFLINE';
 
-  // Teams-like presence status options
+  // Teams-like presence status options (includes "Appear offline")
   const presenceOptions: { key: PresenceStatus; label: string; hint: string }[] = [
     { key: 'AVAILABLE', label: 'Available', hint: 'Ready to help' },
     { key: 'BUSY', label: 'Busy', hint: 'In a task' },
     { key: 'AWAY', label: 'Away', hint: 'Stepped out' },
     { key: 'DND', label: 'Do not disturb', hint: 'No interruptions' },
+    { key: 'APPEAR_OFFLINE', label: 'Appear offline', hint: 'Shown as offline' },
   ];
 
   const handleLogout = async () => {
@@ -595,14 +596,14 @@ export default function DashboardLayout() {
                               emitPresenceSet(opt.key);
                             }}
                             className={`flex items-center justify-between rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors ${
-                              userPresenceStatus === opt.key
+                              userPresenceStatus === opt.key || (opt.key === 'APPEAR_OFFLINE' && userPresenceStatus === 'OFFLINE')
                                 ? 'border-primary-500 bg-primary-50 text-primary-700'
                                 : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                             }`}
                           >
                             <span>{opt.label}</span>
                             <span className="ml-2">
-                              <PresenceDot status={opt.key} size="xs" showBorder={false} />
+                              <PresenceDot status={opt.key === 'APPEAR_OFFLINE' ? 'OFFLINE' : opt.key} size="xs" showBorder={false} />
                             </span>
                           </button>
                         ))}

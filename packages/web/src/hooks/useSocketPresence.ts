@@ -6,7 +6,35 @@ import { useAuthStore } from '@/stores/authStore';
 import { usePresenceStore } from '@/stores/presenceStore';
 import { authService } from '@/services/auth';
 import { canAccessRoute, firstAllowedRoute } from '@/lib/access';
-import type { PresenceUpdate, ModulePermission } from '@/types';
+import type { PresenceUpdate, ModulePermission, PresenceStatus, EffectiveStatus } from '@/types';
+
+/**
+ * Socket DTO from backend (uses overrideStatus)
+ * Must map to frontend PresenceUpdate (uses presenceStatus)
+ */
+interface PresenceSocketDto {
+  userId: string;
+  email: string;
+  isOnline: boolean;
+  effectiveStatus: EffectiveStatus;
+  overrideStatus: PresenceStatus;
+  lastSeenAt: string | Date | null;
+}
+
+/**
+ * Convert socket DTO to frontend PresenceUpdate type
+ * Maps overrideStatus -> presenceStatus for store compatibility
+ */
+function toPresenceUpdate(dto: PresenceSocketDto): PresenceUpdate {
+  return {
+    userId: dto.userId,
+    email: dto.email,
+    isOnline: dto.isOnline,
+    presenceStatus: dto.overrideStatus, // Map backend field to frontend field
+    effectiveStatus: dto.effectiveStatus,
+    lastSeenAt: dto.lastSeenAt ? String(dto.lastSeenAt) : null,
+  };
+}
 
 // Derive socket URL: prefer VITE_SOCKET_URL, else strip /api from VITE_API_URL
 const apiUrl = import.meta.env.VITE_API_URL;
@@ -85,19 +113,21 @@ export function useSocketPresence() {
       setConnected(false);
     });
 
-    // Presence events
-    socket.on('presence:update', (data: PresenceUpdate) => {
-      console.log('[Socket] Presence update:', data);
-      updatePresence(data);
+    // Presence events - map backend DTO to frontend type
+    socket.on('presence:update', (dto: PresenceSocketDto) => {
+      console.log('[Socket] Presence update (raw):', dto);
+      const update = toPresenceUpdate(dto);
+      updatePresence(update);
       
       // If this is current user's update, also update myPresenceStatus
-      if (user && data.userId === user.id) {
-        setMyPresence(data.presenceStatus);
+      if (user && update.userId === user.id) {
+        setMyPresence(update.presenceStatus);
       }
     });
 
-    socket.on('presence:list', (list: PresenceUpdate[]) => {
-      console.log('[Socket] Presence list:', list.length, 'users');
+    socket.on('presence:list', (dtos: PresenceSocketDto[]) => {
+      console.log('[Socket] Presence list:', dtos.length, 'users');
+      const list = dtos.map(toPresenceUpdate);
       setPresenceList(list);
     });
 

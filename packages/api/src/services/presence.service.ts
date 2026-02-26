@@ -1,9 +1,10 @@
 import { prisma } from '../config/database.js';
 import { logger } from '../config/logger.js';
+import { PresenceStatus as PrismaPresenceStatus } from '@prisma/client';
 
 // PresenceStatus enum values (mirrors Prisma enum after migration)
-// Will be imported from @prisma/client once migration is applied
-export type PresenceStatus = 'AVAILABLE' | 'BUSY' | 'DND' | 'AWAY';
+// APPEAR_OFFLINE allows users to appear offline while still connected (Teams behavior)
+export type PresenceStatus = 'AVAILABLE' | 'BUSY' | 'DND' | 'AWAY' | 'APPEAR_OFFLINE';
 const DEFAULT_PRESENCE_STATUS: PresenceStatus = 'AVAILABLE';
 
 /**
@@ -41,10 +42,12 @@ export interface PresenceUpdate {
 /**
  * Get effective status based on online state and override
  * If offline => OFFLINE regardless of override
+ * If online + APPEAR_OFFLINE => OFFLINE (Teams "appear offline" behavior)
  * If online => show override status
  */
 function getEffectiveStatus(isOnline: boolean, overrideStatus: PresenceStatus): string {
   if (!isOnline) return 'OFFLINE';
+  if (overrideStatus === 'APPEAR_OFFLINE') return 'OFFLINE'; // Teams-like "appear offline"
   return overrideStatus;
 }
 
@@ -165,7 +168,7 @@ export async function setPresenceOverride(
     try {
       const user = await prisma.user.update({
         where: { id: userId },
-        data: { presenceStatus: status },
+        data: { presenceStatus: status as PrismaPresenceStatus },
         select: { email: true, lastSeenAt: true },
       });
       logger.info(`Presence: Offline user ${user.email} override set to ${status}`);
@@ -186,7 +189,7 @@ export async function setPresenceOverride(
   try {
     await prisma.user.update({
       where: { id: userId },
-      data: { presenceStatus: status },
+      data: { presenceStatus: status as PrismaPresenceStatus },
     });
   } catch (err) {
     logger.error(`Failed to update presenceStatus for user ${userId}:`, err);

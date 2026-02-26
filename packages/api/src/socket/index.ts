@@ -101,7 +101,7 @@ export function setupSocketHandlers(io: SocketIOServer): void {
 
     // === PRESENCE: Handle presence override setting ===
     socket.on('presence:set', async (status: string) => {
-      const validStatuses = ['AVAILABLE', 'BUSY', 'DND', 'AWAY'];
+      const validStatuses = ['AVAILABLE', 'BUSY', 'DND', 'AWAY', 'APPEAR_OFFLINE'];
       if (!validStatuses.includes(status)) {
         socket.emit('error', { message: `Invalid presence status: ${status}` });
         return;
