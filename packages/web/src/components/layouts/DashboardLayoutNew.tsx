@@ -17,6 +17,7 @@ import {
 import AppChatbot from '@/components/support/AppChatbot';
 import { PresenceDot } from '@/components/presence';
 import { useSocketPresence } from '@/hooks/useSocketPresence';
+import type { PresenceStatus } from '@/types';
 import { SidebarRail, SidebarFlyout, useSidebarNav, navSections } from './navigation';
 
 type GlobalSearchTarget = {
@@ -65,19 +66,27 @@ export default function DashboardLayout() {
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   
   const { user, logout } = useAuthStore();
-  const { getEffectiveStatus } = usePresenceStore();
+  const { getEffectiveStatus, isConnected } = usePresenceStore();
   const setGlobalSearch = useUiStore((s) => s.setGlobalSearch);
   const navigate = useNavigate();
   const location = useLocation();
 
   // Initialize socket connection and presence subscriptions
-  useSocketPresence();
+  const { emitPresenceSet } = useSocketPresence();
 
   // Sidebar nav state
   const sidebarNav = useSidebarNav();
 
-  // Get current user's effective presence status
-  const userPresenceStatus = user ? getEffectiveStatus(user.id, true) : 'OFFLINE';
+  // Get current user's effective presence status (use socket connection state)
+  const userPresenceStatus = user ? getEffectiveStatus(user.id, isConnected) : 'OFFLINE';
+
+  // Teams-like presence status options
+  const presenceOptions: { key: PresenceStatus; label: string; hint: string }[] = [
+    { key: 'AVAILABLE', label: 'Available', hint: 'Ready to help' },
+    { key: 'BUSY', label: 'Busy', hint: 'In a task' },
+    { key: 'AWAY', label: 'Away', hint: 'Stepped out' },
+    { key: 'DND', label: 'Do not disturb', hint: 'No interruptions' },
+  ];
 
   const handleLogout = async () => {
     await logout();
@@ -570,8 +579,36 @@ export default function DashboardLayout() {
                 {showUserMenu && (
                   <div
                     role="menu"
-                    className="absolute right-0 top-14 w-48 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+                    className="absolute right-0 top-14 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
                   >
+                    {/* Teams-like Status Picker */}
+                    <div className="px-4 py-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                        Status
+                      </div>
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        {presenceOptions.map((opt) => (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            onClick={() => {
+                              emitPresenceSet(opt.key);
+                            }}
+                            className={`flex items-center justify-between rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors ${
+                              userPresenceStatus === opt.key
+                                ? 'border-primary-500 bg-primary-50 text-primary-700'
+                                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span>{opt.label}</span>
+                            <span className="ml-2">
+                              <PresenceDot status={opt.key} size="xs" showBorder={false} />
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="h-px bg-slate-100" role="presentation" />
                     <button
                       type="button"
                       role="menuitem"
