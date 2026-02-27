@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { messageService } from '@/services';
+import { useSocketPresence } from '@/hooks/useSocketPresence';
 
 type VideoState = 'IDLE' | 'CONNECTING' | 'IN_CALL' | 'ERROR';
 
@@ -16,6 +17,7 @@ export default function SupportVideoPanel({
   compact = false,
   fullPage = false,
 }: Props) {
+  const { emitPresenceSet } = useSocketPresence();
   const [state, setState] = useState<VideoState>('IDLE');
   const [error, setError] = useState('');
   const [muted, setMuted] = useState(false);
@@ -102,6 +104,7 @@ export default function SupportVideoPanel({
     setRemoteCount(0);
     resetContainers();
     setState('IDLE');
+    emitPresenceSet('AVAILABLE');
   };
 
   const startVideoCall = async () => {
@@ -138,6 +141,7 @@ export default function SupportVideoPanel({
       });
 
       setState('IN_CALL');
+      emitPresenceSet('BUSY');
     } catch (err: any) {
       roomRef.current = null;
       localTracksRef.current.forEach((track) => {
@@ -170,18 +174,42 @@ export default function SupportVideoPanel({
     setMuted(next);
   };
 
-  const toggleCamera = () => {
-    const videoTracks = localTracksRef.current.filter((track) => track.kind === 'video');
+  const toggleCamera = async () => {
     const next = !cameraOff;
-    videoTracks.forEach((track) => {
-      try {
-        if (next) track.disable?.();
-        else track.enable?.();
-      } catch {
-        // ignore
+
+    if (next) {
+      const publications = roomRef.current?.localParticipant?.videoTracks;
+      if (publications) {
+        publications.forEach((publication: any) => {
+          try {
+            roomRef.current?.localParticipant?.unpublishTrack?.(publication.track);
+            publication.track?.stop?.();
+            detachTrack(publication.track);
+          } catch {
+            // ignore
+          }
+        });
       }
-    });
-    setCameraOff(next);
+      localTracksRef.current = localTracksRef.current.filter((track) => track.kind !== 'video');
+      if (localVideoRef.current) localVideoRef.current.innerHTML = '';
+      setCameraOff(true);
+      return;
+    }
+
+    try {
+      const videoSdk: any = await import('twilio-video');
+      const newTrack = await videoSdk.createLocalVideoTrack({ width: 640 });
+      await roomRef.current?.localParticipant?.publishTrack?.(newTrack);
+      attachTrack(newTrack, localVideoRef.current);
+      localTracksRef.current = [
+        ...localTracksRef.current.filter((track) => track.kind !== 'video'),
+        newTrack,
+      ];
+      setCameraOff(false);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to enable camera.');
+      setCameraOff(true);
+    }
   };
 
   useEffect(() => () => endVideoCall(), []);
@@ -241,7 +269,7 @@ export default function SupportVideoPanel({
               </button>
               <button
                 type="button"
-                onClick={toggleCamera}
+                onClick={() => void toggleCamera()}
                 className="rounded-md border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
               >
                 {cameraOff ? 'Camera on' : 'Camera off'}
@@ -267,13 +295,20 @@ export default function SupportVideoPanel({
   }
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-slate-950 text-white">
+    <div className="relative h-full w-full overflow-hidden bg-gradient-to-b from-slate-900 via-slate-950 to-black text-white">
+      <div
+        className="pointer-events-none absolute inset-0 opacity-20"
+        style={{
+          backgroundImage:
+            'radial-gradient(circle at 30% 20%, rgba(56,189,248,0.35), transparent 45%), radial-gradient(circle at 70% 60%, rgba(168,85,247,0.25), transparent 45%)',
+        }}
+      />
+
       <div className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between p-4">
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold">{title}</div>
           <div className="truncate text-xs text-white/60">Room: {safeRoomName}</div>
         </div>
-
         <span
           className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
             state === 'IN_CALL'
@@ -285,7 +320,7 @@ export default function SupportVideoPanel({
                   : 'bg-white/10 text-white/70'
           }`}
         >
-          {state === 'IN_CALL' ? 'In call' : state === 'CONNECTING' ? 'Connecting…' : state === 'ERROR' ? 'Error' : 'Ready'}
+          {state === 'IN_CALL' ? 'In call' : state === 'CONNECTING' ? 'Connecting...' : state === 'ERROR' ? 'Error' : 'Ready'}
         </span>
       </div>
 
@@ -294,7 +329,7 @@ export default function SupportVideoPanel({
         {remoteCount === 0 && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="rounded-2xl bg-white/10 px-5 py-3 text-sm text-white/80">
-              {state === 'IN_CALL' ? 'Waiting for the other person to join…' : 'Ready to join the call'}
+              {state === 'IN_CALL' ? 'Waiting for the other person to join...' : 'Ready to join the call'}
             </div>
           </div>
         )}
@@ -316,9 +351,9 @@ export default function SupportVideoPanel({
             type="button"
             onClick={() => void startVideoCall()}
             disabled={state === 'CONNECTING'}
-            className="rounded-full bg-violet-500/80 px-5 py-2 text-sm font-semibold hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-full bg-violet-500/80 px-6 py-2 text-sm font-semibold hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {state === 'CONNECTING' ? 'Joining…' : 'Join'}
+            {state === 'CONNECTING' ? 'Joining...' : 'Join'}
           </button>
         ) : (
           <>
@@ -330,20 +365,18 @@ export default function SupportVideoPanel({
               }`}
               title={muted ? 'Unmute' : 'Mute'}
             >
-              <span className="text-sm font-semibold">{muted ? 'M' : '🎤'}</span>
+              <span className="text-sm font-semibold">{muted ? 'M' : 'Mic'}</span>
             </button>
-
             <button
               type="button"
-              onClick={toggleCamera}
+              onClick={() => void toggleCamera()}
               className={`h-11 w-11 rounded-full border border-white/10 ${
                 cameraOff ? 'bg-amber-500/40' : 'bg-white/10 hover:bg-white/15'
               }`}
               title={cameraOff ? 'Turn camera on' : 'Turn camera off'}
             >
-              <span className="text-sm font-semibold">{cameraOff ? 'C' : '📷'}</span>
+              <span className="text-sm font-semibold">{cameraOff ? 'C' : 'Cam'}</span>
             </button>
-
             <button
               type="button"
               onClick={endVideoCall}

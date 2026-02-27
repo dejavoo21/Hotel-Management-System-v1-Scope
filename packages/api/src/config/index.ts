@@ -61,6 +61,7 @@ export const config = {
     twilioApiKeySecret: process.env.TWILIO_VOICE_API_KEY_SECRET || '',
     twimlAppSid: process.env.TWILIO_VOICE_TWIML_APP_SID || '',
     fromPhone: process.env.TWILIO_VOICE_FROM_PHONE || process.env.SMS_FROM_PHONE || '',
+    bridgeToPhone: process.env.TWILIO_BRIDGE_TO_PHONE || '',
   },
   openWeather: {
     apiKey: process.env.OPENWEATHER_API_KEY || '',

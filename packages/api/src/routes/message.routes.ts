@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { authenticate, requireModuleAccess } from '../middleware/auth.js';
 import * as messageController from '../controllers/message.controller.js';
 
@@ -6,6 +6,7 @@ const router = Router();
 
 // Public Twilio webhook (Twilio cannot send auth bearer token).
 router.post('/support/voice/twiml', messageController.supportVoiceTwiml);
+router.post('/support/voice/status', express.urlencoded({ extended: false }), messageController.handleVoiceStatus);
 
 router.use(authenticate);
 router.use(requireModuleAccess('messages'));

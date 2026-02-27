@@ -1036,11 +1036,11 @@ export default function DashboardLayout() {
                     role="menuitem"
                     onClick={() => {
                       setShowUserMenu(false);
-                      navigate('/settings?tab=profile');
+                      navigate('/settings?tab=appearance');
                     }}
                     className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
                   >
-                    Profile
+                    Profile & Appearance
                   </button>
                   <button
                     type="button"

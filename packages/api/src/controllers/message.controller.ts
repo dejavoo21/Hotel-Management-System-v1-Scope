@@ -2,6 +2,7 @@ import { Response, NextFunction, Request } from 'express';
 import { AuthenticatedRequest, ApiResponse } from '../types/index.js';
 import { prisma } from '../config/database.js';
 import { config } from '../config/index.js';
+import { logger } from '../config/logger.js';
 import { Role } from '@prisma/client';
 import twilio from 'twilio';
 import { ensureTicketForConversation, recordFirstResponse } from '../services/ticket.service.js';
@@ -552,18 +553,32 @@ export async function startSupportPhoneCall(
     const to = sanitizePhone((req.body?.to as string | undefined) || '');
     const threadId = (req.body?.threadId as string | undefined) || undefined;
     const callerId = sanitizePhone(config.voice.fromPhone);
+    const bridgeTo = sanitizePhone(config.voice.bridgeToPhone);
 
     if (!to || !/^\+?\d{7,15}$/.test(to)) {
       res.status(400).json({ success: false, error: 'Valid destination phone is required' });
       return;
     }
+    if (!bridgeTo || !/^\+?\d{7,15}$/.test(bridgeTo)) {
+      res.status(500).json({ success: false, error: 'Bridge phone number is not configured' });
+      return;
+    }
 
     const twilioClient = twilio(config.voice.twilioAccountSid, config.voice.twilioAuthToken);
+    const apiBaseUrl = config.apiUrl.replace(/\/$/, '');
+    const statusCallbackUrl = `${apiBaseUrl}/api/messages/support/voice/status`;
     const call = await twilioClient.calls.create({
       to,
       from: callerId,
-      twiml:
-        '<Response><Say voice="alice">This is a test call from LaFlo support. Your support team initiated this call via Twilio.</Say></Response>',
+      twiml: `
+        <Response>
+          <Say voice="alice">Connecting you to the front desk.</Say>
+          <Dial callerId="${callerId}">${bridgeTo}</Dial>
+        </Response>
+      `.trim(),
+      statusCallback: statusCallbackUrl,
+      statusCallbackMethod: 'POST',
+      statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
     });
 
     res.json({
@@ -580,6 +595,15 @@ export async function startSupportPhoneCall(
   } catch (error) {
     next(error);
   }
+}
+
+export async function handleVoiceStatus(req: Request, res: Response): Promise<void> {
+  const callSid = req.body?.CallSid;
+  const status = req.body?.CallStatus;
+  const to = req.body?.To;
+  const from = req.body?.From;
+  logger.info('[Twilio] Voice status update', { callSid, status, to, from });
+  res.status(200).send('ok');
 }
 
 export async function listSupportAgents(

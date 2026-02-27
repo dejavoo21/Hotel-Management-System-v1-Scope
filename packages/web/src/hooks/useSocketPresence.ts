@@ -198,6 +198,16 @@ export function useSocketPresence() {
 
     socket.on('call:ring', (payload: CallRingPayload) => {
       dispatchSocketEvent('hotelos:call-ring', payload);
+      const currentParams = new URLSearchParams(location.search);
+      const isSameIncomingScreen =
+        location.pathname === '/calls' &&
+        currentParams.get('incoming') === '1' &&
+        currentParams.get('room') === payload.room;
+
+      if (!isSameIncomingScreen) {
+        const from = encodeURIComponent(payload.fromEmail || payload.fromUserId || 'Unknown');
+        navigate(`/calls?incoming=1&room=${encodeURIComponent(payload.room)}&from=${from}`);
+      }
     });
 
     socket.on('call:accepted', (payload: CallAcceptedPayload) => {
@@ -222,7 +232,7 @@ export function useSocketPresence() {
       socketRef.current = null;
       clearPresence();
     };
-  }, [isAuthenticated, accessToken, user?.id, location.pathname]);
+  }, [isAuthenticated, accessToken, user?.id, location.pathname, location.search]);
 
   // Method to manually emit presence change via socket (optional, REST is primary)
   const emitPresenceSet = useCallback((status: string) => {
