@@ -1,5 +1,6 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { config } from '../config/index.js';
 import { logger } from '../config/logger.js';
 import { TokenPayload } from '../types/index.js';
@@ -14,6 +15,15 @@ interface AuthenticatedSocket extends Socket {
     hotelId: string;
   };
 }
+
+const dmThreadId = (hotelId: string, a: string, b: string): string => {
+  const [u1, u2] = [a, b].sort();
+  return `dm:${hotelId}:${u1}:${u2}`;
+};
+const internalCallRoom = (hotelId: string, a: string, b: string): string => {
+  const [u1, u2] = [a, b].sort();
+  return `laflo-internal-${hotelId}-${u1}-${u2}`;
+};
 
 /**
  * Setup Socket.IO event handlers
@@ -97,6 +107,86 @@ export function setupSocketHandlers(io: SocketIOServer): void {
     socket.on('unsubscribe:booking', (bookingId: string) => {
       socket.leave(`booking:${bookingId}`);
       logger.debug(`Socket ${socket.id} unsubscribed from booking:${bookingId}`);
+    });
+
+    // === INTERNAL DM: Open/join deterministic thread ===
+    socket.on('dm:open', ({ peerUserId }: { peerUserId?: string }) => {
+      const me = socket.user?.userId;
+      if (!me || !peerUserId) return;
+
+      const threadId = dmThreadId(user.hotelId, me, peerUserId);
+      const room = `thread:${threadId}`;
+      socket.join(room);
+
+      const payload = { threadId, peerUserId };
+      socket.emit('dm:thread', payload);
+    });
+
+    // === INTERNAL DM: Broadcast message to thread room ===
+    socket.on(
+      'dm:send',
+      ({
+        threadId,
+        text,
+        clientMessageId,
+      }: {
+        threadId?: string;
+        text?: string;
+        clientMessageId?: string | null;
+      }) => {
+        const me = socket.user?.userId;
+        if (!me || !threadId || !text?.trim()) return;
+        if (!threadId.startsWith(`dm:${user.hotelId}:`)) return;
+
+        const message = {
+          id: crypto.randomUUID(),
+          threadId,
+          senderId: me,
+          text: text.trim(),
+          clientMessageId: clientMessageId ?? null,
+          createdAt: new Date().toISOString(),
+        };
+
+        io.to(`thread:${threadId}`).emit('dm:new', { threadId, message });
+      }
+    );
+
+    // === INTERNAL CALL: ring/accept + signaling ===
+    socket.on(
+      'call:start',
+      ({ calleeUserId }: { calleeUserId?: string }) => {
+        const me = socket.user?.userId;
+        if (!me || !calleeUserId) return;
+        const room = internalCallRoom(user.hotelId, me, calleeUserId);
+
+        socket.join(`call:${room}`);
+        io.to(`user:${calleeUserId}`).emit('call:ring', {
+          room,
+          fromUserId: me,
+          fromEmail: user.email,
+        });
+        socket.emit('call:room', { room });
+      }
+    );
+
+    socket.on('call:accept', ({ room }: { room?: string }) => {
+      if (!room?.startsWith(`laflo-internal-${user.hotelId}-`)) return;
+      socket.join(`call:${room}`);
+      io.to(`call:${room}`).emit('call:accepted', { room });
+    });
+
+    socket.on('call:decline', ({ room }: { room?: string }) => {
+      if (!room) return;
+      io.to(`call:${room}`).emit('call:declined', { room, by: user.userId });
+    });
+
+    socket.on('webrtc:signal', ({ room, data }: { room?: string; data?: unknown }) => {
+      if (!room || !data) return;
+      socket.to(`call:${room}`).emit('webrtc:signal', {
+        room,
+        data,
+        from: socket.user?.userId,
+      });
     });
 
     // === PRESENCE: Handle presence override setting ===
@@ -222,6 +312,13 @@ export interface ServerToClientEvents {
   // Presence events
   'presence:update': (data: { userId: string; email: string; isOnline: boolean; effectiveStatus: string; overrideStatus: string; lastSeenAt: Date | null }) => void;
   'presence:list': (data: Array<{ userId: string; email: string; isOnline: boolean; effectiveStatus: string; overrideStatus: string; lastSeenAt: Date | null }>) => void;
+  'dm:thread': (data: { threadId: string; peerUserId: string }) => void;
+  'dm:new': (data: { threadId: string; message: unknown }) => void;
+  'call:ring': (data: { room: string; fromUserId: string; fromEmail: string }) => void;
+  'call:room': (data: { room: string }) => void;
+  'call:accepted': (data: { room: string }) => void;
+  'call:declined': (data: { room: string; by: string }) => void;
+  'webrtc:signal': (data: { room: string; from: string; data: unknown }) => void;
   
   // Error events
   'error': (data: { message: string }) => void;
@@ -233,4 +330,10 @@ export interface ClientToServerEvents {
   'subscribe:booking': (bookingId: string) => void;
   'unsubscribe:booking': (bookingId: string) => void;
   'presence:set': (status: 'AVAILABLE' | 'BUSY' | 'DND' | 'AWAY') => void;
+  'dm:open': (data: { peerUserId: string }) => void;
+  'dm:send': (data: { threadId: string; text: string; clientMessageId?: string }) => void;
+  'call:start': (data: { calleeUserId: string }) => void;
+  'call:accept': (data: { room: string }) => void;
+  'call:decline': (data: { room: string }) => void;
+  'webrtc:signal': (data: { room: string; data: unknown }) => void;
 }

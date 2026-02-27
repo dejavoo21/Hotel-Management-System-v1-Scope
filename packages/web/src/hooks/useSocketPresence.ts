@@ -8,6 +8,29 @@ import { authService } from '@/services/auth';
 import { canAccessRoute, firstAllowedRoute } from '@/lib/access';
 import type { PresenceUpdate, ModulePermission, PresenceStatus, EffectiveStatus } from '@/types';
 
+type DmThreadPayload = { threadId: string; peerUserId: string };
+type DmMessagePayload = {
+  threadId: string;
+  message: {
+    id: string;
+    threadId: string;
+    senderId: string;
+    text: string;
+    clientMessageId?: string | null;
+    createdAt: string;
+  };
+};
+type CallRingPayload = { room: string; fromUserId: string; fromEmail?: string };
+type CallRoomPayload = { room: string };
+type CallAcceptedPayload = { room: string };
+type CallDeclinedPayload = { room: string; by: string };
+type WebRtcSignalPayload = { room: string; data: unknown; fromUserId?: string };
+
+const dispatchSocketEvent = (name: string, detail: unknown) => {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(name, { detail }));
+};
+
 /**
  * Socket DTO from backend (uses overrideStatus)
  * Must map to frontend PresenceUpdate (uses presenceStatus)
@@ -163,6 +186,36 @@ export function useSocketPresence() {
       console.error('[Socket] Error:', error.message);
     });
 
+    socket.on('dm:thread', (payload: DmThreadPayload) => {
+      dispatchSocketEvent('hotelos:dm-thread', payload);
+    });
+
+    socket.on('dm:new', (payload: DmMessagePayload) => {
+      dispatchSocketEvent('hotelos:dm-new', payload);
+      queryClient.invalidateQueries({ queryKey: ['thread', payload.threadId] });
+      queryClient.invalidateQueries({ queryKey: ['threads'] });
+    });
+
+    socket.on('call:ring', (payload: CallRingPayload) => {
+      dispatchSocketEvent('hotelos:call-ring', payload);
+    });
+
+    socket.on('call:accepted', (payload: CallAcceptedPayload) => {
+      dispatchSocketEvent('hotelos:call-accepted', payload);
+    });
+
+    socket.on('call:room', (payload: CallRoomPayload) => {
+      dispatchSocketEvent('hotelos:call-room', payload);
+    });
+
+    socket.on('call:declined', (payload: CallDeclinedPayload) => {
+      dispatchSocketEvent('hotelos:call-declined', payload);
+    });
+
+    socket.on('webrtc:signal', (payload: WebRtcSignalPayload) => {
+      dispatchSocketEvent('hotelos:webrtc-signal', payload);
+    });
+
     // Cleanup on unmount or auth change
     return () => {
       socket.disconnect();
@@ -178,9 +231,44 @@ export function useSocketPresence() {
     }
   }, []);
 
+  const emitDmOpen = useCallback((peerUserId: string) => {
+    if (socketRef.current?.connected && peerUserId) {
+      socketRef.current.emit('dm:open', { peerUserId });
+    }
+  }, []);
+
+  const emitDmSend = useCallback((payload: { threadId: string; text: string; clientMessageId?: string }) => {
+    if (socketRef.current?.connected && payload.threadId && payload.text.trim()) {
+      socketRef.current.emit('dm:send', payload);
+    }
+  }, []);
+
+  const emitCallStart = useCallback((payload: { calleeUserId: string }) => {
+    if (socketRef.current?.connected && payload.calleeUserId) {
+      socketRef.current.emit('call:start', payload);
+    }
+  }, []);
+
+  const emitCallAccept = useCallback((room: string) => {
+    if (socketRef.current?.connected && room) {
+      socketRef.current.emit('call:accept', { room });
+    }
+  }, []);
+
+  const emitCallDecline = useCallback((room: string) => {
+    if (socketRef.current?.connected && room) {
+      socketRef.current.emit('call:decline', { room });
+    }
+  }, []);
+
   return {
     socket: socketRef.current,
     emitPresenceSet,
+    emitDmOpen,
+    emitDmSend,
+    emitCallStart,
+    emitCallAccept,
+    emitCallDecline,
   };
 }
 

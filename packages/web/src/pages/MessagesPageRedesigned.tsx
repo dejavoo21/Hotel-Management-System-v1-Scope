@@ -22,6 +22,14 @@ import type {
 
 type SupportRailItem = 'activity' | 'chat' | 'calls' | 'files';
 import type { EffectiveStatus } from '@/types';
+type InternalDmMessage = {
+  id: string;
+  threadId: string;
+  senderId: string;
+  text: string;
+  createdAt: string;
+  clientMessageId?: string | null;
+};
 
 const formatTime = (date: string) =>
   new Date(date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -83,9 +91,10 @@ export default function MessagesPageRedesigned() {
   const { getEffectiveStatus } = usePresenceStore();
   
   // Ensure socket connection for real-time presence updates
-  useSocketPresence();
+  const { emitDmOpen, emitDmSend, emitCallStart, emitCallDecline } = useSocketPresence();
   
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [draftMessage, setDraftMessage] = useState('');
@@ -93,6 +102,8 @@ export default function MessagesPageRedesigned() {
   const [showRightPanel, setShowRightPanel] = useState(false);
   const [activeRailItem, setActiveRailItem] = useState<SupportRailItem>('chat');
   const [showAgentsPopover, setShowAgentsPopover] = useState(false);
+  const [dmMessagesByThread, setDmMessagesByThread] = useState<Record<string, InternalDmMessage[]>>({});
+  const [dmPeerByThread, setDmPeerByThread] = useState<Record<string, string>>({});
   
   const chatEndRef = useRef<HTMLDivElement>(null);
   const agentsPopoverRef = useRef<HTMLDivElement>(null);
@@ -158,13 +169,6 @@ export default function MessagesPageRedesigned() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showAgentsPopover]);
 
-  // Generate internal call room name (sorted user IDs for consistency)
-  const getInternalCallRoom = useCallback((otherUserId: string) => {
-    if (!user?.id) return 'laflo-internal';
-    const sortedIds = [user.id, otherUserId].sort();
-    return `laflo-internal-${sortedIds.join('-')}`;
-  }, [user?.id]);
-
   // Set active thread on load
   useEffect(() => {
     const requestedThreadId = searchParams.get('thread');
@@ -175,38 +179,130 @@ export default function MessagesPageRedesigned() {
     if (!activeThreadId && threads.length > 0) setActiveThreadId(threads[0].id);
   }, [activeThreadId, threads, searchParams]);
 
+  useEffect(() => {
+    const onDmThread = (event: Event) => {
+      const detail = (event as CustomEvent<{ threadId: string; peerUserId: string }>).detail;
+      if (!detail?.threadId || !detail?.peerUserId) return;
+      setDmPeerByThread((prev) => ({ ...prev, [detail.threadId]: detail.peerUserId }));
+      setDmMessagesByThread((prev) => (prev[detail.threadId] ? prev : { ...prev, [detail.threadId]: [] }));
+      setActiveThreadId(detail.threadId);
+      setSearchParams({ thread: detail.threadId });
+    };
+
+    const onDmNew = (event: Event) => {
+      const detail = (event as CustomEvent<{ threadId: string; message: InternalDmMessage }>).detail;
+      if (!detail?.threadId || !detail?.message) return;
+      setDmMessagesByThread((prev) => ({
+        ...prev,
+        [detail.threadId]: [...(prev[detail.threadId] || []), detail.message],
+      }));
+    };
+
+    window.addEventListener('hotelos:dm-thread', onDmThread);
+    window.addEventListener('hotelos:dm-new', onDmNew);
+    return () => {
+      window.removeEventListener('hotelos:dm-thread', onDmThread);
+      window.removeEventListener('hotelos:dm-new', onDmNew);
+    };
+  }, [setSearchParams]);
+
+  useEffect(() => {
+    const onCallRoom = (event: Event) => {
+      const detail = (event as CustomEvent<{ room: string }>).detail;
+      if (!detail?.room) return;
+      navigate(`/calls?room=${encodeURIComponent(detail.room)}`);
+    };
+    window.addEventListener('hotelos:call-room', onCallRoom);
+    return () => window.removeEventListener('hotelos:call-room', onCallRoom);
+  }, [navigate]);
+
+  useEffect(() => {
+    const onRing = (event: Event) => {
+      const detail = (event as CustomEvent<{ room: string; fromUserId: string; fromEmail?: string }>).detail;
+      if (!detail?.room) return;
+
+      toast((t) => (
+        <div className="flex items-center gap-3">
+          <div className="font-semibold">Incoming call</div>
+          <button
+            className="rounded-md bg-sky-600 px-3 py-1 text-sm text-white"
+            onClick={() => {
+              toast.dismiss(t.id);
+              navigate(`/calls?room=${encodeURIComponent(detail.room)}&incoming=1&from=${detail.fromUserId}`);
+            }}
+          >
+            Accept
+          </button>
+          <button
+            className="rounded-md bg-slate-200 px-3 py-1 text-sm text-slate-700"
+            onClick={() => {
+              toast.dismiss(t.id);
+              emitCallDecline(detail.room);
+            }}
+          >
+            Decline
+          </button>
+        </div>
+      ), { duration: 10000 });
+    };
+
+    window.addEventListener('hotelos:call-ring', onRing);
+    return () => window.removeEventListener('hotelos:call-ring', onRing);
+  }, [navigate, emitCallDecline]);
+
   // Thread Detail Query
+  const isDmThread = Boolean(activeThreadId?.startsWith('dm:'));
   const activeThreadQuery = useQuery<MessageThreadDetail>({
     queryKey: ['message-thread', activeThreadId],
     queryFn: () => messageService.getThread(activeThreadId as string),
-    enabled: Boolean(activeThreadId),
+    enabled: Boolean(activeThreadId) && !isDmThread,
     refetchInterval: 4000,
   });
 
   const activeThread = activeThreadQuery.data;
   const activeThreadSummary = threads.find((t) => t.id === activeThreadId);
-  const activeThreadName = activeThreadSummary
-    ? resolveThreadName(activeThreadSummary)
-    : activeThread?.subject || 'Support';
+  const activeDmPeerId = activeThreadId ? dmPeerByThread[activeThreadId] : undefined;
+  const activeDmPeer = (supportAgentsQuery.data || []).find((a) => a.id === activeDmPeerId);
+  const isInternalDm = isDmThread;
+  const activeThreadName = isInternalDm
+    ? activeDmPeer
+      ? `${activeDmPeer.firstName} ${activeDmPeer.lastName}`
+      : 'Internal Chat'
+    : activeThreadSummary
+      ? resolveThreadName(activeThreadSummary)
+      : activeThread?.subject || 'Support';
   const activeMessages = useMemo(() => {
     if (activeThread && activeThread.messages.length > 0) return activeThread.messages;
     return [];
   }, [activeThread]);
+  const activeDmMessages = useMemo(
+    () => (activeThreadId ? dmMessagesByThread[activeThreadId] || [] : []),
+    [activeThreadId, dmMessagesByThread]
+  );
   const activeTicket = activeThreadId ? ticketsByConversationId.get(activeThreadId) : null;
 
   // Scroll to bottom on new messages
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeMessages.length]);
+  }, [activeMessages.length, activeDmMessages.length, isInternalDm]);
 
   // Mutations
   const sendMessageMutation = useMutation({
     mutationFn: async () => {
       if (!activeThreadId) return;
+      if (activeThreadId.startsWith('dm:')) {
+        emitDmSend({
+          threadId: activeThreadId,
+          text: draftMessage.trim(),
+          clientMessageId: window.crypto?.randomUUID?.(),
+        });
+        return;
+      }
       await messageService.createMessage(activeThreadId, draftMessage.trim());
     },
     onSuccess: async () => {
       setDraftMessage('');
+      if (activeThreadId?.startsWith('dm:')) return;
       await Promise.all([activeThreadQuery.refetch(), refetchThreads()]);
     },
     onError: (err: Error & { response?: { data?: { error?: string } } }) => {
@@ -252,8 +348,14 @@ export default function MessagesPageRedesigned() {
     setSearchParams({ thread: threadId });
   };
 
-  const navigate = useNavigate();
   const [showVideoPanel, setShowVideoPanel] = useState(false);
+  const onVideoClick = () => {
+    if (isInternalDm && activeDmPeerId) {
+      emitCallStart({ calleeUserId: activeDmPeerId });
+      return;
+    }
+    setShowVideoPanel((v) => !v);
+  };
 
   const handleRailItemChange = useCallback((item: SupportRailItem) => {
     setActiveRailItem(item);
@@ -388,19 +490,11 @@ export default function MessagesPageRedesigned() {
                       const status = resolveSupportAgentPresence(agent);
                       const isCurrentUser = agent.id === user?.id;
                       return (
-                        <button
+                        <div
                           key={agent.id}
-                          type="button"
-                          disabled={isCurrentUser}
-                          onClick={() => {
-                            if (!isCurrentUser) {
-                              setShowAgentsPopover(false);
-                              navigate(`/calls?room=${getInternalCallRoom(agent.id)}`);
-                            }
-                          }}
-                          className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+                          className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${
                             isCurrentUser
-                              ? 'bg-slate-50 cursor-default'
+                              ? 'bg-slate-50'
                               : 'hover:bg-slate-50'
                           }`}
                         >
@@ -425,13 +519,32 @@ export default function MessagesPageRedesigned() {
                               {getPresenceLabel(status)} • {agent.role || 'Staff'}
                             </p>
                           </div>
-                          {/* Call icon */}
-                          {!isCurrentUser && status !== 'OFFLINE' && (
-                            <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
+                          {!isCurrentUser && (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowAgentsPopover(false);
+                                  emitDmOpen(agent.id);
+                                }}
+                                className="rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
+                              >
+                                Message
+                              </button>
+                              <button
+                                type="button"
+                                disabled={status === 'OFFLINE'}
+                                onClick={() => {
+                                  setShowAgentsPopover(false);
+                                  emitCallStart({ calleeUserId: agent.id });
+                                }}
+                                className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                Call
+                              </button>
+                            </div>
                           )}
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -501,7 +614,7 @@ export default function MessagesPageRedesigned() {
                   {/* Video Call Button */}
                   <button
                     type="button"
-                    onClick={() => setShowVideoPanel(!showVideoPanel)}
+                    onClick={onVideoClick}
                     className={`p-2 rounded-lg transition-colors ${showVideoPanel ? 'text-sky-600 bg-sky-50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
                     title={showVideoPanel ? 'Hide video panel' : 'Start video call'}
                   >
@@ -550,7 +663,7 @@ export default function MessagesPageRedesigned() {
               </div>
 
               {/* Video Panel - collapsible */}
-              {showVideoPanel && (
+              {showVideoPanel && !isInternalDm && (
                 <div className="px-5 py-3 bg-slate-50 border-b border-slate-200">
                   <SupportVideoPanel 
                     roomName={`laflo-support-${activeThreadId || 'general'}`} 
@@ -561,10 +674,15 @@ export default function MessagesPageRedesigned() {
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-                {activeMessages.map((message) => {
-                  const isGuest = message.senderType === 'GUEST';
-                  const senderName = resolveSenderName(message);
-                  const avatar = message.senderUser?.id 
+                {(isInternalDm ? activeDmMessages : activeMessages).map((message: any) => {
+                  const isDmMsg = isInternalDm;
+                  const isGuest = isDmMsg ? message.senderId !== user?.id : message.senderType === 'GUEST';
+                  const senderName = isDmMsg
+                    ? message.senderId === user?.id
+                      ? `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'You'
+                      : activeThreadName
+                    : resolveSenderName(message);
+                  const avatar = !isDmMsg && message.senderUser?.id 
                     ? getStoredAvatarByUserId(message.senderUser.id) 
                     : null;
                     
@@ -596,7 +714,7 @@ export default function MessagesPageRedesigned() {
                             : 'bg-sky-600 text-white rounded-tr-md'
                           }
                         `}>
-                          {message.body}
+                          {isDmMsg ? message.text : message.body}
                         </div>
                         <div className={`
                           mt-1 flex items-center gap-2 text-[11px] text-slate-400
