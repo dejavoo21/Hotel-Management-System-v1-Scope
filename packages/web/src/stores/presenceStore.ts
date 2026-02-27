@@ -31,6 +31,8 @@ interface PresenceState {
 }
 
 const DEFAULT_PRESENCE: PresenceStatus = 'AVAILABLE';
+const toEffectiveStatus = (status: PresenceStatus): EffectiveStatus =>
+  status === 'APPEAR_OFFLINE' ? 'OFFLINE' : status;
 
 export const usePresenceStore = create<PresenceState>()((set, get) => ({
   isConnected: false,
@@ -92,7 +94,7 @@ export const usePresenceStore = create<PresenceState>()((set, get) => ({
     const presence = presenceMap.get(userId);
     if (!presence) {
       // Default: online users show AVAILABLE, unknown users show OFFLINE
-      return isCurrentUser ? (isConnected ? myPresenceStatus : 'OFFLINE') : 'OFFLINE';
+      return isCurrentUser ? (isConnected ? toEffectiveStatus(myPresenceStatus) : 'OFFLINE') : 'OFFLINE';
     }
     
     // If user is offline, always show OFFLINE regardless of override
