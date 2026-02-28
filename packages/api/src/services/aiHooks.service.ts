@@ -52,16 +52,31 @@ export interface AiRequestContext {
 }
 
 export type WeatherActionPriority = 'low' | 'medium' | 'high';
+export type WeatherActionCategory =
+  | 'Front Desk'
+  | 'Concierge'
+  | 'Housekeeping'
+  | 'F&B'
+  | 'Maintenance';
 
 export interface WeatherOpsAction {
   title: string;
   reason: string;
   priority: WeatherActionPriority;
+  category?: WeatherActionCategory;
 }
 
 export interface WeatherOpsActionsResult {
   actions: WeatherOpsAction[];
   generatedAtUtc: string;
+}
+
+export interface OpsContext {
+  arrivalsNext24h: number;
+  departuresNext24h: number;
+  inhouseNow: number;
+  windowStartUtc: string;
+  windowEndUtc: string;
 }
 
 // Simple keyword-based intent detection (can be replaced with ML model)
@@ -399,7 +414,8 @@ function pushWeatherAction(
   list: WeatherOpsAction[],
   title: string,
   reason: string,
-  priority: WeatherActionPriority
+  priority: WeatherActionPriority,
+  category?: WeatherActionCategory
 ) {
   const exists = list.some((item) => item.title.toLowerCase() === title.toLowerCase());
   if (exists) return;
@@ -407,11 +423,52 @@ function pushWeatherAction(
     title: clampText(title, 60),
     reason: clampText(reason, 120),
     priority,
+    category,
   });
 }
 
+export async function getOpsContextForHotel(hotelId: string): Promise<OpsContext> {
+  const now = new Date();
+  const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const activeStatuses = ['CONFIRMED', 'CHECKED_IN'] as const;
+
+  const [arrivalsNext24h, departuresNext24h, inhouseNow] = await Promise.all([
+    prisma.booking.count({
+      where: {
+        hotelId,
+        status: { in: [...activeStatuses] },
+        checkInDate: { gte: now, lt: next24h },
+      },
+    }),
+    prisma.booking.count({
+      where: {
+        hotelId,
+        status: { in: [...activeStatuses] },
+        checkOutDate: { gte: now, lt: next24h },
+      },
+    }),
+    prisma.booking.count({
+      where: {
+        hotelId,
+        status: 'CHECKED_IN',
+        checkInDate: { lte: now },
+        checkOutDate: { gt: now },
+      },
+    }),
+  ]);
+
+  return {
+    arrivalsNext24h,
+    departuresNext24h,
+    inhouseNow,
+    windowStartUtc: now.toISOString(),
+    windowEndUtc: next24h.toISOString(),
+  };
+}
+
 export async function getWeatherOpsActions(
-  weather: WeatherContext | null
+  weather: WeatherContext | null,
+  ops?: OpsContext
 ): Promise<WeatherOpsActionsResult> {
   const generatedAtUtc = new Date().toISOString();
   if (!weather || !weather.syncedAtUtc || !weather.next24h) {
@@ -425,7 +482,8 @@ export async function getWeatherOpsActions(
       actions,
       'Refresh weather forecast now',
       'Current weather context is stale and may reduce recommendation accuracy.',
-      'high'
+      'high',
+      'Front Desk'
     );
   }
 
@@ -439,20 +497,23 @@ export async function getWeatherOpsActions(
       actions,
       'Stage umbrellas at reception',
       'High rain risk expected; prepare staff and guest-facing supplies.',
-      'high'
+      'high',
+      'Front Desk'
     );
     pushWeatherAction(
       actions,
       'Prioritize indoor breakfast seating',
       'Wet weather may reduce outdoor seating demand during breakfast hours.',
-      'medium'
+      'medium',
+      'F&B'
     );
   } else if (rainRisk === 'medium') {
     pushWeatherAction(
       actions,
       'Prepare rain contingency signage',
       'Moderate rain risk expected; direct guests toward indoor alternatives.',
-      'medium'
+      'medium',
+      'Front Desk'
     );
   }
 
@@ -461,7 +522,8 @@ export async function getWeatherOpsActions(
       actions,
       'Issue weather safety advisory at check-in',
       'Storm conditions are possible; align front desk messaging.',
-      'high'
+      'high',
+      'Front Desk'
     );
   }
 
@@ -470,7 +532,8 @@ export async function getWeatherOpsActions(
       actions,
       'Secure outdoor furniture and setup',
       'Windy conditions may impact terrace and poolside safety.',
-      'medium'
+      'medium',
+      'Maintenance'
     );
   }
 
@@ -479,7 +542,8 @@ export async function getWeatherOpsActions(
       actions,
       'Increase hydration station checks',
       `Hot conditions expected (up to ${high}C); prioritize water availability.`,
-      'medium'
+      'medium',
+      'F&B'
     );
   }
 
@@ -488,8 +552,41 @@ export async function getWeatherOpsActions(
       actions,
       'Prepare cold-weather arrival support',
       `Low temperatures expected (down to ${low}C); brief front desk team.`,
-      'medium'
+      'medium',
+      'Front Desk'
     );
+  }
+
+  if (ops) {
+    if (ops.arrivalsNext24h >= 20 && (rainRisk === 'high' || rainRisk === 'medium')) {
+      pushWeatherAction(
+        actions,
+        'Add lobby arrival coverage for peak check-in',
+        `High arrivals (${ops.arrivalsNext24h}) plus rain risk may slow front desk throughput.`,
+        'high',
+        'Front Desk'
+      );
+    }
+
+    if (ops.departuresNext24h >= 15 && typeof low === 'number' && low <= 5) {
+      pushWeatherAction(
+        actions,
+        'Coordinate early transport readiness',
+        `High departures (${ops.departuresNext24h}) with cold conditions can impact outbound flow.`,
+        'medium',
+        'Concierge'
+      );
+    }
+
+    if (ops.inhouseNow >= 40 && (summary.includes('storm') || summary.includes('wind'))) {
+      pushWeatherAction(
+        actions,
+        'Pre-brief maintenance on weather-related calls',
+        `High in-house load (${ops.inhouseNow}) may increase weather-driven service requests.`,
+        'medium',
+        'Maintenance'
+      );
+    }
   }
 
   if (actions.length === 0) {
@@ -497,7 +594,8 @@ export async function getWeatherOpsActions(
       actions,
       'Proceed with standard operations plan',
       'No weather disruptions detected in the current forecast window.',
-      'low'
+      'low',
+      'Front Desk'
     );
   }
 

@@ -1041,6 +1041,9 @@ export default function SettingsPage() {
                                   {item.title}{' '}
                                   <span className="text-xs uppercase text-slate-500">({item.priority})</span>
                                 </div>
+                                {item.category ? (
+                                  <div className="text-[11px] font-medium text-indigo-700">{item.category}</div>
+                                ) : null}
                                 <div className="text-xs text-slate-600">{item.reason}</div>
                               </li>
                             ))}

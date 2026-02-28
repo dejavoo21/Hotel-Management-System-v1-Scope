@@ -14,6 +14,7 @@ import {
   detectIntent,
   getSuggestedReplies,
   getRecommendedActions,
+  getOpsContextForHotel,
   getWeatherOpsActions,
   logAiInteraction,
 } from '../services/aiHooks.service.js';
@@ -163,12 +164,19 @@ router.post('/weather-actions', async (req: AuthenticatedRequest, res: Response,
       return;
     }
 
-    const weather = await getWeatherContextForHotel(hotelId);
-    const result = await getWeatherOpsActions(weather);
+    const [weather, ops] = await Promise.all([
+      getWeatherContextForHotel(hotelId),
+      getOpsContextForHotel(hotelId),
+    ]);
+    const result = await getWeatherOpsActions(weather, ops);
 
     await logAiInteraction(
       'WEATHER_ACTIONS',
-      JSON.stringify({ hotelId, weatherSyncedAtUtc: weather?.syncedAtUtc ?? null }),
+      JSON.stringify({
+        hotelId,
+        weatherSyncedAtUtc: weather?.syncedAtUtc ?? null,
+        opsContext: ops,
+      }),
       result,
       req.user!.id
     );

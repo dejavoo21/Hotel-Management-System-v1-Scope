@@ -30,6 +30,7 @@ export interface WeatherOpsAction {
   title: string;
   reason: string;
   priority: 'low' | 'medium' | 'high';
+  category?: 'Front Desk' | 'Concierge' | 'Housekeeping' | 'F&B' | 'Maintenance';
 }
 
 export interface WeatherOpsActionsResult {
