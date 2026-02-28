@@ -4,6 +4,7 @@ import { AuthenticatedRequest } from '../types/index.js';
 import { getOperationsContext } from '../services/operationsContext.service.js';
 import { Department, TicketCategory, TicketPriority } from '@prisma/client';
 import { prisma } from '../config/database.js';
+import { AdvisoryPriority, routeOpsAdvisory } from '../services/opsRouting.rules.js';
 
 const router = Router();
 
@@ -23,39 +24,10 @@ type CreateAdvisoryTicketBody = {
   } | null;
 };
 
-const DEPARTMENT_VALUES = new Set<Department>([
-  'FRONT_DESK',
-  'HOUSEKEEPING',
-  'MAINTENANCE',
-  'CONCIERGE',
-  'BILLING',
-  'MANAGEMENT',
-]);
-
-function mapTicketPriority(value?: string): TicketPriority | null {
-  const normalized = String(value || '').trim().toLowerCase();
-  if (normalized === 'high') return 'HIGH';
-  if (normalized === 'low') return 'LOW';
-  if (normalized === 'medium') return 'MEDIUM';
-  return null;
-}
-
-function mapDepartment(value?: string): Department {
-  const raw = String(value || '').trim();
-  const upper = raw.toUpperCase();
-  if (DEPARTMENT_VALUES.has(upper as Department)) return upper as Department;
-
-  const cleaned = upper.replace(/\s+/g, '_');
-  if (DEPARTMENT_VALUES.has(cleaned as Department)) return cleaned as Department;
-
-  if (upper.includes('FRONT')) return 'FRONT_DESK';
-  if (upper.includes('HOUSE')) return 'HOUSEKEEPING';
-  if (upper.includes('MAINT')) return 'MAINTENANCE';
-  if (upper.includes('CONCIERGE')) return 'CONCIERGE';
-  if (upper.includes('BILL')) return 'BILLING';
-  if (upper.includes('MANAG')) return 'MANAGEMENT';
-
-  return 'FRONT_DESK';
+function mapTicketPriority(value: AdvisoryPriority): TicketPriority {
+  if (value === 'high') return 'HIGH';
+  if (value === 'low') return 'LOW';
+  return 'MEDIUM';
 }
 
 function categoryForDepartment(department: Department): TicketCategory {
@@ -98,19 +70,25 @@ router.post('/advisories/create-ticket', async (req: AuthenticatedRequest, res: 
     const title = (body.title || '').trim();
     const reason = (body.reason || '').trim();
     const rawPriority = String(body.priority || '').trim().toLowerCase();
-    const priority = mapTicketPriority(rawPriority);
-    const department = mapDepartment(body.department);
 
     const allowedPriorities = new Set(['low', 'medium', 'high']);
     if (!allowedPriorities.has(rawPriority)) {
       res.status(400).json({ success: false, error: 'priority must be low|medium|high' });
       return;
     }
+    const advisoryPriority = rawPriority as AdvisoryPriority;
+    const routed = routeOpsAdvisory({
+      title,
+      reason,
+      priority: advisoryPriority,
+    });
+    const priority = mapTicketPriority(routed.priority);
+    const department: Department = routed.department;
 
-    if (!title || !reason || !priority) {
+    if (!title || !reason) {
       res.status(400).json({
         success: false,
-        error: 'title, reason, priority, department are required',
+        error: 'title, reason, priority are required',
       });
       return;
     }
@@ -210,8 +188,9 @@ router.post('/advisories/create-ticket', async (req: AuthenticatedRequest, res: 
               advisoryId: body.advisoryId || null,
               title,
               reason,
+              requestedDepartment: body.department || null,
               department,
-              priority,
+              priority: routed.priority,
               weatherSyncedAtUtc: body.meta?.weatherSyncedAtUtc ?? null,
               generatedAtUtc: body.meta?.generatedAtUtc ?? null,
               conversationId: conversation.id,

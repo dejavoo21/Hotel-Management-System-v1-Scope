@@ -1,6 +1,7 @@
 import { prisma } from '../config/database.js';
 import type { WeatherContext } from './weatherContext.provider.js';
 import { getWeatherContextForHotel } from './weatherContext.provider.js';
+import { routeOpsAdvisory } from './opsRouting.rules.js';
 
 export type WeatherActionPriority = 'low' | 'medium' | 'high';
 export type WeatherActionCategory =
@@ -10,13 +11,6 @@ export type WeatherActionCategory =
   | 'F&B'
   | 'Maintenance';
 
-type AdvisoryDepartment =
-  | 'FRONT_DESK'
-  | 'HOUSEKEEPING'
-  | 'MAINTENANCE'
-  | 'CONCIERGE'
-  | 'BILLING'
-  | 'MANAGEMENT';
 
 export interface WeatherOpsAction {
   title: string;
@@ -66,22 +60,6 @@ function pushWeatherAction(
     priority,
     category,
   });
-}
-
-function mapWeatherCategoryToDepartment(category?: WeatherActionCategory): AdvisoryDepartment {
-  switch (category) {
-    case 'Housekeeping':
-      return 'HOUSEKEEPING';
-    case 'Maintenance':
-      return 'MAINTENANCE';
-    case 'Concierge':
-      return 'CONCIERGE';
-    case 'F&B':
-      return 'MANAGEMENT';
-    case 'Front Desk':
-    default:
-      return 'FRONT_DESK';
-  }
 }
 
 export async function getOpsContextForHotel(hotelId: string): Promise<OpsContext> {
@@ -310,13 +288,21 @@ export async function getOperationsContext(hotelId: string) {
             ? `Consider promotional pricing (${opportunityPct}%) to stabilize occupancy.`
             : 'Keep current rates and monitor booking pace.',
     },
-    advisories: advisoriesResult.actions.slice(0, 5).map((item, index) => ({
-      id: `${advisoryIdForAction(item)}-${index + 1}`,
-      title: item.title,
-      reason: item.reason,
-      priority: item.priority,
-      department: mapWeatherCategoryToDepartment(item.category),
-      source: 'WEATHER_ACTIONS' as const,
-    })),
+    advisories: advisoriesResult.actions.slice(0, 5).map((item, index) => {
+      const routed = routeOpsAdvisory({
+        title: item.title,
+        reason: item.reason,
+        priority: item.priority,
+      });
+
+      return {
+        id: `${advisoryIdForAction(item)}-${index + 1}`,
+        title: item.title,
+        reason: item.reason,
+        priority: routed.priority,
+        department: routed.department,
+        source: 'WEATHER_ACTIONS' as const,
+      };
+    }),
   };
 }
