@@ -3,7 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { roomService, authService, hotelService, accessRequestService, weatherSignalsService } from '@/services';
-import { getWeatherOpsActions, type WeatherOpsAction } from '@/services/aiHooks';
+import {
+  createWeatherActionTicket,
+  getWeatherOpsActions,
+  type CreateWeatherActionTicketInput,
+  type WeatherOpsAction,
+} from '@/services/aiHooks';
 import api from '@/services/api';
 import { currencyOptions, timezoneOptions } from '@/data/options';
 import type { AccessRequest, AccessRequestReply } from '@/types';
@@ -64,6 +69,9 @@ export default function SettingsPage() {
   const [auditSettings, setAuditSettings] = useState(getAuditSettings());
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [auditFilter, setAuditFilter] = useState('');
+  const [createdWeatherActionTickets, setCreatedWeatherActionTickets] = useState<Record<string, string>>(
+    {}
+  );
 
   const { user, setUser } = useAuthStore();
   const { theme } = useTheme();
@@ -485,6 +493,54 @@ export default function SettingsPage() {
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     staleTime: 0,
+  });
+
+  const buildWeatherActionKey = (item: WeatherOpsAction, index: number) =>
+    `${item.title}::${item.reason}::${item.priority}::${item.category ?? ''}::${index}`;
+
+  const weatherDepartmentMap: Record<
+    NonNullable<WeatherOpsAction['category']> | 'default',
+    CreateWeatherActionTicketInput['department']
+  > = {
+    'Front Desk': 'FRONT_DESK',
+    Housekeeping: 'HOUSEKEEPING',
+    Concierge: 'CONCIERGE',
+    Maintenance: 'MAINTENANCE',
+    'F&B': 'MANAGEMENT',
+    default: 'FRONT_DESK',
+  };
+
+  const createWeatherTicketMutation = useMutation({
+    mutationFn: async ({ item, index }: { item: WeatherOpsAction; index: number }) => {
+      const department =
+        weatherDepartmentMap[(item.category as NonNullable<WeatherOpsAction['category']>) ?? 'default'] ||
+        weatherDepartmentMap.default;
+
+      const payload: CreateWeatherActionTicketInput = {
+        title: item.title,
+        reason: item.reason,
+        priority: item.priority,
+        department,
+        weatherSyncedAtUtc: weatherStatusQuery.data?.lastSyncTime ?? null,
+        aiGeneratedAtUtc: weatherActionsQuery.data?.generatedAtUtc ?? null,
+      };
+      const result = await createWeatherActionTicket(payload);
+      return { result, department, key: buildWeatherActionKey(item, index) };
+    },
+    onSuccess: ({ result, department, key }) => {
+      setCreatedWeatherActionTickets((prev) => ({
+        ...prev,
+        [key]: result.ticketId,
+      }));
+      toast.success(`Task created for ${department}`);
+    },
+    onError: (error) => {
+      const message =
+        (error as any)?.response?.data?.error ||
+        (error as Error | null)?.message ||
+        'Failed to create ticket';
+      toast.error(message);
+    },
   });
 
   const formatBytes = (value?: number) => {
@@ -1063,6 +1119,36 @@ export default function SettingsPage() {
                                   <div className="text-[11px] font-medium text-indigo-700">{item.category}</div>
                                 ) : null}
                                 <div className="text-xs text-slate-600">{item.reason}</div>
+                                {(() => {
+                                  const actionKey = buildWeatherActionKey(item, idx);
+                                  const createdTicketId = createdWeatherActionTickets[actionKey];
+                                  const pendingForThis =
+                                    createWeatherTicketMutation.isPending &&
+                                    createWeatherTicketMutation.variables?.index === idx &&
+                                    createWeatherTicketMutation.variables?.item?.title === item.title &&
+                                    createWeatherTicketMutation.variables?.item?.reason === item.reason;
+                                  return (
+                                    <div className="mt-2 flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        disabled={pendingForThis || Boolean(createdTicketId)}
+                                        onClick={() => createWeatherTicketMutation.mutate({ item, index: idx })}
+                                        className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                      >
+                                        {createdTicketId
+                                          ? 'Created'
+                                          : pendingForThis
+                                            ? 'Creating...'
+                                            : 'Create ticket'}
+                                      </button>
+                                      {createdTicketId ? (
+                                        <span className="text-[11px] font-medium text-emerald-700">
+                                          Created: {createdTicketId}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  );
+                                })()}
                               </li>
                             ))}
                           </ul>

@@ -38,6 +38,22 @@ export interface WeatherOpsActionsResult {
   generatedAtUtc: string;
 }
 
+export interface CreateWeatherActionTicketInput {
+  title: string;
+  reason: string;
+  priority: 'low' | 'medium' | 'high';
+  department: 'FRONT_DESK' | 'HOUSEKEEPING' | 'CONCIERGE' | 'MAINTENANCE' | 'BILLING' | 'MANAGEMENT';
+  weatherSyncedAtUtc?: string | null;
+  aiGeneratedAtUtc?: string | null;
+}
+
+export interface CreateWeatherActionTicketResult {
+  ticketId: string;
+  status: 'OPEN' | 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'BREACHED';
+  department: string;
+  conversationId: string;
+}
+
 /**
  * Detect intent from a message
  */
@@ -83,6 +99,16 @@ export async function getWeatherOpsActions(hotelId?: string): Promise<WeatherOps
   const response = await api.post<{ success: boolean; data: WeatherOpsActionsResult }>(
     '/ai/weather-actions',
     { hotelId }
+  );
+  return response.data.data;
+}
+
+export async function createWeatherActionTicket(
+  payload: CreateWeatherActionTicketInput
+): Promise<CreateWeatherActionTicketResult> {
+  const response = await api.post<{ success: boolean; data: CreateWeatherActionTicketResult }>(
+    '/ai/weather-actions/create-ticket',
+    payload
   );
   return response.data.data;
 }
