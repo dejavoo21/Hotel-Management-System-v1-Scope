@@ -107,6 +107,58 @@ async function main() {
         amenities: ['WiFi', 'TV', 'Air Conditioning', 'Coffee Maker', 'Mini Bar', 'Living Room', 'Jacuzzi', 'Room Service'],
       },
     }),
+    prisma.roomType.upsert({
+      where: { id: 'rt-double' },
+      update: {},
+      create: {
+        id: 'rt-double',
+        hotelId: hotel.id,
+        name: 'Double',
+        description: 'Comfortable double room with extra space',
+        baseRate: 119.00,
+        maxGuests: 2,
+        amenities: ['WiFi', 'TV', 'Air Conditioning', 'Desk'],
+      },
+    }),
+    prisma.roomType.upsert({
+      where: { id: 'rt-queen' },
+      update: {},
+      create: {
+        id: 'rt-queen',
+        hotelId: hotel.id,
+        name: 'Queen',
+        description: 'Queen bed room with upgraded linens',
+        baseRate: 129.00,
+        maxGuests: 2,
+        amenities: ['WiFi', 'TV', 'Air Conditioning', 'Desk', 'Coffee Maker'],
+      },
+    }),
+    prisma.roomType.upsert({
+      where: { id: 'rt-king' },
+      update: {},
+      create: {
+        id: 'rt-king',
+        hotelId: hotel.id,
+        name: 'King',
+        description: 'Spacious king room with premium bedding',
+        baseRate: 159.00,
+        maxGuests: 2,
+        amenities: ['WiFi', 'TV', 'Air Conditioning', 'Desk', 'City View'],
+      },
+    }),
+    prisma.roomType.upsert({
+      where: { id: 'rt-twin' },
+      update: {},
+      create: {
+        id: 'rt-twin',
+        hotelId: hotel.id,
+        name: 'Twin',
+        description: 'Twin beds ideal for shared stays',
+        baseRate: 109.00,
+        maxGuests: 2,
+        amenities: ['WiFi', 'TV', 'Air Conditioning', 'Desk'],
+      },
+    }),
   ]);
 
   console.log(`Created ${roomTypes.length} room types`);
