@@ -410,18 +410,24 @@ export default function SettingsPage() {
       hotelForm.timezone.trim()
   );
   const weatherStatus = weatherStatusQuery.data;
-  const weatherLastSyncTime = weatherStatus?.lastSyncTime
-    ? new Date(weatherStatus.lastSyncTime)
-    : null;
+  const rawWeatherSyncedAt =
+    weatherStatus?.lastSyncTime ??
+    (weatherStatus as any)?.syncedAtUtc ??
+    (weatherStatus as any)?.lastSyncAt ??
+    null;
+  const weatherLastSyncTime = rawWeatherSyncedAt ? new Date(rawWeatherSyncedAt) : null;
   const daysAvailableNum = Number(weatherStatus?.daysAvailable ?? 0);
   const weatherDaysAvailable = Number.isFinite(daysAvailableNum) ? daysAvailableNum : 0;
+  const hasSyncedAt = Boolean(rawWeatherSyncedAt);
   const hasCoordinates =
-    weatherStatus?.lat != null && weatherStatus?.lon != null;
+    (weatherStatus as any)?.coordinates?.lat != null ||
+    ((weatherStatus as any)?.latitude != null && (weatherStatus as any)?.longitude != null) ||
+    (weatherStatus?.lat != null && weatherStatus?.lon != null);
   const weatherStaleHours =
     weatherLastSyncTime != null
       ? (Date.now() - weatherLastSyncTime.getTime()) / (1000 * 60 * 60)
       : null;
-  const hasForecast = Boolean(weatherStatus?.lastSyncTime) && weatherDaysAvailable > 0;
+  const hasForecast = hasSyncedAt && weatherDaysAvailable > 0;
   const hasSyncedWeather = hasForecast;
   type WeatherBadgeState = 'SYNCING' | 'FAILED' | 'ACTIVE' | 'READY';
   const weatherStatusKey: WeatherBadgeState = syncWeatherMutation.isPending
