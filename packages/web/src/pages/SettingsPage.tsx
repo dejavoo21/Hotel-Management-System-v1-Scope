@@ -432,12 +432,12 @@ export default function SettingsPage() {
   type WeatherBadgeState = 'SYNCING' | 'FAILED' | 'ACTIVE' | 'READY' | 'BLOCKED' | 'LOADING';
   const weatherStatusKey: WeatherBadgeState = syncWeatherMutation.isPending
     ? 'SYNCING'
-    : syncWeatherMutation.isError
-      ? 'FAILED'
+    : hasForecast
+      ? 'ACTIVE'
       : !canSyncWeather
         ? 'BLOCKED'
-        : hasForecast
-          ? 'ACTIVE'
+        : syncWeatherMutation.isError
+          ? 'FAILED'
           : weatherStatusQuery.isLoading
             ? 'LOADING'
             : weatherStatusQuery.isError
