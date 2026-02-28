@@ -370,6 +370,44 @@ export default function SettingsPage() {
     },
   });
 
+  const canSyncWeather = Boolean(
+    user?.hotel?.id &&
+      hotelForm.city.trim() &&
+      hotelForm.country.trim() &&
+      hotelForm.timezone.trim()
+  );
+  const weatherLastSyncTime = weatherStatusQuery.data?.lastSyncTime
+    ? new Date(weatherStatusQuery.data.lastSyncTime)
+    : null;
+  const hasCoordinates =
+    weatherStatusQuery.data?.lat != null && weatherStatusQuery.data?.lon != null;
+  const weatherStatusKey = syncWeatherMutation.isPending
+    ? 'SYNCING'
+    : weatherStatusQuery.isLoading
+      ? 'LOADING'
+      : weatherStatusQuery.isError
+        ? 'FAILED'
+        : canSyncWeather
+          ? 'READY'
+          : 'BLOCKED';
+  const weatherStatusLabel: Record<typeof weatherStatusKey, string> = {
+    SYNCING: 'Syncing',
+    LOADING: 'Loading',
+    FAILED: 'Unavailable',
+    READY: 'Ready to sync',
+    BLOCKED: 'City/Country/Timezone required',
+  };
+  const weatherStatusStyles: Record<typeof weatherStatusKey, string> = {
+    SYNCING: 'bg-sky-100 text-sky-700',
+    LOADING: 'bg-slate-100 text-slate-700',
+    FAILED: 'bg-rose-100 text-rose-700',
+    READY: 'bg-emerald-100 text-emerald-700',
+    BLOCKED: 'bg-amber-100 text-amber-700',
+  };
+  const weatherInsightLine = weatherLastSyncTime
+    ? 'Forecast intelligence is available for AI-assisted guest guidance.'
+    : 'Sync to enable weather-aware recommendations and outdoor planning guidance.';
+
   const formatBytes = (value?: number) => {
     if (!value) return '0 B';
     const kb = value / 1024;
@@ -808,95 +846,101 @@ export default function SettingsPage() {
               </form>
 
               {isAdmin && (
-                <div className="mt-8 rounded-lg border border-border bg-card p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <h3 className="text-base font-semibold text-text-main">Weather Signals</h3>
+                <div className="mt-8 overflow-hidden rounded-xl border border-border bg-card">
+                  <div className="bg-gradient-to-r from-sky-500 to-emerald-500 p-4 text-white">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h3 className="text-base font-semibold">Weather Intelligence</h3>
+                        <p className="text-sm text-white/90">
+                          Forecast synced for {hotelForm.name || 'this hotel'}.
+                        </p>
+                      </div>
+                      <div
+                        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${weatherStatusStyles[weatherStatusKey]} ${
+                          weatherStatusKey === 'SYNCING' ? 'animate-pulse' : ''
+                        }`}
+                      >
+                        {weatherStatusLabel[weatherStatusKey]}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <p className="text-sm text-text-muted">
                         Sync OpenWeatherMap forecast into backend signals (timezone-correct per hotel).
                       </p>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:from-blue-600 hover:to-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={syncWeatherMutation.isPending || !canSyncWeather}
+                        onClick={() => {
+                          if (!user?.hotel?.id) return;
+                          syncWeatherMutation.mutate(user.hotel.id);
+                        }}
+                      >
+                        {syncWeatherMutation.isPending ? 'Refreshing Forecast...' : 'Refresh Forecast'}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      disabled={
-                        syncWeatherMutation.isPending ||
-                        !user?.hotel?.id ||
-                        !hotelForm.city.trim() ||
-                        !hotelForm.country.trim() ||
-                        !hotelForm.timezone.trim()
-                      }
-                      onClick={() => {
-                        if (!user?.hotel?.id) return;
-                        syncWeatherMutation.mutate(user.hotel.id);
-                      }}
-                    >
-                      {syncWeatherMutation.isPending ? 'Syncing...' : 'Sync Weather Now'}
-                    </button>
-                  </div>
 
-                  {/* Location Summary */}
-                  <div className="mt-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3">
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                      <div>
-                        <span className="text-text-muted">Location:</span>{' '}
-                        <span className="font-medium text-text-main">
-                          {hotelForm.city && hotelForm.country
-                            ? `${hotelForm.city}, ${hotelForm.country}`
-                            : 'Not configured'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-text-muted">Timezone:</span>{' '}
-                        <span className="font-medium text-text-main">
-                          {hotelForm.timezone || 'Not set'}
-                        </span>
+                    <div className="mt-4 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                        <div>
+                          <span className="text-text-muted">Location:</span>{' '}
+                          <span className="font-medium text-text-main">
+                            {hotelForm.city && hotelForm.country
+                              ? `${hotelForm.city}, ${hotelForm.country}`
+                              : 'Not configured'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-text-muted">Timezone:</span>{' '}
+                          <span className="font-medium text-text-main">
+                            {hotelForm.timezone || 'Not set'}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="rounded-lg border border-border p-3">
-                      <div className="text-xs uppercase tracking-wide text-text-muted">Last Sync</div>
-                      <div className="mt-1 text-sm font-medium text-text-main">
-                        {weatherStatusQuery.data?.lastSyncTime
-                          ? new Date(weatherStatusQuery.data.lastSyncTime).toLocaleString()
-                          : 'Not synced yet'}
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                        <div className="text-xs uppercase tracking-wide text-blue-700">Last Sync</div>
+                        <div className="mt-1 text-sm font-medium text-blue-900">
+                          {weatherLastSyncTime ? weatherLastSyncTime.toLocaleString() : 'Not synced yet'}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-violet-200 bg-violet-50 p-3">
+                        <div className="text-xs uppercase tracking-wide text-violet-700">Forecast Days</div>
+                        <div className="mt-1 text-sm font-medium text-violet-900">
+                          {weatherStatusQuery.data?.daysAvailable ?? 0}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-teal-200 bg-teal-50 p-3">
+                        <div className="text-xs uppercase tracking-wide text-teal-700">Coordinates</div>
+                        <div className="mt-1 text-sm font-medium text-teal-900">
+                          {hasCoordinates
+                            ? `${weatherStatusQuery.data!.lat!.toFixed(4)}, ${weatherStatusQuery.data!.lon!.toFixed(4)}`
+                            : 'Not geocoded yet'}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                        <div className="text-xs uppercase tracking-wide text-emerald-700">Status</div>
+                        <div className="mt-1 text-sm font-medium text-emerald-900">
+                          {weatherStatusLabel[weatherStatusKey]}
+                        </div>
                       </div>
                     </div>
-                    <div className="rounded-lg border border-border p-3">
-                      <div className="text-xs uppercase tracking-wide text-text-muted">Days Available</div>
-                      <div className="mt-1 text-sm font-medium text-text-main">
-                        {weatherStatusQuery.data?.daysAvailable ?? 0}
-                      </div>
-                    </div>
-                    <div className="rounded-lg border border-border p-3">
-                      <div className="text-xs uppercase tracking-wide text-text-muted">Coordinates</div>
-                      <div className="mt-1 text-sm font-medium text-text-main">
-                        {weatherStatusQuery.data?.lat != null && weatherStatusQuery.data?.lon != null
-                          ? `${weatherStatusQuery.data.lat.toFixed(4)}, ${weatherStatusQuery.data.lon.toFixed(4)}`
-                          : 'Not geocoded yet'}
-                      </div>
-                    </div>
-                    <div className="rounded-lg border border-border p-3">
-                      <div className="text-xs uppercase tracking-wide text-text-muted">Status</div>
-                      <div className="mt-1 text-sm font-medium text-text-main">
-                        {weatherStatusQuery.isLoading
-                          ? 'Loading...'
-                          : weatherStatusQuery.isError
-                          ? 'Unavailable'
-                          : hotelForm.city && hotelForm.country && hotelForm.timezone
-                          ? 'Ready to sync'
-                          : 'City/Country/Timezone required'}
-                      </div>
-                    </div>
-                  </div>
 
-                  {(!hotelForm.city.trim() || !hotelForm.country.trim() || !hotelForm.timezone.trim()) && (
-                    <p className="mt-3 text-sm text-amber-700">
-                      Add City, Country, and Timezone above before syncing weather.
-                    </p>
-                  )}
+                    <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                      {weatherInsightLine}
+                    </div>
+
+                    {!canSyncWeather && (
+                      <p className="mt-3 text-sm text-amber-700">
+                        Add City, Country, and Timezone above before syncing weather.
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -2020,4 +2064,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
