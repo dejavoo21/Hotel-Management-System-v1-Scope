@@ -3,12 +3,24 @@ import type { WeatherSignalDaily, WeatherSignalStatus } from '@/types';
 
 export const weatherSignalsService = {
   async getStatus(hotelId: string): Promise<WeatherSignalStatus> {
-    const response = await api.get('/signals/weather/status', { params: { hotelId } });
+    const response = await api.get('/signals/weather/status', {
+      params: { hotelId, _ts: Date.now() },
+      headers: {
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
+      },
+    });
     return response.data.data;
   },
 
   async getLatest(hotelId: string): Promise<WeatherSignalDaily[]> {
-    const response = await api.get('/signals/weather/latest', { params: { hotelId } });
+    const response = await api.get('/signals/weather/latest', {
+      params: { hotelId, _ts: Date.now() },
+      headers: {
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
+      },
+    });
     return response.data.data;
   },
 
@@ -28,4 +40,3 @@ export const weatherSignalsService = {
 };
 
 export default weatherSignalsService;
-

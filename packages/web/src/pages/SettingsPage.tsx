@@ -357,13 +357,17 @@ export default function SettingsPage() {
     queryFn: () => weatherSignalsService.getStatus(user!.hotel.id),
     enabled: activeTab === 'hotel' && isAdmin && Boolean(user?.hotel?.id),
     retry: false,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const syncWeatherMutation = useMutation({
     mutationFn: (hotelId: string) => weatherSignalsService.sync(hotelId),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       toast.success(`Weather synced (${data.daysStored} days stored)`);
-      queryClient.invalidateQueries({ queryKey: ['weatherSignalsStatus', data.hotelId] });
+      await queryClient.invalidateQueries({ queryKey: ['weatherSignalsStatus', data.hotelId] });
+      await weatherStatusQuery.refetch();
     },
     onError: () => {
       toast.error('Weather sync failed');
