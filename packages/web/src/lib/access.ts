@@ -29,6 +29,9 @@ export const ROUTE_MODULES: Record<string, PermissionId> = Object.entries(MODULE
   {} as Record<string, PermissionId>
 );
 
+// Operations Center is temporarily mapped to bookings until a dedicated operations module exists.
+ROUTE_MODULES['/operations'] = 'bookings';
+
 
 // Priority order for determining first allowed route
 const MODULE_PRIORITY: PermissionId[] = [
