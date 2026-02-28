@@ -409,52 +409,45 @@ export default function SettingsPage() {
       hotelForm.country.trim() &&
       hotelForm.timezone.trim()
   );
-  const weatherLastSyncTime = weatherStatusQuery.data?.lastSyncTime
-    ? new Date(weatherStatusQuery.data.lastSyncTime)
+  const weatherStatus = weatherStatusQuery.data;
+  const weatherLastSyncTime = weatherStatus?.lastSyncTime
+    ? new Date(weatherStatus.lastSyncTime)
     : null;
-  const weatherDaysAvailable = Number(weatherStatusQuery.data?.daysAvailable ?? 0) || 0;
+  const daysAvailableNum = Number(weatherStatus?.daysAvailable ?? 0);
+  const weatherDaysAvailable = Number.isFinite(daysAvailableNum) ? daysAvailableNum : 0;
   const hasCoordinates =
-    weatherStatusQuery.data?.lat != null && weatherStatusQuery.data?.lon != null;
+    weatherStatus?.lat != null && weatherStatus?.lon != null;
   const weatherStaleHours =
     weatherLastSyncTime != null
       ? (Date.now() - weatherLastSyncTime.getTime()) / (1000 * 60 * 60)
       : null;
-  const hasSyncedWeather = weatherDaysAvailable > 0 && weatherLastSyncTime != null;
-  const hasWeatherStatusData = hasSyncedWeather || hasCoordinates;
-  const weatherStatusKey = syncWeatherMutation.isPending
+  const hasForecast = Boolean(weatherStatus?.lastSyncTime) && weatherDaysAvailable > 0;
+  const hasSyncedWeather = hasForecast;
+  type WeatherBadgeState = 'SYNCING' | 'FAILED' | 'ACTIVE' | 'READY';
+  const weatherStatusKey: WeatherBadgeState = syncWeatherMutation.isPending
     ? 'SYNCING'
-    : hasSyncedWeather
-      ? 'ACTIVE'
-      : weatherStatusQuery.isLoading && !hasWeatherStatusData
-        ? 'LOADING'
-        : (weatherStatusQuery.isError || syncWeatherMutation.isError) && !hasWeatherStatusData
-          ? 'FAILED'
-          : canSyncWeather
-            ? 'READY'
-            : 'BLOCKED';
-  const weatherStatusLabel: Record<typeof weatherStatusKey, string> = {
+    : syncWeatherMutation.isError
+      ? 'FAILED'
+      : hasForecast
+        ? 'ACTIVE'
+        : 'READY';
+  const weatherStatusLabel: Record<WeatherBadgeState, string> = {
     ACTIVE: 'Synced',
     SYNCING: 'Syncing',
-    LOADING: 'Loading',
     FAILED: 'Sync failed',
     READY: 'Ready to sync',
-    BLOCKED: 'City/Country/Timezone required',
   };
-  const weatherStatusIcon: Record<typeof weatherStatusKey, string> = {
+  const weatherStatusIcon: Record<WeatherBadgeState, string> = {
     ACTIVE: '[OK]',
     SYNCING: '[~]',
-    LOADING: '[...]',
     FAILED: '[!]',
     READY: '[!]',
-    BLOCKED: '[!]',
   };
-  const weatherStatusStyles: Record<typeof weatherStatusKey, string> = {
+  const weatherStatusStyles: Record<WeatherBadgeState, string> = {
     ACTIVE: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
     SYNCING: 'bg-sky-100 text-sky-700 ring-sky-300',
-    LOADING: 'bg-slate-100 text-slate-700 ring-slate-300',
     FAILED: 'bg-rose-100 text-rose-700 ring-rose-300',
     READY: 'bg-amber-50 text-amber-700 ring-amber-200',
-    BLOCKED: 'bg-amber-50 text-amber-700 ring-amber-200',
   };
   const weatherDataQuality = hasSyncedWeather ? 'Good' : 'Unknown';
   const weatherSyncError = syncWeatherMutation.isError
@@ -1005,11 +998,11 @@ export default function SettingsPage() {
                                 className={`h-2 w-2 rounded-full ${
                                   weatherStatusKey === 'ACTIVE'
                                     ? 'bg-emerald-500'
-                                    : weatherStatusKey === 'READY' || weatherStatusKey === 'BLOCKED'
+                                    : weatherStatusKey === 'READY'
                                       ? 'bg-amber-500'
-                                      : weatherStatusKey === 'FAILED'
-                                        ? 'bg-rose-500'
-                                        : 'bg-sky-500'
+                                    : weatherStatusKey === 'FAILED'
+                                      ? 'bg-rose-500'
+                                      : 'bg-sky-500'
                                 }`}
                               />
                               <span>{weatherStatusIcon[weatherStatusKey]}</span>
