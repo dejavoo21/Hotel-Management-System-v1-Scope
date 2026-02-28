@@ -82,6 +82,7 @@ export function useSocketPresence() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
+  const locationRef = useRef(location);
   const { accessToken, isAuthenticated, user, setUser } = useAuthStore();
   const { 
     setConnected, 
@@ -90,6 +91,11 @@ export function useSocketPresence() {
     setMyPresence,
     clear: clearPresence,
   } = usePresenceStore();
+
+  // Keep latest location available to socket listeners without forcing reconnects.
+  useEffect(() => {
+    locationRef.current = location;
+  }, [location.pathname, location.search]);
 
   // Connect to socket when authenticated
   useEffect(() => {
@@ -168,7 +174,7 @@ export function useSocketPresence() {
             queryClient.invalidateQueries({ queryKey: ['currentUser'] });
             
             // Check if current route is still allowed
-            const currentPath = location.pathname;
+            const currentPath = locationRef.current.pathname;
             if (!canAccessRoute(updatedUser, currentPath)) {
               const allowedRoute = firstAllowedRoute(updatedUser);
               console.log('[Socket] Current route no longer allowed, redirecting to:', allowedRoute);
@@ -203,9 +209,10 @@ export function useSocketPresence() {
 
     socket.on('call:ring', (payload: CallRingPayload) => {
       dispatchSocketEvent('hotelos:call-ring', payload);
-      const currentParams = new URLSearchParams(location.search);
+      const currentLocation = locationRef.current;
+      const currentParams = new URLSearchParams(currentLocation.search);
       const isSameIncomingScreen =
-        location.pathname === '/calls' &&
+        currentLocation.pathname === '/calls' &&
         currentParams.get('incoming') === '1' &&
         currentParams.get('room') === payload.room;
 
@@ -237,7 +244,7 @@ export function useSocketPresence() {
       socketRef.current = null;
       clearPresence();
     };
-  }, [isAuthenticated, accessToken, user?.id, location.pathname, location.search]);
+  }, [isAuthenticated, accessToken, user?.id]);
 
   // Method to manually emit presence change via socket (optional, REST is primary)
   const emitPresenceSet = useCallback((status: string) => {
