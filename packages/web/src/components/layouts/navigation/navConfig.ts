@@ -7,6 +7,7 @@ export type NavItem = {
   permission?: PermissionId;
   roles?: UserRole[];
   icon: string; // Icon name to render
+  badge?: string;
 };
 
 export type NavSection = {
@@ -32,7 +33,7 @@ export const navSections: NavSection[] = [
     label: 'Operations',
     icon: 'operations',
     items: [
-      { id: 'operations-center', label: 'Operations Center', href: '/operations', permission: 'dashboard', icon: 'operations' },
+      { id: 'operations-center', label: 'Operations Center', href: '/operations', icon: 'operations', badge: 'NEW' },
       { id: 'reservation', label: 'Reservation', href: '/bookings', permission: 'bookings', icon: 'calendar-check' },
       { id: 'rooms', label: 'Rooms', href: '/rooms', permission: 'rooms', icon: 'door' },
       { id: 'housekeeping', label: 'Housekeeping', href: '/housekeeping', permission: 'housekeeping', icon: 'sparkles' },

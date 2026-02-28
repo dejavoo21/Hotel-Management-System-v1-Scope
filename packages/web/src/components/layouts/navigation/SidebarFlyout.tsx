@@ -147,6 +147,11 @@ export const SidebarFlyout = memo(function SidebarFlyout({
                 className={`h-4 w-4 ${isActive ? 'text-white' : 'text-slate-400'}`} 
               />
               <span className="flex-1">{item.label}</span>
+              {item.badge && !isActive ? (
+                <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
+                  {item.badge}
+                </span>
+              ) : null}
               
               {/* Active indicator */}
               {isActive && (
