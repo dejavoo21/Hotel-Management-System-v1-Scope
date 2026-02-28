@@ -357,6 +357,7 @@ export default function SettingsPage() {
     queryFn: () => weatherSignalsService.getStatus(user!.hotel.id),
     enabled: activeTab === 'hotel' && isAdmin && Boolean(user?.hotel?.id),
     retry: false,
+    placeholderData: (previousData) => previousData,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     staleTime: 0,
@@ -419,6 +420,20 @@ export default function SettingsPage() {
     BLOCKED: 'bg-amber-50 text-amber-700 ring-amber-200',
   };
   const weatherDataQuality = hasSyncedWeather ? 'Good' : 'Unknown';
+  const weatherSyncError = syncWeatherMutation.isError
+    ? (syncWeatherMutation.error as any)?.response?.data?.error ||
+      (syncWeatherMutation.error as Error | null)?.message ||
+      'Weather sync failed'
+    : null;
+  const weatherUpdatedAgoLabel = weatherLastSyncTime
+    ? (() => {
+        const mins = Math.max(0, Math.floor((Date.now() - weatherLastSyncTime.getTime()) / 60000));
+        if (mins < 1) return 'Updated just now';
+        if (mins < 60) return `Updated ${mins} min ago`;
+        const hours = Math.floor(mins / 60);
+        return `Updated ${hours}h ago`;
+      })()
+    : 'Not updated yet';
   const weatherInsightLine =
     !hasSyncedWeather
       ? 'Sync forecast to enable weather-aware suggestions for pool, outdoor dining, arrivals, and concierge.'
@@ -904,9 +919,12 @@ export default function SettingsPage() {
                                 ? `${hotelForm.city}, ${hotelForm.country}`
                                 : 'Not configured'}
                             </span>{' '}
-                            · Timezone:{' '}
+                            | Timezone:{' '}
                             <span className="font-medium text-slate-800">{hotelForm.timezone || 'Not set'}</span>
                           </p>
+                          {weatherStatusQuery.isFetching && hasSyncedWeather ? (
+                            <p className="mt-1 text-xs text-slate-500">Updating latest forecast...</p>
+                          ) : null}
                         </div>
                       </div>
 
@@ -957,10 +975,15 @@ export default function SettingsPage() {
                       <div className="mt-1 text-xs text-slate-500">
                         Tip: keep forecast fresh for accurate operational recommendations.
                       </div>
+                      {weatherSyncError ? (
+                        <div className="mt-2 text-xs font-medium text-rose-700">
+                          Sync failed: {weatherSyncError}
+                        </div>
+                      ) : null}
                     </div>
 
                     <div className="mt-3 text-xs text-slate-500">
-                      Auto-refresh hint: refresh before peak check-in windows and major outdoor activities.
+                      {weatherUpdatedAgoLabel} | Source: OpenWeather | Auto-refresh hint: refresh before peak check-in windows and major outdoor activities.
                     </div>
 
                     {!canSyncWeather && (
