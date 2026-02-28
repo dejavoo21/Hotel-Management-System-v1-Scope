@@ -477,13 +477,13 @@ export default function SettingsPage() {
         ? 'Updating weather context'
         : weatherStaleHours != null && weatherStaleHours >= 6
           ? 'Weather context aging'
-          : 'AI using live weather context';
+          : 'Using live operational signals';
   const weatherInsightLine =
     !hasSyncedWeather
       ? 'Sync forecast to enable weather-aware suggestions for pool, outdoor dining, arrivals, and concierge.'
       : weatherStaleHours != null && weatherStaleHours >= 6
         ? `Forecast is ${weatherStaleHours.toFixed(1)} hours old. Refresh recommended before advising guests.`
-        : 'Forecast is fresh. AI can proactively suggest alternatives for weather-sensitive plans.';
+        : 'Forecast is current. The system can suggest alternatives for weather-sensitive plans.';
 
   const weatherActionsQuery = useQuery({
     queryKey: ['weatherOpsActions', user?.hotel?.id],
@@ -1083,7 +1083,7 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                      <div className="text-sm font-semibold text-slate-900">AI Insight</div>
+                      <div className="text-sm font-semibold text-slate-900">Operations Advisory</div>
                       <div className="text-sm text-slate-600">{weatherInsightLine}</div>
                       <div className="mt-1 text-xs text-slate-500">
                         {weatherLastSyncTime
@@ -1099,7 +1099,7 @@ export default function SettingsPage() {
                       </div>
                       {hasSyncedWeather && !weatherSyncError ? (
                         <div className="mt-1 text-xs font-medium text-indigo-700">
-                          AI recommendations are currently using weather context.
+                          Recommendations are based on current forecast conditions.
                         </div>
                       ) : null}
                       {weatherSyncError ? (
