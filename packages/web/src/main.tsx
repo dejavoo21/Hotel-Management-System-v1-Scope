@@ -20,9 +20,34 @@ const queryClient = new QueryClient({
 });
 
 const isProd = import.meta.env.PROD;
+const FORCE_PWA_RESET = true;
+
+async function resetServiceWorkerCachesOnce(): Promise<void> {
+  if (!isProd || !FORCE_PWA_RESET || typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+    return;
+  }
+
+  const resetFlag = 'laflo:pwa-reset-v1';
+  if (sessionStorage.getItem(resetFlag) === 'done') {
+    return;
+  }
+
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((registration) => registration.unregister()));
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+    }
+    sessionStorage.setItem(resetFlag, 'done');
+    window.location.reload();
+  } catch {
+    // Ignore reset failures; app will continue with standard SW flow.
+  }
+}
 
 // PWA (service worker) registration. We auto-update + reload to avoid users getting stuck on old builds.
-if (isProd) {
+if (isProd && !FORCE_PWA_RESET) {
   const updateSW = registerSW({
     immediate: true,
     onNeedRefresh() {
@@ -30,6 +55,8 @@ if (isProd) {
     },
   });
 }
+
+void resetServiceWorkerCachesOnce();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
