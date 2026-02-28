@@ -411,11 +411,19 @@ export default function SettingsPage() {
     READY: 'Ready to sync',
     BLOCKED: 'City/Country/Timezone required',
   };
+  const weatherStatusIcon: Record<typeof weatherStatusKey, string> = {
+    ACTIVE: '[OK]',
+    SYNCING: '[~]',
+    LOADING: '[...]',
+    FAILED: '[!]',
+    READY: '[!]',
+    BLOCKED: '[!]',
+  };
   const weatherStatusStyles: Record<typeof weatherStatusKey, string> = {
     ACTIVE: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-    SYNCING: 'bg-sky-100 text-sky-700',
-    LOADING: 'bg-slate-100 text-slate-700',
-    FAILED: 'bg-rose-50 text-rose-700 ring-rose-200',
+    SYNCING: 'bg-sky-100 text-sky-700 ring-sky-300',
+    LOADING: 'bg-slate-100 text-slate-700 ring-slate-300',
+    FAILED: 'bg-rose-100 text-rose-700 ring-rose-300',
     READY: 'bg-amber-50 text-amber-700 ring-amber-200',
     BLOCKED: 'bg-amber-50 text-amber-700 ring-amber-200',
   };
@@ -884,7 +892,7 @@ export default function SettingsPage() {
                   <div className="pointer-events-none absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-indigo-500/10 blur-3xl" />
 
                   <div className="relative px-5 py-4">
-                    <div className="absolute inset-0 bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-emerald-500/10" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-emerald-500/20" />
                     <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex items-start gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 text-white shadow-sm">
@@ -909,9 +917,13 @@ export default function SettingsPage() {
                                         : 'bg-sky-500'
                                 }`}
                               />
-                              {weatherStatusLabel[weatherStatusKey]}
+                              <span>{weatherStatusIcon[weatherStatusKey]}</span>
+                              <span>{weatherStatusLabel[weatherStatusKey]}</span>
                             </span>
                           </div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            Operational Context
+                          </p>
                           <p className="text-sm text-slate-600">
                             Location:{' '}
                             <span className="font-medium text-slate-800">
@@ -930,7 +942,7 @@ export default function SettingsPage() {
 
                       <button
                         type="button"
-                        className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={syncWeatherMutation.isPending || !canSyncWeather}
                         onClick={() => {
                           if (!user?.hotel?.id) return;
@@ -945,17 +957,17 @@ export default function SettingsPage() {
 
                   <div className="px-5 pb-4 pt-3">
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      <div className="group rounded-2xl border border-blue-200 bg-blue-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                      <div className="group rounded-2xl border border-blue-200 border-l-4 border-l-blue-400 bg-blue-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                         <div className="text-xs font-medium uppercase tracking-wide text-blue-700">Last Sync</div>
                         <div className="mt-2 text-sm font-semibold text-blue-950">
                           {weatherLastSyncTime ? weatherLastSyncTime.toLocaleString() : 'Not synced yet'}
                         </div>
                       </div>
-                      <div className="group rounded-2xl border border-violet-200 bg-violet-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                      <div className="group rounded-2xl border border-violet-200 border-l-4 border-l-violet-400 bg-violet-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                         <div className="text-xs font-medium uppercase tracking-wide text-violet-700">Forecast Days</div>
                         <div className="mt-2 text-sm font-semibold text-violet-950">{weatherDaysAvailable}</div>
                       </div>
-                      <div className="group rounded-2xl border border-teal-200 bg-teal-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                      <div className="group rounded-2xl border border-teal-200 border-l-4 border-l-teal-400 bg-teal-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                         <div className="text-xs font-medium uppercase tracking-wide text-teal-700">Coordinates</div>
                         <div className="mt-2 text-sm font-semibold text-teal-950">
                           {hasCoordinates
@@ -963,7 +975,7 @@ export default function SettingsPage() {
                             : 'Not geocoded yet'}
                         </div>
                       </div>
-                      <div className="group rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                      <div className="group rounded-2xl border border-emerald-200 border-l-4 border-l-emerald-400 bg-emerald-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                         <div className="text-xs font-medium uppercase tracking-wide text-emerald-700">Data Quality</div>
                         <div className="mt-2 text-sm font-semibold text-emerald-950">{weatherDataQuality}</div>
                       </div>
@@ -975,15 +987,20 @@ export default function SettingsPage() {
                       <div className="mt-1 text-xs text-slate-500">
                         Tip: keep forecast fresh for accurate operational recommendations.
                       </div>
+                      {hasSyncedWeather && !weatherSyncError ? (
+                        <div className="mt-1 text-xs font-medium text-indigo-700">
+                          AI recommendations are currently using weather context.
+                        </div>
+                      ) : null}
                       {weatherSyncError ? (
-                        <div className="mt-2 text-xs font-medium text-rose-700">
-                          Sync failed: {weatherSyncError}
+                        <div className="mt-2 text-xs font-semibold text-rose-600">
+                          [!] Sync failed: {weatherSyncError}
                         </div>
                       ) : null}
                     </div>
 
                     <div className="mt-3 text-xs text-slate-500">
-                      {weatherUpdatedAgoLabel} | Source: OpenWeather | Auto-refresh hint: refresh before peak check-in windows and major outdoor activities.
+                      {weatherUpdatedAgoLabel} | Source: OpenWeather | Auto-refresh recommended every 3 hours for best AI suggestions.
                     </div>
 
                     {!canSyncWeather && (
