@@ -29,7 +29,12 @@ export interface UpdateGuestData extends Partial<CreateGuestData> {}
 
 export const guestService = {
   async getGuests(filters?: GuestFilters): Promise<PaginatedResponse<Guest>> {
-    const response = await api.get('/guests', { params: filters });
+    const response = await api.get('/guests', {
+      params: {
+        ...filters,
+        _ts: Date.now(),
+      },
+    });
     return response.data;
   },
 
