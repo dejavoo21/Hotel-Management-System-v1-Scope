@@ -39,6 +39,7 @@ import ticketRoutes from './routes/ticket.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import aiHooksRoutes from './routes/aiHooks.routes.js';
 import presenceRoutes from './routes/presence.routes.js';
+import operationsRoutes from './routes/operations.routes.js';
 
 const normalizeOrigin = (value?: string): string | undefined =>
   value ? value.replace(/\/+$/, '') : undefined;
@@ -161,6 +162,7 @@ export function createApp(): Application {
           bookings: '/api/bookings',
           guests: '/api/guests',
           accessRequests: '/api/access-requests',
+          operations: '/api/operations',
         },
         documentation: 'https://github.com/dejavoo21/Hotel-Management-System-v1-Scope',
       },
@@ -227,6 +229,7 @@ export function createApp(): Application {
     app.use('/api/notifications', notificationRoutes);
     app.use('/api/ai', aiHooksRoutes);
     app.use('/api/presence', presenceRoutes);
+    app.use('/api/operations', operationsRoutes);
   }
 
   // API documentation endpoint
@@ -261,6 +264,7 @@ export function createApp(): Application {
           purchaseOrders: '/api/purchase-orders',
           calls: '/api/calls',
           weatherSignals: '/api/signals/weather',
+          operations: '/api/operations',
         },
       },
     });
