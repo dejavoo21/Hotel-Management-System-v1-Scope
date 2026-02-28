@@ -9,6 +9,7 @@ type Props = {
   title?: string;
   compact?: boolean;
   fullPage?: boolean;
+  onHangup?: () => void;
 };
 
 export default function SupportVideoPanel({
@@ -16,6 +17,7 @@ export default function SupportVideoPanel({
   title = 'Video call',
   compact = false,
   fullPage = false,
+  onHangup,
 }: Props) {
   const { emitPresenceSet } = useSocketPresence();
   const [state, setState] = useState<VideoState>('IDLE');
@@ -105,6 +107,7 @@ export default function SupportVideoPanel({
     resetContainers();
     setState('IDLE');
     emitPresenceSet('AVAILABLE');
+    onHangup?.();
   };
 
   const startVideoCall = async () => {
@@ -114,11 +117,24 @@ export default function SupportVideoPanel({
     try {
       const token = await messageService.getSupportVideoToken(safeRoomName);
       const videoSdk: any = await import('twilio-video');
-      const room = await videoSdk.connect(token.token, {
-        name: token.room,
-        audio: true,
-        video: { width: 640 },
-      });
+      let room: any;
+      try {
+        room = await videoSdk.connect(token.token, {
+          name: token.room,
+          audio: true,
+          video: { width: 640 },
+        });
+      } catch (e: any) {
+        const name = e?.name || '';
+        const message = String(e?.message || '').toLowerCase();
+        const isPermissionError = name === 'NotAllowedError' || message.includes('permission');
+        if (!isPermissionError) throw e;
+        room = await videoSdk.connect(token.token, {
+          name: token.room,
+          audio: true,
+          video: false,
+        });
+      }
 
       roomRef.current = room;
       localTracksRef.current = room.localParticipant?.videoTracks

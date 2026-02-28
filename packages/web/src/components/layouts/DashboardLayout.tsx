@@ -1034,7 +1034,9 @@ export default function DashboardLayout() {
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       setShowUserMenu(false);
                       navigate('/settings?tab=appearance');
                     }}
@@ -1045,7 +1047,9 @@ export default function DashboardLayout() {
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       setShowUserMenu(false);
                       navigate('/settings');
                     }}

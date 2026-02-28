@@ -173,6 +173,7 @@ export function setupSocketHandlers(io: SocketIOServer): void {
       if (!room?.startsWith(`laflo-internal-${user.hotelId}-`)) return;
       socket.join(`call:${room}`);
       io.to(`call:${room}`).emit('call:accepted', { room });
+      socket.emit('call:room', { room });
     });
 
     socket.on('call:decline', ({ room }: { room?: string }) => {

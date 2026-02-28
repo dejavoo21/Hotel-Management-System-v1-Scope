@@ -192,8 +192,13 @@ export function useSocketPresence() {
 
     socket.on('dm:new', (payload: DmMessagePayload) => {
       dispatchSocketEvent('hotelos:dm-new', payload);
-      queryClient.invalidateQueries({ queryKey: ['thread', payload.threadId] });
-      queryClient.invalidateQueries({ queryKey: ['threads'] });
+      queryClient.invalidateQueries({ queryKey: ['message-thread', payload.threadId] });
+      queryClient.invalidateQueries({ queryKey: ['message-threads'] });
+      queryClient.invalidateQueries({
+        predicate: (q) =>
+          Array.isArray(q.queryKey) &&
+          (q.queryKey[0] === 'message-threads' || q.queryKey[0] === 'message-thread'),
+      });
     });
 
     socket.on('call:ring', (payload: CallRingPayload) => {
@@ -205,7 +210,7 @@ export function useSocketPresence() {
         currentParams.get('room') === payload.room;
 
       if (!isSameIncomingScreen) {
-        const from = encodeURIComponent(payload.fromEmail || payload.fromUserId || 'Unknown');
+        const from = encodeURIComponent(payload.fromEmail || payload.fromUserId || '');
         navigate(`/calls?incoming=1&room=${encodeURIComponent(payload.room)}&from=${from}`);
       }
     });

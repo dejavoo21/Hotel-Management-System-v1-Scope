@@ -91,7 +91,7 @@ export default function MessagesPageRedesigned() {
   const { getEffectiveStatus } = usePresenceStore();
   
   // Ensure socket connection for real-time presence updates
-  const { emitDmOpen, emitDmSend, emitCallStart, emitCallDecline } = useSocketPresence();
+  const { emitDmOpen, emitDmSend, emitCallStart, emitCallDecline, emitPresenceSet } = useSocketPresence();
   
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -228,7 +228,7 @@ export default function MessagesPageRedesigned() {
             className="rounded-md bg-sky-600 px-3 py-1 text-sm text-white"
             onClick={() => {
               toast.dismiss(t.id);
-              navigate(`/calls?room=${encodeURIComponent(detail.room)}&incoming=1&from=${detail.fromUserId}`);
+              navigate(`/calls?room=${encodeURIComponent(detail.room)}`);
             }}
           >
             Accept
@@ -351,6 +351,7 @@ export default function MessagesPageRedesigned() {
   const [showVideoPanel, setShowVideoPanel] = useState(false);
   const onVideoClick = () => {
     if (isInternalDm && activeDmPeerId) {
+      emitPresenceSet('BUSY');
       emitCallStart({ calleeUserId: activeDmPeerId });
       return;
     }
@@ -536,6 +537,7 @@ export default function MessagesPageRedesigned() {
                                 disabled={status === 'OFFLINE'}
                                 onClick={() => {
                                   setShowAgentsPopover(false);
+                                  emitPresenceSet('BUSY');
                                   emitCallStart({ calleeUserId: agent.id });
                                 }}
                                 className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
