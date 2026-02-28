@@ -1,11 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import type { OperationsContext } from '@/services/operations';
-import {
-  createWeatherActionTicket,
-  type CreateWeatherActionTicketInput,
-} from '@/services/aiHooks';
+import { operationsService, type OperationsContext, type CreateAdvisoryTicketInput } from '@/services/operations';
 import AdvisoryCard from './AdvisoryCard';
 import AdvisoryFilters from './AdvisoryFilters';
 
@@ -15,7 +11,7 @@ type Props = {
 
 type Advisory = NonNullable<OperationsContext['advisories']>[number];
 
-const departmentMap: Record<string, CreateWeatherActionTicketInput['department']> = {
+const departmentMap: Record<string, CreateAdvisoryTicketInput['department']> = {
   'Front Desk': 'FRONT_DESK',
   Housekeeping: 'HOUSEKEEPING',
   Concierge: 'CONCIERGE',
@@ -41,15 +37,19 @@ export default function OpsAdvisories({ context }: Props) {
 
   const createTicketMutation = useMutation({
     mutationFn: async (advisory: Advisory) => {
-      const payload: CreateWeatherActionTicketInput = {
+      const payload: CreateAdvisoryTicketInput = {
+        advisoryId: advisory.id,
         title: advisory.title,
         reason: advisory.reason,
         priority: advisory.priority,
         department: departmentMap[advisory.department || 'Front Desk'] || 'FRONT_DESK',
-        weatherSyncedAtUtc: context?.weather?.syncedAtUtc ?? null,
-        aiGeneratedAtUtc: context?.generatedAtUtc ?? null,
+        source: advisory.source,
+        meta: {
+          weatherSyncedAtUtc: context?.weather?.syncedAtUtc ?? null,
+          generatedAtUtc: context?.generatedAtUtc ?? null,
+        },
       };
-      const result = await createWeatherActionTicket(payload);
+      const result = await operationsService.createAdvisoryTicket(payload);
       return { result, advisory };
     },
     onSuccess: ({ result, advisory }) => {

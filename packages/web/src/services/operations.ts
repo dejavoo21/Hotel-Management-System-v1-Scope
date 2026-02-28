@@ -45,6 +45,26 @@ export type OperationsContext = {
   }>;
 };
 
+export type CreateAdvisoryTicketInput = {
+  advisoryId?: string;
+  title: string;
+  reason: string;
+  priority: 'low' | 'medium' | 'high';
+  department: 'FRONT_DESK' | 'HOUSEKEEPING' | 'CONCIERGE' | 'MAINTENANCE' | 'BILLING' | 'MANAGEMENT';
+  source?: 'WEATHER_ACTIONS' | 'PRICING' | 'ARRIVALS';
+  meta?: {
+    weatherSyncedAtUtc?: string | null;
+    generatedAtUtc?: string | null;
+  };
+};
+
+export type CreateAdvisoryTicketResult = {
+  ticketId: string;
+  status: 'OPEN' | 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'BREACHED';
+  department: string;
+  conversationId: string;
+};
+
 export const operationsService = {
   async getOperationsContext(_hotelId: string): Promise<OperationsContext> {
     const response = await api.get('/operations/context', {
@@ -55,6 +75,10 @@ export const operationsService = {
       params: { _ts: Date.now() },
     });
     return response.data.data as OperationsContext;
+  },
+  async createAdvisoryTicket(payload: CreateAdvisoryTicketInput): Promise<CreateAdvisoryTicketResult> {
+    const response = await api.post('/operations/advisories/create-ticket', payload);
+    return response.data.data as CreateAdvisoryTicketResult;
   },
 };
 
