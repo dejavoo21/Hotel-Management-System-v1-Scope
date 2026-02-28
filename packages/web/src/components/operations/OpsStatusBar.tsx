@@ -13,10 +13,11 @@ function badgeTone(value: string): string {
 }
 
 export default function OpsStatusBar({ context }: Props) {
+  const pricingSignal = context?.pricingSignal ?? context?.pricing;
   const rainRisk = context?.weather?.next24h?.rainRisk || 'low';
-  const demand = context?.pricing?.demandTrend || 'flat';
+  const demand = pricingSignal?.demandTrend || 'flat';
   const inhouse = context?.ops?.inhouseNow ?? 0;
-  const pricing = context?.pricing?.opportunityPct ?? 0;
+  const pricing = pricingSignal?.opportunityPct ?? 0;
   const serviceLoad = inhouse > 100 ? 'high' : inhouse > 50 ? 'moderate' : 'normal';
 
   const items = [

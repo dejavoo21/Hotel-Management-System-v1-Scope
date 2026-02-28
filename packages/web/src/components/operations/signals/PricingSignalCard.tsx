@@ -5,7 +5,7 @@ type Props = {
 };
 
 export default function PricingSignalCard({ context }: Props) {
-  const pricing = context?.pricing;
+  const pricing = context?.pricingSignal ?? context?.pricing;
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <h3 className="text-sm font-semibold text-slate-900">Pricing Intelligence</h3>
@@ -13,7 +13,7 @@ export default function PricingSignalCard({ context }: Props) {
       <div className="mt-3 text-sm text-slate-700">
         Opportunity: {pricing?.opportunityPct != null ? `${pricing.opportunityPct >= 0 ? '+' : ''}${pricing.opportunityPct}%` : 'N/A'}
       </div>
-      <p className="mt-2 text-sm text-slate-700">{pricing?.suggestion || 'No pricing advisory available yet.'}</p>
+      <p className="mt-2 text-sm text-slate-700">{pricing?.note || pricing?.suggestion || 'No pricing advisory available yet.'}</p>
     </div>
   );
 }

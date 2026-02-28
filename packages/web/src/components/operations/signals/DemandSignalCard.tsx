@@ -5,7 +5,8 @@ type Props = {
 };
 
 export default function DemandSignalCard({ context }: Props) {
-  const trend = context?.pricing?.demandTrend || 'flat';
+  const pricing = context?.pricingSignal ?? context?.pricing;
+  const trend = pricing?.demandTrend || 'flat';
   const tone =
     trend === 'up'
       ? 'bg-rose-100 text-rose-700'
@@ -21,7 +22,7 @@ export default function DemandSignalCard({ context }: Props) {
         <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${tone}`}>{trend}</span>
       </div>
       <p className="mt-3 text-sm text-slate-700">
-        Confidence: {context?.pricing?.confidence || 'low'}
+        Confidence: {pricing?.confidence || 'low'}
       </p>
     </div>
   );

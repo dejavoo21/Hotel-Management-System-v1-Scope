@@ -20,10 +20,19 @@ export type OperationsContext = {
     windowStartUtc?: string;
     windowEndUtc?: string;
   };
+  pricingSignal?: {
+    demandTrend?: 'down' | 'flat' | 'up';
+    opportunityPct?: number;
+    confidence?: 'low' | 'medium' | 'high';
+    note?: string;
+    suggestion?: string;
+  };
+  // Backward-compatible fallback for older API payloads
   pricing?: {
     demandTrend?: 'down' | 'flat' | 'up';
     opportunityPct?: number;
     confidence?: 'low' | 'medium' | 'high';
+    note?: string;
     suggestion?: string;
   };
   advisories?: Array<{
@@ -50,4 +59,3 @@ export const operationsService = {
 };
 
 export default operationsService;
-

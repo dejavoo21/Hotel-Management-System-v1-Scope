@@ -15,11 +15,10 @@ import {
   detectIntent,
   getSuggestedReplies,
   getRecommendedActions,
-  getOpsContextForHotel,
-  getWeatherOpsActions,
   logAiInteraction,
 } from '../services/aiHooks.service.js';
 import { getWeatherContextForHotel } from '../services/weatherContext.provider.js';
+import { getOpsContextForHotel, getWeatherOpsActions } from '../services/operationsContext.service.js';
 import { prisma } from '../config/database.js';
 
 const router = Router();
