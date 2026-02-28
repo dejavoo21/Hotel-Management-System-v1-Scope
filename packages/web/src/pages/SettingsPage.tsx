@@ -353,10 +353,12 @@ export default function SettingsPage() {
     },
   });
 
+  const weatherHotelId = user?.hotel?.id ?? '';
+
   const weatherStatusQuery = useQuery({
-    queryKey: ['weatherSignalsStatus', user?.hotel?.id],
-    queryFn: () => weatherSignalsService.getStatus(user!.hotel.id),
-    enabled: activeTab === 'hotel' && isAdmin && Boolean(user?.hotel?.id),
+    queryKey: ['weatherSignalsStatus', weatherHotelId],
+    queryFn: () => weatherSignalsService.getStatus(weatherHotelId),
+    enabled: activeTab === 'hotel' && isAdmin && Boolean(weatherHotelId),
     retry: false,
     placeholderData: (previousData) => previousData,
     refetchOnMount: 'always',
@@ -367,10 +369,22 @@ export default function SettingsPage() {
   const syncWeatherMutation = useMutation({
     mutationFn: (hotelId: string) => weatherSignalsService.sync(hotelId),
     onSuccess: async (data) => {
+      queryClient.setQueryData(['weatherSignalsStatus', data.hotelId], {
+        hotelId: data.hotelId,
+        lastSyncTime: data.fetchedAtUtc,
+        daysAvailable: data.daysStored,
+        hasCity: Boolean(data.city),
+        hasLatLon: data.lat != null && data.lon != null,
+        city: data.city,
+        country: data.country,
+        timezone: data.timezone,
+        lat: data.lat,
+        lon: data.lon,
+      });
       toast.success(`Weather synced (${data.daysStored} days stored)`);
       await queryClient.invalidateQueries({ queryKey: ['weatherSignalsStatus', data.hotelId] });
       await queryClient.invalidateQueries({ queryKey: ['weatherOpsActions', data.hotelId] });
-      await weatherStatusQuery.refetch();
+      await queryClient.refetchQueries({ queryKey: ['weatherSignalsStatus', data.hotelId] });
     },
     onError: (error) => {
       const message =
