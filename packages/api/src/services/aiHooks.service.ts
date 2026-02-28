@@ -430,20 +430,19 @@ function pushWeatherAction(
 export async function getOpsContextForHotel(hotelId: string): Promise<OpsContext> {
   const now = new Date();
   const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  const activeStatuses = ['CONFIRMED', 'CHECKED_IN'] as const;
 
   const [arrivalsNext24h, departuresNext24h, inhouseNow] = await Promise.all([
     prisma.booking.count({
       where: {
         hotelId,
-        status: { in: [...activeStatuses] },
+        status: 'CONFIRMED',
         checkInDate: { gte: now, lt: next24h },
       },
     }),
     prisma.booking.count({
       where: {
         hotelId,
-        status: { in: [...activeStatuses] },
+        status: 'CHECKED_IN',
         checkOutDate: { gte: now, lt: next24h },
       },
     }),
@@ -451,8 +450,8 @@ export async function getOpsContextForHotel(hotelId: string): Promise<OpsContext
       where: {
         hotelId,
         status: 'CHECKED_IN',
-        checkInDate: { lte: now },
-        checkOutDate: { gt: now },
+        actualCheckIn: { not: null },
+        actualCheckOut: null,
       },
     }),
   ]);
