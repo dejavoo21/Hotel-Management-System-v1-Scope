@@ -1031,7 +1031,7 @@ export default function SettingsPage() {
                               </span>
                             </div>
                             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                              Forecast-based operational planning
+                              Forecast-based operations planning
                             </p>
                           </div>
                         </div>
