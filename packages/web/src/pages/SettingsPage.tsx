@@ -350,10 +350,29 @@ export default function SettingsPage() {
 
   const updateHotelMutation = useMutation({
     mutationFn: hotelService.updateMyHotel,
-    onSuccess: (updatedHotel) => {
+    onSuccess: async (updatedHotel) => {
+      const previousHotel = user?.hotel;
+      const locationChanged = Boolean(
+        previousHotel &&
+          ((updatedHotel.city ?? previousHotel.city) !== previousHotel.city ||
+            (updatedHotel.country ?? previousHotel.country) !== previousHotel.country ||
+            (updatedHotel.address ?? previousHotel.address) !== previousHotel.address ||
+            (updatedHotel.addressLine1 ?? previousHotel.addressLine1) !== previousHotel.addressLine1)
+      );
+
       toast.success('Hotel settings updated');
       if (user) {
         setUser({ ...user, hotel: { ...user.hotel, ...updatedHotel } });
+      }
+
+      if (updatedHotel.id) {
+        await queryClient.invalidateQueries({ queryKey: ['weatherSignalsStatus', updatedHotel.id] });
+        await queryClient.invalidateQueries({ queryKey: ['weatherOpsActions', updatedHotel.id] });
+      }
+
+      if (locationChanged && updatedHotel.id && canSyncWeather && !syncWeatherMutation.isPending) {
+        toast('Location changed. Refreshing weather forecast...');
+        syncWeatherMutation.mutate(updatedHotel.id);
       }
     },
     onError: () => {

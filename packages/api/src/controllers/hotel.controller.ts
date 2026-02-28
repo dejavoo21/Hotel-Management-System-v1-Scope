@@ -27,6 +27,26 @@ export async function updateMyHotel(
 ): Promise<void> {
   try {
     const hotelId = req.user!.hotelId;
+    const existingHotel = await prisma.hotel.findUnique({ where: { id: hotelId } });
+    if (!existingHotel) {
+      res.status(404).json({ success: false, error: 'Hotel not found' });
+      return;
+    }
+
+    const incomingCity = req.body.city;
+    const incomingCountry = req.body.country;
+    const incomingAddress = req.body.address;
+    const incomingAddressLine1 = req.body.addressLine1;
+
+    const locationFieldChanged =
+      (incomingCity !== undefined && incomingCity !== existingHotel.city) ||
+      (incomingCountry !== undefined && incomingCountry !== existingHotel.country) ||
+      (incomingAddress !== undefined && incomingAddress !== existingHotel.address) ||
+      (incomingAddressLine1 !== undefined && incomingAddressLine1 !== (existingHotel.addressLine1 ?? undefined));
+
+    const latProvided = req.body.latitude !== undefined;
+    const lonProvided = req.body.longitude !== undefined;
+
     const hotel = await prisma.hotel.update({
       where: { id: hotelId },
       data: {
@@ -40,10 +60,10 @@ export async function updateMyHotel(
         website: req.body.website,
         timezone: req.body.timezone,
         currency: req.body.currency,
-        latitude: req.body.latitude,
-        longitude: req.body.longitude,
+        latitude: latProvided ? req.body.latitude : locationFieldChanged ? null : undefined,
+        longitude: lonProvided ? req.body.longitude : locationFieldChanged ? null : undefined,
         locationUpdatedAt:
-          req.body.latitude !== undefined || req.body.longitude !== undefined ? new Date() : undefined,
+          latProvided || lonProvided || locationFieldChanged ? new Date() : undefined,
       },
     });
     res.json({ success: true, data: hotel });
