@@ -20,11 +20,12 @@ type DmMessagePayload = {
     createdAt: string;
   };
 };
-type CallRingPayload = { room: string; fromUserId: string; fromEmail?: string };
-type CallRoomPayload = { room: string };
-type CallAcceptedPayload = { room: string };
+type CallRingPayload = { callId?: string; room: string; fromUserId: string; fromEmail?: string };
+type CallRoomPayload = { callId?: string; room: string };
+type CallCreatedPayload = { callId: string; room: string };
+type CallAcceptedPayload = { callId?: string; room?: string };
 type CallDeclinedPayload = { room: string; by: string };
-type WebRtcSignalPayload = { room: string; data: unknown; fromUserId?: string };
+type WebRtcSignalPayload = { callId?: string; room?: string; data: unknown; fromUserId?: string };
 
 const dispatchSocketEvent = (name: string, detail: unknown) => {
   if (typeof window === 'undefined') return;
@@ -214,12 +215,18 @@ export function useSocketPresence() {
       const isSameIncomingScreen =
         currentLocation.pathname === '/calls' &&
         currentParams.get('incoming') === '1' &&
-        currentParams.get('room') === payload.room;
+        currentParams.get('room') === payload.room &&
+        (payload.callId ? currentParams.get('callId') === payload.callId : true);
 
       if (!isSameIncomingScreen) {
         const from = encodeURIComponent(payload.fromEmail || payload.fromUserId || '');
-        navigate(`/calls?incoming=1&room=${encodeURIComponent(payload.room)}&from=${from}`);
+        const callIdParam = payload.callId ? `&callId=${encodeURIComponent(payload.callId)}` : '';
+        navigate(`/calls?incoming=1&room=${encodeURIComponent(payload.room)}${callIdParam}&from=${from}`);
       }
+    });
+
+    socket.on('call:created', (payload: CallCreatedPayload) => {
+      dispatchSocketEvent('hotelos:call-created', payload);
     });
 
     socket.on('call:accepted', (payload: CallAcceptedPayload) => {
@@ -267,19 +274,26 @@ export function useSocketPresence() {
 
   const emitCallStart = useCallback((payload: { calleeUserId: string }) => {
     if (socketRef.current?.connected && payload.calleeUserId) {
-      socketRef.current.emit('call:start', payload);
+      socketRef.current.emit('call:create', { calleeUserIds: [payload.calleeUserId] });
     }
   }, []);
 
-  const emitCallAccept = useCallback((room: string) => {
-    if (socketRef.current?.connected && room) {
-      socketRef.current.emit('call:accept', { room });
+  const emitCallAccept = useCallback((room: string, callId?: string) => {
+    if (socketRef.current?.connected && (room || callId)) {
+      if (callId) socketRef.current.emit('call:join', { callId });
+      else socketRef.current.emit('call:accept', { room });
     }
   }, []);
 
   const emitCallDecline = useCallback((room: string) => {
     if (socketRef.current?.connected && room) {
       socketRef.current.emit('call:decline', { room });
+    }
+  }, []);
+
+  const emitCallInvite = useCallback((payload: { callId: string; userIds: string[] }) => {
+    if (socketRef.current?.connected && payload.callId && payload.userIds.length) {
+      socketRef.current.emit('call:invite', payload);
     }
   }, []);
 
@@ -291,6 +305,7 @@ export function useSocketPresence() {
     emitCallStart,
     emitCallAccept,
     emitCallDecline,
+    emitCallInvite,
   };
 }
 

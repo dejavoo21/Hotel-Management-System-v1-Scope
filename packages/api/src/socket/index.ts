@@ -20,10 +20,7 @@ const dmThreadId = (hotelId: string, a: string, b: string): string => {
   const [u1, u2] = [a, b].sort();
   return `dm:${hotelId}:${u1}:${u2}`;
 };
-const internalCallRoom = (hotelId: string, a: string, b: string): string => {
-  const [u1, u2] = [a, b].sort();
-  return `laflo-internal-${hotelId}-${u1}-${u2}`;
-};
+const callRoomName = (hotelId: string, callId: string): string => `laflo-call-${hotelId}-${callId}`;
 
 /**
  * Setup Socket.IO event handlers
@@ -152,29 +149,87 @@ export function setupSocketHandlers(io: SocketIOServer): void {
       }
     );
 
-    // === INTERNAL CALL: ring/accept + signaling ===
-    socket.on(
-      'call:start',
-      ({ calleeUserId }: { calleeUserId?: string }) => {
-        const me = socket.user?.userId;
-        if (!me || !calleeUserId) return;
-        const room = internalCallRoom(user.hotelId, me, calleeUserId);
+    // === INTERNAL CALL: callId room model ===
+    const createCall = (calleeUserIds?: string[]) => {
+      const me = socket.user?.userId;
+      if (!me || !calleeUserIds?.length) return;
+      const uniqueUserIds = Array.from(new Set(calleeUserIds.filter((id) => Boolean(id) && id !== me)));
+      if (!uniqueUserIds.length) return;
 
-        socket.join(`call:${room}`);
-        io.to(`user:${calleeUserId}`).emit('call:ring', {
+      const callId = crypto.randomUUID();
+      const room = callRoomName(user.hotelId, callId);
+
+      socket.join(`call:${callId}`);
+
+      uniqueUserIds.forEach((uid) => {
+        io.to(`user:${uid}`).emit('call:ring', {
+          callId,
           room,
           fromUserId: me,
           fromEmail: user.email,
         });
-        socket.emit('call:room', { room });
-      }
-    );
+      });
 
-    socket.on('call:accept', ({ room }: { room?: string }) => {
-      if (!room?.startsWith(`laflo-internal-${user.hotelId}-`)) return;
-      socket.join(`call:${room}`);
-      io.to(`call:${room}`).emit('call:accepted', { room });
-      socket.emit('call:room', { room });
+      socket.emit('call:created', { callId, room });
+      socket.emit('call:room', { callId, room });
+    };
+
+    socket.on('call:create', ({ calleeUserIds }: { calleeUserIds?: string[] }) => {
+      createCall(calleeUserIds);
+    });
+
+    // Backward-compatible alias for existing web client (1:1 start).
+    socket.on('call:start', ({ calleeUserId }: { calleeUserId?: string }) => {
+      if (!calleeUserId) return;
+      createCall([calleeUserId]);
+    });
+
+    socket.on('call:join', ({ callId }: { callId?: string }) => {
+      if (!callId) return;
+      socket.join(`call:${callId}`);
+      io.to(`call:${callId}`).emit('call:participant_joined', { callId, userId: user.userId });
+      socket.emit('call:accepted', { callId });
+      socket.emit('call:room', { callId, room: callRoomName(user.hotelId, callId) });
+    });
+
+    // Backward-compatible alias for existing accept flow.
+    socket.on('call:accept', ({ room, callId }: { room?: string; callId?: string }) => {
+      let normalizedCallId = callId;
+      if (!normalizedCallId && room?.startsWith(`laflo-call-${user.hotelId}-`)) {
+        normalizedCallId = room.replace(`laflo-call-${user.hotelId}-`, '');
+      }
+      if (!normalizedCallId && room?.startsWith(`laflo-internal-${user.hotelId}-`)) {
+        // Legacy room format fallback.
+        socket.join(`call:${room}`);
+        io.to(`call:${room}`).emit('call:accepted', { room });
+        socket.emit('call:room', { room });
+        return;
+      }
+      if (!normalizedCallId) return;
+      socket.emit('call:join', { callId: normalizedCallId });
+    });
+
+    socket.on('call:invite', ({ callId, userIds }: { callId?: string; userIds?: string[] }) => {
+      const me = socket.user?.userId;
+      if (!me || !callId || !userIds?.length) return;
+
+      const roomMembers = io.sockets.adapter.rooms.get(`call:${callId}`);
+      if (!roomMembers?.has(socket.id)) return;
+
+      const uniqueUserIds = Array.from(new Set(userIds.filter((id) => Boolean(id) && id !== me)));
+      if (!uniqueUserIds.length) return;
+
+      const room = callRoomName(user.hotelId, callId);
+      uniqueUserIds.forEach((uid) => {
+        io.to(`user:${uid}`).emit('call:ring', {
+          callId,
+          room,
+          fromUserId: me,
+          fromEmail: user.email,
+        });
+      });
+
+      io.to(`call:${callId}`).emit('call:invited', { callId, by: me, userIds: uniqueUserIds });
     });
 
     socket.on('call:decline', ({ room }: { room?: string }) => {
@@ -182,13 +237,19 @@ export function setupSocketHandlers(io: SocketIOServer): void {
       io.to(`call:${room}`).emit('call:declined', { room, by: user.userId });
     });
 
-    socket.on('webrtc:signal', ({ room, data }: { room?: string; data?: unknown }) => {
-      if (!room || !data) return;
-      socket.to(`call:${room}`).emit('webrtc:signal', {
-        room,
-        data,
-        from: socket.user?.userId,
-      });
+    socket.on('webrtc:signal', ({ room, callId, data }: { room?: string; callId?: string; data?: unknown }) => {
+      if (!data) return;
+      if (callId) {
+        socket.to(`call:${callId}`).emit('webrtc:signal', {
+          callId,
+          room: callRoomName(user.hotelId, callId),
+          data,
+          from: socket.user?.userId,
+        });
+        return;
+      }
+      if (!room) return;
+      socket.to(`call:${room}`).emit('webrtc:signal', { room, data, from: socket.user?.userId });
     });
 
     // === PRESENCE: Handle presence override setting ===
@@ -316,11 +377,14 @@ export interface ServerToClientEvents {
   'presence:list': (data: Array<{ userId: string; email: string; isOnline: boolean; effectiveStatus: string; overrideStatus: string; lastSeenAt: Date | null }>) => void;
   'dm:thread': (data: { threadId: string; peerUserId: string }) => void;
   'dm:new': (data: { threadId: string; message: unknown }) => void;
-  'call:ring': (data: { room: string; fromUserId: string; fromEmail: string }) => void;
-  'call:room': (data: { room: string }) => void;
-  'call:accepted': (data: { room: string }) => void;
+  'call:ring': (data: { callId?: string; room: string; fromUserId: string; fromEmail: string }) => void;
+  'call:created': (data: { callId: string; room: string }) => void;
+  'call:room': (data: { callId?: string; room: string }) => void;
+  'call:accepted': (data: { callId?: string; room?: string }) => void;
+  'call:participant_joined': (data: { callId: string; userId: string }) => void;
+  'call:invited': (data: { callId: string; by: string; userIds: string[] }) => void;
   'call:declined': (data: { room: string; by: string }) => void;
-  'webrtc:signal': (data: { room: string; from: string; data: unknown }) => void;
+  'webrtc:signal': (data: { callId?: string; room?: string; from: string; data: unknown }) => void;
   
   // Error events
   'error': (data: { message: string }) => void;
@@ -335,7 +399,10 @@ export interface ClientToServerEvents {
   'dm:open': (data: { peerUserId: string }) => void;
   'dm:send': (data: { threadId: string; text: string; clientMessageId?: string }) => void;
   'call:start': (data: { calleeUserId: string }) => void;
-  'call:accept': (data: { room: string }) => void;
+  'call:create': (data: { calleeUserIds: string[] }) => void;
+  'call:join': (data: { callId: string }) => void;
+  'call:invite': (data: { callId: string; userIds: string[] }) => void;
+  'call:accept': (data: { room?: string; callId?: string }) => void;
   'call:decline': (data: { room: string }) => void;
-  'webrtc:signal': (data: { room: string; data: unknown }) => void;
+  'webrtc:signal': (data: { room?: string; callId?: string; data: unknown }) => void;
 }

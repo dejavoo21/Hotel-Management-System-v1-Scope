@@ -6,17 +6,21 @@ type VideoState = 'IDLE' | 'CONNECTING' | 'IN_CALL' | 'ERROR';
 
 type Props = {
   roomName: string;
+  callId?: string;
   title?: string;
   compact?: boolean;
   fullPage?: boolean;
+  onInvitePeople?: () => void;
   onHangup?: () => void;
 };
 
 export default function SupportVideoPanel({
   roomName,
+  callId,
   title = 'Video call',
   compact = false,
   fullPage = false,
+  onInvitePeople,
   onHangup,
 }: Props) {
   const { emitPresenceSet } = useSocketPresence();
@@ -316,6 +320,7 @@ export default function SupportVideoPanel({
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold">{title}</div>
           <div className="truncate text-xs text-white/60">Internal call</div>
+          {callId ? <div className="truncate text-[10px] text-white/40">ID: {callId}</div> : null}
         </div>
         <span
           className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
@@ -384,6 +389,14 @@ export default function SupportVideoPanel({
               title={cameraOff ? 'Turn camera on' : 'Turn camera off'}
             >
               <span className="text-sm font-semibold">{cameraOff ? 'C' : 'Cam'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={onInvitePeople}
+              className="h-11 rounded-full border border-white/10 bg-white/10 px-5 font-semibold hover:bg-white/15"
+              title="Add people"
+            >
+              Add
             </button>
             <button
               type="button"

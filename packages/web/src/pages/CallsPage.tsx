@@ -5,6 +5,8 @@ import SupportVideoPanel from '@/components/calls/SupportVideoPanel';
 import DialPad from '@/components/calls/DialPad';
 import { messageService } from '@/services';
 import { useSocketPresence } from '@/hooks/useSocketPresence';
+import { usePresenceStore } from '@/stores/presenceStore';
+import { useAuthStore } from '@/stores/authStore';
 
 type CallsTab = 'dialpad' | 'recents' | 'contacts';
 type ContactType = 'Staff' | 'Guest' | 'External';
@@ -61,9 +63,12 @@ function loadJson<T>(key: string, fallback: T): T {
 export default function CallsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { emitCallAccept, emitCallDecline, emitPresenceSet } = useSocketPresence();
+  const { emitCallAccept, emitCallDecline, emitCallInvite, emitPresenceSet } = useSocketPresence();
+  const { user } = useAuthStore();
+  const presenceMap = usePresenceStore((state) => state.presenceMap);
 
   const room = searchParams.get('room') || '';
+  const callId = searchParams.get('callId') || '';
   const incoming = searchParams.get('incoming') === '1';
   const from = searchParams.get('from') || '';
   const returnTo = searchParams.get('returnTo') || '/messages';
@@ -77,6 +82,8 @@ export default function CallsPage() {
   const [newContactName, setNewContactName] = useState('');
   const [newContactPhone, setNewContactPhone] = useState('');
   const [newContactType, setNewContactType] = useState<ContactType>('External');
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteUserIds, setInviteUserIds] = useState<string[]>([]);
 
   const dialable = useMemo(() => sanitizePhone(dial), [dial]);
   const ringIntervalRef = useRef<number | null>(null);
@@ -89,6 +96,9 @@ export default function CallsPage() {
       (c) => c.name.toLowerCase().includes(q) || c.phone.toLowerCase().includes(q) || c.type.toLowerCase().includes(q)
     );
   }, [contacts, contactQuery]);
+  const onlineUsers = useMemo(() => {
+    return Array.from(presenceMap.values()).filter((entry) => entry.isOnline && entry.userId !== user?.id);
+  }, [presenceMap, user?.id]);
 
   useEffect(() => {
     setContacts(loadJson<CallContact[]>(CONTACTS_KEY, []));
@@ -405,9 +415,9 @@ export default function CallsPage() {
             <button
               className="flex-1 rounded-xl bg-sky-600 py-2.5 font-semibold hover:bg-sky-700"
               onClick={() => {
-                emitCallAccept(room);
+                emitCallAccept(room, callId || undefined);
                 navigate(
-                  `/calls?room=${encodeURIComponent(room)}&returnTo=${encodeURIComponent(returnTo)}`,
+                  `/calls?room=${encodeURIComponent(room)}${callId ? `&callId=${encodeURIComponent(callId)}` : ''}&returnTo=${encodeURIComponent(returnTo)}`,
                   { replace: true }
                 );
               }}
@@ -433,13 +443,87 @@ export default function CallsPage() {
     <div className="h-[calc(100vh-0px)] w-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
       <SupportVideoPanel
         roomName={room}
+        callId={callId}
         title="Call"
         fullPage
+        onInvitePeople={() => {
+          setInviteUserIds([]);
+          setShowInviteModal(true);
+        }}
         onHangup={() => {
           emitPresenceSet('AVAILABLE');
           navigate(returnTo, { replace: true });
         }}
       />
+      {showInviteModal ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900 p-5 text-white shadow-xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold">Add people</h3>
+              <button
+                type="button"
+                onClick={() => setShowInviteModal(false)}
+                className="rounded-lg border border-white/20 px-2.5 py-1 text-xs hover:bg-white/10"
+              >
+                Close
+              </button>
+            </div>
+            <div className="mt-3 max-h-64 space-y-2 overflow-auto">
+              {onlineUsers.length === 0 ? (
+                <div className="rounded-lg border border-white/10 px-3 py-2 text-sm text-white/70">
+                  No online users available.
+                </div>
+              ) : (
+                onlineUsers.map((entry) => {
+                  const checked = inviteUserIds.includes(entry.userId);
+                  return (
+                    <label key={entry.userId} className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/10 px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          setInviteUserIds((prev) =>
+                            e.target.checked
+                              ? Array.from(new Set([...prev, entry.userId]))
+                              : prev.filter((id) => id !== entry.userId)
+                          );
+                        }}
+                      />
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">{entry.email}</div>
+                        <div className="text-xs text-white/60">{entry.effectiveStatus}</div>
+                      </div>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowInviteModal(false)}
+                className="rounded-lg border border-white/20 px-3 py-1.5 text-sm hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!callId || inviteUserIds.length === 0}
+                onClick={() => {
+                  if (!callId || inviteUserIds.length === 0) return;
+                  emitCallInvite({ callId, userIds: inviteUserIds });
+                  toast.success(`Invited ${inviteUserIds.length} participant${inviteUserIds.length > 1 ? 's' : ''}`);
+                  setShowInviteModal(false);
+                  setInviteUserIds([]);
+                }}
+                className="rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+              >
+                Invite
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

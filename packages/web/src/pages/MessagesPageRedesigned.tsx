@@ -208,9 +208,10 @@ export default function MessagesPageRedesigned() {
 
   useEffect(() => {
     const onCallRoom = (event: Event) => {
-      const detail = (event as CustomEvent<{ room: string }>).detail;
+      const detail = (event as CustomEvent<{ room: string; callId?: string }>).detail;
       if (!detail?.room) return;
-      navigate(`/calls?room=${encodeURIComponent(detail.room)}`);
+      const callIdParam = detail.callId ? `&callId=${encodeURIComponent(detail.callId)}` : '';
+      navigate(`/calls?room=${encodeURIComponent(detail.room)}${callIdParam}`);
     };
     window.addEventListener('hotelos:call-room', onCallRoom);
     return () => window.removeEventListener('hotelos:call-room', onCallRoom);
@@ -218,7 +219,7 @@ export default function MessagesPageRedesigned() {
 
   useEffect(() => {
     const onRing = (event: Event) => {
-      const detail = (event as CustomEvent<{ room: string; fromUserId: string; fromEmail?: string }>).detail;
+      const detail = (event as CustomEvent<{ room: string; callId?: string; fromUserId: string; fromEmail?: string }>).detail;
       if (!detail?.room) return;
 
       toast((t) => (
@@ -228,7 +229,8 @@ export default function MessagesPageRedesigned() {
             className="rounded-md bg-sky-600 px-3 py-1 text-sm text-white"
             onClick={() => {
               toast.dismiss(t.id);
-              navigate(`/calls?room=${encodeURIComponent(detail.room)}`);
+              const callIdParam = detail.callId ? `&callId=${encodeURIComponent(detail.callId)}` : '';
+              navigate(`/calls?room=${encodeURIComponent(detail.room)}${callIdParam}`);
             }}
           >
             Accept
