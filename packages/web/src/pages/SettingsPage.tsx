@@ -501,8 +501,6 @@ export default function SettingsPage() {
         return `Updated ${hours}h ago`;
       })()
     : 'Not updated yet';
-  const signalsActive = weatherStatusKey === 'ACTIVE';
-  const signalsSyncing = weatherStatusKey === 'SYNCING';
   const weatherInsightLine =
     !hasSyncedWeather
       ? 'Sync forecast to enable weather-aware suggestions for pool, outdoor dining, arrivals, and concierge.'
@@ -1066,22 +1064,6 @@ export default function SettingsPage() {
                       <div className="my-4 h-px w-full bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
 
                       <div className="flex flex-col gap-1">
-                        {signalsSyncing ? (
-                          <div className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 ring-1 ring-sky-200 animate-pulse">
-                            <span className="h-2 w-2 rounded-full bg-sky-500" />
-                            Updating operational signals...
-                          </div>
-                        ) : signalsActive ? (
-                          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
-                            <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                            Operational signals active
-                          </div>
-                        ) : (
-                          <div className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
-                            <span className="h-2 w-2 rounded-full bg-slate-400" />
-                            Operational signals offline
-                          </div>
-                        )}
                         <p className="text-sm text-slate-600">
                           Location:{' '}
                           <span className="font-medium text-slate-800">
