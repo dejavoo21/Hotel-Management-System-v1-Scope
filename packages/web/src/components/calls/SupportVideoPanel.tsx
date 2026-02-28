@@ -29,6 +29,7 @@ export default function SupportVideoPanel({
   const remoteVideoRef = useRef<HTMLDivElement | null>(null);
   const roomRef = useRef<any>(null);
   const localTracksRef = useRef<any[]>([]);
+  const endedRef = useRef(false);
 
   const safeRoomName = useMemo(
     () => (roomName || 'laflo-video').replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 64) || 'laflo-video',
@@ -86,6 +87,8 @@ export default function SupportVideoPanel({
   };
 
   const endVideoCall = () => {
+    if (endedRef.current) return;
+    endedRef.current = true;
     try {
       roomRef.current?.disconnect?.();
     } catch {
@@ -111,6 +114,7 @@ export default function SupportVideoPanel({
   };
 
   const startVideoCall = async () => {
+    endedRef.current = false;
     setError('');
     setState('CONNECTING');
     resetContainers();
@@ -224,7 +228,7 @@ export default function SupportVideoPanel({
         <div className="flex items-center justify-between gap-2">
           <div>
             <p className={`font-semibold text-slate-900 ${compact ? 'text-xs' : 'text-sm'}`}>{title}</p>
-            <p className="text-[11px] text-slate-500">Room: {safeRoomName}</p>
+            <p className="text-[11px] text-slate-500">Internal call</p>
           </div>
           <span
             className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
@@ -311,7 +315,7 @@ export default function SupportVideoPanel({
       <div className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between p-4">
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold">{title}</div>
-          <div className="truncate text-xs text-white/60">Room: {safeRoomName}</div>
+          <div className="truncate text-xs text-white/60">Internal call</div>
         </div>
         <span
           className={`rounded-full px-3 py-1 text-[11px] font-semibold ${

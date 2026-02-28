@@ -1249,7 +1249,7 @@ export default function DashboardLayout() {
           <Outlet />
         </main>
       </div>
-      <AppChatbot />
+      {!location.pathname.startsWith('/calls') ? <AppChatbot /> : null}
     </div>
   );
 }

@@ -686,9 +686,8 @@ export default function MessagesPageRedesigned() {
                       ? `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'You'
                       : activeThreadName
                     : resolveSenderName(message);
-                  const avatar = !isDmMsg && message.senderUser?.id 
-                    ? getStoredAvatarByUserId(message.senderUser.id) 
-                    : null;
+                  const avatarUserId = isDmMsg ? message.senderId : message.senderUser?.id;
+                  const avatar = getStoredAvatarByUserId(avatarUserId);
                     
                   return (
                     <div
