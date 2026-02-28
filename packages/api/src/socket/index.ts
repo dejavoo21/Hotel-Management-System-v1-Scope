@@ -116,10 +116,11 @@ export function setupSocketHandlers(io: SocketIOServer): void {
 
       const threadId = dmThreadId(user.hotelId, me, peerUserId);
       const room = `thread:${threadId}`;
-      socket.join(room);
+      io.in(`user:${me}`).socketsJoin(room);
+      io.in(`user:${peerUserId}`).socketsJoin(room);
 
-      const payload = { threadId, peerUserId };
-      socket.emit('dm:thread', payload);
+      io.to(`user:${me}`).emit('dm:thread', { threadId, peerUserId });
+      io.to(`user:${peerUserId}`).emit('dm:thread', { threadId, peerUserId: me });
     });
 
     // === INTERNAL DM: Broadcast message to thread room ===

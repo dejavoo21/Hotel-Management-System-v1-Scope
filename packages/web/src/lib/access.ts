@@ -80,6 +80,7 @@ export function canAccessRoute(user: AccessUser | null, route: string): boolean 
   
   // Extract base route (first path segment)
   const basePath = '/' + (route.split('/')[1] || '');
+  if (basePath === '/settings') return true;
   const module = ROUTE_MODULES[basePath];
   
   // If no module mapping exists, allow access (public route)

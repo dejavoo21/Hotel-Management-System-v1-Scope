@@ -117,24 +117,11 @@ export default function SupportVideoPanel({
     try {
       const token = await messageService.getSupportVideoToken(safeRoomName);
       const videoSdk: any = await import('twilio-video');
-      let room: any;
-      try {
-        room = await videoSdk.connect(token.token, {
-          name: token.room,
-          audio: true,
-          video: { width: 640 },
-        });
-      } catch (e: any) {
-        const name = e?.name || '';
-        const message = String(e?.message || '').toLowerCase();
-        const isPermissionError = name === 'NotAllowedError' || message.includes('permission');
-        if (!isPermissionError) throw e;
-        room = await videoSdk.connect(token.token, {
-          name: token.room,
-          audio: true,
-          video: false,
-        });
-      }
+      const room: any = await videoSdk.connect(token.token, {
+        name: token.room,
+        audio: true,
+        video: false,
+      });
 
       roomRef.current = room;
       localTracksRef.current = room.localParticipant?.videoTracks
@@ -148,6 +135,7 @@ export default function SupportVideoPanel({
 
       const localVideoTrack = localTracksRef.current.find((track) => track.kind === 'video');
       if (localVideoTrack) attachTrack(localVideoTrack, localVideoRef.current);
+      setCameraOff(!localVideoTrack);
 
       room.participants?.forEach?.((participant: any) => bindParticipant(participant));
       room.on?.('participantConnected', bindParticipant);

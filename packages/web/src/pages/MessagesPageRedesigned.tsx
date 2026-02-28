@@ -520,7 +520,9 @@ export default function MessagesPageRedesigned() {
                               {getPresenceLabel(status)} • {agent.role || 'Staff'}
                             </p>
                           </div>
-                          {!isCurrentUser && (
+                          {isCurrentUser ? (
+                            <span className="text-[11px] text-slate-400">You</span>
+                          ) : (
                             <div className="flex items-center gap-1.5">
                               <button
                                 type="button"
