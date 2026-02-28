@@ -58,12 +58,8 @@ export default function OperationsCenterPage() {
       <>
         <OpsStatusBar context={context} />
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <PricingSignalCard pricing={context?.pricingSignal ?? context?.pricing ?? null} />
-          </div>
-        </div>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
+            <PricingSignalCard pricing={context?.pricingSignal ?? context?.pricing ?? null} />
             <SignalsGrid
               context={context}
               onRefreshWeather={() => refreshWeatherMutation.mutate()}
