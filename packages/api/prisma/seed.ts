@@ -199,6 +199,73 @@ async function main() {
 
   console.log(`Created ${users.length} users`);
 
+  // Create sample access requests (Settings > Access Requests)
+  const accessRequests = await Promise.all([
+    prisma.accessRequest.upsert({
+      where: { id: 'access-request-1' },
+      update: {
+        fullName: 'Emily Johnson',
+        email: 'emily.johnson@demo.hotel',
+        company: 'Grand Palace Hotel',
+        role: 'Receptionist',
+        message: 'Need access to front desk, bookings, and guest messaging modules.',
+        status: 'PENDING',
+      },
+      create: {
+        id: 'access-request-1',
+        fullName: 'Emily Johnson',
+        email: 'emily.johnson@demo.hotel',
+        company: 'Grand Palace Hotel',
+        role: 'Receptionist',
+        message: 'Need access to front desk, bookings, and guest messaging modules.',
+        status: 'PENDING',
+      },
+    }),
+    prisma.accessRequest.upsert({
+      where: { id: 'access-request-2' },
+      update: {
+        fullName: 'Lena Parker',
+        email: 'lena.parker@demo.hotel',
+        company: 'Grand Palace Hotel',
+        role: 'Night Auditor',
+        message: 'Requesting reporting and payments access for night shift handover.',
+        status: 'INFO_RECEIVED',
+      },
+      create: {
+        id: 'access-request-2',
+        fullName: 'Lena Parker',
+        email: 'lena.parker@demo.hotel',
+        company: 'Grand Palace Hotel',
+        role: 'Night Auditor',
+        message: 'Requesting reporting and payments access for night shift handover.',
+        status: 'INFO_RECEIVED',
+      },
+    }),
+  ]);
+
+  await Promise.all([
+    prisma.accessRequestReply.upsert({
+      where: { id: 'access-request-reply-1' },
+      update: {
+        fromEmail: 'admin@demo.hotel',
+        subject: 'Additional details needed',
+        bodyText: 'Please confirm your manager approval and preferred permission scope.',
+        messageId: 'seed-access-request-reply-1@laflo.local',
+      },
+      create: {
+        id: 'access-request-reply-1',
+        accessRequestId: 'access-request-2',
+        fromEmail: 'admin@demo.hotel',
+        subject: 'Additional details needed',
+        bodyText: 'Please confirm your manager approval and preferred permission scope.',
+        messageId: 'seed-access-request-reply-1@laflo.local',
+        receivedAt: new Date(),
+      },
+    }),
+  ]);
+
+  console.log(`Created ${accessRequests.length} access requests`);
+
   // Create sample guests
   const guests = await Promise.all([
     prisma.guest.upsert({
