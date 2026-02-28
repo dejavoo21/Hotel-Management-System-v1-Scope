@@ -239,7 +239,7 @@ export default function MessagesPageRedesigned() {
             className="rounded-md bg-slate-200 px-3 py-1 text-sm text-slate-700"
             onClick={() => {
               toast.dismiss(t.id);
-              emitCallDecline(detail.room);
+              emitCallDecline(detail.room, detail.callId);
             }}
           >
             Decline

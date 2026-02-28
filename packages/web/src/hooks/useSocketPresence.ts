@@ -24,7 +24,7 @@ type CallRingPayload = { callId?: string; room: string; fromUserId: string; from
 type CallRoomPayload = { callId?: string; room: string };
 type CallCreatedPayload = { callId: string; room: string };
 type CallAcceptedPayload = { callId?: string; room?: string };
-type CallDeclinedPayload = { room: string; by: string };
+type CallDeclinedPayload = { callId?: string; room: string; by: string };
 type WebRtcSignalPayload = { callId?: string; room?: string; data: unknown; fromUserId?: string };
 
 const dispatchSocketEvent = (name: string, detail: unknown) => {
@@ -285,9 +285,9 @@ export function useSocketPresence() {
     }
   }, []);
 
-  const emitCallDecline = useCallback((room: string) => {
-    if (socketRef.current?.connected && room) {
-      socketRef.current.emit('call:decline', { room });
+  const emitCallDecline = useCallback((room: string, callId?: string) => {
+    if (socketRef.current?.connected && (room || callId)) {
+      socketRef.current.emit('call:decline', { room, callId });
     }
   }, []);
 

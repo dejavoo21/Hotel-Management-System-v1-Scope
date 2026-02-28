@@ -184,12 +184,16 @@ export function setupSocketHandlers(io: SocketIOServer): void {
       createCall([calleeUserId]);
     });
 
-    socket.on('call:join', ({ callId }: { callId?: string }) => {
+    const joinCall = (callId?: string) => {
       if (!callId) return;
       socket.join(`call:${callId}`);
       io.to(`call:${callId}`).emit('call:participant_joined', { callId, userId: user.userId });
       socket.emit('call:accepted', { callId });
       socket.emit('call:room', { callId, room: callRoomName(user.hotelId, callId) });
+    };
+
+    socket.on('call:join', ({ callId }: { callId?: string }) => {
+      joinCall(callId);
     });
 
     // Backward-compatible alias for existing accept flow.
@@ -206,7 +210,7 @@ export function setupSocketHandlers(io: SocketIOServer): void {
         return;
       }
       if (!normalizedCallId) return;
-      socket.emit('call:join', { callId: normalizedCallId });
+      joinCall(normalizedCallId);
     });
 
     socket.on('call:invite', ({ callId, userIds }: { callId?: string; userIds?: string[] }) => {
@@ -232,7 +236,19 @@ export function setupSocketHandlers(io: SocketIOServer): void {
       io.to(`call:${callId}`).emit('call:invited', { callId, by: me, userIds: uniqueUserIds });
     });
 
-    socket.on('call:decline', ({ room }: { room?: string }) => {
+    socket.on('call:decline', ({ room, callId }: { room?: string; callId?: string }) => {
+      let normalizedCallId = callId;
+      if (!normalizedCallId && room?.startsWith(`laflo-call-${user.hotelId}-`)) {
+        normalizedCallId = room.replace(`laflo-call-${user.hotelId}-`, '');
+      }
+      if (normalizedCallId) {
+        io.to(`call:${normalizedCallId}`).emit('call:declined', {
+          callId: normalizedCallId,
+          room: callRoomName(user.hotelId, normalizedCallId),
+          by: user.userId,
+        });
+        return;
+      }
       if (!room) return;
       io.to(`call:${room}`).emit('call:declined', { room, by: user.userId });
     });
@@ -383,7 +399,7 @@ export interface ServerToClientEvents {
   'call:accepted': (data: { callId?: string; room?: string }) => void;
   'call:participant_joined': (data: { callId: string; userId: string }) => void;
   'call:invited': (data: { callId: string; by: string; userIds: string[] }) => void;
-  'call:declined': (data: { room: string; by: string }) => void;
+  'call:declined': (data: { callId?: string; room: string; by: string }) => void;
   'webrtc:signal': (data: { callId?: string; room?: string; from: string; data: unknown }) => void;
   
   // Error events
@@ -403,6 +419,6 @@ export interface ClientToServerEvents {
   'call:join': (data: { callId: string }) => void;
   'call:invite': (data: { callId: string; userIds: string[] }) => void;
   'call:accept': (data: { room?: string; callId?: string }) => void;
-  'call:decline': (data: { room: string }) => void;
+  'call:decline': (data: { room?: string; callId?: string }) => void;
   'webrtc:signal': (data: { room?: string; callId?: string; data: unknown }) => void;
 }

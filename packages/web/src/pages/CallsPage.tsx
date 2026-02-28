@@ -427,7 +427,7 @@ export default function CallsPage() {
             <button
               className="flex-1 rounded-xl bg-white/10 py-2.5 font-semibold hover:bg-white/15"
               onClick={() => {
-                emitCallDecline(room);
+                emitCallDecline(room, callId || undefined);
                 navigate(returnTo, { replace: true });
               }}
             >
