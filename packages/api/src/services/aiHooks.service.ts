@@ -51,6 +51,19 @@ export interface AiRequestContext {
   latestMessage?: string;
 }
 
+export type WeatherActionPriority = 'low' | 'medium' | 'high';
+
+export interface WeatherOpsAction {
+  title: string;
+  reason: string;
+  priority: WeatherActionPriority;
+}
+
+export interface WeatherOpsActionsResult {
+  actions: WeatherOpsAction[];
+  generatedAtUtc: string;
+}
+
 // Simple keyword-based intent detection (can be replaced with ML model)
 const INTENT_KEYWORDS: Record<IntentCategory, string[]> = {
   BOOKING_REQUEST: ['book', 'reservation', 'reserve', 'available', 'availability', 'room for'],
@@ -358,7 +371,7 @@ export async function getRecommendedActions(
  * Log AI interaction for analytics
  */
 export async function logAiInteraction(
-  type: 'INTENT_DETECTION' | 'SUGGESTED_REPLY' | 'RECOMMENDED_ACTION',
+  type: 'INTENT_DETECTION' | 'SUGGESTED_REPLY' | 'RECOMMENDED_ACTION' | 'WEATHER_ACTIONS',
   input: string,
   output: any,
   userId: string
@@ -376,4 +389,120 @@ export async function logAiInteraction(
       },
     },
   });
+}
+
+function clampText(value: string, maxLen: number): string {
+  return value.replace(/\s+/g, ' ').trim().slice(0, maxLen);
+}
+
+function pushWeatherAction(
+  list: WeatherOpsAction[],
+  title: string,
+  reason: string,
+  priority: WeatherActionPriority
+) {
+  const exists = list.some((item) => item.title.toLowerCase() === title.toLowerCase());
+  if (exists) return;
+  list.push({
+    title: clampText(title, 60),
+    reason: clampText(reason, 120),
+    priority,
+  });
+}
+
+export async function getWeatherOpsActions(
+  weather: WeatherContext | null
+): Promise<WeatherOpsActionsResult> {
+  const generatedAtUtc = new Date().toISOString();
+  if (!weather || !weather.syncedAtUtc || !weather.next24h) {
+    return { actions: [], generatedAtUtc };
+  }
+
+  const actions: WeatherOpsAction[] = [];
+
+  if (weather.stale || !weather.isFresh) {
+    pushWeatherAction(
+      actions,
+      'Refresh weather forecast now',
+      'Current weather context is stale and may reduce recommendation accuracy.',
+      'high'
+    );
+  }
+
+  const summary = (weather.next24h.summary || '').toLowerCase();
+  const rainRisk = weather.next24h.rainRisk;
+  const high = weather.next24h.highC;
+  const low = weather.next24h.lowC;
+
+  if (rainRisk === 'high') {
+    pushWeatherAction(
+      actions,
+      'Stage umbrellas at reception',
+      'High rain risk expected; prepare staff and guest-facing supplies.',
+      'high'
+    );
+    pushWeatherAction(
+      actions,
+      'Prioritize indoor breakfast seating',
+      'Wet weather may reduce outdoor seating demand during breakfast hours.',
+      'medium'
+    );
+  } else if (rainRisk === 'medium') {
+    pushWeatherAction(
+      actions,
+      'Prepare rain contingency signage',
+      'Moderate rain risk expected; direct guests toward indoor alternatives.',
+      'medium'
+    );
+  }
+
+  if (summary.includes('storm') || summary.includes('thunder')) {
+    pushWeatherAction(
+      actions,
+      'Issue weather safety advisory at check-in',
+      'Storm conditions are possible; align front desk messaging.',
+      'high'
+    );
+  }
+
+  if (summary.includes('wind')) {
+    pushWeatherAction(
+      actions,
+      'Secure outdoor furniture and setup',
+      'Windy conditions may impact terrace and poolside safety.',
+      'medium'
+    );
+  }
+
+  if (typeof high === 'number' && high >= 32) {
+    pushWeatherAction(
+      actions,
+      'Increase hydration station checks',
+      `Hot conditions expected (up to ${high}C); prioritize water availability.`,
+      'medium'
+    );
+  }
+
+  if (typeof low === 'number' && low <= 5) {
+    pushWeatherAction(
+      actions,
+      'Prepare cold-weather arrival support',
+      `Low temperatures expected (down to ${low}C); brief front desk team.`,
+      'medium'
+    );
+  }
+
+  if (actions.length === 0) {
+    pushWeatherAction(
+      actions,
+      'Proceed with standard operations plan',
+      'No weather disruptions detected in the current forecast window.',
+      'low'
+    );
+  }
+
+  return {
+    actions: actions.slice(0, 5),
+    generatedAtUtc,
+  };
 }

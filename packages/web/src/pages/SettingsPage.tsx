@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { roomService, authService, hotelService, accessRequestService, weatherSignalsService } from '@/services';
+import { getWeatherOpsActions, type WeatherOpsAction } from '@/services/aiHooks';
 import api from '@/services/api';
 import { currencyOptions, timezoneOptions } from '@/data/options';
 import type { AccessRequest, AccessRequestReply } from '@/types';
@@ -368,6 +369,7 @@ export default function SettingsPage() {
     onSuccess: async (data) => {
       toast.success(`Weather synced (${data.daysStored} days stored)`);
       await queryClient.invalidateQueries({ queryKey: ['weatherSignalsStatus', data.hotelId] });
+      await queryClient.invalidateQueries({ queryKey: ['weatherOpsActions', data.hotelId] });
       await weatherStatusQuery.refetch();
     },
     onError: () => {
@@ -456,6 +458,16 @@ export default function SettingsPage() {
       : weatherStaleHours != null && weatherStaleHours >= 6
         ? `Forecast is ${weatherStaleHours.toFixed(1)} hours old. Refresh recommended before advising guests.`
         : 'Forecast is fresh. AI can proactively suggest alternatives for weather-sensitive plans.';
+
+  const weatherActionsQuery = useQuery({
+    queryKey: ['weatherOpsActions', user?.hotel?.id],
+    queryFn: () => getWeatherOpsActions(user?.hotel?.id),
+    enabled: activeTab === 'hotel' && isAdmin && Boolean(user?.hotel?.id),
+    retry: false,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    staleTime: 0,
+  });
 
   const formatBytes = (value?: number) => {
     if (!value) return '0 B';
@@ -1012,6 +1024,36 @@ export default function SettingsPage() {
                           [!] Sync failed: {weatherSyncError}
                         </div>
                       ) : null}
+                    </div>
+
+                    <div className="mt-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="text-sm font-semibold text-slate-900">Recommended actions</div>
+                      {weatherActionsQuery.isLoading ? (
+                        <div className="mt-2 text-sm text-slate-500">Generating recommendations...</div>
+                      ) : weatherActionsQuery.isError ? (
+                        <div className="mt-2 text-sm text-rose-600">Unable to load recommendations right now.</div>
+                      ) : weatherActionsQuery.data?.actions?.length ? (
+                        <>
+                          <ul className="mt-2 space-y-2">
+                            {weatherActionsQuery.data.actions.slice(0, 5).map((item: WeatherOpsAction, idx: number) => (
+                              <li key={`${item.title}-${idx}`} className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                                <div className="font-medium text-slate-900">
+                                  {item.title}{' '}
+                                  <span className="text-xs uppercase text-slate-500">({item.priority})</span>
+                                </div>
+                                <div className="text-xs text-slate-600">{item.reason}</div>
+                              </li>
+                            ))}
+                          </ul>
+                          {weatherActionsQuery.data.generatedAtUtc ? (
+                            <div className="mt-2 text-xs text-slate-500">
+                              Generated {new Date(weatherActionsQuery.data.generatedAtUtc).toLocaleString()}
+                            </div>
+                          ) : null}
+                        </>
+                      ) : (
+                        <div className="mt-2 text-sm text-slate-500">Sync forecast to generate actions.</div>
+                      )}
                     </div>
 
                     <div className="mt-3 text-xs text-slate-500">

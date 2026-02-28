@@ -26,6 +26,17 @@ export interface RecommendedAction {
   metadata?: Record<string, unknown>;
 }
 
+export interface WeatherOpsAction {
+  title: string;
+  reason: string;
+  priority: 'low' | 'medium' | 'high';
+}
+
+export interface WeatherOpsActionsResult {
+  actions: WeatherOpsAction[];
+  generatedAtUtc: string;
+}
+
 /**
  * Detect intent from a message
  */
@@ -61,6 +72,17 @@ export async function getRecommendedActions(
     ticketId,
     intent
   });
+  return response.data.data;
+}
+
+/**
+ * Get weather-based operational actions for the current hotel.
+ */
+export async function getWeatherOpsActions(hotelId?: string): Promise<WeatherOpsActionsResult> {
+  const response = await api.post<{ success: boolean; data: WeatherOpsActionsResult }>(
+    '/api/ai/weather-actions',
+    { hotelId }
+  );
   return response.data.data;
 }
 

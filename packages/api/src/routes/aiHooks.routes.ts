@@ -14,6 +14,7 @@ import {
   detectIntent,
   getSuggestedReplies,
   getRecommendedActions,
+  getWeatherOpsActions,
   logAiInteraction,
 } from '../services/aiHooks.service.js';
 import { getWeatherContextForHotel } from '../services/weatherContext.provider.js';
@@ -141,6 +142,40 @@ router.post('/actions', async (req: AuthenticatedRequest, res: Response, next: N
         actions,
         intent,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/ai/weather-actions
+ *
+ * Get weather-driven operational recommendations for hotel staff.
+ */
+router.post('/weather-actions', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const requestedHotelId = req.body?.hotelId as string | undefined;
+    const hotelId = req.user!.hotelId;
+
+    if (requestedHotelId && requestedHotelId !== hotelId) {
+      res.status(403).json({ success: false, error: 'Forbidden for this hotelId' });
+      return;
+    }
+
+    const weather = await getWeatherContextForHotel(hotelId);
+    const result = await getWeatherOpsActions(weather);
+
+    await logAiInteraction(
+      'WEATHER_ACTIONS',
+      JSON.stringify({ hotelId, weatherSyncedAtUtc: weather?.syncedAtUtc ?? null }),
+      result,
+      req.user!.id
+    );
+
+    res.json({
+      success: true,
+      data: result,
     });
   } catch (error) {
     next(error);
