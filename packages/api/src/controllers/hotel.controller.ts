@@ -38,11 +38,11 @@ export async function updateMyHotel(
     const incomingAddress = req.body.address;
     const incomingAddressLine1 = req.body.addressLine1;
 
-    const locationFieldChanged =
-      (incomingCity !== undefined && incomingCity !== existingHotel.city) ||
-      (incomingCountry !== undefined && incomingCountry !== existingHotel.country) ||
-      (incomingAddress !== undefined && incomingAddress !== existingHotel.address) ||
-      (incomingAddressLine1 !== undefined && incomingAddressLine1 !== (existingHotel.addressLine1 ?? undefined));
+    const locationFieldsProvided =
+      incomingCity !== undefined ||
+      incomingCountry !== undefined ||
+      incomingAddress !== undefined ||
+      incomingAddressLine1 !== undefined;
 
     const latProvided = req.body.latitude !== undefined;
     const lonProvided = req.body.longitude !== undefined;
@@ -60,10 +60,10 @@ export async function updateMyHotel(
         website: req.body.website,
         timezone: req.body.timezone,
         currency: req.body.currency,
-        latitude: latProvided ? req.body.latitude : locationFieldChanged ? null : undefined,
-        longitude: lonProvided ? req.body.longitude : locationFieldChanged ? null : undefined,
+        latitude: latProvided ? req.body.latitude : locationFieldsProvided ? null : undefined,
+        longitude: lonProvided ? req.body.longitude : locationFieldsProvided ? null : undefined,
         locationUpdatedAt:
-          latProvided || lonProvided || locationFieldChanged ? new Date() : undefined,
+          latProvided || lonProvided || locationFieldsProvided ? new Date() : undefined,
       },
     });
     res.json({ success: true, data: hotel });

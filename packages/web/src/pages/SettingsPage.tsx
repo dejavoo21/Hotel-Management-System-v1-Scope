@@ -350,7 +350,7 @@ export default function SettingsPage() {
 
   const updateHotelMutation = useMutation({
     mutationFn: hotelService.updateMyHotel,
-    onSuccess: async (updatedHotel) => {
+    onSuccess: async (updatedHotel, variables) => {
       const previousHotel = user?.hotel;
       const locationChanged = Boolean(
         previousHotel &&
@@ -359,6 +359,11 @@ export default function SettingsPage() {
             (updatedHotel.address ?? previousHotel.address) !== previousHotel.address ||
             (updatedHotel.addressLine1 ?? previousHotel.addressLine1) !== previousHotel.addressLine1)
       );
+      const locationFieldsSubmitted =
+        variables.city !== undefined ||
+        variables.country !== undefined ||
+        variables.address !== undefined ||
+        variables.addressLine1 !== undefined;
 
       toast.success('Hotel settings updated');
       if (user) {
@@ -370,7 +375,7 @@ export default function SettingsPage() {
         await queryClient.invalidateQueries({ queryKey: ['weatherOpsActions', updatedHotel.id] });
       }
 
-      if (locationChanged && updatedHotel.id && canSyncWeather && !syncWeatherMutation.isPending) {
+      if ((locationChanged || locationFieldsSubmitted) && updatedHotel.id && canSyncWeather && !syncWeatherMutation.isPending) {
         toast('Location changed. Refreshing weather forecast...');
         syncWeatherMutation.mutate(updatedHotel.id);
       }
@@ -462,6 +467,8 @@ export default function SettingsPage() {
             : weatherStatusQuery.isError
               ? 'FAILED'
               : 'READY';
+  const signalsActive = weatherStatusKey === 'ACTIVE';
+  const signalsSyncing = weatherStatusKey === 'SYNCING';
   const weatherStatusLabel: Record<WeatherBadgeState, string> = {
     ACTIVE: 'Synced',
     SYNCING: 'Updating forecast',
@@ -1074,6 +1081,24 @@ export default function SettingsPage() {
                           | Timezone:{' '}
                           <span className="font-medium text-slate-800">{hotelForm.timezone || 'Not set'}</span>
                         </p>
+                        <div className="mt-2">
+                          {signalsSyncing ? (
+                            <div className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 ring-1 ring-sky-200 animate-pulse">
+                              <span className="h-2 w-2 rounded-full bg-sky-500" />
+                              Updating operational signals...
+                            </div>
+                          ) : signalsActive ? (
+                            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
+                              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                              Operational signals active
+                            </div>
+                          ) : (
+                            <div className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
+                              <span className="h-2 w-2 rounded-full bg-slate-400" />
+                              Operational signals offline
+                            </div>
+                          )}
+                        </div>
                         {weatherStatusQuery.isFetching && hasSyncedWeather ? (
                           <p className="text-xs text-slate-500">Updating latest forecast...</p>
                         ) : null}
