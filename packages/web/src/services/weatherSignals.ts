@@ -34,7 +34,7 @@ export const weatherSignalsService = {
     daysStored: number;
     fetchedAtUtc: string;
   }> {
-    const response = await api.post('/signals/weather/sync', null, { params: { hotelId } });
+    const response = await api.post('/signals/weather/sync', {}, { params: { hotelId } });
     return response.data.data;
   },
 };

@@ -42,7 +42,7 @@ export interface WeatherOpsActionsResult {
  * Detect intent from a message
  */
 export async function detectIntent(message: string): Promise<DetectedIntent> {
-  const response = await api.post<{ success: boolean; data: DetectedIntent }>('/api/ai/intent', { message });
+  const response = await api.post<{ success: boolean; data: DetectedIntent }>('/ai/intent', { message });
   return response.data.data;
 }
 
@@ -53,7 +53,7 @@ export async function getSuggestedReplies(
   conversationId: string,
   intent?: DetectedIntent
 ): Promise<SuggestedReply[]> {
-  const response = await api.post<{ success: boolean; data: SuggestedReply[] }>('/api/ai/suggestions', {
+  const response = await api.post<{ success: boolean; data: SuggestedReply[] }>('/ai/suggestions', {
     conversationId,
     intent
   });
@@ -68,7 +68,7 @@ export async function getRecommendedActions(
   ticketId?: string,
   intent?: DetectedIntent
 ): Promise<RecommendedAction[]> {
-  const response = await api.post<{ success: boolean; data: RecommendedAction[] }>('/api/ai/actions', {
+  const response = await api.post<{ success: boolean; data: RecommendedAction[] }>('/ai/actions', {
     conversationId,
     ticketId,
     intent
@@ -81,7 +81,7 @@ export async function getRecommendedActions(
  */
 export async function getWeatherOpsActions(hotelId?: string): Promise<WeatherOpsActionsResult> {
   const response = await api.post<{ success: boolean; data: WeatherOpsActionsResult }>(
-    '/api/ai/weather-actions',
+    '/ai/weather-actions',
     { hotelId }
   );
   return response.data.data;
