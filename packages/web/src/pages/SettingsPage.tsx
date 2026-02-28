@@ -445,11 +445,11 @@ export default function SettingsPage() {
               : 'READY';
   const weatherStatusLabel: Record<WeatherBadgeState, string> = {
     ACTIVE: 'Synced',
-    SYNCING: 'Syncing',
+    SYNCING: 'Updating forecast',
     FAILED: 'Sync failed',
     READY: 'Ready to sync',
-    BLOCKED: 'Setup needed',
-    LOADING: 'Loading',
+    BLOCKED: 'Setup required',
+    LOADING: 'Checking status',
   };
   const weatherStatusIcon: Record<WeatherBadgeState, string> = {
     ACTIVE: '[OK]',
@@ -461,11 +461,11 @@ export default function SettingsPage() {
   };
   const weatherStatusStyles: Record<WeatherBadgeState, string> = {
     ACTIVE: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-    SYNCING: 'bg-sky-100 text-sky-700 ring-sky-300',
-    FAILED: 'bg-rose-100 text-rose-700 ring-rose-300',
+    SYNCING: 'bg-sky-50 text-sky-700 ring-sky-200',
+    FAILED: 'bg-rose-50 text-rose-700 ring-rose-200',
     READY: 'bg-amber-50 text-amber-700 ring-amber-200',
-    BLOCKED: 'bg-slate-100 text-slate-700 ring-slate-300',
-    LOADING: 'bg-slate-100 text-slate-700 ring-slate-300',
+    BLOCKED: 'bg-slate-50 text-slate-700 ring-slate-200',
+    LOADING: 'bg-slate-50 text-slate-700 ring-slate-200',
   };
   const weatherDataQuality = hasSyncedWeather ? 'Good' : 'Unknown';
   const weatherSyncError = syncWeatherMutation.isError
