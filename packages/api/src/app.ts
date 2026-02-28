@@ -79,10 +79,16 @@ export function createApp(): Application {
     const isAllowed = Boolean(normalized && normalizedCorsOrigins.has(normalized));
 
     if (requestOrigin && isAllowed) {
+      const requestedHeaders = req.headers['access-control-request-headers'];
       res.header('Access-Control-Allow-Origin', requestOrigin);
       res.header('Access-Control-Allow-Credentials', 'true');
       res.header('Vary', 'Origin');
-      res.header('Access-Control-Allow-Headers', ['Content-Type', 'Authorization', 'X-Requested-With'].join(','));
+      res.header(
+        'Access-Control-Allow-Headers',
+        Array.isArray(requestedHeaders)
+          ? requestedHeaders.join(',')
+          : requestedHeaders || 'Content-Type, Authorization'
+      );
       res.header('Access-Control-Allow-Methods', allowedMethods.join(','));
     }
 

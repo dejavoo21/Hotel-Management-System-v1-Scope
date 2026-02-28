@@ -63,6 +63,12 @@ export type CreateAdvisoryTicketResult = {
   status: 'OPEN' | 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'BREACHED';
   department: string;
   conversationId: string;
+  assignedToId?: string | null;
+  assignedTo?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  } | null;
   deduped?: boolean;
 };
 

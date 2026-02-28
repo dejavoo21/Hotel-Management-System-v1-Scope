@@ -60,10 +60,21 @@ export default function OpsAdvisories({ context }: Props) {
     },
     onSuccess: ({ result, advisory }) => {
       setCreatedTicketIds((prev) => ({ ...prev, [advisory.id]: result.ticketId }));
+      const assigneeName = result.assignedTo
+        ? `${result.assignedTo.firstName} ${result.assignedTo.lastName}`.trim()
+        : null;
       if (result.deduped) {
-        toast.success(`Ticket already exists for ${result.department}`);
+        toast.success(
+          assigneeName
+            ? `Ticket already exists for ${result.department} (assigned to ${assigneeName})`
+            : `Ticket already exists for ${result.department}`
+        );
       } else {
-        toast.success(`Task created for ${result.department}`);
+        toast.success(
+          assigneeName
+            ? `Task created for ${result.department} and assigned to ${assigneeName}`
+            : `Task created for ${result.department}`
+        );
       }
     },
     onError: (error) => {

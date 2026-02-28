@@ -5,6 +5,7 @@ import { getOperationsContext } from '../services/operationsContext.service.js';
 import { Department, TicketCategory, TicketPriority } from '@prisma/client';
 import { prisma } from '../config/database.js';
 import { AdvisoryPriority, routeOpsAdvisory } from '../services/opsRouting.rules.js';
+import { pickAssigneeForDepartment } from '../services/opsAssignment.rules.js';
 
 const router = Router();
 
@@ -24,7 +25,10 @@ type CreateAdvisoryTicketBody = {
   } | null;
 };
 
-function mapTicketPriority(value: AdvisoryPriority): TicketPriority {
+function mapTicketPriority(value: AdvisoryPriority, title: string, reason?: string): TicketPriority {
+  const text = `${title} ${reason ?? ''}`.toLowerCase();
+  const isUrgent = /(storm|thunder|lightning|flood|evacuat|safety|hazard|emergency)/.test(text);
+  if (isUrgent) return 'URGENT';
   if (value === 'high') return 'HIGH';
   if (value === 'low') return 'LOW';
   return 'MEDIUM';
@@ -82,7 +86,7 @@ router.post('/advisories/create-ticket', async (req: AuthenticatedRequest, res: 
       reason,
       priority: advisoryPriority,
     });
-    const priority = mapTicketPriority(routed.priority);
+    const priority = mapTicketPriority(routed.priority, title, reason);
     const department: Department = routed.department;
 
     if (!title || !reason) {
@@ -115,13 +119,21 @@ router.post('/advisories/create-ticket', async (req: AuthenticatedRequest, res: 
             id: existingLog.entityId,
             hotelId,
           },
-          select: {
-            id: true,
-            status: true,
-            department: true,
-            conversationId: true,
+        select: {
+          id: true,
+          status: true,
+          department: true,
+          conversationId: true,
+          assignedToId: true,
+          assignedTo: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+            },
           },
-        });
+        },
+      });
 
         if (existingTicket) {
           res.json({
@@ -131,6 +143,8 @@ router.post('/advisories/create-ticket', async (req: AuthenticatedRequest, res: 
               status: existingTicket.status,
               department: existingTicket.department,
               conversationId: existingTicket.conversationId,
+              assignedToId: existingTicket.assignedToId,
+              assignedTo: existingTicket.assignedTo,
               deduped: true,
             },
           });
@@ -167,12 +181,25 @@ router.post('/advisories/create-ticket', async (req: AuthenticatedRequest, res: 
           department,
           priority,
           status: 'OPEN',
+          assignedToId: await pickAssigneeForDepartment({
+            tx,
+            hotelId,
+            department,
+          }),
         },
         select: {
           id: true,
           status: true,
           department: true,
           priority: true,
+          assignedToId: true,
+          assignedTo: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
         },
       });
 
@@ -209,6 +236,8 @@ router.post('/advisories/create-ticket', async (req: AuthenticatedRequest, res: 
         status: created.ticket.status,
         department: created.ticket.department,
         conversationId: created.conversationId,
+        assignedToId: created.ticket.assignedToId,
+        assignedTo: created.ticket.assignedTo,
         deduped: false,
       },
     });
