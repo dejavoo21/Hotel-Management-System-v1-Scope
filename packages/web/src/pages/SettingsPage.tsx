@@ -1117,10 +1117,6 @@ export default function SettingsPage() {
                             })}`
                           : 'Based on forecast model data once synced'}
                       </div>
-                      <div className="text-xs text-slate-500">Not real-time weather observation.</div>
-                      <div className="mt-1 text-xs text-slate-500">
-                        Tip: keep forecast fresh for accurate operational recommendations.
-                      </div>
                       {hasSyncedWeather && !weatherSyncError ? (
                         <div className="mt-1 text-xs font-medium text-indigo-700">
                           Recommendations are based on current forecast conditions.
