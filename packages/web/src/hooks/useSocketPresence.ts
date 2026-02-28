@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { useQueryClient } from '@tanstack/react-query';
+import { QueryClient, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { usePresenceStore } from '@/stores/presenceStore';
@@ -32,10 +32,6 @@ const dispatchSocketEvent = (name: string, detail: unknown) => {
   window.dispatchEvent(new CustomEvent(name, { detail }));
 };
 
-/**
- * Socket DTO from backend (uses overrideStatus)
- * Must map to frontend PresenceUpdate (uses presenceStatus)
- */
 interface PresenceSocketDto {
   userId: string;
   email: string;
@@ -45,25 +41,20 @@ interface PresenceSocketDto {
   lastSeenAt: string | Date | null;
 }
 
-/**
- * Convert socket DTO to frontend PresenceUpdate type
- * Maps overrideStatus -> presenceStatus for store compatibility
- */
 function toPresenceUpdate(dto: PresenceSocketDto): PresenceUpdate {
   return {
     userId: dto.userId,
     email: dto.email,
     isOnline: dto.isOnline,
-    presenceStatus: dto.overrideStatus, // Map backend field to frontend field
+    presenceStatus: dto.overrideStatus,
     effectiveStatus: dto.effectiveStatus,
     lastSeenAt: dto.lastSeenAt ? String(dto.lastSeenAt) : null,
   };
 }
 
-// Derive socket URL: prefer VITE_SOCKET_URL, else strip /api from VITE_API_URL
 const apiUrl = import.meta.env.VITE_API_URL;
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ?? 
-  (apiUrl ? new URL(apiUrl).origin : 'http://localhost:3001');
+const SOCKET_URL =
+  import.meta.env.VITE_SOCKET_URL ?? (apiUrl ? new URL(apiUrl).origin : 'http://localhost:3001');
 
 console.log('[Socket] URL configured:', SOCKET_URL);
 
@@ -72,188 +63,200 @@ interface PermissionsUpdateEvent {
   modulePermissions: ModulePermission[];
 }
 
-/**
- * Hook to manage Socket.IO connection and presence subscriptions
- * Connects when user is authenticated, disconnects on logout
- * Also handles permissions:update events to keep user permissions in sync
- * Server sends presence:list on connect (Teams-like behavior)
- */
+let sharedSocket: Socket | null = null;
+let sharedHandlersBound = false;
+let sharedConsumerCount = 0;
+let latestNavigate: ReturnType<typeof useNavigate> | null = null;
+let latestQueryClient: QueryClient | null = null;
+let latestLocation: { pathname: string; search: string } = { pathname: '/', search: '' };
+
+const bindSharedHandlers = (socket: Socket) => {
+  if (sharedHandlersBound) return;
+  sharedHandlersBound = true;
+
+  socket.on('connect', () => {
+    console.log('[Socket] Connected:', socket.id);
+    usePresenceStore.getState().setConnected(true);
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.log('[Socket] Disconnected:', reason);
+    usePresenceStore.getState().setConnected(false);
+  });
+
+  socket.on('connect_error', (error) => {
+    console.error('[Socket] Connection error:', error.message);
+    usePresenceStore.getState().setConnected(false);
+  });
+
+  socket.on('presence:update', (dto: PresenceSocketDto) => {
+    console.log('[Socket] Presence update (raw):', dto);
+    const update = toPresenceUpdate(dto);
+    const { updatePresence, setMyPresence } = usePresenceStore.getState();
+    updatePresence(update);
+
+    const currentUser = useAuthStore.getState().user;
+    if (currentUser && update.userId === currentUser.id) {
+      setMyPresence(update.presenceStatus);
+    }
+  });
+
+  socket.on('presence:list', (dtos: PresenceSocketDto[]) => {
+    console.log('[Socket] Presence list:', dtos.length, 'users');
+    const list = dtos.map(toPresenceUpdate);
+    usePresenceStore.getState().setPresenceList(list);
+  });
+
+  socket.on('permissions:update', async (data: PermissionsUpdateEvent) => {
+    console.log('[Socket] Permissions update received:', data);
+    const { user, setUser } = useAuthStore.getState();
+    if (!user || data.userId !== user.id) return;
+
+    try {
+      const updatedUser = await authService.getCurrentUser();
+      if (!updatedUser) return;
+
+      console.log('[Socket] User permissions updated:', updatedUser.modulePermissions);
+      setUser(updatedUser);
+      latestQueryClient?.invalidateQueries({ queryKey: ['currentUser'] });
+
+      if (latestNavigate && !canAccessRoute(updatedUser, latestLocation.pathname)) {
+        latestNavigate(firstAllowedRoute(updatedUser), { replace: true });
+      }
+    } catch (error) {
+      console.error('[Socket] Failed to refetch user after permissions update:', error);
+    }
+  });
+
+  socket.on('error', (error: { message: string }) => {
+    console.error('[Socket] Error:', error.message);
+  });
+
+  socket.on('dm:thread', (payload: DmThreadPayload) => {
+    dispatchSocketEvent('hotelos:dm-thread', payload);
+  });
+
+  socket.on('dm:new', (payload: DmMessagePayload) => {
+    dispatchSocketEvent('hotelos:dm-new', payload);
+    if (!latestQueryClient) return;
+
+    latestQueryClient.invalidateQueries({ queryKey: ['message-thread', payload.threadId] });
+    latestQueryClient.invalidateQueries({ queryKey: ['message-threads'] });
+    latestQueryClient.invalidateQueries({
+      predicate: (q) =>
+        Array.isArray(q.queryKey) &&
+        (q.queryKey[0] === 'message-threads' || q.queryKey[0] === 'message-thread'),
+    });
+  });
+
+  socket.on('call:ring', (payload: CallRingPayload) => {
+    dispatchSocketEvent('hotelos:call-ring', payload);
+    if (!latestNavigate) return;
+
+    const currentParams = new URLSearchParams(latestLocation.search);
+    const isSameIncomingScreen =
+      latestLocation.pathname === '/calls' &&
+      currentParams.get('incoming') === '1' &&
+      currentParams.get('room') === payload.room &&
+      (payload.callId ? currentParams.get('callId') === payload.callId : true);
+
+    if (!isSameIncomingScreen) {
+      const from = encodeURIComponent(payload.fromEmail || payload.fromUserId || '');
+      const callIdParam = payload.callId ? `&callId=${encodeURIComponent(payload.callId)}` : '';
+      latestNavigate(
+        `/calls?incoming=1&room=${encodeURIComponent(payload.room)}${callIdParam}&from=${from}`
+      );
+    }
+  });
+
+  socket.on('call:created', (payload: CallCreatedPayload) => {
+    dispatchSocketEvent('hotelos:call-created', payload);
+  });
+
+  socket.on('call:accepted', (payload: CallAcceptedPayload) => {
+    dispatchSocketEvent('hotelos:call-accepted', payload);
+  });
+
+  socket.on('call:room', (payload: CallRoomPayload) => {
+    dispatchSocketEvent('hotelos:call-room', payload);
+  });
+
+  socket.on('call:declined', (payload: CallDeclinedPayload) => {
+    dispatchSocketEvent('hotelos:call-declined', payload);
+  });
+
+  socket.on('webrtc:signal', (payload: WebRtcSignalPayload) => {
+    dispatchSocketEvent('hotelos:webrtc-signal', payload);
+  });
+};
+
+const releaseSharedSocket = () => {
+  if (sharedConsumerCount > 0) sharedConsumerCount -= 1;
+  if (sharedConsumerCount > 0) return;
+  if (sharedSocket) {
+    sharedSocket.removeAllListeners();
+    sharedSocket.disconnect();
+  }
+  sharedSocket = null;
+  sharedHandlersBound = false;
+  usePresenceStore.getState().setConnected(false);
+  usePresenceStore.getState().clear();
+};
+
 export function useSocketPresence() {
-  const socketRef = useRef<Socket | null>(null);
+  const socketRef = useRef<Socket | null>(sharedSocket);
+  const registeredRef = useRef(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
-  const locationRef = useRef(location);
-  const { accessToken, isAuthenticated, user, setUser } = useAuthStore();
-  const { 
-    setConnected, 
-    updatePresence, 
-    setPresenceList,
-    setMyPresence,
-    clear: clearPresence,
-  } = usePresenceStore();
+  const { accessToken, isAuthenticated } = useAuthStore();
 
-  // Keep latest location available to socket listeners without forcing reconnects.
   useEffect(() => {
-    locationRef.current = location;
+    latestLocation = { pathname: location.pathname, search: location.search };
   }, [location.pathname, location.search]);
 
-  // Connect to socket when authenticated
+  useEffect(() => {
+    latestQueryClient = queryClient;
+    latestNavigate = navigate;
+  }, [navigate, queryClient]);
+
   useEffect(() => {
     if (!isAuthenticated || !accessToken) {
-      // Cleanup if not authenticated
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
+      if (registeredRef.current) {
+        registeredRef.current = false;
+        releaseSharedSocket();
       }
-      setConnected(false);
       return;
     }
 
-    // Already connected
-    if (socketRef.current?.connected) {
-      return;
+    if (!registeredRef.current) {
+      sharedConsumerCount += 1;
+      registeredRef.current = true;
     }
 
-    // Create socket connection
-    const socket = io(SOCKET_URL, {
-      auth: { token: accessToken },
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    });
-
-    socketRef.current = socket;
-
-    // Connection events
-    socket.on('connect', () => {
-      console.log('[Socket] Connected:', socket.id);
-      setConnected(true);
-      // Server will emit presence:list automatically (Teams-like behavior)
-    });
-
-    socket.on('disconnect', (reason) => {
-      console.log('[Socket] Disconnected:', reason);
-      setConnected(false);
-    });
-
-    socket.on('connect_error', (error) => {
-      console.error('[Socket] Connection error:', error.message);
-      setConnected(false);
-    });
-
-    // Presence events - map backend DTO to frontend type
-    socket.on('presence:update', (dto: PresenceSocketDto) => {
-      console.log('[Socket] Presence update (raw):', dto);
-      const update = toPresenceUpdate(dto);
-      updatePresence(update);
-      
-      // If this is current user's update, also update myPresenceStatus
-      if (user && update.userId === user.id) {
-        setMyPresence(update.presenceStatus);
-      }
-    });
-
-    socket.on('presence:list', (dtos: PresenceSocketDto[]) => {
-      console.log('[Socket] Presence list:', dtos.length, 'users');
-      const list = dtos.map(toPresenceUpdate);
-      setPresenceList(list);
-    });
-
-    // Permissions update - refetch user data when admin changes permissions
-    socket.on('permissions:update', async (data: PermissionsUpdateEvent) => {
-      console.log('[Socket] Permissions update received:', data);
-      if (user && data.userId === user.id) {
-        // Refetch current user to get updated permissions
-        try {
-          const updatedUser = await authService.getCurrentUser();
-          if (updatedUser) {
-            console.log('[Socket] User permissions updated:', updatedUser.modulePermissions);
-            setUser(updatedUser);
-            // Invalidate any queries that depend on user permissions
-            queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-            
-            // Check if current route is still allowed
-            const currentPath = locationRef.current.pathname;
-            if (!canAccessRoute(updatedUser, currentPath)) {
-              const allowedRoute = firstAllowedRoute(updatedUser);
-              console.log('[Socket] Current route no longer allowed, redirecting to:', allowedRoute);
-              navigate(allowedRoute, { replace: true });
-            }
-          }
-        } catch (error) {
-          console.error('[Socket] Failed to refetch user after permissions update:', error);
-        }
-      }
-    });
-
-    // Error handler
-    socket.on('error', (error: { message: string }) => {
-      console.error('[Socket] Error:', error.message);
-    });
-
-    socket.on('dm:thread', (payload: DmThreadPayload) => {
-      dispatchSocketEvent('hotelos:dm-thread', payload);
-    });
-
-    socket.on('dm:new', (payload: DmMessagePayload) => {
-      dispatchSocketEvent('hotelos:dm-new', payload);
-      queryClient.invalidateQueries({ queryKey: ['message-thread', payload.threadId] });
-      queryClient.invalidateQueries({ queryKey: ['message-threads'] });
-      queryClient.invalidateQueries({
-        predicate: (q) =>
-          Array.isArray(q.queryKey) &&
-          (q.queryKey[0] === 'message-threads' || q.queryKey[0] === 'message-thread'),
+    if (!sharedSocket) {
+      sharedSocket = io(SOCKET_URL, {
+        auth: { token: accessToken },
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
       });
-    });
+    } else {
+      sharedSocket.auth = { token: accessToken };
+      if (!sharedSocket.connected) sharedSocket.connect();
+    }
 
-    socket.on('call:ring', (payload: CallRingPayload) => {
-      dispatchSocketEvent('hotelos:call-ring', payload);
-      const currentLocation = locationRef.current;
-      const currentParams = new URLSearchParams(currentLocation.search);
-      const isSameIncomingScreen =
-        currentLocation.pathname === '/calls' &&
-        currentParams.get('incoming') === '1' &&
-        currentParams.get('room') === payload.room &&
-        (payload.callId ? currentParams.get('callId') === payload.callId : true);
+    socketRef.current = sharedSocket;
+    bindSharedHandlers(sharedSocket);
 
-      if (!isSameIncomingScreen) {
-        const from = encodeURIComponent(payload.fromEmail || payload.fromUserId || '');
-        const callIdParam = payload.callId ? `&callId=${encodeURIComponent(payload.callId)}` : '';
-        navigate(`/calls?incoming=1&room=${encodeURIComponent(payload.room)}${callIdParam}&from=${from}`);
-      }
-    });
-
-    socket.on('call:created', (payload: CallCreatedPayload) => {
-      dispatchSocketEvent('hotelos:call-created', payload);
-    });
-
-    socket.on('call:accepted', (payload: CallAcceptedPayload) => {
-      dispatchSocketEvent('hotelos:call-accepted', payload);
-    });
-
-    socket.on('call:room', (payload: CallRoomPayload) => {
-      dispatchSocketEvent('hotelos:call-room', payload);
-    });
-
-    socket.on('call:declined', (payload: CallDeclinedPayload) => {
-      dispatchSocketEvent('hotelos:call-declined', payload);
-    });
-
-    socket.on('webrtc:signal', (payload: WebRtcSignalPayload) => {
-      dispatchSocketEvent('hotelos:webrtc-signal', payload);
-    });
-
-    // Cleanup on unmount or auth change
     return () => {
-      socket.disconnect();
-      socketRef.current = null;
-      clearPresence();
+      if (!registeredRef.current) return;
+      registeredRef.current = false;
+      releaseSharedSocket();
     };
-  }, [isAuthenticated, accessToken, user?.id]);
+  }, [isAuthenticated, accessToken]);
 
-  // Method to manually emit presence change via socket (optional, REST is primary)
   const emitPresenceSet = useCallback((status: string) => {
     if (socketRef.current?.connected) {
       socketRef.current.emit('presence:set', status);
