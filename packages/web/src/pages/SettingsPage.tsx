@@ -76,7 +76,6 @@ export default function SettingsPage() {
     currency: 'USD',
     timezone: 'UTC',
   });
-  const isAdmin = user?.role === 'ADMIN';
 
   const roleOptions = useMemo(
     () => [
@@ -849,16 +848,13 @@ export default function SettingsPage() {
                 </div>
               </form>
 
-              {isAdmin && (
+              {Boolean(user) && (
                 <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="text-sm font-semibold text-slate-900">Operational Forecast Signals</div>
                       <div className="mt-1 text-sm text-slate-600">
                         Weather signals are used in Operations Center for advisories, demand tracking, and task creation.
-                      </div>
-                      <div className="mt-2 text-xs text-slate-500">
-                        Tip: keep City/Country/Timezone accurate for correct forecast syncing.
                       </div>
                     </div>
 
