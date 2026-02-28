@@ -1,14 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { roomService, authService, hotelService, accessRequestService, weatherSignalsService } from '@/services';
-import {
-  createWeatherActionTicket,
-  getWeatherOpsActions,
-  type CreateWeatherActionTicketInput,
-  type WeatherOpsAction,
-} from '@/services/aiHooks';
 import api from '@/services/api';
 import { currencyOptions, timezoneOptions } from '@/data/options';
 import type { AccessRequest, AccessRequestReply } from '@/types';
@@ -36,6 +30,7 @@ type SettingsTab =
 
 export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<SettingsTab>('hotel');
   const [showAddRoomTypeModal, setShowAddRoomTypeModal] = useState(false);
   const [show2FAModal, setShow2FAModal] = useState(false);
@@ -69,10 +64,6 @@ export default function SettingsPage() {
   const [auditSettings, setAuditSettings] = useState(getAuditSettings());
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [auditFilter, setAuditFilter] = useState('');
-  const [createdWeatherActionTickets, setCreatedWeatherActionTickets] = useState<Record<string, string>>(
-    {}
-  );
-
   const { user, setUser } = useAuthStore();
   const { theme } = useTheme();
   const queryClient = useQueryClient();
@@ -439,20 +430,10 @@ export default function SettingsPage() {
     (weatherStatus as any)?.syncedAtUtc ??
     (weatherStatus as any)?.lastSyncAt ??
     null;
-  const weatherLastSyncTime = rawWeatherSyncedAt ? new Date(rawWeatherSyncedAt) : null;
   const daysAvailableNum = Number(weatherStatus?.daysAvailable ?? 0);
-  const weatherDaysAvailable = Number.isFinite(daysAvailableNum) ? daysAvailableNum : 0;
   const hasSyncedAt = Boolean(rawWeatherSyncedAt);
-  const hasCoordinates =
-    (weatherStatus as any)?.coordinates?.lat != null ||
-    ((weatherStatus as any)?.latitude != null && (weatherStatus as any)?.longitude != null) ||
-    (weatherStatus?.lat != null && weatherStatus?.lon != null);
-  const weatherStaleHours =
-    weatherLastSyncTime != null
-      ? (Date.now() - weatherLastSyncTime.getTime()) / (1000 * 60 * 60)
-      : null;
+  const weatherDaysAvailable = Number.isFinite(daysAvailableNum) ? daysAvailableNum : 0;
   const hasForecast = hasSyncedAt && weatherDaysAvailable > 0;
-  const hasSyncedWeather = hasForecast;
   type WeatherBadgeState = 'SYNCING' | 'FAILED' | 'ACTIVE' | 'READY' | 'BLOCKED' | 'LOADING';
   const weatherStatusKey: WeatherBadgeState = syncWeatherMutation.isPending
     ? 'SYNCING'
@@ -464,11 +445,9 @@ export default function SettingsPage() {
           ? 'FAILED'
           : weatherStatusQuery.isLoading
             ? 'LOADING'
-            : weatherStatusQuery.isError
+          : weatherStatusQuery.isError
               ? 'FAILED'
               : 'READY';
-  const signalsActive = weatherStatusKey === 'ACTIVE';
-  const signalsSyncing = weatherStatusKey === 'SYNCING';
   const weatherStatusLabel: Record<WeatherBadgeState, string> = {
     ACTIVE: 'Synced',
     SYNCING: 'Updating forecast',
@@ -493,85 +472,6 @@ export default function SettingsPage() {
     BLOCKED: 'bg-slate-50 text-slate-700 ring-slate-200',
     LOADING: 'bg-slate-50 text-slate-700 ring-slate-200',
   };
-  const weatherDataQuality = hasSyncedWeather ? 'Good' : 'Unknown';
-  const weatherSyncError = syncWeatherMutation.isError
-    ? (syncWeatherMutation.error as any)?.response?.data?.error ||
-      (syncWeatherMutation.error as Error | null)?.message ||
-      'Weather sync failed'
-    : null;
-  const weatherUpdatedAgoLabel = weatherLastSyncTime
-    ? (() => {
-        const mins = Math.max(0, Math.floor((Date.now() - weatherLastSyncTime.getTime()) / 60000));
-        if (mins < 1) return 'Updated just now';
-        if (mins < 60) return `Updated ${mins} min ago`;
-        const hours = Math.floor(mins / 60);
-        return `Updated ${hours}h ago`;
-      })()
-    : 'Not updated yet';
-  const weatherInsightLine =
-    !hasSyncedWeather
-      ? 'Sync forecast to enable weather-aware suggestions for pool, outdoor dining, arrivals, and concierge.'
-      : weatherStaleHours != null && weatherStaleHours >= 6
-        ? `Forecast is ${weatherStaleHours.toFixed(1)} hours old. Refresh recommended before advising guests.`
-        : 'Forecast is current. The system can suggest alternatives for weather-sensitive plans.';
-
-  const weatherActionsQuery = useQuery({
-    queryKey: ['weatherOpsActions', user?.hotel?.id],
-    queryFn: () => getWeatherOpsActions(user?.hotel?.id),
-    enabled: activeTab === 'hotel' && isAdmin && Boolean(user?.hotel?.id),
-    retry: false,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-    staleTime: 0,
-  });
-
-  const buildWeatherActionKey = (item: WeatherOpsAction, index: number) =>
-    `${item.title}::${item.reason}::${item.priority}::${item.category ?? ''}::${index}`;
-
-  const weatherDepartmentMap: Record<
-    NonNullable<WeatherOpsAction['category']> | 'default',
-    CreateWeatherActionTicketInput['department']
-  > = {
-    'Front Desk': 'FRONT_DESK',
-    Housekeeping: 'HOUSEKEEPING',
-    Concierge: 'CONCIERGE',
-    Maintenance: 'MAINTENANCE',
-    'F&B': 'MANAGEMENT',
-    default: 'FRONT_DESK',
-  };
-
-  const createWeatherTicketMutation = useMutation({
-    mutationFn: async ({ item, index }: { item: WeatherOpsAction; index: number }) => {
-      const department =
-        weatherDepartmentMap[(item.category as NonNullable<WeatherOpsAction['category']>) ?? 'default'] ||
-        weatherDepartmentMap.default;
-
-      const payload: CreateWeatherActionTicketInput = {
-        title: item.title,
-        reason: item.reason,
-        priority: item.priority,
-        department,
-        weatherSyncedAtUtc: weatherStatusQuery.data?.lastSyncTime ?? null,
-        aiGeneratedAtUtc: weatherActionsQuery.data?.generatedAtUtc ?? null,
-      };
-      const result = await createWeatherActionTicket(payload);
-      return { result, department, key: buildWeatherActionKey(item, index) };
-    },
-    onSuccess: ({ result, department, key }) => {
-      setCreatedWeatherActionTickets((prev) => ({
-        ...prev,
-        [key]: result.ticketId,
-      }));
-      toast.success(`Task created for ${department}`);
-    },
-    onError: (error) => {
-      const message =
-        (error as any)?.response?.data?.error ||
-        (error as Error | null)?.message ||
-        'Failed to create ticket';
-      toast.error(message);
-    },
-  });
 
   const formatBytes = (value?: number) => {
     if (!value) return '0 B';
@@ -1011,223 +911,38 @@ export default function SettingsPage() {
               </form>
 
               {isAdmin && (
-                <div className="relative mt-8 overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-                  <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-sky-500/10 blur-3xl" />
-                  <div className="pointer-events-none absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-indigo-500/10 blur-3xl" />
-
-                  <div className="relative px-5 py-4">
-                    <div className="absolute inset-0 bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-emerald-500/20" />
-                    <div className="relative">
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="flex items-start gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 text-white shadow-sm">
-                            <span className="text-base font-semibold">W</span>
-                          </div>
-                          <div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="text-base font-semibold text-slate-900">Weather Intelligence</h3>
-                              <span
-                                className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${weatherStatusStyles[weatherStatusKey]} ${
-                                  weatherStatusKey === 'SYNCING' ? 'animate-pulse' : ''
-                                }`}
-                              >
-                                <span
-                                  className={`h-2 w-2 rounded-full ${
-                                    weatherStatusKey === 'ACTIVE'
-                                      ? 'bg-emerald-500'
-                                      : weatherStatusKey === 'READY'
-                                        ? 'bg-amber-500'
-                                        : weatherStatusKey === 'FAILED'
-                                          ? 'bg-rose-500'
-                                          : weatherStatusKey === 'BLOCKED'
-                                            ? 'bg-slate-400'
-                                            : 'bg-sky-500'
-                                  }`}
-                                />
-                                <span>{weatherStatusIcon[weatherStatusKey]}</span>
-                                <span>{weatherStatusLabel[weatherStatusKey]}</span>
-                              </span>
-                            </div>
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                              Forecast-based operations planning
-                            </p>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
-                          disabled={updateHotelMutation.isPending || syncWeatherMutation.isPending || !canSyncWeather}
-                          onClick={() => {
-                            if (!user?.hotel?.id) return;
-                            syncWeatherMutation.mutate(user.hotel.id);
-                          }}
+                <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-semibold text-slate-900">Weather Signals</h3>
+                        <span
+                          className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${weatherStatusStyles[weatherStatusKey]}`}
                         >
-                          <span className={syncWeatherMutation.isPending ? 'animate-spin' : ''}>R</span>
-                          {syncWeatherMutation.isPending ? 'Refreshing Forecast...' : 'Refresh Forecast'}
-                        </button>
+                          <span>{weatherStatusIcon[weatherStatusKey]}</span>
+                          <span>{weatherStatusLabel[weatherStatusKey]}</span>
+                        </span>
                       </div>
-
-                      <div className="my-4 h-px w-full bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
-
-                      <div className="flex flex-col gap-1">
-                        <p className="text-sm text-slate-600">
-                          Location:{' '}
-                          <span className="font-medium text-slate-800">
-                            {hotelForm.city && hotelForm.country
-                              ? `${hotelForm.city}, ${hotelForm.country}`
-                              : 'Not configured'}
-                          </span>{' '}
-                          | Timezone:{' '}
-                          <span className="font-medium text-slate-800">{hotelForm.timezone || 'Not set'}</span>
-                        </p>
-                        <div className="mt-2">
-                          {signalsSyncing ? (
-                            <div className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 ring-1 ring-sky-200 animate-pulse">
-                              <span className="h-2 w-2 rounded-full bg-sky-500" />
-                              Updating operational signals...
-                            </div>
-                          ) : signalsActive ? (
-                            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
-                              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                              Operational signals active
-                            </div>
-                          ) : (
-                            <div className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
-                              <span className="h-2 w-2 rounded-full bg-slate-400" />
-                              Operational signals offline
-                            </div>
-                          )}
-                        </div>
-                        {weatherStatusQuery.isFetching && hasSyncedWeather ? (
-                          <p className="text-xs text-slate-500">Updating latest forecast...</p>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="px-5 pb-4 pt-3">
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      <div className="group rounded-2xl border border-blue-200 border-l-4 border-l-blue-400 bg-blue-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-                        <div className="text-xs font-medium uppercase tracking-wide text-blue-700">Last Sync</div>
-                        <div className="mt-2 text-sm font-semibold text-blue-950">
-                          {weatherLastSyncTime ? weatherLastSyncTime.toLocaleString() : 'Not synced yet'}
-                        </div>
-                      </div>
-                      <div className="group rounded-2xl border border-violet-200 border-l-4 border-l-violet-400 bg-violet-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-                        <div className="text-xs font-medium uppercase tracking-wide text-violet-700">Forecast Days</div>
-                        <div className="mt-2 text-sm font-semibold text-violet-950">{weatherDaysAvailable}</div>
-                      </div>
-                      <div className="group rounded-2xl border border-teal-200 border-l-4 border-l-teal-400 bg-teal-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-                        <div className="text-xs font-medium uppercase tracking-wide text-teal-700">Coordinates</div>
-                        <div className="mt-2 text-sm font-semibold text-teal-950">
-                          {hasCoordinates
-                            ? `${weatherStatusQuery.data!.lat!.toFixed(4)}, ${weatherStatusQuery.data!.lon!.toFixed(4)}`
-                            : 'Not geocoded yet'}
-                        </div>
-                      </div>
-                      <div className="group rounded-2xl border border-emerald-200 border-l-4 border-l-emerald-400 bg-emerald-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-                        <div className="text-xs font-medium uppercase tracking-wide text-emerald-700">Data Quality</div>
-                        <div className="mt-2 text-sm font-semibold text-emerald-950">{weatherDataQuality}</div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                      <div className="text-sm font-semibold text-slate-900">Operations Advisory</div>
-                      <div className="text-sm text-slate-600">{weatherInsightLine}</div>
-                      <div className="mt-1 text-xs text-slate-500">
-                        {weatherLastSyncTime
-                          ? `Based on forecast model synced at ${weatherLastSyncTime.toLocaleTimeString([], {
-                              hour: 'numeric',
-                              minute: '2-digit',
-                            })}`
-                          : 'Based on forecast model data once synced'}
-                      </div>
-                      {hasSyncedWeather && !weatherSyncError ? (
-                        <div className="mt-1 text-xs font-medium text-indigo-700">
-                          Recommendations are based on current forecast conditions.
-                        </div>
-                      ) : null}
-                      {weatherSyncError ? (
-                        <div className="mt-2 text-xs font-semibold text-rose-600">
-                          [!] Sync failed: {weatherSyncError}
-                        </div>
-                      ) : null}
-                    </div>
-
-                    <div className="mt-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                      <div className="text-sm font-semibold text-slate-900">Recommended actions</div>
-                      {weatherActionsQuery.isLoading ? (
-                        <div className="mt-2 text-sm text-slate-500">Generating recommendations...</div>
-                      ) : weatherActionsQuery.isError ? (
-                        <div className="mt-2 text-sm text-rose-600">Unable to load recommendations right now.</div>
-                      ) : weatherActionsQuery.data?.actions?.length ? (
-                        <>
-                          <ul className="mt-2 space-y-2">
-                            {weatherActionsQuery.data.actions.slice(0, 5).map((item: WeatherOpsAction, idx: number) => (
-                              <li key={`${item.title}-${idx}`} className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                                <div className="font-medium text-slate-900">
-                                  {item.title}{' '}
-                                  <span className="text-xs uppercase text-slate-500">({item.priority})</span>
-                                </div>
-                                {item.category ? (
-                                  <div className="text-[11px] font-medium text-indigo-700">{item.category}</div>
-                                ) : null}
-                                <div className="text-xs text-slate-600">{item.reason}</div>
-                                {(() => {
-                                  const actionKey = buildWeatherActionKey(item, idx);
-                                  const createdTicketId = createdWeatherActionTickets[actionKey];
-                                  const pendingForThis =
-                                    createWeatherTicketMutation.isPending &&
-                                    createWeatherTicketMutation.variables?.index === idx &&
-                                    createWeatherTicketMutation.variables?.item?.title === item.title &&
-                                    createWeatherTicketMutation.variables?.item?.reason === item.reason;
-                                  return (
-                                    <div className="mt-2 flex items-center gap-2">
-                                      <button
-                                        type="button"
-                                        disabled={pendingForThis || Boolean(createdTicketId)}
-                                        onClick={() => createWeatherTicketMutation.mutate({ item, index: idx })}
-                                        className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                      >
-                                        {createdTicketId
-                                          ? 'Created'
-                                          : pendingForThis
-                                            ? 'Creating...'
-                                            : 'Create ticket'}
-                                      </button>
-                                      {createdTicketId ? (
-                                        <span className="text-[11px] font-medium text-emerald-700">
-                                          Created: {createdTicketId}
-                                        </span>
-                                      ) : null}
-                                    </div>
-                                  );
-                                })()}
-                              </li>
-                            ))}
-                          </ul>
-                          {weatherActionsQuery.data.generatedAtUtc ? (
-                            <div className="mt-2 text-xs text-slate-500">
-                              Generated {new Date(weatherActionsQuery.data.generatedAtUtc).toLocaleString()}
-                            </div>
-                          ) : null}
-                        </>
-                      ) : (
-                        <div className="mt-2 text-sm text-slate-500">Sync forecast to generate actions.</div>
-                      )}
-                    </div>
-
-                    <div className="mt-3 text-xs text-slate-500">
-                      {weatherUpdatedAgoLabel} | Source: OpenWeather | Auto-refresh recommended every 3 hours for best recommendations.
-                    </div>
-
-                    {!canSyncWeather && (
-                      <p className="mt-3 text-sm text-amber-700">
-                        Add City, Country, and Timezone above before syncing weather.
+                      <p className="text-sm text-slate-600">
+                        Weather signals feed Operations Center for advisories, actions, and pricing suggestions.
                       </p>
-                    )}
+                      <p className="text-xs text-slate-500">
+                        Configure location and timezone here. Run and monitor signals in Operations Center.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/operations')}
+                      className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                    >
+                      Open Operations Center
+                    </button>
                   </div>
+                  {!canSyncWeather ? (
+                    <p className="mt-3 text-sm text-amber-700">
+                      Add City, Country, and Timezone above to enable weather sync in Operations Center.
+                    </p>
+                  ) : null}
                 </div>
               )}
             </div>
