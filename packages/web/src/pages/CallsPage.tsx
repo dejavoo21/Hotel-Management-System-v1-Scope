@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import SupportVideoPanel from '@/components/calls/SupportVideoPanel';
@@ -39,11 +39,49 @@ export default function CallsPage() {
 
   const [dial, setDial] = useState('');
   const dialable = useMemo(() => sanitizePhone(dial), [dial]);
+  const ringIntervalRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     if (!room || incoming) return;
     emitPresenceSet('BUSY');
   }, [room, incoming, emitPresenceSet]);
+
+  useEffect(() => {
+    if (!incoming || !room) return;
+
+    const playTone = () => {
+      try {
+        const Ctx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!Ctx) return;
+        if (!audioContextRef.current) audioContextRef.current = new Ctx();
+        const ctx = audioContextRef.current;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.36);
+      } catch {
+        // ignore audio playback errors (browser policy/device issues)
+      }
+    };
+
+    playTone();
+    ringIntervalRef.current = window.setInterval(playTone, 1100);
+
+    return () => {
+      if (ringIntervalRef.current) {
+        window.clearInterval(ringIntervalRef.current);
+        ringIntervalRef.current = null;
+      }
+    };
+  }, [incoming, room]);
 
   if (!room) {
     return (
