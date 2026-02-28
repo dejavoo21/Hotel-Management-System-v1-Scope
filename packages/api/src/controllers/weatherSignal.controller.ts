@@ -6,6 +6,7 @@ import {
   syncWeatherSignalsForHotel,
 } from '../services/weatherSignal.service.js';
 import { prisma } from '../config/database.js';
+import { AppError } from '../middleware/errorHandler.js';
 
 type WeatherQuery = { hotelId?: string };
 
@@ -61,14 +62,23 @@ export async function syncWeather(
 
     res.json({ success: true, data: result });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     if (hotelId) {
       await appendWeatherAudit(req, 'WEATHER_SYNC_FAIL', hotelId, {
         provider: 'openweathermap',
         responseStatus: 'fail',
-        error: error instanceof Error ? error.message : String(error),
+        error: message,
       }).catch(() => undefined);
     }
-    next(error);
+    const statusCode =
+      message.includes('required') || message.includes('No geocoding result')
+        ? 400
+        : message.includes('OPENWEATHER_API_KEY')
+          ? 503
+          : message.includes('OpenWeather request failed')
+            ? 502
+            : 500;
+    next(new AppError(message, statusCode, true));
   }
 }
 
@@ -99,4 +109,3 @@ export async function getWeatherLatest(
     next(error);
   }
 }
-

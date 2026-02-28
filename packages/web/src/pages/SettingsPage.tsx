@@ -372,8 +372,12 @@ export default function SettingsPage() {
       await queryClient.invalidateQueries({ queryKey: ['weatherOpsActions', data.hotelId] });
       await weatherStatusQuery.refetch();
     },
-    onError: () => {
-      toast.error('Weather sync failed');
+    onError: (error) => {
+      const message =
+        (error as any)?.response?.data?.error ||
+        (error as Error | null)?.message ||
+        'Weather sync failed';
+      toast.error(message);
     },
   });
 

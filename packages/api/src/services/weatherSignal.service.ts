@@ -44,6 +44,14 @@ type DailyAggregate = {
 const OWM_GEO_URL = 'https://api.openweathermap.org/geo/1.0/direct';
 const OWM_FORECAST_URL = 'https://api.openweathermap.org/data/2.5/forecast';
 
+function normalizeCountryForOpenWeather(country: string): string {
+  const normalized = country.trim().toUpperCase();
+  if (normalized === 'USA' || normalized === 'UNITED STATES' || normalized === 'UNITED STATES OF AMERICA') {
+    return 'US';
+  }
+  return country.trim();
+}
+
 function assertOpenWeatherKey(): string {
   const apiKey = config.openWeather.apiKey;
   if (!apiKey) {
@@ -121,12 +129,24 @@ export async function geocodeHotelIfMissing(hotelId: string) {
   }
 
   const apiKey = assertOpenWeatherKey();
-  const q = encodeURIComponent(`${hotel.city},${hotel.country}`);
-  const geo = await getJson<Array<{ lat: number; lon: number }>>(
-    `${OWM_GEO_URL}?q=${q}&limit=1&appid=${encodeURIComponent(apiKey)}`
-  );
+  const countryHint = normalizeCountryForOpenWeather(hotel.country);
+  const geoQueries = [`${hotel.city},${countryHint}`];
+  if (countryHint.toUpperCase() !== hotel.country.trim().toUpperCase()) {
+    geoQueries.push(`${hotel.city},${hotel.country}`);
+  }
+
+  let geo: Array<{ lat: number; lon: number }> = [];
+  for (const query of geoQueries) {
+    const q = encodeURIComponent(query);
+    geo = await getJson<Array<{ lat: number; lon: number }>>(
+      `${OWM_GEO_URL}?q=${q}&limit=1&appid=${encodeURIComponent(apiKey)}`
+    );
+    if (geo.length) break;
+  }
   if (!geo.length) {
-    throw new Error(`No geocoding result for ${hotel.city}, ${hotel.country}`);
+    throw new Error(
+      `No geocoding result for ${hotel.city}, ${hotel.country}. Try ISO country code (example: US).`
+    );
   }
 
   return prisma.hotel.update({
@@ -315,4 +335,3 @@ export async function getLatestWeatherSignals(hotelId: string) {
     rawJson: row.rawJson,
   }));
 }
-
