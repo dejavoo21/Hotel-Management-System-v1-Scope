@@ -429,31 +429,43 @@ export default function SettingsPage() {
       : null;
   const hasForecast = hasSyncedAt && weatherDaysAvailable > 0;
   const hasSyncedWeather = hasForecast;
-  type WeatherBadgeState = 'SYNCING' | 'FAILED' | 'ACTIVE' | 'READY';
+  type WeatherBadgeState = 'SYNCING' | 'FAILED' | 'ACTIVE' | 'READY' | 'BLOCKED' | 'LOADING';
   const weatherStatusKey: WeatherBadgeState = syncWeatherMutation.isPending
     ? 'SYNCING'
     : syncWeatherMutation.isError
       ? 'FAILED'
-      : hasForecast
-        ? 'ACTIVE'
-        : 'READY';
+      : !canSyncWeather
+        ? 'BLOCKED'
+        : hasForecast
+          ? 'ACTIVE'
+          : weatherStatusQuery.isLoading
+            ? 'LOADING'
+            : weatherStatusQuery.isError
+              ? 'FAILED'
+              : 'READY';
   const weatherStatusLabel: Record<WeatherBadgeState, string> = {
     ACTIVE: 'Synced',
     SYNCING: 'Syncing',
     FAILED: 'Sync failed',
     READY: 'Ready to sync',
+    BLOCKED: 'Setup needed',
+    LOADING: 'Loading',
   };
   const weatherStatusIcon: Record<WeatherBadgeState, string> = {
     ACTIVE: '[OK]',
     SYNCING: '[~]',
     FAILED: '[!]',
     READY: '[!]',
+    BLOCKED: '[!]',
+    LOADING: '[...]',
   };
   const weatherStatusStyles: Record<WeatherBadgeState, string> = {
     ACTIVE: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
     SYNCING: 'bg-sky-100 text-sky-700 ring-sky-300',
     FAILED: 'bg-rose-100 text-rose-700 ring-rose-300',
     READY: 'bg-amber-50 text-amber-700 ring-amber-200',
+    BLOCKED: 'bg-slate-100 text-slate-700 ring-slate-300',
+    LOADING: 'bg-slate-100 text-slate-700 ring-slate-300',
   };
   const weatherDataQuality = hasSyncedWeather ? 'Good' : 'Unknown';
   const weatherSyncError = syncWeatherMutation.isError
@@ -1006,9 +1018,11 @@ export default function SettingsPage() {
                                     ? 'bg-emerald-500'
                                     : weatherStatusKey === 'READY'
                                       ? 'bg-amber-500'
-                                    : weatherStatusKey === 'FAILED'
-                                      ? 'bg-rose-500'
-                                      : 'bg-sky-500'
+                                      : weatherStatusKey === 'FAILED'
+                                        ? 'bg-rose-500'
+                                        : weatherStatusKey === 'BLOCKED'
+                                          ? 'bg-slate-400'
+                                          : 'bg-sky-500'
                                 }`}
                               />
                               <span>{weatherStatusIcon[weatherStatusKey]}</span>
@@ -1173,7 +1187,7 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="mt-3 text-xs text-slate-500">
-                      {weatherUpdatedAgoLabel} | Source: OpenWeather | Auto-refresh recommended every 3 hours for best AI suggestions.
+                      {weatherUpdatedAgoLabel} | Source: OpenWeather | Auto-refresh recommended every 3 hours for best recommendations.
                     </div>
 
                     {!canSyncWeather && (
