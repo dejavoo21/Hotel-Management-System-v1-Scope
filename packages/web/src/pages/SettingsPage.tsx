@@ -1016,7 +1016,7 @@ export default function SettingsPage() {
                             </span>
                           </div>
                           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                            Operational Context
+                            Forecast-based operational planning
                           </p>
                           <p className="text-sm text-slate-600">
                             Location:{' '}
@@ -1085,6 +1085,15 @@ export default function SettingsPage() {
                     <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
                       <div className="text-sm font-semibold text-slate-900">AI Insight</div>
                       <div className="text-sm text-slate-600">{weatherInsightLine}</div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        {weatherLastSyncTime
+                          ? `Based on forecast model synced at ${weatherLastSyncTime.toLocaleTimeString([], {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                            })}`
+                          : 'Based on forecast model data once synced'}
+                      </div>
+                      <div className="text-xs text-slate-500">Not real-time weather observation.</div>
                       <div className="mt-1 text-xs text-slate-500">
                         Tip: keep forecast fresh for accurate operational recommendations.
                       </div>
