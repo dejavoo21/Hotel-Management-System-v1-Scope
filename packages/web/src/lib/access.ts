@@ -29,6 +29,8 @@ export const ROUTE_MODULES: Record<string, PermissionId> = Object.entries(MODULE
   {} as Record<string, PermissionId>
 );
 
+ROUTE_MODULES['/operations'] = 'dashboard';
+
 // Priority order for determining first allowed route
 const MODULE_PRIORITY: PermissionId[] = [
   'dashboard',

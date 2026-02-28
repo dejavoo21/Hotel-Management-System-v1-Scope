@@ -31,6 +31,7 @@ import InventoryPage from '@/pages/InventoryPage';
 import CalendarPage from '@/pages/CalendarPage';
 import MessagesPage from '@/pages/MessagesPageRedesigned';
 import CallsPage from '@/pages/CallsPage';
+import OperationsCenterPage from '@/pages/OperationsCenterPage';
 import ForcePasswordChangePage from '@/pages/auth/ForcePasswordChangePage';
 import NotAuthorizedPage from '@/pages/NotAuthorizedPage';
 
@@ -199,6 +200,7 @@ export default function App() {
         <Route path="inventory" element={<ModuleRoute requiredModule="inventory"><InventoryPage /></ModuleRoute>} />
         <Route path="messages" element={<ModuleRoute requiredModule="messages"><MessagesPage /></ModuleRoute>} />
         <Route path="calls" element={<ModuleRoute requiredModule="messages"><CallsPage /></ModuleRoute>} />
+        <Route path="operations" element={<ModuleRoute requiredModule="dashboard"><OperationsCenterPage /></ModuleRoute>} />
         <Route path="calendar" element={<ModuleRoute requiredModule="calendar"><CalendarPage /></ModuleRoute>} />
         <Route path="guests" element={<ModuleRoute requiredModule="guests"><GuestsPage /></ModuleRoute>} />
         <Route path="housekeeping" element={<ModuleRoute requiredModule="housekeeping"><HousekeepingPage /></ModuleRoute>} />
