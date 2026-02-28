@@ -412,7 +412,7 @@ export default function SettingsPage() {
   const weatherLastSyncTime = weatherStatusQuery.data?.lastSyncTime
     ? new Date(weatherStatusQuery.data.lastSyncTime)
     : null;
-  const weatherDaysAvailable = weatherStatusQuery.data?.daysAvailable ?? 0;
+  const weatherDaysAvailable = Number(weatherStatusQuery.data?.daysAvailable ?? 0) || 0;
   const hasCoordinates =
     weatherStatusQuery.data?.lat != null && weatherStatusQuery.data?.lon != null;
   const weatherStaleHours =
@@ -420,22 +420,23 @@ export default function SettingsPage() {
       ? (Date.now() - weatherLastSyncTime.getTime()) / (1000 * 60 * 60)
       : null;
   const hasSyncedWeather = weatherDaysAvailable > 0 && weatherLastSyncTime != null;
+  const hasWeatherStatusData = hasSyncedWeather || hasCoordinates;
   const weatherStatusKey = syncWeatherMutation.isPending
     ? 'SYNCING'
-    : weatherStatusQuery.isLoading
-      ? 'LOADING'
-      : weatherStatusQuery.isError
-        ? 'FAILED'
-        : hasSyncedWeather
-          ? 'ACTIVE'
-        : canSyncWeather
-          ? 'READY'
-          : 'BLOCKED';
+    : hasSyncedWeather
+      ? 'ACTIVE'
+      : weatherStatusQuery.isLoading && !hasWeatherStatusData
+        ? 'LOADING'
+        : (weatherStatusQuery.isError || syncWeatherMutation.isError) && !hasWeatherStatusData
+          ? 'FAILED'
+          : canSyncWeather
+            ? 'READY'
+            : 'BLOCKED';
   const weatherStatusLabel: Record<typeof weatherStatusKey, string> = {
     ACTIVE: 'Synced',
     SYNCING: 'Syncing',
     LOADING: 'Loading',
-    FAILED: 'Unavailable',
+    FAILED: 'Sync failed',
     READY: 'Ready to sync',
     BLOCKED: 'City/Country/Timezone required',
   };
