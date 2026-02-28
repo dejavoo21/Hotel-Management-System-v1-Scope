@@ -10,6 +10,14 @@ export type WeatherActionCategory =
   | 'F&B'
   | 'Maintenance';
 
+type AdvisoryDepartment =
+  | 'FRONT_DESK'
+  | 'HOUSEKEEPING'
+  | 'MAINTENANCE'
+  | 'CONCIERGE'
+  | 'BILLING'
+  | 'MANAGEMENT';
+
 export interface WeatherOpsAction {
   title: string;
   reason: string;
@@ -58,6 +66,22 @@ function pushWeatherAction(
     priority,
     category,
   });
+}
+
+function mapWeatherCategoryToDepartment(category?: WeatherActionCategory): AdvisoryDepartment {
+  switch (category) {
+    case 'Housekeeping':
+      return 'HOUSEKEEPING';
+    case 'Maintenance':
+      return 'MAINTENANCE';
+    case 'Concierge':
+      return 'CONCIERGE';
+    case 'F&B':
+      return 'MANAGEMENT';
+    case 'Front Desk':
+    default:
+      return 'FRONT_DESK';
+  }
 }
 
 export async function getOpsContextForHotel(hotelId: string): Promise<OpsContext> {
@@ -291,9 +315,8 @@ export async function getOperationsContext(hotelId: string) {
       title: item.title,
       reason: item.reason,
       priority: item.priority,
-      department: item.category || 'Front Desk',
+      department: mapWeatherCategoryToDepartment(item.category),
       source: 'WEATHER_ACTIONS' as const,
     })),
   };
 }
-

@@ -12,6 +12,12 @@ type Props = {
 type Advisory = NonNullable<OperationsContext['advisories']>[number];
 
 const departmentMap: Record<string, CreateAdvisoryTicketInput['department']> = {
+  FRONT_DESK: 'FRONT_DESK',
+  HOUSEKEEPING: 'HOUSEKEEPING',
+  CONCIERGE: 'CONCIERGE',
+  MAINTENANCE: 'MAINTENANCE',
+  BILLING: 'BILLING',
+  MANAGEMENT: 'MANAGEMENT',
   'Front Desk': 'FRONT_DESK',
   Housekeeping: 'HOUSEKEEPING',
   Concierge: 'CONCIERGE',
@@ -29,7 +35,7 @@ export default function OpsAdvisories({ context }: Props) {
     const rows = context?.advisories ?? [];
     return rows.filter((row) => {
       if (dismissedIds[row.id]) return false;
-      if (department !== 'all' && (row.department || 'Front Desk') !== department) return false;
+      if (department !== 'all' && (row.department || 'FRONT_DESK') !== department) return false;
       if (priority !== 'all' && row.priority !== priority) return false;
       return true;
     });
@@ -42,7 +48,7 @@ export default function OpsAdvisories({ context }: Props) {
         title: advisory.title,
         reason: advisory.reason,
         priority: advisory.priority,
-        department: departmentMap[advisory.department || 'Front Desk'] || 'FRONT_DESK',
+        department: departmentMap[advisory.department || 'FRONT_DESK'] || 'FRONT_DESK',
         source: advisory.source,
         meta: {
           weatherSyncedAtUtc: context?.weather?.syncedAtUtc ?? null,

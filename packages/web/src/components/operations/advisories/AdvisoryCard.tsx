@@ -10,6 +10,12 @@ type Props = {
   onDismiss: (advisoryId: string) => void;
 };
 
+const prettyDepartment = (value?: string) =>
+  (value || 'FRONT_DESK')
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
 export default function AdvisoryCard({
   advisory,
   isCreating = false,
@@ -23,7 +29,7 @@ export default function AdvisoryCard({
         <div>
           <div className="text-sm font-semibold text-slate-900">{advisory.title}</div>
           <div className="mt-0.5 text-xs text-indigo-700">
-            {advisory.department || 'Front Desk'} · {advisory.priority}
+            {prettyDepartment(advisory.department)} - {advisory.priority}
           </div>
           <p className="mt-1 text-xs text-slate-600">{advisory.reason}</p>
         </div>

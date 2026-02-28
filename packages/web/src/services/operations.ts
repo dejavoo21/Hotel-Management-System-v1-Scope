@@ -40,7 +40,7 @@ export type OperationsContext = {
     title: string;
     reason: string;
     priority: 'low' | 'medium' | 'high';
-    department?: string;
+    department?: 'FRONT_DESK' | 'HOUSEKEEPING' | 'MAINTENANCE' | 'CONCIERGE' | 'BILLING' | 'MANAGEMENT';
     source: 'WEATHER_ACTIONS' | 'PRICING' | 'ARRIVALS';
   }>;
 };

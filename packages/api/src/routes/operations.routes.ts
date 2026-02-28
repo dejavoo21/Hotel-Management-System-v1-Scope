@@ -23,22 +23,39 @@ type CreateAdvisoryTicketBody = {
   } | null;
 };
 
-function parseTicketPriority(value?: string): TicketPriority | null {
-  if (!value) return null;
-  const normalized = value.trim().toUpperCase();
-  if (normalized === 'LOW' || normalized === 'MEDIUM' || normalized === 'HIGH' || normalized === 'URGENT') {
-    return normalized;
-  }
+const DEPARTMENT_VALUES = new Set<Department>([
+  'FRONT_DESK',
+  'HOUSEKEEPING',
+  'MAINTENANCE',
+  'CONCIERGE',
+  'BILLING',
+  'MANAGEMENT',
+]);
+
+function mapTicketPriority(value?: string): TicketPriority | null {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'high') return 'HIGH';
+  if (normalized === 'low') return 'LOW';
+  if (normalized === 'medium') return 'MEDIUM';
   return null;
 }
 
-function parseDepartment(value?: string): Department | null {
-  if (!value) return null;
-  const normalized = value.trim().toUpperCase().replace(/\s+/g, '_');
-  if (Object.values(Department).includes(normalized as Department)) {
-    return normalized as Department;
-  }
-  return null;
+function mapDepartment(value?: string): Department {
+  const raw = String(value || '').trim();
+  const upper = raw.toUpperCase();
+  if (DEPARTMENT_VALUES.has(upper as Department)) return upper as Department;
+
+  const cleaned = upper.replace(/\s+/g, '_');
+  if (DEPARTMENT_VALUES.has(cleaned as Department)) return cleaned as Department;
+
+  if (upper.includes('FRONT')) return 'FRONT_DESK';
+  if (upper.includes('HOUSE')) return 'HOUSEKEEPING';
+  if (upper.includes('MAINT')) return 'MAINTENANCE';
+  if (upper.includes('CONCIERGE')) return 'CONCIERGE';
+  if (upper.includes('BILL')) return 'BILLING';
+  if (upper.includes('MANAG')) return 'MANAGEMENT';
+
+  return 'FRONT_DESK';
 }
 
 function categoryForDepartment(department: Department): TicketCategory {
@@ -80,10 +97,17 @@ router.post('/advisories/create-ticket', async (req: AuthenticatedRequest, res: 
     const body = (req.body ?? {}) as CreateAdvisoryTicketBody;
     const title = (body.title || '').trim();
     const reason = (body.reason || '').trim();
-    const priority = parseTicketPriority(body.priority);
-    const department = parseDepartment(body.department);
+    const rawPriority = String(body.priority || '').trim().toLowerCase();
+    const priority = mapTicketPriority(rawPriority);
+    const department = mapDepartment(body.department);
 
-    if (!title || !reason || !priority || !department) {
+    const allowedPriorities = new Set(['low', 'medium', 'high']);
+    if (!allowedPriorities.has(rawPriority)) {
+      res.status(400).json({ success: false, error: 'priority must be low|medium|high' });
+      return;
+    }
+
+    if (!title || !reason || !priority) {
       res.status(400).json({
         success: false,
         error: 'title, reason, priority, department are required',
