@@ -26,6 +26,7 @@ const router = Router();
 router.use(authenticate);
 
 type WeatherActionCreateTicketBody = {
+  actionId?: string;
   title?: string;
   reason?: string;
   priority?: string;
@@ -67,6 +68,134 @@ function categoryForDepartment(department: Department): TicketCategory {
     case 'FRONT_DESK':
     default:
       return 'OTHER';
+  }
+}
+
+async function createWeatherActionTicket(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+  actionIdParam?: string
+) {
+  try {
+    const hotelId = req.user!.hotelId;
+    const userId = req.user!.id;
+    const body = (req.body ?? {}) as WeatherActionCreateTicketBody;
+    const actionId = (actionIdParam || body.actionId || '').trim();
+
+    const title = (body.title || '').trim();
+    const reason = (body.reason || '').trim();
+    const priority = parseTicketPriority(body.priority);
+    const department = parseDepartment(body.department);
+
+    if (!title || !reason || !priority || !department) {
+      res.status(400).json({
+        success: false,
+        error: 'title, reason, priority, department are required',
+      });
+      return;
+    }
+
+    const created = await prisma.$transaction(async (tx) => {
+      const conversation = await tx.conversation.create({
+        data: {
+          hotelId,
+          subject: `[Weather Action] ${title.slice(0, 100)}`,
+          status: 'OPEN',
+          lastMessageAt: new Date(),
+        },
+      });
+
+      await tx.message.create({
+        data: {
+          conversationId: conversation.id,
+          senderType: 'SYSTEM',
+          senderUserId: userId,
+          body: reason.slice(0, 500),
+        },
+      });
+
+      const ticket = await tx.ticket.create({
+        data: {
+          hotelId,
+          conversationId: conversation.id,
+          type: 'GENERAL_INQUIRY',
+          category: categoryForDepartment(department),
+          department,
+          priority,
+          status: 'OPEN',
+          details: {
+            source: 'WEATHER_ACTIONS',
+            actionId: actionId || null,
+            title,
+            reason,
+            weatherSyncedAtUtc: body.weatherSyncedAtUtc ?? null,
+            aiGeneratedAtUtc: body.aiGeneratedAtUtc ?? null,
+            createdAtUtc: new Date().toISOString(),
+            createdByUserId: userId || null,
+          },
+        },
+        select: {
+          id: true,
+          status: true,
+          department: true,
+          priority: true,
+        },
+      });
+
+      if (userId) {
+        await tx.activityLog.create({
+          data: {
+            userId,
+            action: 'WEATHER_ACTION_TICKET_CREATED',
+            entity: 'ticket',
+            entityId: ticket.id,
+            details: {
+              source: 'WEATHER_ACTIONS',
+              actionId: actionId || null,
+              title,
+              reason,
+              department,
+              priority,
+              weatherSyncedAtUtc: body.weatherSyncedAtUtc ?? null,
+              aiGeneratedAtUtc: body.aiGeneratedAtUtc ?? null,
+              conversationId: conversation.id,
+            },
+          },
+        });
+      }
+
+      return { ticket, conversationId: conversation.id };
+    });
+
+    await logAiInteraction(
+      'WEATHER_ACTIONS',
+      JSON.stringify({ createTicket: true, hotelId, title, actionId: actionId || null }),
+      {
+        ticketId: created.ticket.id,
+        department: created.ticket.department,
+        priority: created.ticket.priority,
+      },
+      userId
+    );
+
+    res.json({
+      success: true,
+      data: {
+        ticketId: created.ticket.id,
+        status: created.ticket.status,
+        department: created.ticket.department,
+        conversationId: created.conversationId,
+        source: 'WEATHER_ACTIONS',
+        actionId: actionId || null,
+        title,
+        reason,
+        priority,
+        createdAtUtc: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    next(error);
   }
 }
 
@@ -242,108 +371,16 @@ router.post('/weather-actions', async (req: AuthenticatedRequest, res: Response,
  * Create an executable ticket from a weather recommendation card.
  */
 router.post('/weather-actions/create-ticket', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  try {
-    const hotelId = req.user!.hotelId;
-    const userId = req.user!.id;
-    const body = (req.body ?? {}) as WeatherActionCreateTicketBody;
+  return createWeatherActionTicket(req, res, next);
+});
 
-    const title = (body.title || '').trim();
-    const reason = (body.reason || '').trim();
-    const priority = parseTicketPriority(body.priority);
-    const department = parseDepartment(body.department);
-
-    if (!title || !reason || !priority || !department) {
-      res.status(400).json({
-        success: false,
-        error: 'title, reason, priority, department are required',
-      });
-      return;
-    }
-
-    const created = await prisma.$transaction(async (tx) => {
-      const conversation = await tx.conversation.create({
-        data: {
-          hotelId,
-          subject: `[Weather Action] ${title.slice(0, 100)}`,
-          status: 'OPEN',
-          lastMessageAt: new Date(),
-        },
-      });
-
-      await tx.message.create({
-        data: {
-          conversationId: conversation.id,
-          senderType: 'SYSTEM',
-          senderUserId: userId,
-          body: reason.slice(0, 500),
-        },
-      });
-
-      const ticket = await tx.ticket.create({
-        data: {
-          hotelId,
-          conversationId: conversation.id,
-          type: 'GENERAL_INQUIRY',
-          category: categoryForDepartment(department),
-          department,
-          priority,
-          status: 'OPEN',
-        },
-        select: {
-          id: true,
-          status: true,
-          department: true,
-          priority: true,
-        },
-      });
-
-      if (userId) {
-        await tx.activityLog.create({
-          data: {
-            userId,
-            action: 'WEATHER_ACTION_TICKET_CREATED',
-            entity: 'ticket',
-            entityId: ticket.id,
-            details: {
-              source: 'WEATHER_ACTIONS',
-              title,
-              reason,
-              department,
-              priority,
-              weatherSyncedAtUtc: body.weatherSyncedAtUtc ?? null,
-              aiGeneratedAtUtc: body.aiGeneratedAtUtc ?? null,
-              conversationId: conversation.id,
-            },
-          },
-        });
-      }
-
-      return { ticket, conversationId: conversation.id };
-    });
-
-    await logAiInteraction(
-      'WEATHER_ACTIONS',
-      JSON.stringify({ createTicket: true, hotelId, title }),
-      {
-        ticketId: created.ticket.id,
-        department: created.ticket.department,
-        priority: created.ticket.priority,
-      },
-      userId
-    );
-
-    res.json({
-      success: true,
-      data: {
-        ticketId: created.ticket.id,
-        status: created.ticket.status,
-        department: created.ticket.department,
-        conversationId: created.conversationId,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
+/**
+ * POST /api/ai/weather-actions/:actionId/create-ticket
+ *
+ * Create an executable ticket from a weather recommendation card, with actionId in path.
+ */
+router.post('/weather-actions/:actionId/create-ticket', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  return createWeatherActionTicket(req, res, next, req.params.actionId);
 });
 
 export default router;

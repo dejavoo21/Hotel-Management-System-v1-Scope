@@ -42,6 +42,11 @@ export type OperationsContext = {
     priority: 'low' | 'medium' | 'high';
     department?: 'FRONT_DESK' | 'HOUSEKEEPING' | 'MAINTENANCE' | 'CONCIERGE' | 'BILLING' | 'MANAGEMENT';
     source: 'WEATHER_ACTIONS' | 'PRICING' | 'ARRIVALS';
+    createdTicket?: {
+      ticketId: string;
+      conversationId: string;
+      createdAtUtc: string;
+    } | null;
   }>;
 };
 
@@ -72,6 +77,28 @@ export type CreateAdvisoryTicketResult = {
   deduped?: boolean;
 };
 
+export type CreateWeatherActionTicketInput = {
+  title: string;
+  reason?: string;
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' | string;
+  department?: string;
+  weatherSyncedAtUtc?: string | null;
+  aiGeneratedAtUtc?: string | null;
+};
+
+export type CreateWeatherActionTicketResult = {
+  ticketId: string;
+  status: 'OPEN' | 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'BREACHED';
+  department: string;
+  conversationId: string;
+  source: 'WEATHER_ACTIONS';
+  actionId: string | null;
+  title: string;
+  reason: string;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  createdAtUtc: string;
+};
+
 export const operationsService = {
   async getOperationsContext(_hotelId: string): Promise<OperationsContext> {
     const response = await api.get('/operations/context', {
@@ -86,6 +113,10 @@ export const operationsService = {
   async createAdvisoryTicket(payload: CreateAdvisoryTicketInput): Promise<CreateAdvisoryTicketResult> {
     const response = await api.post('/operations/advisories/create-ticket', payload);
     return response.data.data as CreateAdvisoryTicketResult;
+  },
+  async createTicketFromWeatherAction(actionId: string, payload: CreateWeatherActionTicketInput): Promise<CreateWeatherActionTicketResult> {
+    const response = await api.post(`/ai/weather-actions/${encodeURIComponent(actionId)}/create-ticket`, payload);
+    return response.data.data as CreateWeatherActionTicketResult;
   },
 };
 

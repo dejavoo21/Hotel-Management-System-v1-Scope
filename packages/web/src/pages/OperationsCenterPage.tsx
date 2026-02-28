@@ -10,6 +10,14 @@ import PricingSignalCard from '@/components/operations/PricingSignalCard';
 import { operationsService, weatherSignalsService } from '@/services';
 import { useAuthStore } from '@/stores/authStore';
 
+type AdvisoryActionPayload = {
+  id: string;
+  title: string;
+  reason: string;
+  priority: 'low' | 'medium' | 'high';
+  department?: string;
+};
+
 export default function OperationsCenterPage() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
@@ -40,6 +48,30 @@ export default function OperationsCenterPage() {
     },
   });
 
+  const createTaskMutation = useMutation({
+    mutationFn: (advisory: AdvisoryActionPayload) =>
+      operationsService.createTicketFromWeatherAction(advisory.id, {
+        title: advisory.title,
+        reason: advisory.reason,
+        priority: advisory.priority,
+        department: advisory.department || 'FRONT_DESK',
+        weatherSyncedAtUtc: operationsQuery.data?.weather?.syncedAtUtc ?? null,
+        aiGeneratedAtUtc: operationsQuery.data?.generatedAtUtc ?? null,
+      }),
+    onSuccess: async (data) => {
+      toast.success(`Task created (${data.department})`);
+      await queryClient.invalidateQueries({ queryKey: ['operationsContext', hotelId] });
+      await queryClient.invalidateQueries({ queryKey: ['tickets', hotelId] });
+    },
+    onError: (error) => {
+      const message =
+        (error as any)?.response?.data?.error ||
+        (error as Error | null)?.message ||
+        'Failed to create task';
+      toast.error(message);
+    },
+  });
+
   const content = useMemo(() => {
     if (operationsQuery.isLoading) {
       return <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Loading operations context...</div>;
@@ -65,7 +97,12 @@ export default function OperationsCenterPage() {
               onRefreshWeather={() => refreshWeatherMutation.mutate()}
               isRefreshingWeather={refreshWeatherMutation.isPending}
             />
-            <OpsAdvisories context={context} />
+            <OpsAdvisories
+              context={context}
+              onCreateTask={(advisory) => {
+                createTaskMutation.mutate(advisory);
+              }}
+            />
           </div>
           <div className="lg:col-span-1">
             <AssistantDock context={context} />
@@ -78,6 +115,7 @@ export default function OperationsCenterPage() {
     operationsQuery.isError,
     operationsQuery.data,
     refreshWeatherMutation.isPending,
+    createTaskMutation.isPending,
   ]);
 
   return (

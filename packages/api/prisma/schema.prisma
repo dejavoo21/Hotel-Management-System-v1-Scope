@@ -591,6 +591,7 @@ model Ticket {
 
   escalatedLevel      Int              @default(0) @map("escalated_level")
   lastEscalationAtUtc DateTime?        @map("last_escalation_at_utc")
+  details             Json?            @map("details")
 
   createdAtUtc        DateTime         @default(now()) @map("created_at_utc")
   updatedAtUtc        DateTime         @updatedAt @map("updated_at_utc")

@@ -246,6 +246,39 @@ export async function getOperationsContext(hotelId: string) {
   ]);
 
   const advisoriesResult = await getWeatherOpsActions(weather, ops);
+  const advisoryBase = advisoriesResult.actions.slice(0, 5).map((item, index) => ({
+    id: `${advisoryIdForAction(item)}-${index + 1}`,
+    item,
+  }));
+  const advisoryIdSet = new Set(advisoryBase.map((advisory) => advisory.id));
+  const createdFromActions = await prisma.ticket.findMany({
+    where: {
+      hotelId,
+      details: {
+        path: ['source'],
+        equals: 'WEATHER_ACTIONS',
+      },
+    },
+    select: {
+      id: true,
+      conversationId: true,
+      details: true,
+      createdAtUtc: true,
+    },
+    orderBy: { createdAtUtc: 'desc' },
+  });
+  const actionToTicket = new Map<string, { ticketId: string; conversationId: string; createdAtUtc: string }>();
+  for (const ticket of createdFromActions) {
+    const details = (ticket.details ?? null) as Record<string, unknown> | null;
+    const actionId = typeof details?.actionId === 'string' ? details.actionId : null;
+    if (!actionId || !advisoryIdSet.has(actionId) || actionToTicket.has(actionId)) continue;
+    actionToTicket.set(actionId, {
+      ticketId: ticket.id,
+      conversationId: ticket.conversationId,
+      createdAtUtc: ticket.createdAtUtc.toISOString(),
+    });
+  }
+
   const demandTrend: 'down' | 'flat' | 'up' =
     ops.arrivalsNext24h > ops.departuresNext24h
       ? 'up'
@@ -288,7 +321,7 @@ export async function getOperationsContext(hotelId: string) {
             ? `Consider promotional pricing (${opportunityPct}%) to stabilize occupancy.`
             : 'Keep current rates and monitor booking pace.',
     },
-    advisories: advisoriesResult.actions.slice(0, 5).map((item, index) => {
+    advisories: advisoryBase.map(({ id, item }) => {
       const routed = routeOpsAdvisory({
         title: item.title,
         reason: item.reason,
@@ -296,12 +329,13 @@ export async function getOperationsContext(hotelId: string) {
       });
 
       return {
-        id: `${advisoryIdForAction(item)}-${index + 1}`,
+        id,
         title: item.title,
         reason: item.reason,
         priority: routed.priority,
         department: routed.department,
         source: 'WEATHER_ACTIONS' as const,
+        createdTicket: actionToTicket.get(id) ?? null,
       };
     }),
   };
