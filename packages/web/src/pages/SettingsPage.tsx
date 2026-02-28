@@ -379,18 +379,27 @@ export default function SettingsPage() {
   const weatherLastSyncTime = weatherStatusQuery.data?.lastSyncTime
     ? new Date(weatherStatusQuery.data.lastSyncTime)
     : null;
+  const weatherDaysAvailable = weatherStatusQuery.data?.daysAvailable ?? 0;
   const hasCoordinates =
     weatherStatusQuery.data?.lat != null && weatherStatusQuery.data?.lon != null;
+  const weatherStaleHours =
+    weatherLastSyncTime != null
+      ? (Date.now() - weatherLastSyncTime.getTime()) / (1000 * 60 * 60)
+      : null;
+  const hasSyncedWeather = weatherDaysAvailable > 0 && weatherLastSyncTime != null;
   const weatherStatusKey = syncWeatherMutation.isPending
     ? 'SYNCING'
     : weatherStatusQuery.isLoading
       ? 'LOADING'
       : weatherStatusQuery.isError
         ? 'FAILED'
+        : hasSyncedWeather
+          ? 'ACTIVE'
         : canSyncWeather
           ? 'READY'
           : 'BLOCKED';
   const weatherStatusLabel: Record<typeof weatherStatusKey, string> = {
+    ACTIVE: 'Synced',
     SYNCING: 'Syncing',
     LOADING: 'Loading',
     FAILED: 'Unavailable',
@@ -398,15 +407,20 @@ export default function SettingsPage() {
     BLOCKED: 'City/Country/Timezone required',
   };
   const weatherStatusStyles: Record<typeof weatherStatusKey, string> = {
+    ACTIVE: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
     SYNCING: 'bg-sky-100 text-sky-700',
     LOADING: 'bg-slate-100 text-slate-700',
-    FAILED: 'bg-rose-100 text-rose-700',
-    READY: 'bg-emerald-100 text-emerald-700',
-    BLOCKED: 'bg-amber-100 text-amber-700',
+    FAILED: 'bg-rose-50 text-rose-700 ring-rose-200',
+    READY: 'bg-amber-50 text-amber-700 ring-amber-200',
+    BLOCKED: 'bg-amber-50 text-amber-700 ring-amber-200',
   };
-  const weatherInsightLine = weatherLastSyncTime
-    ? 'Forecast intelligence is available for AI-assisted guest guidance.'
-    : 'Sync to enable weather-aware recommendations and outdoor planning guidance.';
+  const weatherDataQuality = hasSyncedWeather ? 'Good' : 'Unknown';
+  const weatherInsightLine =
+    !hasSyncedWeather
+      ? 'Sync forecast to enable weather-aware suggestions for pool, outdoor dining, arrivals, and concierge.'
+      : weatherStaleHours != null && weatherStaleHours >= 6
+        ? `Forecast is ${weatherStaleHours.toFixed(1)} hours old. Refresh recommended before advising guests.`
+        : 'Forecast is fresh. AI can proactively suggest alternatives for weather-sensitive plans.';
 
   const formatBytes = (value?: number) => {
     if (!value) return '0 B';
@@ -846,93 +860,103 @@ export default function SettingsPage() {
               </form>
 
               {isAdmin && (
-                <div className="mt-8 overflow-hidden rounded-xl border border-border bg-card">
-                  <div className="bg-gradient-to-r from-sky-500 to-emerald-500 p-4 text-white">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <h3 className="text-base font-semibold">Weather Intelligence</h3>
-                        <p className="text-sm text-white/90">
-                          Forecast synced for {hotelForm.name || 'this hotel'}.
-                        </p>
-                      </div>
-                      <div
-                        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${weatherStatusStyles[weatherStatusKey]} ${
-                          weatherStatusKey === 'SYNCING' ? 'animate-pulse' : ''
-                        }`}
-                      >
-                        {weatherStatusLabel[weatherStatusKey]}
-                      </div>
-                    </div>
-                  </div>
+                <div className="relative mt-8 overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+                  <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-sky-500/10 blur-3xl" />
+                  <div className="pointer-events-none absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-indigo-500/10 blur-3xl" />
 
-                  <div className="p-4">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <p className="text-sm text-text-muted">
-                        Sync OpenWeatherMap forecast into backend signals (timezone-correct per hotel).
-                      </p>
+                  <div className="relative px-5 py-4">
+                    <div className="absolute inset-0 bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-emerald-500/10" />
+                    <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 text-white shadow-sm">
+                          <span className="text-base">W</span>
+                        </div>
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-base font-semibold text-slate-900">Weather Intelligence</h3>
+                            <span
+                              className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${weatherStatusStyles[weatherStatusKey]} ${
+                                weatherStatusKey === 'SYNCING' ? 'animate-pulse' : ''
+                              }`}
+                            >
+                              <span
+                                className={`h-2 w-2 rounded-full ${
+                                  weatherStatusKey === 'ACTIVE'
+                                    ? 'bg-emerald-500'
+                                    : weatherStatusKey === 'READY' || weatherStatusKey === 'BLOCKED'
+                                      ? 'bg-amber-500'
+                                      : weatherStatusKey === 'FAILED'
+                                        ? 'bg-rose-500'
+                                        : 'bg-sky-500'
+                                }`}
+                              />
+                              {weatherStatusLabel[weatherStatusKey]}
+                            </span>
+                          </div>
+                          <p className="text-sm text-slate-600">
+                            Location:{' '}
+                            <span className="font-medium text-slate-800">
+                              {hotelForm.city && hotelForm.country
+                                ? `${hotelForm.city}, ${hotelForm.country}`
+                                : 'Not configured'}
+                            </span>{' '}
+                            · Timezone:{' '}
+                            <span className="font-medium text-slate-800">{hotelForm.timezone || 'Not set'}</span>
+                          </p>
+                        </div>
+                      </div>
+
                       <button
                         type="button"
-                        className="inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:from-blue-600 hover:to-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={syncWeatherMutation.isPending || !canSyncWeather}
                         onClick={() => {
                           if (!user?.hotel?.id) return;
                           syncWeatherMutation.mutate(user.hotel.id);
                         }}
                       >
+                        <span className={syncWeatherMutation.isPending ? 'animate-spin' : ''}>R</span>
                         {syncWeatherMutation.isPending ? 'Refreshing Forecast...' : 'Refresh Forecast'}
                       </button>
                     </div>
+                  </div>
 
-                    <div className="mt-4 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                        <div>
-                          <span className="text-text-muted">Location:</span>{' '}
-                          <span className="font-medium text-text-main">
-                            {hotelForm.city && hotelForm.country
-                              ? `${hotelForm.city}, ${hotelForm.country}`
-                              : 'Not configured'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-text-muted">Timezone:</span>{' '}
-                          <span className="font-medium text-text-main">
-                            {hotelForm.timezone || 'Not set'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-                        <div className="text-xs uppercase tracking-wide text-blue-700">Last Sync</div>
-                        <div className="mt-1 text-sm font-medium text-blue-900">
+                  <div className="px-5 pb-4 pt-3">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="group rounded-2xl border border-blue-200 bg-blue-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                        <div className="text-xs font-medium uppercase tracking-wide text-blue-700">Last Sync</div>
+                        <div className="mt-2 text-sm font-semibold text-blue-950">
                           {weatherLastSyncTime ? weatherLastSyncTime.toLocaleString() : 'Not synced yet'}
                         </div>
                       </div>
-                      <div className="rounded-lg border border-violet-200 bg-violet-50 p-3">
-                        <div className="text-xs uppercase tracking-wide text-violet-700">Forecast Days</div>
-                        <div className="mt-1 text-sm font-medium text-violet-900">
-                          {weatherStatusQuery.data?.daysAvailable ?? 0}
-                        </div>
+                      <div className="group rounded-2xl border border-violet-200 bg-violet-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                        <div className="text-xs font-medium uppercase tracking-wide text-violet-700">Forecast Days</div>
+                        <div className="mt-2 text-sm font-semibold text-violet-950">{weatherDaysAvailable}</div>
                       </div>
-                      <div className="rounded-lg border border-teal-200 bg-teal-50 p-3">
-                        <div className="text-xs uppercase tracking-wide text-teal-700">Coordinates</div>
-                        <div className="mt-1 text-sm font-medium text-teal-900">
+                      <div className="group rounded-2xl border border-teal-200 bg-teal-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                        <div className="text-xs font-medium uppercase tracking-wide text-teal-700">Coordinates</div>
+                        <div className="mt-2 text-sm font-semibold text-teal-950">
                           {hasCoordinates
                             ? `${weatherStatusQuery.data!.lat!.toFixed(4)}, ${weatherStatusQuery.data!.lon!.toFixed(4)}`
                             : 'Not geocoded yet'}
                         </div>
                       </div>
-                      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-                        <div className="text-xs uppercase tracking-wide text-emerald-700">Status</div>
-                        <div className="mt-1 text-sm font-medium text-emerald-900">
-                          {weatherStatusLabel[weatherStatusKey]}
-                        </div>
+                      <div className="group rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                        <div className="text-xs font-medium uppercase tracking-wide text-emerald-700">Data Quality</div>
+                        <div className="mt-2 text-sm font-semibold text-emerald-950">{weatherDataQuality}</div>
                       </div>
                     </div>
 
-                    <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                      {weatherInsightLine}
+                    <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <div className="text-sm font-semibold text-slate-900">AI Insight</div>
+                      <div className="text-sm text-slate-600">{weatherInsightLine}</div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        Tip: keep forecast fresh for accurate operational recommendations.
+                      </div>
+                    </div>
+
+                    <div className="mt-3 text-xs text-slate-500">
+                      Auto-refresh hint: refresh before peak check-in windows and major outdoor activities.
                     </div>
 
                     {!canSyncWeather && (
