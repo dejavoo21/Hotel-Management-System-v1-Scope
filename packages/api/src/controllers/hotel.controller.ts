@@ -33,38 +33,57 @@ export async function updateMyHotel(
       return;
     }
 
-    const incomingCity = req.body.city;
-    const incomingCountry = req.body.country;
-    const incomingAddress = req.body.address;
-    const incomingAddressLine1 = req.body.addressLine1;
+    const normalize = (value: unknown): string | undefined =>
+      typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : undefined;
 
-    const locationFieldsProvided =
-      incomingCity !== undefined ||
-      incomingCountry !== undefined ||
-      incomingAddress !== undefined ||
-      incomingAddressLine1 !== undefined;
+    const incomingCity = normalize(req.body.city);
+    const incomingCountry = normalize(req.body.country);
+    const incomingAddress = normalize(req.body.address);
+    const incomingAddressLine1 = normalize(req.body.addressLine1);
+
+    const existingCity = normalize(existingHotel.city);
+    const existingCountry = normalize(existingHotel.country);
+    const existingAddress = normalize(existingHotel.address);
+    const existingAddressLine1 = normalize(existingHotel.addressLine1 ?? undefined);
+
+    const locationFieldChanged =
+      (incomingCity !== undefined && incomingCity !== existingCity) ||
+      (incomingCountry !== undefined && incomingCountry !== existingCountry) ||
+      (incomingAddress !== undefined && incomingAddress !== existingAddress) ||
+      (incomingAddressLine1 !== undefined && incomingAddressLine1 !== existingAddressLine1);
 
     const latProvided = req.body.latitude !== undefined;
     const lonProvided = req.body.longitude !== undefined;
 
-    const hotel = await prisma.hotel.update({
-      where: { id: hotelId },
-      data: {
-        name: req.body.name,
-        address: req.body.address,
-        addressLine1: req.body.addressLine1,
-        city: req.body.city,
-        country: req.body.country,
-        phone: req.body.phone,
-        email: req.body.email,
-        website: req.body.website,
-        timezone: req.body.timezone,
-        currency: req.body.currency,
-        latitude: latProvided ? req.body.latitude : locationFieldsProvided ? null : undefined,
-        longitude: lonProvided ? req.body.longitude : locationFieldsProvided ? null : undefined,
-        locationUpdatedAt:
-          latProvided || lonProvided || locationFieldsProvided ? new Date() : undefined,
-      },
+    const hotel = await prisma.$transaction(async (tx) => {
+      if (locationFieldChanged) {
+        await tx.externalSignal.deleteMany({
+          where: {
+            hotelId,
+            type: 'WEATHER',
+          },
+        });
+      }
+
+      return tx.hotel.update({
+        where: { id: hotelId },
+        data: {
+          name: req.body.name,
+          address: incomingAddress ?? req.body.address,
+          addressLine1: incomingAddressLine1 ?? req.body.addressLine1,
+          city: incomingCity ?? req.body.city,
+          country: incomingCountry ?? req.body.country,
+          phone: req.body.phone,
+          email: req.body.email,
+          website: req.body.website,
+          timezone: req.body.timezone,
+          currency: req.body.currency,
+          latitude: latProvided ? req.body.latitude : locationFieldChanged ? null : undefined,
+          longitude: lonProvided ? req.body.longitude : locationFieldChanged ? null : undefined,
+          locationUpdatedAt:
+            latProvided || lonProvided || locationFieldChanged ? new Date() : undefined,
+        },
+      });
     });
     res.json({ success: true, data: hotel });
   } catch (error) {

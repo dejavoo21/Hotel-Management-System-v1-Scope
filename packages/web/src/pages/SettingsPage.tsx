@@ -1057,7 +1057,7 @@ export default function SettingsPage() {
                         <button
                           type="button"
                           className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
-                          disabled={syncWeatherMutation.isPending || !canSyncWeather}
+                          disabled={updateHotelMutation.isPending || syncWeatherMutation.isPending || !canSyncWeather}
                           onClick={() => {
                             if (!user?.hotel?.id) return;
                             syncWeatherMutation.mutate(user.hotel.id);
