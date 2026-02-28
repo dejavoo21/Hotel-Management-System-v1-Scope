@@ -27,7 +27,7 @@ async function resetServiceWorkerCachesOnce(): Promise<void> {
     return;
   }
 
-  const resetFlag = 'laflo:pwa-reset-v1';
+  const resetFlag = 'laflo:pwa-reset-v2';
   if (sessionStorage.getItem(resetFlag) === 'done') {
     return;
   }
