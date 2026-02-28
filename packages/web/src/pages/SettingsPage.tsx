@@ -442,6 +442,14 @@ export default function SettingsPage() {
         return `Updated ${hours}h ago`;
       })()
     : 'Not updated yet';
+  const weatherAiActivityLabel =
+    !hasSyncedWeather
+      ? 'Waiting for forecast data'
+      : weatherStatusKey === 'SYNCING'
+        ? 'Updating weather context'
+        : weatherStaleHours != null && weatherStaleHours >= 6
+          ? 'Weather context aging'
+          : 'AI using live weather context';
   const weatherInsightLine =
     !hasSyncedWeather
       ? 'Sync forecast to enable weather-aware suggestions for pool, outdoor dining, arrivals, and concierge.'
@@ -934,6 +942,13 @@ export default function SettingsPage() {
                             | Timezone:{' '}
                             <span className="font-medium text-slate-800">{hotelForm.timezone || 'Not set'}</span>
                           </p>
+                          <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+                            <span className="relative flex h-2.5 w-2.5">
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-60" />
+                              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.35)]" />
+                            </span>
+                            {weatherAiActivityLabel}
+                          </div>
                           {weatherStatusQuery.isFetching && hasSyncedWeather ? (
                             <p className="mt-1 text-xs text-slate-500">Updating latest forecast...</p>
                           ) : null}
