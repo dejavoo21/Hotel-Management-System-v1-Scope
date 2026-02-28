@@ -31,6 +31,8 @@ export const ROUTE_MODULES: Record<string, PermissionId> = Object.entries(MODULE
 
 // Operations Center is temporarily mapped to bookings until a dedicated operations module exists.
 ROUTE_MODULES['/operations'] = 'bookings';
+// Calls is part of messaging workflow.
+ROUTE_MODULES['/calls'] = 'messages';
 
 
 // Priority order for determining first allowed route
