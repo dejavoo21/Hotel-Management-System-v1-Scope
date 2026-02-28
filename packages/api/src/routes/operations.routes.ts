@@ -91,6 +91,52 @@ router.post('/advisories/create-ticket', async (req: AuthenticatedRequest, res: 
       return;
     }
 
+    if (body.advisoryId && userId) {
+      const dedupeSince = new Date(Date.now() - 6 * 60 * 60 * 1000);
+      const existingLog = await prisma.activityLog.findFirst({
+        where: {
+          userId,
+          action: 'OPERATIONS_ADVISORY_TICKET_CREATED',
+          entity: 'ticket',
+          createdAt: { gte: dedupeSince },
+          details: {
+            path: ['advisoryId'],
+            equals: body.advisoryId,
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (existingLog?.entityId) {
+        const existingTicket = await prisma.ticket.findFirst({
+          where: {
+            id: existingLog.entityId,
+            hotelId,
+          },
+          select: {
+            id: true,
+            status: true,
+            department: true,
+            conversationId: true,
+          },
+        });
+
+        if (existingTicket) {
+          res.json({
+            success: true,
+            data: {
+              ticketId: existingTicket.id,
+              status: existingTicket.status,
+              department: existingTicket.department,
+              conversationId: existingTicket.conversationId,
+              deduped: true,
+            },
+          });
+          return;
+        }
+      }
+    }
+
     const created = await prisma.$transaction(async (tx) => {
       const conversation = await tx.conversation.create({
         data: {
@@ -160,6 +206,7 @@ router.post('/advisories/create-ticket', async (req: AuthenticatedRequest, res: 
         status: created.ticket.status,
         department: created.ticket.department,
         conversationId: created.conversationId,
+        deduped: false,
       },
     });
   } catch (error) {

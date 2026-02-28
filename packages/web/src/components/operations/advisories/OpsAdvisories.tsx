@@ -54,7 +54,11 @@ export default function OpsAdvisories({ context }: Props) {
     },
     onSuccess: ({ result, advisory }) => {
       setCreatedTicketIds((prev) => ({ ...prev, [advisory.id]: result.ticketId }));
-      toast.success(`Task created for ${result.department}`);
+      if (result.deduped) {
+        toast.success(`Ticket already exists for ${result.department}`);
+      } else {
+        toast.success(`Task created for ${result.department}`);
+      }
     },
     onError: (error) => {
       const message =
