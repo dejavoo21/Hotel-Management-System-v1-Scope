@@ -999,74 +999,78 @@ export default function SettingsPage() {
 
                   <div className="relative px-5 py-4">
                     <div className="absolute inset-0 bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-emerald-500/20" />
-                    <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 text-white shadow-sm">
-                          <span className="text-base">W</span>
-                        </div>
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-base font-semibold text-slate-900">Weather Intelligence</h3>
-                            <span
-                              className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${weatherStatusStyles[weatherStatusKey]} ${
-                                weatherStatusKey === 'SYNCING' ? 'animate-pulse' : ''
-                              }`}
-                            >
+                    <div className="relative">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 text-white shadow-sm">
+                            <span className="text-base font-semibold">W</span>
+                          </div>
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-base font-semibold text-slate-900">Weather Intelligence</h3>
                               <span
-                                className={`h-2 w-2 rounded-full ${
-                                  weatherStatusKey === 'ACTIVE'
-                                    ? 'bg-emerald-500'
-                                    : weatherStatusKey === 'READY'
-                                      ? 'bg-amber-500'
-                                      : weatherStatusKey === 'FAILED'
-                                        ? 'bg-rose-500'
-                                        : weatherStatusKey === 'BLOCKED'
-                                          ? 'bg-slate-400'
-                                          : 'bg-sky-500'
+                                className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${weatherStatusStyles[weatherStatusKey]} ${
+                                  weatherStatusKey === 'SYNCING' ? 'animate-pulse' : ''
                                 }`}
-                              />
-                              <span>{weatherStatusIcon[weatherStatusKey]}</span>
-                              <span>{weatherStatusLabel[weatherStatusKey]}</span>
-                            </span>
+                              >
+                                <span
+                                  className={`h-2 w-2 rounded-full ${
+                                    weatherStatusKey === 'ACTIVE'
+                                      ? 'bg-emerald-500'
+                                      : weatherStatusKey === 'READY'
+                                        ? 'bg-amber-500'
+                                        : weatherStatusKey === 'FAILED'
+                                          ? 'bg-rose-500'
+                                          : weatherStatusKey === 'BLOCKED'
+                                            ? 'bg-slate-400'
+                                            : 'bg-sky-500'
+                                  }`}
+                                />
+                                <span>{weatherStatusIcon[weatherStatusKey]}</span>
+                                <span>{weatherStatusLabel[weatherStatusKey]}</span>
+                              </span>
+                            </div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              Forecast-based operational planning
+                            </p>
                           </div>
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                            Forecast-based operational planning
-                          </p>
-                          <p className="text-sm text-slate-600">
-                            Location:{' '}
-                            <span className="font-medium text-slate-800">
-                              {hotelForm.city && hotelForm.country
-                                ? `${hotelForm.city}, ${hotelForm.country}`
-                                : 'Not configured'}
-                            </span>{' '}
-                            | Timezone:{' '}
-                            <span className="font-medium text-slate-800">{hotelForm.timezone || 'Not set'}</span>
-                          </p>
-                          <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
-                            <span className="relative flex h-2.5 w-2.5">
-                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-60" />
-                              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.35)]" />
-                            </span>
-                            {weatherAiActivityLabel}
-                          </div>
-                          {weatherStatusQuery.isFetching && hasSyncedWeather ? (
-                            <p className="mt-1 text-xs text-slate-500">Updating latest forecast...</p>
-                          ) : null}
                         </div>
+
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
+                          disabled={syncWeatherMutation.isPending || !canSyncWeather}
+                          onClick={() => {
+                            if (!user?.hotel?.id) return;
+                            syncWeatherMutation.mutate(user.hotel.id);
+                          }}
+                        >
+                          <span className={syncWeatherMutation.isPending ? 'animate-spin' : ''}>R</span>
+                          {syncWeatherMutation.isPending ? 'Refreshing Forecast...' : 'Refresh Forecast'}
+                        </button>
                       </div>
 
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
-                        disabled={syncWeatherMutation.isPending || !canSyncWeather}
-                        onClick={() => {
-                          if (!user?.hotel?.id) return;
-                          syncWeatherMutation.mutate(user.hotel.id);
-                        }}
-                      >
-                        <span className={syncWeatherMutation.isPending ? 'animate-spin' : ''}>R</span>
-                        {syncWeatherMutation.isPending ? 'Refreshing Forecast...' : 'Refresh Forecast'}
-                      </button>
+                      <div className="my-4 h-px w-full bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                          <span className="h-2 w-2 rounded-full bg-indigo-500" />
+                          {hasSyncedWeather ? 'Live operational signals enabled' : weatherAiActivityLabel}
+                        </div>
+                        <p className="text-sm text-slate-600">
+                          Location:{' '}
+                          <span className="font-medium text-slate-800">
+                            {hotelForm.city && hotelForm.country
+                              ? `${hotelForm.city}, ${hotelForm.country}`
+                              : 'Not configured'}
+                          </span>{' '}
+                          | Timezone:{' '}
+                          <span className="font-medium text-slate-800">{hotelForm.timezone || 'Not set'}</span>
+                        </p>
+                        {weatherStatusQuery.isFetching && hasSyncedWeather ? (
+                          <p className="text-xs text-slate-500">Updating latest forecast...</p>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
 
