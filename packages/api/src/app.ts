@@ -54,6 +54,8 @@ export function createApp(): Application {
 
   // Trust proxy for rate limiting behind reverse proxy
   app.set('trust proxy', 1);
+  // Prevent 304/ETag behavior for authenticated JSON APIs. Axios treats 304 as error by default.
+  app.set('etag', false);
 
   // Security middleware
   app.use(helmet({
@@ -93,6 +95,12 @@ export function createApp(): Application {
   };
 
   app.use(corsMiddleware);
+
+  // Disable client/proxy caching for API responses
+  app.use('/api', (_req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
 
   // Rate limiting
   const authPaths = new Set([
