@@ -6,6 +6,7 @@
  */
 
 import { prisma } from '../config/database.js';
+import type { WeatherContext } from './weatherContext.provider.js';
 
 // Intent categories detected from messages
 export type IntentCategory = 
@@ -43,6 +44,11 @@ export interface RecommendedAction {
   description: string;
   confidence: number;
   metadata?: Record<string, any>;
+}
+
+export interface AiRequestContext {
+  weather?: WeatherContext | null;
+  latestMessage?: string;
 }
 
 // Simple keyword-based intent detection (can be replaced with ML model)
@@ -130,7 +136,8 @@ export async function detectIntent(message: string): Promise<DetectedIntent> {
  */
 export async function getSuggestedReplies(
   conversationId: string,
-  intent?: DetectedIntent
+  intent?: DetectedIntent,
+  context?: AiRequestContext
 ): Promise<SuggestedReply[]> {
   const suggestions: SuggestedReply[] = [];
 
@@ -181,6 +188,37 @@ export async function getSuggestedReplies(
   const category = intent?.category || 'UNKNOWN';
   const responses = intentResponses[category] || intentResponses.UNKNOWN;
 
+  const weather = context?.weather;
+  const latestMessage = (context?.latestMessage || '').toLowerCase();
+  const weatherRelevant =
+    /\b(pool|outdoor|outside|tour|beach|walk|rain|weather|temperature|wind|transport)\b/.test(latestMessage);
+  if (weather && weatherRelevant) {
+    if (!weather.syncedAtUtc || weather.stale || !weather.isFresh) {
+      const staleText =
+        weather.staleHours != null
+          ? ` (last synced ${weather.staleHours}h ago)`
+          : '';
+      suggestions.unshift({
+        id: 'suggestion-weather-stale',
+        text: `Weather data may be stale${staleText}. I can refresh the forecast before confirming outdoor plans.`,
+        type: 'ai_generated',
+        confidence: 0.9,
+      });
+    } else if (weather.next24h) {
+      const summary = weather.next24h.summary || 'mixed conditions';
+      const temp =
+        weather.next24h.highC != null && weather.next24h.lowC != null
+          ? ` (${weather.next24h.lowC}C to ${weather.next24h.highC}C)`
+          : '';
+      suggestions.unshift({
+        id: 'suggestion-weather-context',
+        text: `Current forecast suggests ${summary}${temp}. I can suggest indoor alternatives and the best outdoor timing.`,
+        type: 'ai_generated',
+        confidence: 0.92,
+      });
+    }
+  }
+
   responses.forEach((text, index) => {
     suggestions.push({
       id: `suggestion-${category}-${index}`,
@@ -199,7 +237,8 @@ export async function getSuggestedReplies(
 export async function getRecommendedActions(
   conversationId: string,
   ticketId?: string,
-  intent?: DetectedIntent
+  intent?: DetectedIntent,
+  context?: AiRequestContext
 ): Promise<RecommendedAction[]> {
   const actions: RecommendedAction[] = [];
   const category = intent?.category || 'UNKNOWN';
@@ -286,6 +325,30 @@ export async function getRecommendedActions(
         confidence: 0.4,
       });
     }
+  }
+
+  const weather = context?.weather;
+  const latestMessage = (context?.latestMessage || '').toLowerCase();
+  const weatherRelevant =
+    /\b(pool|outdoor|outside|tour|beach|walk|rain|weather|temperature|wind|transport)\b/.test(latestMessage);
+  if (weather && weatherRelevant && weather.next24h) {
+    actions.push({
+      id: 'action-send-weather-advice',
+      action: 'Send Weather Advisory',
+      type: 'SEND_TEMPLATE',
+      description: weather.isFresh
+        ? 'Share weather-aware alternatives and recommended activity timing.'
+        : 'Refresh weather first, then send updated activity advice.',
+      confidence: weather.isFresh ? 0.82 : 0.9,
+      metadata: {
+        weatherSyncedAtUtc: weather.syncedAtUtc,
+        weatherFresh: weather.isFresh,
+        weatherStale: weather.stale,
+        weatherStaleHours: weather.staleHours,
+        weatherSummary: weather.next24h.summary,
+        rainRisk: weather.next24h.rainRisk,
+      },
+    });
   }
 
   return actions.sort((a, b) => b.confidence - a.confidence);

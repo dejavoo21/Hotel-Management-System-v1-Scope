@@ -16,6 +16,7 @@ import {
   getRecommendedActions,
   logAiInteraction,
 } from '../services/aiHooks.service.js';
+import { getWeatherContextForHotel } from '../services/weatherContext.provider.js';
 
 const router = Router();
 
@@ -39,7 +40,6 @@ router.post('/intent', async (req: AuthenticatedRequest, res: Response, next: Ne
 
     // Log for analytics
     await logAiInteraction(
-      req.user!.hotelId,
       'INTENT_DETECTION',
       message,
       intent,
@@ -75,11 +75,14 @@ router.post('/suggestions', async (req: AuthenticatedRequest, res: Response, nex
       intent = await detectIntent(message);
     }
 
-    const suggestions = await getSuggestedReplies(conversationId, intent);
+    const weather = await getWeatherContextForHotel(req.user!.hotelId);
+    const suggestions = await getSuggestedReplies(conversationId, intent, {
+      weather,
+      latestMessage: message,
+    });
 
     // Log for analytics
     await logAiInteraction(
-      req.user!.hotelId,
       'SUGGESTED_REPLY',
       message || conversationId,
       suggestions,
@@ -118,11 +121,14 @@ router.post('/actions', async (req: AuthenticatedRequest, res: Response, next: N
       intent = await detectIntent(message);
     }
 
-    const actions = await getRecommendedActions(conversationId, ticketId, intent);
+    const weather = await getWeatherContextForHotel(req.user!.hotelId);
+    const actions = await getRecommendedActions(conversationId, ticketId, intent, {
+      weather,
+      latestMessage: message,
+    });
 
     // Log for analytics
     await logAiInteraction(
-      req.user!.hotelId,
       'RECOMMENDED_ACTION',
       message || conversationId,
       actions,
