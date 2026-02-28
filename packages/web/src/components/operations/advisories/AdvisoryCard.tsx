@@ -35,7 +35,7 @@ export default function AdvisoryCard({
           onClick={() => onCreateTicket(advisory)}
           className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {createdTicketId ? 'Ticket created' : isCreating ? 'Creating...' : 'Create ticket'}
+          {createdTicketId ? 'Task created' : isCreating ? 'Creating...' : 'Create task'}
         </button>
         <button
           type="button"
@@ -51,7 +51,7 @@ export default function AdvisoryCard({
           Dismiss
         </button>
         {createdTicketId ? (
-          <span className="text-[11px] font-medium text-emerald-700">Created Ticket {createdTicketId}</span>
+          <span className="text-[11px] font-medium text-emerald-700">Created: {createdTicketId}</span>
         ) : null}
       </div>
     </div>

@@ -13,7 +13,7 @@ type Props = {
 export default function SignalsGrid({ context, onRefreshWeather, isRefreshingWeather = false }: Props) {
   return (
     <div className="space-y-3">
-      <h2 className="text-base font-semibold text-slate-900">Predictive Signals</h2>
+      <h2 className="text-base font-semibold text-slate-900">Operational Signals</h2>
       <div className="grid gap-4 md:grid-cols-2">
         <WeatherSignalCard context={context} onRefresh={onRefreshWeather} isRefreshing={isRefreshingWeather} />
         <ArrivalsSignalCard context={context} />

@@ -6,6 +6,7 @@ import OpsStatusBar from '@/components/operations/OpsStatusBar';
 import SignalsGrid from '@/components/operations/SignalsGrid';
 import OpsAdvisories from '@/components/operations/advisories/OpsAdvisories';
 import AssistantDock from '@/components/operations/assistant/AssistantDock';
+import PricingSignalCard from '@/components/operations/PricingSignalCard';
 import { operationsService, weatherSignalsService } from '@/services';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -56,6 +57,11 @@ export default function OperationsCenterPage() {
     return (
       <>
         <OpsStatusBar context={context} />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <PricingSignalCard pricing={context?.pricingSignal ?? context?.pricing ?? null} />
+          </div>
+        </div>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
             <SignalsGrid
