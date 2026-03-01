@@ -70,15 +70,6 @@ export default function OperationsCenterPage() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => void operationsQuery.refetch()}
-              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50"
-            >
-              <RefreshCcw className={`h-4 w-4 ${operationsQuery.isFetching ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-
-            <button
-              type="button"
               onClick={() => refreshWeatherMutation.mutate()}
               className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
               disabled={refreshWeatherMutation.isPending}
@@ -94,7 +85,7 @@ export default function OperationsCenterPage() {
         </div>
       </div>
     );
-  }, [operationsQuery.data, operationsQuery.isLoading, operationsQuery.isFetching, refreshWeatherMutation.isPending]);
+  }, [operationsQuery.data, operationsQuery.isLoading, refreshWeatherMutation.isPending]);
 
   const body = useMemo(() => {
     if (operationsQuery.isLoading) {
