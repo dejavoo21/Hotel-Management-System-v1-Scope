@@ -25,6 +25,16 @@ type CreateAdvisoryTicketBody = {
   } | null;
 };
 
+type CreatePricingActionTicketBody = {
+  nightDate?: string;
+  action?: string;
+  reason?: string;
+  department?: string;
+  priority?: string;
+  confidence?: string;
+  metadata?: Record<string, unknown> | null;
+};
+
 function mapTicketPriority(value: AdvisoryPriority, title: string, reason?: string): TicketPriority {
   const text = `${title} ${reason ?? ''}`.toLowerCase();
   const isUrgent = /(storm|thunder|lightning|flood|evacuat|safety|hazard|emergency)/.test(text);
@@ -32,6 +42,39 @@ function mapTicketPriority(value: AdvisoryPriority, title: string, reason?: stri
   if (value === 'high') return 'HIGH';
   if (value === 'low') return 'LOW';
   return 'MEDIUM';
+}
+
+function parseTicketPriority(value?: string): TicketPriority {
+  const normalized = String(value ?? '').trim().toUpperCase();
+  if (normalized === 'LOW') return 'LOW';
+  if (normalized === 'HIGH') return 'HIGH';
+  if (normalized === 'URGENT') return 'URGENT';
+  return 'MEDIUM';
+}
+
+function parseDepartment(value?: string): Department {
+  const normalized = String(value ?? '').trim().toUpperCase();
+  switch (normalized) {
+    case 'FRONT_DESK':
+    case 'HOUSEKEEPING':
+    case 'MAINTENANCE':
+    case 'CONCIERGE':
+    case 'BILLING':
+    case 'MANAGEMENT':
+      return normalized;
+    default:
+      return 'MANAGEMENT';
+  }
+}
+
+function chooseDepartment(): Department {
+  return 'MANAGEMENT';
+}
+
+function choosePriority(confidence: 'low' | 'medium' | 'high', pct: number): TicketPriority {
+  if (confidence === 'high' && Math.abs(pct) >= 8) return 'HIGH';
+  if (confidence === 'high') return 'MEDIUM';
+  return 'LOW';
 }
 
 function categoryForDepartment(department: Department): TicketCategory {
@@ -239,6 +282,175 @@ router.post('/advisories/create-ticket', async (req: AuthenticatedRequest, res: 
         assignedToId: created.ticket.assignedToId,
         assignedTo: created.ticket.assignedTo,
         deduped: false,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/pricing-actions/create-ticket', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const hotelId = req.user!.hotelId;
+    const userId = req.user!.id;
+    const body = (req.body ?? {}) as CreatePricingActionTicketBody;
+    const nightDate = String(body.nightDate ?? '').trim();
+    const action = String(body.action ?? '').trim();
+    const reason = String(body.reason ?? '').trim();
+    const metadata = body.metadata ?? {};
+    const rawSuggestedPct = Number((metadata as Record<string, unknown>)?.suggestedAdjustmentPct ?? 0);
+    const suggestedAdjustmentPct = Number.isFinite(rawSuggestedPct) ? Math.round(rawSuggestedPct) : 0;
+    const confidenceRaw = String(body.confidence ?? (metadata as Record<string, unknown>)?.confidence ?? 'low').toLowerCase();
+    const confidence: 'low' | 'medium' | 'high' =
+      confidenceRaw === 'high' ? 'high' : confidenceRaw === 'medium' ? 'medium' : 'low';
+    const department = body.department ? parseDepartment(body.department) : chooseDepartment();
+    const priority = body.priority ? parseTicketPriority(body.priority) : choosePriority(confidence, suggestedAdjustmentPct);
+    const sourceKey = `PRICING:${nightDate}:${suggestedAdjustmentPct}`;
+
+    if (!nightDate || !action || !reason) {
+      res.status(400).json({
+        success: false,
+        error: 'nightDate, action, reason are required',
+      });
+      return;
+    }
+
+    const existing = await prisma.ticket.findFirst({
+      where: { hotelId, sourceKey },
+      select: {
+        id: true,
+        conversationId: true,
+        status: true,
+        department: true,
+        priority: true,
+        assignedToId: true,
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    if (existing) {
+      res.json({
+        success: true,
+        data: {
+          ticketId: existing.id,
+          status: existing.status,
+          department: existing.department,
+          priority: existing.priority,
+          conversationId: existing.conversationId,
+          assignedToId: existing.assignedToId,
+          assignedTo: existing.assignedTo,
+          deduped: true,
+          ticketUrl: `/tickets/${existing.id}`,
+        },
+      });
+      return;
+    }
+
+    const created = await prisma.$transaction(async (tx) => {
+      const subject = `[Pricing Task] ${nightDate} - ${action}`.slice(0, 120);
+      const conversation = await tx.conversation.create({
+        data: {
+          hotelId,
+          subject,
+          status: 'OPEN',
+          lastMessageAt: new Date(),
+        },
+      });
+
+      await tx.message.create({
+        data: {
+          conversationId: conversation.id,
+          senderType: 'SYSTEM',
+          senderUserId: userId,
+          body: reason.slice(0, 500),
+        },
+      });
+
+      const ticket = await tx.ticket.create({
+        data: {
+          hotelId,
+          conversationId: conversation.id,
+          type: 'GENERAL_INQUIRY',
+          category: categoryForDepartment(department),
+          department,
+          priority,
+          status: 'OPEN',
+          assignedToId: await pickAssigneeForDepartment({
+            tx,
+            hotelId,
+            department,
+          }),
+          sourceKey,
+          details: {
+            source: 'PRICING_ACTION',
+            nightDate,
+            action,
+            reason,
+            metadata,
+            createdByUserId: userId,
+            createdAtUtc: new Date().toISOString(),
+            confidence,
+            suggestedAdjustmentPct,
+          },
+        },
+        select: {
+          id: true,
+          conversationId: true,
+          status: true,
+          department: true,
+          priority: true,
+          assignedToId: true,
+          assignedTo: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      });
+
+      await tx.activityLog.create({
+        data: {
+          userId,
+          action: 'PRICING_ACTION_TICKET_CREATED',
+          entity: 'ticket',
+          entityId: ticket.id,
+          details: {
+            source: 'PRICING_ACTION',
+            nightDate,
+            action,
+            reason,
+            department,
+            priority,
+            sourceKey,
+            metadata,
+            conversationId: conversation.id,
+          },
+        },
+      });
+
+      return ticket;
+    });
+
+    res.json({
+      success: true,
+      data: {
+        ticketId: created.id,
+        status: created.status,
+        department: created.department,
+        priority: created.priority,
+        conversationId: created.conversationId,
+        assignedToId: created.assignedToId,
+        assignedTo: created.assignedTo,
+        deduped: false,
+        ticketUrl: `/tickets/${created.id}`,
       },
     });
   } catch (error) {

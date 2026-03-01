@@ -8,6 +8,9 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { processSlaEscalations, SLA_JOB_SECRET } from '../services/ticket.service.js';
+import { authenticate } from '../middleware/auth.js';
+import type { AuthenticatedRequest } from '../types/index.js';
+import { runPricingSnapshotJob } from '../services/pricingSnapshot.job.js';
 
 const router = Router();
 
@@ -87,6 +90,35 @@ router.post('/sla-escalation/run', validateJobSecret, async (req: Request, res: 
     });
   }
 });
+
+function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  if (req.user?.role === 'ADMIN') {
+    next();
+    return;
+  }
+  res.status(403).json({ success: false, error: 'Admin only' });
+}
+
+router.post(
+  '/pricing-snapshot/run',
+  authenticate,
+  requireAdmin,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const { hotelId, daysAhead, force } = req.body ?? {};
+
+      const result = await runPricingSnapshotJob({
+        hotelId: hotelId ? String(hotelId) : undefined,
+        daysAhead: daysAhead ? Number(daysAhead) : 30,
+        force: Boolean(force),
+      });
+
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 /**
  * GET /api/jobs/health

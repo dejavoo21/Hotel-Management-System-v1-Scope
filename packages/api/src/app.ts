@@ -35,9 +35,12 @@ import floorRoutes from './routes/floor.routes.js';
 import callRoutes from './routes/call.routes.js';
 import weatherSignalRoutes from './routes/weatherSignal.routes.js';
 import jobRoutes from './routes/job.routes.js';
+import marketRatesJobRoutes from './routes/marketRatesJob.routes.js';
+import marketRoutes from './routes/market.routes.js';
 import ticketRoutes from './routes/ticket.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import aiHooksRoutes from './routes/aiHooks.routes.js';
+import assistantRoutes from './routes/assistant.routes.js';
 import presenceRoutes from './routes/presence.routes.js';
 import operationsRoutes from './routes/operations.routes.js';
 
@@ -169,6 +172,8 @@ export function createApp(): Application {
           guests: '/api/guests',
           accessRequests: '/api/access-requests',
           operations: '/api/operations',
+          market: '/api/market',
+          assistant: '/api/assistant',
         },
         documentation: 'https://github.com/dejavoo21/Hotel-Management-System-v1-Scope',
       },
@@ -231,9 +236,12 @@ export function createApp(): Application {
     app.use('/api/calls', callRoutes);
     app.use('/api/signals/weather', weatherSignalRoutes);
     app.use('/api/jobs', jobRoutes);
+    app.use('/api/jobs', marketRatesJobRoutes);
+    app.use('/api/market', marketRoutes);
     app.use('/api/tickets', ticketRoutes);
     app.use('/api/notifications', notificationRoutes);
     app.use('/api/ai', aiHooksRoutes);
+    app.use('/api/assistant', assistantRoutes);
     app.use('/api/presence', presenceRoutes);
     app.use('/api/operations', operationsRoutes);
   }
@@ -271,6 +279,8 @@ export function createApp(): Application {
           calls: '/api/calls',
           weatherSignals: '/api/signals/weather',
           operations: '/api/operations',
+          market: '/api/market',
+          assistant: '/api/assistant',
         },
       },
     });

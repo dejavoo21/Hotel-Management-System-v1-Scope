@@ -17,39 +17,39 @@ datasource db {
 // ===========================================
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  passwordHash  String
-  firstName     String
-  lastName      String
-  role          Role           @default(RECEPTIONIST)
-  hotelId       String
-  hotel         Hotel          @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  isActive      Boolean        @default(true)
-  mustChangePassword Boolean   @default(false)
-  lastLoginAt   DateTime?
+  id                        String               @id @default(cuid())
+  email                     String               @unique
+  passwordHash              String
+  firstName                 String
+  lastName                  String
+  role                      Role                 @default(RECEPTIONIST)
+  hotelId                   String
+  hotel                     Hotel                @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  isActive                  Boolean              @default(true)
+  mustChangePassword        Boolean              @default(false)
+  lastLoginAt               DateTime?
   // Module permissions (access profile)
   // Stores allowed modules: dashboard, bookings, rooms, messages, housekeeping, inventory, calendar, guests, financials, reviews, concierge, users, settings
-  modulePermissions String[]   @default([])
+  modulePermissions         String[]             @default([])
   // Presence fields
-  presenceStatus   PresenceStatus @default(AVAILABLE)
-  lastSeenAt       DateTime?
+  presenceStatus            PresenceStatus       @default(AVAILABLE)
+  lastSeenAt                DateTime?
   // 2FA fields
-  twoFactorEnabled Boolean     @default(false)
-  twoFactorSecret  String?     // Encrypted TOTP secret
-  twoFactorBackupCodes String[] // Encrypted backup codes
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  refreshTokens RefreshToken[]
-  activityLogs  ActivityLog[]
-  housekeepingLogs HousekeepingLog[]
+  twoFactorEnabled          Boolean              @default(false)
+  twoFactorSecret           String? // Encrypted TOTP secret
+  twoFactorBackupCodes      String[] // Encrypted backup codes
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
+  refreshTokens             RefreshToken[]
+  activityLogs              ActivityLog[]
+  housekeepingLogs          HousekeepingLog[]
   conciergeRequestsAssigned ConciergeRequest[]
-  passwordResetTokens PasswordResetToken[]
-  emailOtps    EmailOtp[]
-  purchaseOrders PurchaseOrder[]
-  sentMessages Message[] @relation("MessageSender")
-  assignedTickets Ticket[] @relation("TicketAssignee")
-  notifications Notification[]
+  passwordResetTokens       PasswordResetToken[]
+  emailOtps                 EmailOtp[]
+  purchaseOrders            PurchaseOrder[]
+  sentMessages              Message[]            @relation("MessageSender")
+  assignedTickets           Ticket[]             @relation("TicketAssignee")
+  notifications             Notification[]
 
   @@index([hotelId])
   @@index([email])
@@ -87,61 +87,125 @@ model RefreshToken {
 // ===========================================
 
 model Hotel {
-  id          String     @id @default(cuid())
-  name        String
-  address     String
-  addressLine1 String?   @map("address_line1")
-  city        String
-  country     String
-  latitude    Float?     @db.DoublePrecision
-  longitude   Float?     @db.DoublePrecision
-  locationUpdatedAt DateTime? @map("location_updated_at")
-  phone       String
-  email       String
-  website     String?
-  logo        String?
-  timezone    String     @default("UTC")
-  currency    String     @default("USD")
-  taxRate     Decimal    @default(0) @db.Decimal(5, 2)
-  checkInTime String     @default("14:00")
-  checkOutTime String    @default("11:00")
-  users       User[]
-  roomTypes   RoomType[]
-  rooms       Room[]
-  bookings    Booking[]
-  guests      Guest[]
-  invoices    Invoice[]
-  inventoryItems InventoryItem[]
-  calendarEvents CalendarEvent[]
-  reviews     Review[]
+  id                String             @id @default(cuid())
+  name              String
+  address           String
+  addressLine1      String?            @map("address_line1")
+  city              String
+  country           String
+  latitude          Float?             @db.DoublePrecision
+  longitude         Float?             @db.DoublePrecision
+  locationUpdatedAt DateTime?          @map("location_updated_at")
+  phone             String
+  email             String
+  website           String?
+  logo              String?
+  timezone          String             @default("UTC")
+  currency          String             @default("USD")
+  taxRate           Decimal            @default(0) @db.Decimal(5, 2)
+  checkInTime       String             @default("14:00")
+  checkOutTime      String             @default("11:00")
+  users             User[]
+  roomTypes         RoomType[]
+  rooms             Room[]
+  bookings          Booking[]
+  guests            Guest[]
+  invoices          Invoice[]
+  inventoryItems    InventoryItem[]
+  calendarEvents    CalendarEvent[]
+  reviews           Review[]
   conciergeRequests ConciergeRequest[]
-  purchaseOrders PurchaseOrder[]
-  floors      Floor[]
-  conversations Conversation[]
-  externalSignals ExternalSignal[]
-  tickets      Ticket[]
-  slaPolicies  SLAPolicy[]
-  notifications Notification[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  purchaseOrders    PurchaseOrder[]
+  floors            Floor[]
+  conversations     Conversation[]
+  externalSignals   ExternalSignal[]
+  pricingSnapshots  PricingSnapshot[]
+  competitorHotels CompetitorHotel[]
+  tickets           Ticket[]
+  slaPolicies       SLAPolicy[]
+  notifications     Notification[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 }
 
 model ExternalSignal {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  hotelId       String
-  hotel         Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  type          String
-  dateLocal     DateTime  @map("date_local") @db.Date
-  timezone      String
-  metricsJson   Json      @map("metrics_json")
-  source        String    @default("openweathermap")
-  fetchedAtUtc  DateTime  @map("fetched_at_utc")
-  rawJson       Json?     @map("raw_json")
-  createdAtUtc  DateTime  @default(now()) @map("created_at_utc")
+  hotelId      String
+  hotel        Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  type         String
+  dateLocal    DateTime @map("date_local") @db.Date
+  timezone     String
+  metricsJson  Json     @map("metrics_json")
+  source       String   @default("openweathermap")
+  fetchedAtUtc DateTime @map("fetched_at_utc")
+  rawJson      Json?    @map("raw_json")
+  createdAtUtc DateTime @default(now()) @map("created_at_utc")
 
   @@unique([hotelId, type, dateLocal, source])
   @@index([hotelId, dateLocal])
   @@map("external_signals")
+}
+
+model PricingSnapshot {
+  id      String @id @default(cuid())
+  hotelId String
+  hotel   Hotel  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  windowStartUtc DateTime @map("window_start_utc")
+  windowEndUtc   DateTime @map("window_end_utc")
+  generatedAtUtc DateTime @default(now()) @map("generated_at_utc")
+
+  calendar Json
+  summary  Json
+
+  source  String @default("INTERNAL_RULES")
+  version String @default("v1")
+
+  @@index([hotelId])
+  @@index([generatedAtUtc])
+  @@map("pricing_snapshots")
+}
+model CompetitorHotel {
+  id        String   @id @default(cuid())
+  hotelId   String
+  hotel     Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  name      String
+  city      String?
+  country   String?
+  latitude  Float?
+  longitude Float?
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rates     CompetitorRateSnapshot[]
+
+  @@index([hotelId])
+  @@index([isActive])
+  @@map("competitor_hotels")
+}
+
+model CompetitorRateSnapshot {
+  id                String   @id @default(cuid())
+  competitorHotelId String
+  competitorHotel   CompetitorHotel @relation(fields: [competitorHotelId], references: [id], onDelete: Cascade)
+
+  // per-night "stay date"
+  nightDate         DateTime @map("night_date")
+
+  rate              Decimal  @db.Decimal(10,2)
+  currency          String   @default("USD")
+
+  // MANUAL now; later: LIGHTHOUSE/RATEGAIN/AMADEUS/etc.
+  source            String   @default("MANUAL")
+
+  collectedAtUtc    DateTime @default(now()) @map("collected_at_utc")
+
+  @@index([competitorHotelId])
+  @@index([nightDate])
+  @@map("competitor_rate_snapshots")
 }
 
 // ===========================================
@@ -152,7 +216,7 @@ model RoomType {
   id          String   @id @default(cuid())
   hotelId     String
   hotel       Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  name        String   // Standard, Deluxe, Suite
+  name        String // Standard, Deluxe, Suite
   description String?
   baseRate    Decimal  @db.Decimal(10, 2)
   maxGuests   Int      @default(2)
@@ -225,32 +289,32 @@ enum HousekeepingStatus {
 // ===========================================
 
 model Guest {
-  id          String    @id @default(cuid())
-  hotelId     String
-  hotel       Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  firstName   String
-  lastName    String
-  email       String?
-  phone       String?
-  address     String?
-  city        String?
-  country     String?
-  idType      String?   // Passport, Driver's License, National ID
-  idNumber    String?
-  nationality String?
-  dateOfBirth DateTime?
-  vipStatus   Boolean   @default(false)
-  isDeleted   Boolean   @default(false)
-  notes       String?
-  totalStays  Int       @default(0)
-  totalSpent  Decimal   @default(0) @db.Decimal(10, 2)
-  bookings    Booking[]
-  reviews     Review[]
+  id                String             @id @default(cuid())
+  hotelId           String
+  hotel             Hotel              @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  firstName         String
+  lastName          String
+  email             String?
+  phone             String?
+  address           String?
+  city              String?
+  country           String?
+  idType            String? // Passport, Driver's License, National ID
+  idNumber          String?
+  nationality       String?
+  dateOfBirth       DateTime?
+  vipStatus         Boolean            @default(false)
+  isDeleted         Boolean            @default(false)
+  notes             String?
+  totalStays        Int                @default(0)
+  totalSpent        Decimal            @default(0) @db.Decimal(10, 2)
+  bookings          Booking[]
+  reviews           Review[]
   conciergeRequests ConciergeRequest[]
-  conversations Conversation[]
-  messages Message[] @relation("MessageGuest")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  conversations     Conversation[]
+  messages          Message[]          @relation("MessageGuest")
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   @@index([hotelId])
   @@index([email])
@@ -262,39 +326,39 @@ model Guest {
 // ===========================================
 
 model Booking {
-  id              String        @id @default(cuid())
-  hotelId         String
-  hotel           Hotel         @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  guestId         String
-  guest           Guest         @relation(fields: [guestId], references: [id])
-  roomId          String?
-  room            Room?         @relation(fields: [roomId], references: [id])
-  bookingRef      String        @unique
-  checkInDate     DateTime
-  checkOutDate    DateTime
-  actualCheckIn   DateTime?
-  actualCheckOut  DateTime?
-  numberOfAdults  Int           @default(1)
-  numberOfChildren Int          @default(0)
-  status          BookingStatus @default(CONFIRMED)
-  source          BookingSource @default(DIRECT)
-  paymentMethod   PaymentMethod?
-  paymentConfirmed Boolean      @default(false)
-  specialRequests String?
-  internalNotes   String?
-  roomRate        Decimal       @db.Decimal(10, 2)
-  totalAmount     Decimal       @db.Decimal(10, 2)
-  paidAmount      Decimal       @default(0) @db.Decimal(10, 2)
-  charges         Charge[]
-  payments        Payment[]
-  invoices        Invoice[]
-  activityLogs    ActivityLog[]
-  calendarEvents  CalendarEvent[]
-  reviews         Review[]
+  id                String             @id @default(cuid())
+  hotelId           String
+  hotel             Hotel              @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  guestId           String
+  guest             Guest              @relation(fields: [guestId], references: [id])
+  roomId            String?
+  room              Room?              @relation(fields: [roomId], references: [id])
+  bookingRef        String             @unique
+  checkInDate       DateTime
+  checkOutDate      DateTime
+  actualCheckIn     DateTime?
+  actualCheckOut    DateTime?
+  numberOfAdults    Int                @default(1)
+  numberOfChildren  Int                @default(0)
+  status            BookingStatus      @default(CONFIRMED)
+  source            BookingSource      @default(DIRECT)
+  paymentMethod     PaymentMethod?
+  paymentConfirmed  Boolean            @default(false)
+  specialRequests   String?
+  internalNotes     String?
+  roomRate          Decimal            @db.Decimal(10, 2)
+  totalAmount       Decimal            @db.Decimal(10, 2)
+  paidAmount        Decimal            @default(0) @db.Decimal(10, 2)
+  charges           Charge[]
+  payments          Payment[]
+  invoices          Invoice[]
+  activityLogs      ActivityLog[]
+  calendarEvents    CalendarEvent[]
+  reviews           Review[]
   conciergeRequests ConciergeRequest[]
-  conversations   Conversation[]
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  conversations     Conversation[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   @@index([hotelId])
   @@index([guestId])
@@ -369,7 +433,7 @@ model Payment {
   booking         Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   amount          Decimal       @db.Decimal(10, 2)
   method          PaymentMethod
-  reference       String?       // Card last 4, check number, etc.
+  reference       String? // Card last 4, check number, etc.
   stripePaymentId String?
   notes           String?
   status          PaymentStatus @default(COMPLETED)
@@ -403,21 +467,21 @@ enum PaymentStatus {
 // ===========================================
 
 model Invoice {
-  id         String        @id @default(cuid())
-  hotelId    String
-  hotel      Hotel         @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  bookingId  String
-  booking    Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  invoiceNo  String        @unique
-  subtotal   Decimal       @db.Decimal(10, 2)
-  tax        Decimal       @db.Decimal(10, 2)
-  total      Decimal       @db.Decimal(10, 2)
-  status     InvoiceStatus @default(UNPAID)
-  pdfUrl     String?
-  issuedAt   DateTime      @default(now())
-  dueDate    DateTime?
-  paidAt     DateTime?
-  createdAt  DateTime      @default(now())
+  id        String        @id @default(cuid())
+  hotelId   String
+  hotel     Hotel         @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  bookingId String
+  booking   Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  invoiceNo String        @unique
+  subtotal  Decimal       @db.Decimal(10, 2)
+  tax       Decimal       @db.Decimal(10, 2)
+  total     Decimal       @db.Decimal(10, 2)
+  status    InvoiceStatus @default(UNPAID)
+  pdfUrl    String?
+  issuedAt  DateTime      @default(now())
+  dueDate   DateTime?
+  paidAt    DateTime?
+  createdAt DateTime      @default(now())
 
   @@index([hotelId])
   @@index([bookingId])
@@ -437,15 +501,15 @@ enum InvoiceStatus {
 // ===========================================
 
 model HousekeepingLog {
-  id        String             @id @default(cuid())
-  roomId    String
-  room      Room               @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User               @relation(fields: [userId], references: [id])
+  id         String             @id @default(cuid())
+  roomId     String
+  room       Room               @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User               @relation(fields: [userId], references: [id])
   fromStatus HousekeepingStatus
-  toStatus  HousekeepingStatus
-  notes     String?
-  createdAt DateTime           @default(now())
+  toStatus   HousekeepingStatus
+  notes      String?
+  createdAt  DateTime           @default(now())
 
   @@index([roomId])
   @@index([userId])
@@ -453,17 +517,17 @@ model HousekeepingLog {
 }
 
 model MaintenanceIssue {
-  id          String            @id @default(cuid())
+  id          String              @id @default(cuid())
   roomId      String
-  room        Room              @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  room        Room                @relation(fields: [roomId], references: [id], onDelete: Cascade)
   title       String
   description String?
   priority    MaintenancePriority @default(MEDIUM)
-  status      MaintenanceStatus @default(OPEN)
-  reportedAt  DateTime          @default(now())
+  status      MaintenanceStatus   @default(OPEN)
+  reportedAt  DateTime            @default(now())
   resolvedAt  DateTime?
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
 
   @@index([roomId])
   @@index([status])
@@ -494,7 +558,7 @@ model ActivityLog {
   bookingId String?
   booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
   action    String
-  entity    String   // e.g., "booking", "room", "guest"
+  entity    String // e.g., "booking", "room", "guest"
   entityId  String?
   details   Json?
   ipAddress String?
@@ -512,20 +576,20 @@ model ActivityLog {
 // ===========================================
 
 model Conversation {
-  id            String              @id @default(cuid())
+  id            String             @id @default(cuid())
   hotelId       String
-  hotel         Hotel               @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotel         Hotel              @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   guestId       String?
-  guest         Guest?              @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  guest         Guest?             @relation(fields: [guestId], references: [id], onDelete: SetNull)
   bookingId     String?
-  booking       Booking?            @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  booking       Booking?           @relation(fields: [bookingId], references: [id], onDelete: SetNull)
   subject       String?
-  status        ConversationStatus  @default(OPEN)
+  status        ConversationStatus @default(OPEN)
   lastMessageAt DateTime?
   messages      Message[]
   ticket        Ticket?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
   @@index([hotelId])
   @@index([guestId])
@@ -568,33 +632,34 @@ enum MessageSender {
 // ===========================================
 
 model Ticket {
-  id                  String           @id @default(cuid())
-  hotelId             String
-  hotel               Hotel            @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  hotelId String
+  hotel   Hotel  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
 
-  conversationId      String           @unique
-  conversation        Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId String       @unique
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
-  type                TicketType       @default(GENERAL_INQUIRY)
-  category            TicketCategory   @default(OTHER)
-  department          Department       @default(FRONT_DESK)
-  priority            TicketPriority   @default(MEDIUM)
-  status              TicketStatus     @default(OPEN)
+  type       TicketType     @default(GENERAL_INQUIRY)
+  category   TicketCategory @default(OTHER)
+  department Department     @default(FRONT_DESK)
+  priority   TicketPriority @default(MEDIUM)
+  status     TicketStatus   @default(OPEN)
 
-  assignedToId        String?
-  assignedTo          User?            @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedToId String?
+  assignedTo   User?   @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
 
-  responseDueAtUtc    DateTime?        @map("response_due_at_utc")
-  resolutionDueAtUtc  DateTime?        @map("resolution_due_at_utc")
-  firstResponseAtUtc  DateTime?        @map("first_response_at_utc")
-  resolvedAtUtc       DateTime?        @map("resolved_at_utc")
+  responseDueAtUtc   DateTime? @map("response_due_at_utc")
+  resolutionDueAtUtc DateTime? @map("resolution_due_at_utc")
+  firstResponseAtUtc DateTime? @map("first_response_at_utc")
+  resolvedAtUtc      DateTime? @map("resolved_at_utc")
 
-  escalatedLevel      Int              @default(0) @map("escalated_level")
-  lastEscalationAtUtc DateTime?        @map("last_escalation_at_utc")
-  details             Json?            @map("details")
+  escalatedLevel      Int       @default(0) @map("escalated_level")
+  lastEscalationAtUtc DateTime? @map("last_escalation_at_utc")
+  sourceKey           String?   @unique @map("source_key")
+  details             Json?     @map("details")
 
-  createdAtUtc        DateTime         @default(now()) @map("created_at_utc")
-  updatedAtUtc        DateTime         @updatedAt @map("updated_at_utc")
+  createdAtUtc DateTime @default(now()) @map("created_at_utc")
+  updatedAtUtc DateTime @updatedAt @map("updated_at_utc")
 
   @@index([hotelId])
   @@index([status])
@@ -606,18 +671,18 @@ model Ticket {
 }
 
 model SLAPolicy {
-  id                   String         @id @default(cuid())
-  hotelId              String
-  hotel                Hotel          @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  hotelId String
+  hotel   Hotel  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
 
-  category             TicketCategory
-  department           Department
-  responseMinutes      Int
-  resolutionMinutes    Int
-  escalationStepsJson  Json           @map("escalation_steps_json")
-  isActive             Boolean        @default(true)
+  category            TicketCategory
+  department          Department
+  responseMinutes     Int
+  resolutionMinutes   Int
+  escalationStepsJson Json           @map("escalation_steps_json")
+  isActive            Boolean        @default(true)
 
-  createdAtUtc         DateTime       @default(now()) @map("created_at_utc")
+  createdAtUtc DateTime @default(now()) @map("created_at_utc")
 
   @@unique([hotelId, category, department])
   @@index([hotelId])
@@ -671,23 +736,23 @@ enum TicketCategory {
 // ===========================================
 
 model Notification {
-  id          String           @id @default(cuid())
-  userId      String
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  hotelId     String
-  hotel       Hotel            @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hotelId String
+  hotel   Hotel  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
 
-  type        NotificationType
-  title       String
-  body        String
-  isRead      Boolean          @default(false)
-  readAt      DateTime?
+  type   NotificationType
+  title  String
+  body   String
+  isRead Boolean          @default(false)
+  readAt DateTime?
 
   // Optional link to ticket that triggered the notification
-  ticketId    String?
+  ticketId       String?
   conversationId String?
 
-  createdAt   DateTime         @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([hotelId])
@@ -711,20 +776,20 @@ enum NotificationType {
 // ===========================================
 
 model InventoryItem {
-  id             String   @id @default(cuid())
-  hotelId        String
-  hotel          Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  name           String
-  category       String
-  unit           String
-  quantityOnHand Int      @default(0)
-  reorderPoint   Int      @default(0)
-  cost           Decimal  @default(0) @db.Decimal(10, 2)
-  location       String?
-  isActive       Boolean  @default(true)
+  id                 String              @id @default(cuid())
+  hotelId            String
+  hotel              Hotel               @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  name               String
+  category           String
+  unit               String
+  quantityOnHand     Int                 @default(0)
+  reorderPoint       Int                 @default(0)
+  cost               Decimal             @default(0) @db.Decimal(10, 2)
+  location           String?
+  isActive           Boolean             @default(true)
   purchaseOrderItems PurchaseOrderItem[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
   @@index([hotelId])
   @@index([category])
@@ -757,17 +822,17 @@ model PurchaseOrder {
 }
 
 model PurchaseOrderItem {
-  id               String        @id @default(cuid())
-  purchaseOrderId  String
-  purchaseOrder    PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  inventoryItemId  String?
-  inventoryItem    InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
-  name             String
-  unit             String
-  quantity         Int
-  unitCost         Decimal       @db.Decimal(10, 2)
-  totalCost        Decimal       @db.Decimal(10, 2)
-  createdAt        DateTime      @default(now())
+  id              String         @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  inventoryItemId String?
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  name            String
+  unit            String
+  quantity        Int
+  unitCost        Decimal        @db.Decimal(10, 2)
+  totalCost       Decimal        @db.Decimal(10, 2)
+  createdAt       DateTime       @default(now())
 
   @@index([purchaseOrderId])
   @@index([inventoryItemId])
@@ -786,46 +851,46 @@ enum PurchaseOrderStatus {
 // ===========================================
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String   @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId])
   @@index([expiresAt])
 }
 
 model EmailOtp {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
   email     String
   purpose   String
   codeHash  String
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([email])
   @@index([expiresAt])
 }
 
 model AccessRequest {
-  id        String   @id @default(cuid())
-  fullName  String
-  email     String
-  company   String?
-  role      String?
-  message   String?
-  adminNotes String?
+  id          String               @id @default(cuid())
+  fullName    String
+  email       String
+  company     String?
+  role        String?
+  message     String?
+  adminNotes  String?
   lastReplyAt DateTime?
-  status    AccessRequestStatus @default(PENDING)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  replies   AccessRequestReply[]
+  status      AccessRequestStatus  @default(PENDING)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  replies     AccessRequestReply[]
 
   @@index([email])
   @@index([status])
@@ -840,7 +905,7 @@ enum AccessRequestStatus {
 }
 
 model AccessRequestReply {
-  id              String   @id @default(cuid())
+  id              String        @id @default(cuid())
   accessRequestId String
   accessRequest   AccessRequest @relation(fields: [accessRequestId], references: [id], onDelete: Cascade)
   fromEmail       String
@@ -848,9 +913,9 @@ model AccessRequestReply {
   bodyText        String?
   bodyHtml        String?
   attachments     Json?
-  messageId       String   @unique
+  messageId       String        @unique
   receivedAt      DateTime
-  createdAt       DateTime @default(now())
+  createdAt       DateTime      @default(now())
 
   @@index([accessRequestId])
   @@index([receivedAt])
@@ -861,21 +926,21 @@ model AccessRequestReply {
 // ===========================================
 
 model CalendarEvent {
-  id         String             @id @default(cuid())
-  hotelId    String
-  hotel      Hotel              @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  title      String
-  type       CalendarEventType  @default(OTHER)
-  status     CalendarEventStatus @default(SCHEDULED)
-  startAt    DateTime
-  endAt      DateTime
-  roomId     String?
-  room       Room?              @relation(fields: [roomId], references: [id], onDelete: SetNull)
-  bookingId  String?
-  booking    Booking?           @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  notes      String?
-  createdAt  DateTime           @default(now())
-  updatedAt  DateTime           @updatedAt
+  id        String              @id @default(cuid())
+  hotelId   String
+  hotel     Hotel               @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  title     String
+  type      CalendarEventType   @default(OTHER)
+  status    CalendarEventStatus @default(SCHEDULED)
+  startAt   DateTime
+  endAt     DateTime
+  roomId    String?
+  room      Room?               @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  bookingId String?
+  booking   Booking?            @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  notes     String?
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
 
   @@index([hotelId])
   @@index([startAt])
@@ -939,24 +1004,24 @@ enum ReviewSource {
 // ===========================================
 
 model ConciergeRequest {
-  id           String             @id @default(cuid())
+  id           String            @id @default(cuid())
   hotelId      String
-  hotel        Hotel              @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  hotel        Hotel             @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   guestId      String?
-  guest        Guest?             @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  guest        Guest?            @relation(fields: [guestId], references: [id], onDelete: SetNull)
   roomId       String?
-  room         Room?              @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  room         Room?             @relation(fields: [roomId], references: [id], onDelete: SetNull)
   bookingId    String?
-  booking      Booking?           @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  booking      Booking?          @relation(fields: [bookingId], references: [id], onDelete: SetNull)
   assignedToId String?
-  assignedTo   User?              @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedTo   User?             @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
   title        String
   details      String?
-  status       ConciergeStatus    @default(PENDING)
-  priority     ConciergePriority  @default(MEDIUM)
+  status       ConciergeStatus   @default(PENDING)
+  priority     ConciergePriority @default(MEDIUM)
   dueAt        DateTime?
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
 
   @@index([hotelId])
   @@index([status])
@@ -977,3 +1042,4 @@ enum ConciergePriority {
   HIGH
   URGENT
 }
+

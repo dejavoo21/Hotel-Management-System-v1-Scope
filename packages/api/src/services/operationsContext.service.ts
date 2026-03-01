@@ -1,6 +1,7 @@
 import { prisma } from '../config/database.js';
 import type { WeatherContext } from './weatherContext.provider.js';
 import { getWeatherContextForHotel } from './weatherContext.provider.js';
+import { generatePricingForecastSnapshot } from './pricingForecast.service.js';
 import { routeOpsAdvisory } from './opsRouting.rules.js';
 
 export type WeatherActionPriority = 'low' | 'medium' | 'high';
@@ -30,6 +31,73 @@ export interface OpsContext {
   inhouseNow: number;
   windowStartUtc: string;
   windowEndUtc: string;
+}
+
+const PRICING_SNAPSHOT_STALE_MINUTES = 90;
+
+function isSnapshotStale(generatedAtUtc: Date, maxAgeMinutes: number): boolean {
+  const ageMs = Date.now() - generatedAtUtc.getTime();
+  return ageMs > maxAgeMinutes * 60 * 1000;
+}
+
+async function getLatestPricingSnapshotForHotel(hotelId: string) {
+  return prisma.pricingSnapshot.findFirst({
+    where: { hotelId, version: 'v1' },
+    orderBy: { generatedAtUtc: 'desc' },
+    select: {
+      id: true,
+      generatedAtUtc: true,
+      windowStartUtc: true,
+      windowEndUtc: true,
+      calendar: true,
+      summary: true,
+      source: true,
+      version: true,
+    },
+  });
+}
+
+async function resolvePricingForecast(hotelId: string) {
+  const latest = await getLatestPricingSnapshotForHotel(hotelId);
+
+  if (latest && !isSnapshotStale(latest.generatedAtUtc, PRICING_SNAPSHOT_STALE_MINUTES)) {
+    return {
+      mode: 'SNAPSHOT' as const,
+      generatedAtUtc: latest.generatedAtUtc.toISOString(),
+      windowStartUtc: latest.windowStartUtc.toISOString(),
+      windowEndUtc: latest.windowEndUtc.toISOString(),
+      source: latest.source,
+      version: latest.version,
+      summary: latest.summary,
+      calendar: latest.calendar,
+    };
+  }
+
+  const computed = await generatePricingForecastSnapshot(hotelId, 30);
+
+  await prisma.pricingSnapshot.create({
+    data: {
+      hotelId,
+      windowStartUtc: new Date(computed.windowStartUtc),
+      windowEndUtc: new Date(computed.windowEndUtc),
+      generatedAtUtc: new Date(computed.generatedAtUtc),
+      calendar: computed.calendar,
+      summary: computed.summary,
+      source: computed.source,
+      version: computed.version,
+    },
+  });
+
+  return {
+    mode: 'LIVE_FALLBACK' as const,
+    generatedAtUtc: computed.generatedAtUtc,
+    windowStartUtc: computed.windowStartUtc,
+    windowEndUtc: computed.windowEndUtc,
+    source: computed.source,
+    version: computed.version,
+    summary: computed.summary,
+    calendar: computed.calendar,
+  };
 }
 
 function clampText(value: string, maxLen: number): string {
@@ -240,9 +308,10 @@ export async function getWeatherOpsActions(
 }
 
 export async function getOperationsContext(hotelId: string) {
-  const [weather, ops] = await Promise.all([
+  const [weather, ops, pricingForecast] = await Promise.all([
     getWeatherContextForHotel(hotelId),
     getOpsContextForHotel(hotelId),
+    resolvePricingForecast(hotelId),
   ]);
 
   const advisoriesResult = await getWeatherOpsActions(weather, ops);
@@ -279,14 +348,18 @@ export async function getOperationsContext(hotelId: string) {
     });
   }
 
-  const demandTrend: 'down' | 'flat' | 'up' =
-    ops.arrivalsNext24h > ops.departuresNext24h
-      ? 'up'
-      : ops.arrivalsNext24h < ops.departuresNext24h
-        ? 'down'
-        : 'flat';
-  const opportunityPct = demandTrend === 'up' ? 6 : demandTrend === 'down' ? -4 : 0;
-  const confidence: 'low' | 'medium' | 'high' = weather?.isFresh ? 'medium' : 'low';
+  const pricingSummary = (pricingForecast.summary ?? {}) as {
+    demandTrend: 'down' | 'flat' | 'up';
+    opportunityPct: number;
+    confidence: 'low' | 'medium' | 'high';
+    marketCoveragePct?: number;
+    marketSamplesTotal?: number;
+    nightsWithMarket?: number;
+    nightsTotal?: number;
+  };
+  const pricingSignalDemandTrend = pricingSummary.demandTrend;
+  const pricingSignalOpportunityPct = pricingSummary.opportunityPct;
+  const pricingSignalConfidence = pricingSummary.confidence;
 
   return {
     hotelId,
@@ -310,16 +383,36 @@ export async function getOperationsContext(hotelId: string) {
           next24h: weather.next24h,
         }
       : null,
+    pricingForecast: {
+      mode: pricingForecast.mode,
+      generatedAtUtc: pricingForecast.generatedAtUtc,
+      windowStartUtc: pricingForecast.windowStartUtc,
+      windowEndUtc: pricingForecast.windowEndUtc,
+      source: pricingForecast.source,
+      version: pricingForecast.version,
+      summary: pricingForecast.summary,
+      calendar: pricingForecast.calendar,
+    },
+    pricingCalendar: pricingForecast.calendar,
+    pricingSnapshotMeta: {
+      generatedAtUtc: pricingForecast.generatedAtUtc,
+      source: pricingForecast.source,
+      version: pricingForecast.version,
+    },
     pricingSignal: {
-      demandTrend,
-      opportunityPct,
-      confidence,
+      demandTrend: pricingSignalDemandTrend,
+      opportunityPct: pricingSignalOpportunityPct,
+      confidence: pricingSignalConfidence,
+      marketCoveragePct: pricingSummary.marketCoveragePct ?? 0,
+      marketSamplesTotal: pricingSummary.marketSamplesTotal ?? 0,
+      nightsWithMarket: pricingSummary.nightsWithMarket ?? 0,
+      nightsTotal: pricingSummary.nightsTotal ?? pricingForecast.calendar.length,
       note:
-        demandTrend === 'up'
-          ? `Consider a +${opportunityPct}% rate lift for high-demand windows.`
-          : demandTrend === 'down'
-            ? `Consider promotional pricing (${opportunityPct}%) to stabilize occupancy.`
-            : 'Keep current rates and monitor booking pace.',
+        pricingSignalDemandTrend === 'up'
+          ? `Demand strengthening - consider +${pricingSignalOpportunityPct}% pricing adjustment.`
+          : pricingSignalDemandTrend === 'down'
+            ? `Demand softening - consider ${pricingSignalOpportunityPct}% promotional adjustment.`
+            : 'Demand stable - maintain current pricing and monitor pace.',
     },
     advisories: advisoryBase.map(({ id, item }) => {
       const routed = routeOpsAdvisory({

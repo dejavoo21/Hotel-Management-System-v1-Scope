@@ -183,7 +183,8 @@ export default function OpsAdvisories({ context, onCreateTask, onAssign, onDismi
   }, [advisories, deptFilter, priorityFilter, createdFilter, dismissedIds, createdTicketIds]);
 
   const createTicketMutation = useMutation({
-    mutationFn: async (advisory: Advisory) => {
+    mutationFn: async (input: { advisoryId: string; advisory: Advisory }) => {
+      const { advisory } = input;
       const payload: CreateAdvisoryTicketInput = {
         advisoryId: advisory.id,
         title: advisory.title,
@@ -197,12 +198,12 @@ export default function OpsAdvisories({ context, onCreateTask, onAssign, onDismi
         },
       };
       const result = await operationsService.createAdvisoryTicket(payload);
-      return { result, advisory };
+      return { result, advisoryId: input.advisoryId };
     },
-    onSuccess: ({ result, advisory }) => {
+    onSuccess: ({ result, advisoryId }) => {
       setCreatedTicketIds((prev) => ({
         ...prev,
-        [advisory.id]: {
+        [advisoryId]: {
           ticketId: result.ticketId,
           conversationId: result.conversationId,
           createdAtUtc: new Date().toISOString(),
@@ -239,7 +240,7 @@ export default function OpsAdvisories({ context, onCreateTask, onAssign, onDismi
       onCreateTask(advisory);
       return;
     }
-    createTicketMutation.mutate(advisory);
+    createTicketMutation.mutate({ advisoryId: advisory.id, advisory });
   };
 
   const handleAssign = (advisory: Advisory) => {
@@ -340,42 +341,53 @@ export default function OpsAdvisories({ context, onCreateTask, onAssign, onDismi
         ) : (
           filtered.map((a) => {
             const meta = priorityMeta(a.priority);
-            const creatingThis = createTicketMutation.isPending && createTicketMutation.variables?.id === a.id;
             const createdTicket = a.createdTicket ?? createdTicketIds[a.id] ?? null;
+            const creatingThis =
+              createTicketMutation.isPending &&
+              createTicketMutation.variables?.advisoryId === a.id;
+
             return (
               <div
                 key={a.id}
-                className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md"
+                className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow-md"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 ring-1 ring-slate-200">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 ring-1 ring-slate-200 transition group-hover:bg-slate-100">
                         {departmentIcon(a.department)}
                       </div>
 
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-slate-900">{a.title}</div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                        <div className="truncate text-sm font-semibold text-slate-900">
+                          {a.title}
+                        </div>
+
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
                           <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
                             {prettyDepartment(a.department)}
                           </span>
+
                           <span
                             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${meta.bg} ${meta.text} ${meta.ring}`}
                           >
                             {meta.icon}
                             {meta.label}
                           </span>
-                          {createdTicket ? (
-                            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
+
+                          {createdTicket && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                              <IconCheckCircle className="h-3.5 w-3.5" />
                               Created
                             </span>
-                          ) : null}
+                          )}
                         </div>
                       </div>
                     </div>
 
-                    <div className="mt-3 text-sm text-slate-600">{a.reason}</div>
+                    <div className="mt-3 text-sm leading-relaxed text-slate-600">
+                      {a.reason}
+                    </div>
                   </div>
 
                   <div className="flex shrink-0 items-center gap-2">
@@ -383,7 +395,7 @@ export default function OpsAdvisories({ context, onCreateTask, onAssign, onDismi
                       <button
                         type="button"
                         onClick={() => handleViewTask(createdTicket)}
-                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 transition hover:bg-slate-50"
                       >
                         <IconClipboard className="h-4 w-4" />
                         View task
@@ -393,7 +405,7 @@ export default function OpsAdvisories({ context, onCreateTask, onAssign, onDismi
                         type="button"
                         disabled={creatingThis}
                         onClick={() => handleCreateTask(a)}
-                        className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <IconClipboard className="h-4 w-4" />
                         {creatingThis ? 'Creating...' : 'Create task'}
@@ -402,8 +414,9 @@ export default function OpsAdvisories({ context, onCreateTask, onAssign, onDismi
 
                     <button
                       type="button"
+                      disabled={Boolean(createdTicket)}
                       onClick={() => handleAssign(a)}
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       Assign
                     </button>
@@ -411,7 +424,7 @@ export default function OpsAdvisories({ context, onCreateTask, onAssign, onDismi
                     <button
                       type="button"
                       onClick={() => handleDismiss(a)}
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
                       aria-label="Dismiss"
                     >
                       <IconX className="h-4 w-4" />

@@ -24,8 +24,65 @@ export type OperationsContext = {
     demandTrend?: 'down' | 'flat' | 'up';
     opportunityPct?: number;
     confidence?: 'low' | 'medium' | 'high';
+    marketCoveragePct?: number;
+    marketSamplesTotal?: number;
+    nightsWithMarket?: number;
+    nightsTotal?: number;
     note?: string;
     suggestion?: string;
+  };
+  pricingSnapshotMeta?: {
+    generatedAtUtc?: string;
+    source?: string;
+    version?: string;
+  };
+  pricingCalendar?: Array<{
+    date: string;
+    occupancyForecast: number;
+    suggestedAdjustmentPct: number;
+    confidence: 'low' | 'medium' | 'high';
+    reasons?: string[];
+    marketMedian?: number | null;
+    marketMin?: number | null;
+    marketMax?: number | null;
+    marketSamples?: number;
+    positionVsMarketPct?: number | null;
+  }>;
+  pricingForecast?: {
+    mode: 'SNAPSHOT' | 'LIVE_FALLBACK';
+    generatedAtUtc: string;
+    windowStartUtc: string;
+    windowEndUtc: string;
+    source: string;
+    version: string;
+    summary: {
+      demandTrend?: 'down' | 'flat' | 'up';
+      opportunityPct?: number;
+      confidence?: 'low' | 'medium' | 'high';
+      adrBaseEstimate?: number | null;
+      occupancyNext7dAvg?: number | null;
+      reasons?: string[];
+      marketCoveragePct?: number;
+      marketSamplesTotal?: number;
+      nightsWithMarket?: number;
+      nightsTotal?: number;
+    };
+    calendar: Array<{
+      date: string;
+      bookingsCount: number;
+      arrivals: number;
+      departures: number;
+      occupancyForecast: number;
+      adrEstimate: number | null;
+      suggestedAdjustmentPct: number;
+      confidence: 'low' | 'medium' | 'high';
+      reasons: string[];
+      marketMedian?: number | null;
+      marketMin?: number | null;
+      marketMax?: number | null;
+      marketSamples?: number;
+      positionVsMarketPct?: number | null;
+    }>;
   };
   // Backward-compatible fallback for older API payloads
   pricing?: {
@@ -99,6 +156,32 @@ export type CreateWeatherActionTicketResult = {
   createdAtUtc: string;
 };
 
+export type CreatePricingActionTicketInput = {
+  nightDate: string;
+  action: string;
+  reason: string;
+  confidence?: 'low' | 'medium' | 'high';
+  department?: 'FRONT_DESK' | 'HOUSEKEEPING' | 'MAINTENANCE' | 'CONCIERGE' | 'BILLING' | 'MANAGEMENT';
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  metadata?: Record<string, unknown>;
+};
+
+export type CreatePricingActionTicketResult = {
+  ticketId: string;
+  status: 'OPEN' | 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'BREACHED';
+  department: string;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  conversationId: string;
+  assignedToId?: string | null;
+  assignedTo?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  } | null;
+  deduped?: boolean;
+  ticketUrl?: string;
+};
+
 export const operationsService = {
   async getOperationsContext(_hotelId: string): Promise<OperationsContext> {
     const response = await api.get('/operations/context', {
@@ -117,6 +200,10 @@ export const operationsService = {
   async createTicketFromWeatherAction(actionId: string, payload: CreateWeatherActionTicketInput): Promise<CreateWeatherActionTicketResult> {
     const response = await api.post(`/ai/weather-actions/${encodeURIComponent(actionId)}/create-ticket`, payload);
     return response.data.data as CreateWeatherActionTicketResult;
+  },
+  async createTicketFromPricingAction(payload: CreatePricingActionTicketInput): Promise<CreatePricingActionTicketResult> {
+    const response = await api.post('/operations/pricing-actions/create-ticket', payload);
+    return response.data.data as CreatePricingActionTicketResult;
   },
 };
 
