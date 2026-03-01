@@ -6,11 +6,247 @@ import { Department, TicketCategory, TicketPriority } from '@prisma/client';
 import { prisma } from '../config/database.js';
 import { AdvisoryPriority, routeOpsAdvisory } from '../services/opsRouting.rules.js';
 import { pickAssigneeForDepartment } from '../services/opsAssignment.rules.js';
+import { runOpsAssistant } from '../services/ai/opsAssistant.service.js';
 
 const router = Router();
 
 router.use(authenticate);
 router.use(requireModuleAccess('bookings'));
+
+type OpsChatMode = 'general' | 'operations' | 'pricing' | 'weather';
+
+type OpsChatBody = {
+  message: string;
+  mode?: OpsChatMode;
+  context?: Record<string, unknown> | null;
+  conversationId?: string | null;
+};
+
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value : String(value ?? '');
+}
+
+async function generateOpsAssistantReply(args: {
+  hotelId: string;
+  userId: string;
+  message: string;
+  mode: OpsChatMode;
+  context?: Record<string, unknown> | null;
+}) {
+  const { hotelId, userId, message, mode, context } = args;
+
+  const hasContext = Boolean(context && typeof context === 'object');
+  if (!process.env.OPENAI_API_KEY || process.env.ASSISTANT_PROVIDER === 'none') {
+    const advisories = Array.isArray(context?.advisories) ? context.advisories : [];
+    const top = advisories
+      .slice(0, 3)
+      .map((a: any, i: number) => `${i + 1}. ${a?.title ?? 'Advisory'} (${a?.department ?? 'FRONT_DESK'})`)
+      .join('\n');
+
+    const lower = message.toLowerCase();
+    if (lower.includes('what needs attention') || lower.includes('today')) {
+      return top
+        ? `Here are the top items needing attention:\n${top}`
+        : 'No advisories available right now. Refresh context and forecast.';
+    }
+
+    if (mode === 'pricing') {
+      const p: any = context?.pricingSignal ?? context?.pricing;
+      if (!p) return 'No pricing signal available yet. Add booking pace data or market rates.';
+      return `Pricing guidance: ${p.note || 'Keep current rates and monitor booking pace.'} (Confidence: ${p.confidence || 'low'})`;
+    }
+
+    if (mode === 'weather') {
+      const w: any = context?.weather;
+      if (!w) return 'No weather context available yet. Refresh forecast first.';
+      return `Weather outlook: ${w?.next24h?.summary || 'No summary available'} (Rain risk: ${w?.next24h?.rainRisk || 'unknown'}).`;
+    }
+
+    if (!hasContext) {
+      return 'Load Operations Center context first for richer answers.';
+    }
+    return 'I can help with priorities, pricing guidance, weather risks, and creating tasks.';
+  }
+
+  const contextBlock = hasContext
+    ? `\n\nMode: ${mode}\nContext:\n${JSON.stringify(context).slice(0, 6000)}`
+    : `\n\nMode: ${mode}`;
+
+  return runOpsAssistant({
+    hotelId,
+    userId,
+    message: `${message}${contextBlock}`,
+  });
+}
+
+const handleOpsChat = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const hotelId = req.user!.hotelId;
+    const userId = req.user!.id;
+
+    const body = (req.body ?? {}) as OpsChatBody;
+    const message = asString(body.message).trim();
+    const mode: OpsChatMode = body.mode ?? 'operations';
+    const context = body.context ?? null;
+    const incomingConversationId = body.conversationId ? asString(body.conversationId) : null;
+
+    if (!message) {
+      res.status(400).json({ success: false, error: 'message is required' });
+      return;
+    }
+
+    let conversation = null as { id: string } | null;
+
+    if (incomingConversationId) {
+      conversation = await prisma.conversation.findFirst({
+        where: { id: incomingConversationId, hotelId },
+        select: { id: true },
+      });
+    }
+
+    if (!conversation) {
+      conversation = await prisma.conversation.create({
+        data: {
+          hotelId,
+          subject: `Operations Concierge (${mode})`,
+          status: 'OPEN',
+          lastMessageAt: new Date(),
+        },
+        select: { id: true },
+      });
+    }
+
+    const conversationId = conversation.id;
+
+    await prisma.message.create({
+      data: {
+        conversationId,
+        senderType: 'STAFF',
+        senderUserId: userId,
+        body: message,
+      },
+    });
+
+    const reply = await generateOpsAssistantReply({
+      hotelId,
+      userId,
+      message,
+      mode,
+      context,
+    });
+
+    await prisma.message.create({
+      data: {
+        conversationId,
+        senderType: 'SYSTEM',
+        body: reply,
+      },
+    });
+
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: { lastMessageAt: new Date() },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        reply,
+        mode,
+        generatedAtUtc: new Date().toISOString(),
+        conversationId,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+router.post('/assistant/chat', handleOpsChat);
+router.post('/assistant/ops/chat', handleOpsChat);
+
+router.get('/assistant/conversations/:conversationId/transcript', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const hotelId = req.user!.hotelId;
+    const conversationId = String(req.params.conversationId);
+
+    const convo = await prisma.conversation.findFirst({
+      where: { id: conversationId, hotelId },
+      select: { id: true, subject: true, createdAt: true, lastMessageAt: true },
+    });
+
+    if (!convo) {
+      res.status(404).json({ success: false, error: 'Conversation not found' });
+      return;
+    }
+
+    const messages = await prisma.message.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        senderType: true,
+        senderUserId: true,
+        body: true,
+        createdAt: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        conversation: convo,
+        messages,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/assistant/conversations/:conversationId/transcript.txt', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const hotelId = req.user!.hotelId;
+    const conversationId = String(req.params.conversationId);
+
+    const convo = await prisma.conversation.findFirst({
+      where: { id: conversationId, hotelId },
+      select: { id: true, subject: true, createdAt: true },
+    });
+
+    if (!convo) {
+      res.status(404).json({ success: false, error: 'Conversation not found' });
+      return;
+    }
+
+    const messages = await prisma.message.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: 'asc' },
+      select: { senderType: true, body: true, createdAt: true },
+    });
+
+    const lines: string[] = [];
+    lines.push(`Conversation: ${convo.subject ?? 'Operations Concierge'}`);
+    lines.push(`Started: ${convo.createdAt.toISOString()}`);
+    lines.push('---');
+
+    for (const m of messages) {
+      const who =
+        m.senderType === 'STAFF' ? 'Staff' :
+        m.senderType === 'GUEST' ? 'Guest' :
+        'Assistant';
+      lines.push(`[${m.createdAt.toISOString()}] ${who}: ${m.body}`);
+    }
+
+    const text = lines.join('\n');
+
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="transcript-${conversationId}.txt"`);
+    res.status(200).send(text);
+  } catch (error) {
+    next(error);
+  }
+});
 
 type CreateAdvisoryTicketBody = {
   advisoryId?: string;
