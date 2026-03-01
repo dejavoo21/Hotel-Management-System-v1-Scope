@@ -7,11 +7,7 @@ import { requestLoggerFormat, logger } from './config/logger.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { checkClamAvHealth } from './services/virusScan.service.js';
 
-// Check demo mode
-const isDemoMode = !config.databaseUrl || process.env.DEMO_MODE === 'true';
-
 // Import routes (conditionally)
-import demoRoutes from './demo/demoRoutes.js';
 import authRoutes from './routes/auth.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
 import roomRoutes from './routes/room.routes.js';
@@ -165,7 +161,7 @@ export function createApp(): Application {
         name: 'LaFlo Hotel Management System API',
         version: '1.0.0',
         status: 'running',
-        mode: isDemoMode ? 'demo' : 'production',
+        mode: 'production',
         endpoints: {
           health: '/health',
           auth: '/api/auth',
@@ -210,48 +206,41 @@ export function createApp(): Application {
     res.status(503).json({ success: false, error: result.output, data: { status: 'error' } });
   });
 
-  // API Routes
-  if (isDemoMode) {
-    // Use demo routes (no database required)
-    app.use('/api', demoRoutes);
-    logger.info('🎭 Using DEMO routes (mock data)');
-  } else {
-    // Use real routes with database
-    app.use('/api/auth', authRoutes);
-    app.use('/api/dashboard', dashboardRoutes);
-    app.use('/api/rooms', roomRoutes);
-    app.use('/api/room-types', roomTypeRoutes);
-    app.use('/api/bookings', bookingRoutes);
-    app.use('/api/guests', guestRoutes);
-    app.use('/api/housekeeping', housekeepingRoutes);
-    app.use('/api/invoices', invoiceRoutes);
-    app.use('/api/users', userRoutes);
-    app.use('/api/reports', reportRoutes);
-    app.use('/api/payments', paymentRoutes);
-    app.use('/api/inventory', inventoryRoutes);
-    app.use('/api/calendar', calendarRoutes);
-    app.use('/api/reviews', reviewRoutes);
-    app.use('/api/concierge', conciergeRoutes);
-    app.use('/api/hotels', hotelRoutes);
-    app.use('/api/messages', messageRoutes);
-    app.use('/api/access-requests', accessRequestRoutes);
-    app.use('/api/floors', floorRoutes);
-    app.use('/api/purchase-orders', purchaseOrderRoutes);
-    app.use('/api/calls', callRoutes);
-    app.use('/api/signals/weather', weatherSignalRoutes);
-    app.use('/api/jobs', jobRoutes);
-    app.use('/api/jobs', marketRatesJobRoutes);
-    app.use('/api/market', marketRoutes);
-    app.use('/api/tickets', ticketRoutes);
-    app.use('/api/notifications', notificationRoutes);
-    app.use('/api/ai', aiHooksRoutes);
-    app.use('/api/assistant', assistantRoutes);
-    app.use('/api/operations/assistant', operationsAssistantRoutes);
-    app.use('/api/operations/assistant', operationsAssistantActionsRoutes);
-    app.use('/api/conversations', transcriptRoutes);
-    app.use('/api/presence', presenceRoutes);
-    app.use('/api/operations', operationsRoutes);
-  }
+  // API Routes (real database-backed routes only)
+  app.use('/api/auth', authRoutes);
+  app.use('/api/dashboard', dashboardRoutes);
+  app.use('/api/rooms', roomRoutes);
+  app.use('/api/room-types', roomTypeRoutes);
+  app.use('/api/bookings', bookingRoutes);
+  app.use('/api/guests', guestRoutes);
+  app.use('/api/housekeeping', housekeepingRoutes);
+  app.use('/api/invoices', invoiceRoutes);
+  app.use('/api/users', userRoutes);
+  app.use('/api/reports', reportRoutes);
+  app.use('/api/payments', paymentRoutes);
+  app.use('/api/inventory', inventoryRoutes);
+  app.use('/api/calendar', calendarRoutes);
+  app.use('/api/reviews', reviewRoutes);
+  app.use('/api/concierge', conciergeRoutes);
+  app.use('/api/hotels', hotelRoutes);
+  app.use('/api/messages', messageRoutes);
+  app.use('/api/access-requests', accessRequestRoutes);
+  app.use('/api/floors', floorRoutes);
+  app.use('/api/purchase-orders', purchaseOrderRoutes);
+  app.use('/api/calls', callRoutes);
+  app.use('/api/signals/weather', weatherSignalRoutes);
+  app.use('/api/jobs', jobRoutes);
+  app.use('/api/jobs', marketRatesJobRoutes);
+  app.use('/api/market', marketRoutes);
+  app.use('/api/tickets', ticketRoutes);
+  app.use('/api/notifications', notificationRoutes);
+  app.use('/api/ai', aiHooksRoutes);
+  app.use('/api/assistant', assistantRoutes);
+  app.use('/api/operations/assistant', operationsAssistantRoutes);
+  app.use('/api/operations/assistant', operationsAssistantActionsRoutes);
+  app.use('/api/conversations', transcriptRoutes);
+  app.use('/api/presence', presenceRoutes);
+  app.use('/api/operations', operationsRoutes);
 
   // API documentation endpoint
   app.get('/api', (_req, res) => {

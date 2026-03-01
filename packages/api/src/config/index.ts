@@ -10,7 +10,8 @@ export const config = {
   port: parseInt(process.env.PORT || '4010', 10),
   apiUrl: process.env.API_URL || 'http://localhost:4010',
   appUrl: process.env.APP_URL || 'http://localhost:4212',
-  demoMode: process.env.DEMO_MODE === 'true',
+  // Demo mode is permanently disabled; all environments use real data.
+  demoMode: false,
 
   // Database
   databaseUrl: process.env.DATABASE_URL || '',

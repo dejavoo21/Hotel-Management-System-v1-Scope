@@ -7,8 +7,6 @@ import { logger } from './config/logger.js';
 import { setupSocketHandlers } from './socket/index.js';
 import { startImapPolling } from './services/imap.service.js';
 
-const isDemoMode = !config.databaseUrl || process.env.DEMO_MODE === 'true';
-
 // Module-level io reference for getIo() export
 let ioInstance: SocketIOServer | null = null;
 
@@ -22,16 +20,11 @@ export function getIo(): SocketIOServer | null {
 
 async function startServer(): Promise<void> {
   try {
-    if (isDemoMode) {
-      logger.info('Starting in DEMO MODE (no database required)');
-    } else {
-      const dbHealthy = await checkDatabaseHealth();
-      if (!dbHealthy) {
-        logger.warn('Database connection failed, switching to DEMO MODE');
-      } else {
-        logger.info('Database connection established');
-      }
+    const dbHealthy = await checkDatabaseHealth();
+    if (!dbHealthy) {
+      throw new Error('Database connection failed');
     }
+    logger.info('Database connection established');
 
     const app = createApp();
     const httpServer = http.createServer(app);
