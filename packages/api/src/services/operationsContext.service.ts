@@ -308,10 +308,36 @@ export async function getWeatherOpsActions(
 }
 
 export async function getOperationsContext(hotelId: string) {
+  const now = new Date();
+  const defaultOps: OpsContext = {
+    arrivalsNext24h: 0,
+    departuresNext24h: 0,
+    inhouseNow: 0,
+    windowStartUtc: now.toISOString(),
+    windowEndUtc: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+  };
+
   const [weather, ops, pricingForecast] = await Promise.all([
-    getWeatherContextForHotel(hotelId),
-    getOpsContextForHotel(hotelId),
-    resolvePricingForecast(hotelId),
+    getWeatherContextForHotel(hotelId).catch(() => null),
+    getOpsContextForHotel(hotelId).catch(() => defaultOps),
+    resolvePricingForecast(hotelId).catch(() => ({
+      mode: 'LIVE_FALLBACK' as const,
+      generatedAtUtc: now.toISOString(),
+      windowStartUtc: defaultOps.windowStartUtc,
+      windowEndUtc: defaultOps.windowEndUtc,
+      source: 'fallback',
+      version: 'v1',
+      summary: {
+        demandTrend: 'flat',
+        opportunityPct: 0,
+        confidence: 'low',
+        marketCoveragePct: 0,
+        marketSamplesTotal: 0,
+        nightsWithMarket: 0,
+        nightsTotal: 0,
+      },
+      calendar: [] as Array<Record<string, unknown>>,
+    })),
   ]);
 
   const advisoriesResult = await getWeatherOpsActions(weather, ops);
@@ -335,7 +361,7 @@ export async function getOperationsContext(hotelId: string) {
       createdAtUtc: true,
     },
     orderBy: { createdAtUtc: 'desc' },
-  });
+  }).catch(() => []);
   const actionToTicket = new Map<string, { ticketId: string; conversationId: string; createdAtUtc: string }>();
   for (const ticket of createdFromActions) {
     const details = (ticket.details ?? null) as Record<string, unknown> | null;
