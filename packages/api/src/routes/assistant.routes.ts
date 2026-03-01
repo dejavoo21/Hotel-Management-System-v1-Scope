@@ -3,6 +3,7 @@ import { authenticate, requireModuleAccess } from '../middleware/auth.js';
 import { AuthenticatedRequest } from '../types/index.js';
 import { runOpsAssistant } from '../services/ai/opsAssistant.service.js';
 import { prisma } from '../config/database.js';
+import { getOpenAIClient, OPENAI_MODEL } from '../config/openai.js';
 
 const router = Router();
 
@@ -70,6 +71,7 @@ const handleOpsChat = async (req: AuthenticatedRequest, res: Response, next: Nex
       message,
       mode,
       context,
+      conversationId,
     });
 
     await prisma.message.create({
@@ -130,8 +132,9 @@ async function generateOpsAssistantReply(args: {
   message: string;
   mode: OpsChatMode;
   context?: Record<string, unknown> | null;
+  conversationId?: string;
 }): Promise<string> {
-  const { hotelId, userId, message, mode, context } = args;
+  const { hotelId, userId, message, mode, context, conversationId } = args;
 
   const hasContext = Boolean(context && typeof context === 'object');
   const help = [
@@ -172,6 +175,66 @@ async function generateOpsAssistantReply(args: {
     }
 
     return `${help}\n\nTry: "What needs attention today?" or "What's the pricing guidance?"`;
+  }
+
+  const openai = getOpenAIClient();
+  if (!openai) {
+    const contextBlock = hasContext
+      ? `\n\nMode: ${mode}\nContext:\n${JSON.stringify(context).slice(0, 6000)}`
+      : `\n\nMode: ${mode}`;
+
+    return runOpsAssistant({
+      hotelId,
+      userId,
+      message: `${message}${contextBlock}`,
+    });
+  }
+
+  const history = conversationId
+    ? await prisma.message.findMany({
+        where: { conversationId },
+        orderBy: { createdAt: 'asc' },
+        take: 24,
+        select: { senderType: true, body: true },
+      })
+    : [];
+
+  const chatHistory = history.map((m) => ({
+    role: m.senderType === 'SYSTEM' ? ('assistant' as const) : ('user' as const),
+    content: m.body,
+  }));
+
+  const lastHistory = chatHistory.length ? chatHistory[chatHistory.length - 1] : null;
+  const hasLatestUserMessage = lastHistory?.role === 'user' && lastHistory.content === message;
+  const latestUserMessage = hasLatestUserMessage ? [] : [{ role: 'user' as const, content: message }];
+
+  const systemPrompt = [
+    'You are LaFlo Operations Concierge for a hotel team.',
+    'You give concise, practical guidance.',
+    'Never mention AI, model names, or training.',
+    'If forecast data is missing or stale, recommend refreshing forecast.',
+    'Do not claim competitor rates unless present in context.',
+    `Mode: ${mode}`,
+  ].join('\n');
+
+  const contextText = hasContext ? JSON.stringify(context).slice(0, 6000) : null;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: OPENAI_MODEL || 'gpt-5-mini',
+      temperature: 0.2,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...(contextText ? [{ role: 'system' as const, content: `Context:\n${contextText}` }] : []),
+        ...chatHistory,
+        ...latestUserMessage,
+      ],
+    });
+
+    const reply = completion.choices?.[0]?.message?.content?.trim();
+    if (reply) return reply;
+  } catch {
+    // Fall through to existing assistant runner.
   }
 
   const contextBlock = hasContext
