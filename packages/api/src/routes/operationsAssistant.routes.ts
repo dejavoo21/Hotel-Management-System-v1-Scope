@@ -6,6 +6,7 @@ import { prisma } from '../config/database.js';
 import { getOpenAIClient, OPENAI_MODEL } from '../config/openai.js';
 import { getOpsContextForHotel, getWeatherOpsActions } from '../services/operationsContext.service.js';
 import { getWeatherContextForHotel } from '../services/weatherContext.provider.js';
+import { buildConversationTranscript } from '../services/transcript.service.js';
 
 const router = Router();
 
@@ -17,6 +18,7 @@ type ChatBody = {
   message?: string;
   mode?: ChatMode;
   conversationId?: string;
+  context?: Record<string, unknown> | null;
 };
 
 function toSenderTypeForUser(): MessageSender {
@@ -168,12 +170,19 @@ router.post('/chat', async (req: AuthenticatedRequest, res: Response, next: Next
       generatedAtUtc: new Date().toISOString(),
     }));
 
+    const clientContext = body.context ?? null;
     const context = compactContext({
       hotelId,
       weather: weather as unknown as Record<string, unknown> | null,
       ops: ops as unknown as Record<string, unknown> | null,
-      pricingSignal: null,
-      advisories: advisoriesResult.actions,
+      pricingSignal:
+        (clientContext && typeof clientContext === 'object'
+          ? (clientContext as Record<string, unknown>).pricingSignal
+          : null) as Record<string, unknown> | null,
+      advisories:
+        clientContext && typeof clientContext === 'object' && Array.isArray((clientContext as Record<string, unknown>).advisories)
+          ? ((clientContext as Record<string, unknown>).advisories as unknown[])
+          : advisoriesResult.actions,
     });
 
     const inputMessages = history.map((m) => ({
@@ -222,6 +231,25 @@ router.post('/chat', async (req: AuthenticatedRequest, res: Response, next: Next
         generatedAtUtc: new Date().toISOString(),
       },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/conversations/:id/transcript', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const hotelId = req.user!.hotelId;
+    const conversationId = String(req.params.id ?? '').trim();
+
+    if (!conversationId) {
+      res.status(400).json({ success: false, error: 'Conversation id is required' });
+      return;
+    }
+
+    const { conversation, text } = await buildConversationTranscript(conversationId, hotelId);
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="laflo-transcript-${conversation.id}.txt"`);
+    res.status(200).send(text);
   } catch (error) {
     next(error);
   }

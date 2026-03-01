@@ -21,6 +21,24 @@ export const assistantService = {
       }
     );
   },
+  async downloadTranscript(conversationId: string): Promise<void> {
+    const id = String(conversationId ?? '').trim();
+    if (!id) throw new Error('conversationId is required');
+
+    const response = await api.get(`/operations/assistant/conversations/${encodeURIComponent(id)}/transcript`, {
+      responseType: 'blob',
+    });
+
+    const blob = new Blob([response.data], { type: 'text/plain;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `laflo-transcript-${id}.txt`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(url);
+  },
 };
 
 export default assistantService;

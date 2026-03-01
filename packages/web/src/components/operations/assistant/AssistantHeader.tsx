@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { downloadTranscript } from '@/utils/downloadTranscript';
 import api from '@/services/api';
+import { assistantService } from '@/services';
 
 export type ChatMode = 'operations' | 'pricing' | 'weather' | 'general';
 
@@ -67,7 +67,7 @@ export default function AssistantHeader({
                   toast.error('No conversation yet');
                   return;
                 }
-                await downloadTranscript(conversationId);
+                await assistantService.downloadTranscript(conversationId);
                 setOpenMenu(false);
               }}
             >
