@@ -42,6 +42,7 @@ import notificationRoutes from './routes/notification.routes.js';
 import aiHooksRoutes from './routes/aiHooks.routes.js';
 import assistantRoutes from './routes/assistant.routes.js';
 import operationsAssistantActionsRoutes from './routes/operationsAssistant.actions.routes.js';
+import transcriptRoutes from './routes/transcript.routes.js';
 import presenceRoutes from './routes/presence.routes.js';
 import operationsRoutes from './routes/operations.routes.js';
 
@@ -175,6 +176,7 @@ export function createApp(): Application {
           operations: '/api/operations',
           market: '/api/market',
           assistant: '/api/assistant',
+          conversations: '/api/conversations',
         },
         documentation: 'https://github.com/dejavoo21/Hotel-Management-System-v1-Scope',
       },
@@ -245,6 +247,7 @@ export function createApp(): Application {
     app.use('/api/assistant', assistantRoutes);
     app.use('/api/operations/assistant', assistantRoutes);
     app.use('/api/operations/assistant', operationsAssistantActionsRoutes);
+    app.use('/api/conversations', transcriptRoutes);
     app.use('/api/presence', presenceRoutes);
     app.use('/api/operations', operationsRoutes);
   }
@@ -284,6 +287,7 @@ export function createApp(): Application {
           operations: '/api/operations',
           market: '/api/market',
           assistant: '/api/assistant',
+          conversations: '/api/conversations',
         },
       },
     });
