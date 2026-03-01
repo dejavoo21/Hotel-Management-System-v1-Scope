@@ -4,13 +4,13 @@ import { assistantService } from '@/services';
 import { getApiError } from '@/services/api';
 import type { OperationsContext } from '@/services/operations';
 import { createTicketFromAssistant } from '@/services/assistantActions';
-import { downloadTranscript } from '@/utils/downloadTranscript';
+import AssistantHeader, { type ChatMode } from './AssistantHeader';
 
 type Props = {
   context: OperationsContext | null;
+  onConversationReady?: (conversationId: string) => void;
 };
 
-type ChatMode = 'general' | 'operations' | 'pricing' | 'weather';
 type ChatMsg = { role: 'user' | 'assistant'; text: string };
 
 function compactOpsContext(ctx: OperationsContext | null): Record<string, unknown> | null {
@@ -34,11 +34,11 @@ function compactOpsContext(ctx: OperationsContext | null): Record<string, unknow
   };
 }
 
-export default function AssistantChatPanel({ context }: Props) {
+export default function AssistantChatPanel({ context, onConversationReady }: Props) {
   const [mode, setMode] = useState<ChatMode>('operations');
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
-  const [lastConversationId, setLastConversationId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([
     { role: 'assistant', text: 'Hi - tell me what you want to check (operations, pricing, weather, or tasks).' },
   ]);
@@ -58,8 +58,14 @@ export default function AssistantChatPanel({ context }: Props) {
         message: trimmed,
         mode,
         context: ctxPayload,
+        conversationId,
       });
       const reply = data?.reply || 'No reply returned.';
+      const nextConversationId = data?.conversationId ?? null;
+      if (nextConversationId && nextConversationId !== conversationId) {
+        setConversationId(nextConversationId);
+        onConversationReady?.(nextConversationId);
+      }
       setMessages((m) => [...m, { role: 'assistant', text: reply }]);
     } catch (e) {
       const err = getApiError(e);
@@ -72,18 +78,7 @@ export default function AssistantChatPanel({ context }: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <select
-          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-          value={mode}
-          onChange={(e) => setMode(e.target.value as ChatMode)}
-        >
-          <option value="operations">Operations mode</option>
-          <option value="pricing">Pricing mode</option>
-          <option value="weather">Weather mode</option>
-          <option value="general">General mode</option>
-        </select>
-      </div>
+      <AssistantHeader mode={mode} setMode={setMode} conversationId={conversationId ?? undefined} />
 
       <div className="max-h-[280px] space-y-2 overflow-auto rounded-2xl border border-slate-200 bg-slate-50 p-3">
         {messages.map((m, idx) => (
@@ -138,7 +133,8 @@ export default function AssistantChatPanel({ context }: Props) {
               source: 'OPS_ASSISTANT',
               details: { mode },
             });
-            setLastConversationId(created.conversationId);
+            setConversationId(created.conversationId);
+            onConversationReady?.(created.conversationId);
             toast.success(`Ticket created (${created.ticketId})`);
           } catch (error) {
             const err = getApiError(error);
@@ -148,24 +144,6 @@ export default function AssistantChatPanel({ context }: Props) {
         className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-60"
       >
         Create ticket from latest response
-      </button>
-
-      <button
-        type="button"
-        disabled={!lastConversationId}
-        onClick={async () => {
-          if (!lastConversationId) return;
-          try {
-            await downloadTranscript(lastConversationId);
-            toast.success('Transcript downloaded');
-          } catch (error) {
-            const err = getApiError(error);
-            toast.error(err.message || 'Failed to download transcript');
-          }
-        }}
-        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        Download transcript
       </button>
 
       <div className="flex gap-2">
@@ -185,6 +163,8 @@ export default function AssistantChatPanel({ context }: Props) {
           {isSending ? '...' : 'Send'}
         </button>
       </div>
+
+      {conversationId ? <div className="text-xs text-slate-500">Session: {conversationId}</div> : null}
     </div>
   );
 }

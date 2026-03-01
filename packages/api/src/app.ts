@@ -41,6 +41,7 @@ import ticketRoutes from './routes/ticket.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import aiHooksRoutes from './routes/aiHooks.routes.js';
 import assistantRoutes from './routes/assistant.routes.js';
+import operationsAssistantRoutes from './routes/operationsAssistant.routes.js';
 import operationsAssistantActionsRoutes from './routes/operationsAssistant.actions.routes.js';
 import transcriptRoutes from './routes/transcript.routes.js';
 import presenceRoutes from './routes/presence.routes.js';
@@ -245,7 +246,7 @@ export function createApp(): Application {
     app.use('/api/notifications', notificationRoutes);
     app.use('/api/ai', aiHooksRoutes);
     app.use('/api/assistant', assistantRoutes);
-    app.use('/api/operations/assistant', assistantRoutes);
+    app.use('/api/operations/assistant', operationsAssistantRoutes);
     app.use('/api/operations/assistant', operationsAssistantActionsRoutes);
     app.use('/api/conversations', transcriptRoutes);
     app.use('/api/presence', presenceRoutes);

@@ -9,12 +9,14 @@ export const assistantService = {
     message: string;
     mode?: 'general' | 'operations' | 'pricing' | 'weather';
     context?: Record<string, unknown> | null;
-  }): Promise<{ reply: string; mode: string; generatedAtUtc: string }> {
+    conversationId?: string | null;
+  }): Promise<{ reply: string; mode?: string; conversationId?: string; generatedAtUtc: string }> {
     const response = await api.post('/operations/assistant/chat', args);
     return (
       response.data?.data ?? {
         reply: '',
         mode: args.mode ?? 'operations',
+        conversationId: args.conversationId ?? undefined,
         generatedAtUtc: new Date().toISOString(),
       }
     );

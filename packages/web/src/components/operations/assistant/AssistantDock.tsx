@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { OperationsContext } from '@/services/operations';
 import AssistantChatPanel from './AssistantChatPanel';
 import ContextPreview from './ContextPreview';
@@ -17,6 +18,8 @@ function IconSparkles({ className }: { className?: string }) {
 }
 
 export default function AssistantDock({ context }: Props) {
+  const [assistantConversationId, setAssistantConversationId] = useState<string | null>(null);
+
   return (
     <aside className="sticky top-6 space-y-4">
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -34,7 +37,10 @@ export default function AssistantDock({ context }: Props) {
             {context ? 'Context-ready' : 'No context'}
           </span>
         </div>
-        <AssistantChatPanel context={context ?? null} />
+        <AssistantChatPanel context={context ?? null} onConversationReady={setAssistantConversationId} />
+        {assistantConversationId ? (
+          <div className="mt-3 text-xs text-slate-500">Conversation: {assistantConversationId}</div>
+        ) : null}
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
