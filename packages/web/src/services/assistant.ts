@@ -1,22 +1,33 @@
 import api from './api';
 
+export type ChatMode = 'general' | 'operations' | 'pricing' | 'weather';
+
+export type OpsChatArgs = {
+  message: string;
+  mode?: ChatMode;
+  context?: Record<string, unknown> | null;
+  conversationId?: string;
+};
+
+export type OpsChatResponse = {
+  reply: string;
+  mode: string;
+  generatedAtUtc: string;
+  conversationId: string;
+};
+
 export const assistantService = {
   async ops(message: string): Promise<string> {
     const response = await api.post('/assistant/ops', { message });
     return response.data?.data?.reply ?? '';
   },
-  async opsChat(args: {
-    message: string;
-    mode?: 'general' | 'operations' | 'pricing' | 'weather';
-    context?: Record<string, unknown> | null;
-    conversationId?: string | null;
-  }): Promise<{ reply: string; mode?: string; conversationId?: string; generatedAtUtc: string }> {
+  async opsChat(args: OpsChatArgs): Promise<OpsChatResponse> {
     const response = await api.post('/operations/assistant/chat', args);
     return (
       response.data?.data ?? {
         reply: '',
         mode: args.mode ?? 'operations',
-        conversationId: args.conversationId ?? undefined,
+        conversationId: args.conversationId ?? '',
         generatedAtUtc: new Date().toISOString(),
       }
     );

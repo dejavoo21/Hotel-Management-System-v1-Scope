@@ -228,6 +228,7 @@ router.post('/chat', async (req: AuthenticatedRequest, res: Response, next: Next
       data: {
         conversationId,
         reply,
+        mode,
         generatedAtUtc: new Date().toISOString(),
       },
     });

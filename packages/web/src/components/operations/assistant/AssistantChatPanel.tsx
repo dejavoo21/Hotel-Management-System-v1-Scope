@@ -58,7 +58,7 @@ export default function AssistantChatPanel({ context, onConversationReady }: Pro
         message: trimmed,
         mode,
         context: ctxPayload,
-        conversationId,
+        conversationId: conversationId ?? undefined,
       });
       const reply = data?.reply || 'No reply returned.';
       const nextConversationId = data?.conversationId ?? null;
