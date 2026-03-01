@@ -20,7 +20,7 @@ function buildInstructions(): string {
 }
 
 export async function runOpsAssistant(params: OpsAssistantParams): Promise<string> {
-  if (!process.env.OPENAI_API_KEY) {
+  if (!openai) {
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
