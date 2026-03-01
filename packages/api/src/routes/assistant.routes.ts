@@ -2,6 +2,7 @@ import { Router, Response, NextFunction } from 'express';
 import { authenticate, requireModuleAccess } from '../middleware/auth.js';
 import { AuthenticatedRequest } from '../types/index.js';
 import { runOpsAssistant } from '../services/ai/opsAssistant.service.js';
+import { prisma } from '../config/database.js';
 
 const router = Router();
 
@@ -13,6 +14,7 @@ type OpsChatBody = {
   message?: string;
   mode?: OpsChatMode;
   context?: Record<string, unknown> | null;
+  conversationId?: string | null;
 };
 
 const handleOpsChat = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -23,11 +25,44 @@ const handleOpsChat = async (req: AuthenticatedRequest, res: Response, next: Nex
     const message = String(body.message ?? '').trim();
     const mode: OpsChatMode = body.mode ?? 'operations';
     const context = body.context ?? null;
+    const incomingConversationId = body.conversationId ? String(body.conversationId).trim() : '';
 
     if (!message) {
       res.status(400).json({ success: false, error: 'message is required' });
       return;
     }
+
+    let conversation = null as { id: string } | null;
+
+    if (incomingConversationId) {
+      conversation = await prisma.conversation.findFirst({
+        where: { id: incomingConversationId, hotelId },
+        select: { id: true },
+      });
+    }
+
+    if (!conversation) {
+      conversation = await prisma.conversation.create({
+        data: {
+          hotelId,
+          subject: `Operations Concierge (${mode})`,
+          status: 'OPEN',
+          lastMessageAt: new Date(),
+        },
+        select: { id: true },
+      });
+    }
+
+    const conversationId = conversation.id;
+
+    await prisma.message.create({
+      data: {
+        conversationId,
+        senderType: 'STAFF',
+        senderUserId: userId,
+        body: message,
+      },
+    });
 
     const reply = await generateOpsAssistantReply({
       hotelId,
@@ -37,12 +72,26 @@ const handleOpsChat = async (req: AuthenticatedRequest, res: Response, next: Nex
       context,
     });
 
+    await prisma.message.create({
+      data: {
+        conversationId,
+        senderType: 'SYSTEM',
+        body: reply,
+      },
+    });
+
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: { lastMessageAt: new Date() },
+    });
+
     res.json({
       success: true,
       data: {
         reply,
         mode,
         generatedAtUtc: new Date().toISOString(),
+        conversationId,
       },
     });
   } catch (error) {
