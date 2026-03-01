@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { assistantService } from '@/services';
 import { getApiError } from '@/services/api';
 import type { OperationsContext } from '@/services/operations';
+import { createTicketFromAssistant } from '@/services/assistantActions';
 
 type Props = {
   context: OperationsContext | null;
@@ -122,6 +123,30 @@ export default function AssistantChatPanel({ context }: Props) {
         </button>
       </div>
 
+      <button
+        type="button"
+        disabled={isSending}
+        onClick={async () => {
+          try {
+            const created = await createTicketFromAssistant({
+              title: 'Assistant follow-up task',
+              reason: messages[messages.length - 1]?.text || 'Created from assistant panel',
+              department: 'MANAGEMENT',
+              priority: 'MEDIUM',
+              source: 'OPS_ASSISTANT',
+              details: { mode },
+            });
+            toast.success(`Ticket created (${created.ticketId})`);
+          } catch (error) {
+            const err = getApiError(error);
+            toast.error(err.message);
+          }
+        }}
+        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-60"
+      >
+        Create ticket from latest response
+      </button>
+
       <div className="flex gap-2">
         <input
           className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
@@ -142,4 +167,3 @@ export default function AssistantChatPanel({ context }: Props) {
     </div>
   );
 }
-
