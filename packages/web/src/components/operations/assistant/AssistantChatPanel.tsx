@@ -4,6 +4,7 @@ import { assistantService } from '@/services';
 import { getApiError } from '@/services/api';
 import type { OperationsContext } from '@/services/operations';
 import { createTicketFromAssistant } from '@/services/assistantActions';
+import { downloadTranscript } from '@/utils/downloadTranscript';
 
 type Props = {
   context: OperationsContext | null;
@@ -37,6 +38,7 @@ export default function AssistantChatPanel({ context }: Props) {
   const [mode, setMode] = useState<ChatMode>('operations');
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [lastConversationId, setLastConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([
     { role: 'assistant', text: 'Hi - tell me what you want to check (operations, pricing, weather, or tasks).' },
   ]);
@@ -136,6 +138,7 @@ export default function AssistantChatPanel({ context }: Props) {
               source: 'OPS_ASSISTANT',
               details: { mode },
             });
+            setLastConversationId(created.conversationId);
             toast.success(`Ticket created (${created.ticketId})`);
           } catch (error) {
             const err = getApiError(error);
@@ -145,6 +148,24 @@ export default function AssistantChatPanel({ context }: Props) {
         className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-60"
       >
         Create ticket from latest response
+      </button>
+
+      <button
+        type="button"
+        disabled={!lastConversationId}
+        onClick={async () => {
+          if (!lastConversationId) return;
+          try {
+            await downloadTranscript(lastConversationId);
+            toast.success('Transcript downloaded');
+          } catch (error) {
+            const err = getApiError(error);
+            toast.error(err.message || 'Failed to download transcript');
+          }
+        }}
+        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        Download transcript
       </button>
 
       <div className="flex gap-2">
