@@ -15,10 +15,6 @@ export async function getAllGuests(
     const where: Record<string, unknown> = {
       hotelId,
       isDeleted: false,
-      NOT: [
-        { firstName: 'Deleted', lastName: 'Guest' },
-        { notes: 'Guest data deleted on request' },
-      ],
     };
     if (vipStatus === 'true') where.vipStatus = true;
     if (search) {
@@ -69,10 +65,6 @@ export async function searchGuests(
       where: {
         hotelId,
         isDeleted: false,
-        NOT: [
-          { firstName: 'Deleted', lastName: 'Guest' },
-          { notes: 'Guest data deleted on request' },
-        ],
         OR: [
           { firstName: { contains: q as string, mode: 'insensitive' } },
           { lastName: { contains: q as string, mode: 'insensitive' } },
