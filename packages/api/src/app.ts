@@ -242,6 +242,7 @@ export function createApp(): Application {
     app.use('/api/notifications', notificationRoutes);
     app.use('/api/ai', aiHooksRoutes);
     app.use('/api/assistant', assistantRoutes);
+    app.use('/api/operations/assistant', assistantRoutes);
     app.use('/api/presence', presenceRoutes);
     app.use('/api/operations', operationsRoutes);
   }

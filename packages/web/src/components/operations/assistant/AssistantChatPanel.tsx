@@ -1,100 +1,145 @@
-import { FormEvent, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { assistantService } from '@/services';
+import { getApiError } from '@/services/api';
+import type { OperationsContext } from '@/services/operations';
 
-type ChatMessage = {
-  role: 'user' | 'assistant';
-  text: string;
+type Props = {
+  context: OperationsContext | null;
 };
 
-export default function AssistantChatPanel() {
-  const prompts = [
-    'Should we increase prices this weekend?',
-    'Are arrivals at risk due to weather?',
-    'What needs attention today?',
-  ];
-  const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+type ChatMode = 'general' | 'operations' | 'pricing' | 'weather';
+type ChatMsg = { role: 'user' | 'assistant'; text: string };
 
-  const askAssistant = useMutation({
-    mutationFn: (message: string) => assistantService.ops(message),
-    onSuccess: (reply, message) => {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'user', text: message },
-        { role: 'assistant', text: reply || 'Done.' },
-      ]);
-      setInput('');
-    },
-    onError: (error: any) => {
-      const message = error?.response?.data?.error || error?.message || 'Assistant unavailable';
-      toast.error(message);
-    },
-  });
+function compactOpsContext(ctx: OperationsContext | null): Record<string, unknown> | null {
+  if (!ctx) return null;
 
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    const message = input.trim();
-    if (!message || askAssistant.isPending) return;
-    askAssistant.mutate(message);
+  return {
+    generatedAtUtc: ctx.generatedAtUtc,
+    ops: ctx.ops,
+    weather: ctx.weather
+      ? {
+          syncedAtUtc: ctx.weather.syncedAtUtc,
+          isFresh: ctx.weather.isFresh,
+          staleHours: ctx.weather.staleHours,
+          next24h: ctx.weather.next24h,
+          location: ctx.weather.location,
+          daysAvailable: ctx.weather.daysAvailable,
+        }
+      : null,
+    pricingSignal: ctx.pricingSignal || ctx.pricing,
+    advisories: Array.isArray((ctx as any).advisories) ? (ctx as any).advisories.slice(0, 5) : [],
   };
+}
+
+export default function AssistantChatPanel({ context }: Props) {
+  const [mode, setMode] = useState<ChatMode>('operations');
+  const [input, setInput] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [messages, setMessages] = useState<ChatMsg[]>([
+    { role: 'assistant', text: 'Hi - tell me what you want to check (operations, pricing, weather, or tasks).' },
+  ]);
+
+  const ctxPayload = useMemo(() => compactOpsContext(context), [context]);
+
+  async function send(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    setMessages((m) => [...m, { role: 'user', text: trimmed }]);
+    setInput('');
+    setIsSending(true);
+
+    try {
+      const data = await assistantService.opsChat({
+        message: trimmed,
+        mode,
+        context: ctxPayload,
+      });
+      const reply = data?.reply || 'No reply returned.';
+      setMessages((m) => [...m, { role: 'assistant', text: reply }]);
+    } catch (e) {
+      const err = getApiError(e);
+      toast.error(err.message);
+      setMessages((m) => [...m, { role: 'assistant', text: `I couldn't fetch a response (${err.message}).` }]);
+    } finally {
+      setIsSending(false);
+    }
+  }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3">
-      <div className="text-sm font-semibold text-slate-900">Operations Assistant</div>
-      <p className="mt-1 text-xs text-slate-500">Ask for recommendations or create tasks from live context.</p>
-
-      <div className="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
-        {messages.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
-            No messages yet.
-          </div>
-        ) : (
-          messages.map((message, index) => (
-            <div
-              key={`${message.role}-${index}`}
-              className={`rounded-lg px-3 py-2 text-xs ${
-                message.role === 'assistant'
-                  ? 'border border-slate-200 bg-white text-slate-700'
-                  : 'bg-slate-900 text-white'
-              }`}
-            >
-              {message.text}
-            </div>
-          ))
-        )}
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <select
+          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+          value={mode}
+          onChange={(e) => setMode(e.target.value as ChatMode)}
+        >
+          <option value="operations">Operations mode</option>
+          <option value="pricing">Pricing mode</option>
+          <option value="weather">Weather mode</option>
+          <option value="general">General mode</option>
+        </select>
       </div>
 
-      <div className="mt-3 space-y-2">
-        {prompts.map((prompt) => (
-          <button
-            key={prompt}
-            type="button"
-            disabled={askAssistant.isPending}
-            onClick={() => askAssistant.mutate(prompt)}
-            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+      <div className="max-h-[280px] space-y-2 overflow-auto rounded-2xl border border-slate-200 bg-slate-50 p-3">
+        {messages.map((m, idx) => (
+          <div
+            key={`${m.role}-${idx}`}
+            className={`rounded-2xl px-3 py-2 text-sm ${
+              m.role === 'user' ? 'ml-8 bg-white text-slate-900' : 'mr-8 bg-slate-900 text-white'
+            }`}
           >
-            {prompt}
-          </button>
+            {m.text}
+          </div>
         ))}
       </div>
 
-      <form className="mt-3 flex gap-2" onSubmit={submit}>
+      <div className="grid grid-cols-1 gap-2">
+        <button
+          type="button"
+          onClick={() => send('What needs attention today?')}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm hover:bg-slate-50"
+          disabled={isSending}
+        >
+          What needs attention today?
+        </button>
+        <button
+          type="button"
+          onClick={() => send('Give me pricing guidance for the next 7 nights.')}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm hover:bg-slate-50"
+          disabled={isSending}
+        >
+          Give me pricing guidance for the next 7 nights.
+        </button>
+        <button
+          type="button"
+          onClick={() => send('Any weather risks in the next 24 hours?')}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm hover:bg-slate-50"
+          disabled={isSending}
+        >
+          Any weather risks in the next 24 hours?
+        </button>
+      </div>
+
+      <div className="flex gap-2">
         <input
+          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+          placeholder={context ? 'Ask a question...' : 'Load Operations Center context first...'}
           value={input}
-          onChange={(event) => setInput(event.target.value)}
-          placeholder="Ask operations assistant..."
-          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-900 outline-none ring-slate-200 focus:ring-2"
+          onChange={(e) => setInput(e.target.value)}
+          disabled={isSending}
         />
         <button
-          type="submit"
-          disabled={askAssistant.isPending || !input.trim()}
-          className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          type="button"
+          onClick={() => send(input)}
+          className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+          disabled={isSending || !input.trim()}
         >
-          {askAssistant.isPending ? 'Sending...' : 'Send'}
+          {isSending ? '...' : 'Send'}
         </button>
-      </form>
+      </div>
     </div>
   );
 }
+

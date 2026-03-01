@@ -31,10 +31,10 @@ export default function AssistantDock({ context }: Props) {
             </div>
           </div>
           <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
-            Context-ready
+            {context ? 'Context-ready' : 'No context'}
           </span>
         </div>
-        <AssistantChatPanel />
+        <AssistantChatPanel context={context ?? null} />
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -49,4 +49,3 @@ export default function AssistantDock({ context }: Props) {
     </aside>
   );
 }
-
