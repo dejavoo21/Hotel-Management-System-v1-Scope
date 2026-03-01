@@ -3,10 +3,10 @@ import { MessageSender } from '@prisma/client';
 import { authenticate, requireModuleAccess } from '../middleware/auth.js';
 import { AuthenticatedRequest } from '../types/index.js';
 import { prisma } from '../config/database.js';
-import { getOpenAIClient, OPENAI_MODEL } from '../config/openai.js';
 import { getOpsContextForHotel, getWeatherOpsActions } from '../services/operationsContext.service.js';
 import { getWeatherContextForHotel } from '../services/weatherContext.provider.js';
 import { buildConversationTranscript } from '../services/transcript.service.js';
+import { runOpsAssistant } from '../services/ai/opsAssistant.service.js';
 
 const router = Router();
 
@@ -27,21 +27,6 @@ function toSenderTypeForUser(): MessageSender {
 
 function toSenderTypeForAssistant(): MessageSender {
   return MessageSender.SYSTEM;
-}
-
-function buildSystemPrompt(mode: ChatMode): string {
-  return `
-You are LaFlo Operations Concierge.
-You help hotel staff make operational and pricing decisions using the provided context.
-Style:
-- Be concise and practical.
-- Use bullets for actions.
-- Never mention "AI", model names, or training data.
-Rules:
-- If forecast/pricing data is stale or missing, say what is missing and what to do next.
-- Never claim competitor pricing unless it is explicitly present in context.
-Mode: ${mode}
-`.trim();
 }
 
 function compactContext(input: {
@@ -150,16 +135,6 @@ router.post('/chat', async (req: AuthenticatedRequest, res: Response, next: Next
       },
     });
 
-    const history = await prisma.message.findMany({
-      where: { conversationId },
-      orderBy: { createdAt: 'asc' },
-      take: 30,
-      select: {
-        senderType: true,
-        body: true,
-      },
-    });
-
     const [weather, ops] = await Promise.all([
       getWeatherContextForHotel(hotelId).catch(() => null),
       getOpsContextForHotel(hotelId).catch(() => null),
@@ -185,27 +160,20 @@ router.post('/chat', async (req: AuthenticatedRequest, res: Response, next: Next
           : advisoriesResult.actions,
     });
 
-    const inputMessages = history.map((m) => ({
-      role: m.senderType === MessageSender.SYSTEM ? ('assistant' as const) : ('user' as const),
-      content: m.body,
-    }));
+    const contextBlock = [
+      `Mode: ${mode}`,
+      `Live Context:\n${JSON.stringify(context).slice(0, 8000)}`,
+    ].join('\n\n');
 
     let reply = '';
-    const openai = getOpenAIClient();
-
-    if (openai) {
-      const response = await openai.responses.create({
-        model: OPENAI_MODEL || 'gpt-5-mini',
-        input: [
-          { role: 'system', content: buildSystemPrompt(mode) },
-          { role: 'user', content: `Live Context:\n${JSON.stringify(context, null, 2)}` },
-          ...inputMessages,
-        ],
+    try {
+      // Use the tool-enabled assistant loop for real-time actions/context fetches.
+      reply = await runOpsAssistant({
+        hotelId,
+        userId,
+        message: `${message}\n\n${contextBlock}`,
       });
-      reply =
-        (typeof response.output_text === 'string' && response.output_text.trim()) ||
-        'I could not generate a response right now. Please try again.';
-    } else {
+    } catch {
       reply = fallbackReply(mode, message, context);
     }
 
