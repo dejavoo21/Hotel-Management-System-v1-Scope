@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { OperationsContext } from '@/services/operations';
 import AssistantChatPanel from './AssistantChatPanel';
 import ContextPreview from './ContextPreview';
+import { assistantService } from '@/services/assistant';
 
 type Props = {
   context?: OperationsContext | null;
@@ -19,6 +20,32 @@ function IconSparkles({ className }: { className?: string }) {
 
 export default function AssistantDock({ context }: Props) {
   const [assistantConversationId, setAssistantConversationId] = useState<string | null>(null);
+  const [aiHealth, setAiHealth] = useState<{
+    enabled: boolean;
+    model?: string;
+    reason?: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    assistantService
+      .health()
+      .then((d) => mounted && setAiHealth(d))
+      .catch(() =>
+        mounted &&
+        setAiHealth({
+          enabled: false,
+          reason: 'Unable to reach /assistant/health',
+        })
+      );
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const badge = aiHealth?.enabled
+    ? { label: 'AI connected', className: 'bg-emerald-50 text-emerald-700 ring-emerald-200' }
+    : { label: 'Fallback', className: 'bg-amber-50 text-amber-700 ring-amber-200' };
 
   return (
     <aside className="sticky top-6 space-y-4">
@@ -30,11 +57,15 @@ export default function AssistantDock({ context }: Props) {
             </div>
             <div>
               <div className="text-sm font-semibold text-slate-900">Operations Concierge</div>
-              <div className="mt-1 text-xs text-slate-500">Ask questions using live operational context.</div>
+              <div className="mt-1 text-xs text-slate-500">
+                {aiHealth?.enabled
+                  ? 'Powered responses + tools.'
+                  : `Using rules until AI is enabled. ${aiHealth?.reason ?? ''}`}
+              </div>
             </div>
           </div>
-          <span className="inline-flex items-center rounded-full bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
-            {context ? 'Context-ready' : 'No context'}
+          <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${badge.className}`}>
+            {badge.label}
           </span>
         </div>
         <AssistantChatPanel context={context ?? null} onConversationReady={setAssistantConversationId} />

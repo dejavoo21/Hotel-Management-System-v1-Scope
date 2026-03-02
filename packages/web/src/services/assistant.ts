@@ -24,6 +24,13 @@ export type AssistantStatusResponse = {
   model: string;
 };
 
+export type AssistantHealthResponse = {
+  enabled: boolean;
+  provider: string;
+  model: string;
+  reason?: string | null;
+};
+
 export const assistantService = {
   async ops(message: string): Promise<string> {
     const response = await api.post('/assistant/ops', { message });
@@ -49,6 +56,17 @@ export const assistantService = {
         hasKey: false,
         enabled: false,
         model: '',
+      }
+    );
+  },
+  async health(): Promise<AssistantHealthResponse> {
+    const response = await api.get('/assistant/health');
+    return (
+      response.data?.data ?? {
+        enabled: false,
+        provider: 'unknown',
+        model: '',
+        reason: 'Unable to reach /assistant/health',
       }
     );
   },

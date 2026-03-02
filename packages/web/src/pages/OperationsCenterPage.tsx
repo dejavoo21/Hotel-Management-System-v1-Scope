@@ -45,11 +45,13 @@ export default function OperationsCenterPage() {
     const updatedAt = ctx?.generatedAtUtc ? new Date(ctx.generatedAtUtc) : null;
 
     return (
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-sky-50 p-6 shadow-sm">
+        <div className="pointer-events-none absolute -top-24 right-[-120px] h-72 w-72 rounded-full bg-sky-200/30 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 left-[-120px] h-72 w-72 rounded-full bg-emerald-200/20 blur-3xl" />
+        <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-900 to-slate-700 text-white shadow-sm ring-1 ring-white/30">
                 <Sparkles className="h-5 w-5" />
               </div>
               <div>
@@ -80,7 +82,7 @@ export default function OperationsCenterPage() {
           </div>
         </div>
 
-        <div className="mt-6">
+        <div className="relative z-10 mt-6">
           <OpsKpiStrip context={operationsQuery.data} isLoading={operationsQuery.isLoading} />
         </div>
       </div>
