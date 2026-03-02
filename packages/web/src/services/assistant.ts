@@ -6,7 +6,7 @@ export type OpsChatArgs = {
   message: string;
   mode?: ChatMode;
   context?: Record<string, unknown> | null;
-  conversationId?: string;
+  conversationId?: string | null;
 };
 
 export type OpsChatResponse = {
@@ -14,6 +14,14 @@ export type OpsChatResponse = {
   mode: string;
   generatedAtUtc: string;
   conversationId: string;
+};
+
+export type AssistantStatusResponse = {
+  live: boolean;
+  provider: string;
+  hasKey: boolean;
+  enabled: boolean;
+  model: string;
 };
 
 export const assistantService = {
@@ -29,6 +37,18 @@ export const assistantService = {
         mode: args.mode ?? 'operations',
         conversationId: args.conversationId ?? '',
         generatedAtUtc: new Date().toISOString(),
+      }
+    );
+  },
+  async status(): Promise<AssistantStatusResponse> {
+    const response = await api.get('/operations/assistant/status');
+    return (
+      response.data?.data ?? {
+        live: false,
+        provider: 'unknown',
+        hasKey: false,
+        enabled: false,
+        model: '',
       }
     );
   },
@@ -49,6 +69,18 @@ export const assistantService = {
     anchor.click();
     anchor.remove();
     window.URL.revokeObjectURL(url);
+  },
+  async emailTranscript(args: { conversationId: string; to: string; subject?: string }): Promise<{ sent: boolean }> {
+    const id = String(args.conversationId ?? '').trim();
+    const to = String(args.to ?? '').trim();
+    if (!id) throw new Error('conversationId is required');
+    if (!to) throw new Error('recipient email is required');
+
+    const response = await api.post(`/operations/assistant/conversations/${encodeURIComponent(id)}/email`, {
+      to,
+      subject: args.subject,
+    });
+    return response.data?.data ?? { sent: true };
   },
 };
 

@@ -1,326 +1,196 @@
 import { useMemo, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
-import { operationsService, type OperationsContext, type CreateAdvisoryTicketInput } from '@/services/operations';
-
-type Priority = 'low' | 'medium' | 'high';
-type AdvisorySource = 'WEATHER_ACTIONS' | string;
-type Advisory = {
-  id: string;
-  title: string;
-  reason: string;
-  priority: Priority;
-  department: string;
-  source: AdvisorySource;
-  createdTicket?: {
-    ticketId: string;
-    conversationId: string;
-    createdAtUtc: string;
-  } | null;
-};
+import { pillTone, cardTone, type Tone } from '@/components/operations/opsPalette';
+import type { OperationsContext } from '@/services/operations';
 
 type Props = {
   context?: OperationsContext | null;
-  onCreateTask?: (advisory: Advisory) => void;
-  onAssign?: (advisory: Advisory) => void;
-  onDismiss?: (advisory: Advisory) => void;
+  onCreateTask?: (id: string) => void;
+  onAssign?: (id: string) => void;
+  onDismiss?: (id: string) => void;
 };
 
-const normalizeDepartment = (value?: string): CreateAdvisoryTicketInput['department'] => {
-  const v = (value ?? '').trim().toUpperCase().replace(/\s+/g, '_');
-  if (v === 'FRONT_DESK' || v === 'FRONTDESK') return 'FRONT_DESK';
-  if (v === 'HOUSEKEEPING') return 'HOUSEKEEPING';
-  if (v === 'MAINTENANCE') return 'MAINTENANCE';
-  if (v === 'CONCIERGE') return 'CONCIERGE';
-  if (v === 'BILLING') return 'BILLING';
-  if (v === 'MANAGEMENT') return 'MANAGEMENT';
-  return 'FRONT_DESK';
-};
+type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' | string;
 
-function IconAlertTriangle({ className }: { className?: string }) {
+function toPriorityTone(priority?: Priority): Tone {
+  const p = String(priority ?? '').toUpperCase();
+  if (p === 'URGENT') return 'bad';
+  if (p === 'HIGH') return 'warn';
+  if (p === 'MEDIUM') return 'info';
+  if (p === 'LOW') return 'neutral';
+  return 'neutral';
+}
+
+function toDeptTone(dept?: string): Tone {
+  const d = (dept ?? '').toLowerCase();
+  if (d.includes('house')) return 'info';
+  if (d.includes('maint')) return 'warn';
+  if (d.includes('front')) return 'neutral';
+  if (d.includes('concierge')) return 'info';
+  if (d.includes('billing')) return 'warn';
+  if (d.includes('management')) return 'good';
+  return 'neutral';
+}
+
+function Accent({ tone }: { tone: Tone }) {
+  const klass =
+    tone === 'good'
+      ? 'bg-emerald-400'
+      : tone === 'warn'
+        ? 'bg-amber-400'
+        : tone === 'bad'
+          ? 'bg-rose-400'
+          : tone === 'info'
+            ? 'bg-sky-400'
+            : 'bg-slate-300';
+
+  return <div className={`h-full w-1.5 rounded-full ${klass}`} />;
+}
+
+function Chip({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className} aria-hidden="true">
-      <path d="M12 3 2 21h20L12 3Z" />
-      <path d="M12 9v5" />
-      <path d="M12 18h.01" />
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        'inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition',
+        active
+          ? 'bg-slate-900 text-white ring-slate-900'
+          : 'bg-white text-slate-700 ring-slate-200 hover:bg-slate-50',
+      ].join(' ')}
+    >
+      {label}
+    </button>
+  );
+}
+
+function IconPin({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M12 21s6-4.35 6-10a6 6 0 0 0-12 0c0 5.65 6 10 6 10Z" />
+      <path d="M12 11a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" />
     </svg>
   );
 }
 
-function IconCheckCircle({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className} aria-hidden="true">
-      <circle cx="12" cy="12" r="9" />
-      <path d="m8 12 3 3 5-6" />
-    </svg>
-  );
+function formatUtc(iso?: string) {
+  if (!iso) return 'just now';
+  const d = new Date(iso);
+  return d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
-function IconClipboard({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className} aria-hidden="true">
-      <rect x="7" y="4" width="10" height="16" rx="2" />
-      <path d="M9 4h6v3H9z" />
-    </svg>
-  );
-}
-
-function IconCloudRain({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className} aria-hidden="true">
-      <path d="M20 15a4 4 0 0 0-1-7.9A6 6 0 0 0 7.1 8.7 3.5 3.5 0 0 0 7.5 15H20Z" />
-      <path d="m9 17-1 3M13 17l-1 3M17 17l-1 3" />
-    </svg>
-  );
-}
-
-function IconShield({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className} aria-hidden="true">
-      <path d="M12 3 5 6v6c0 5 3 7.5 7 9 4-1.5 7-4 7-9V6l-7-3Z" />
-    </svg>
-  );
-}
-
-function IconX({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className} aria-hidden="true">
-      <path d="M18 6 6 18M6 6l12 12" />
-    </svg>
-  );
-}
-
-function formatTimeAgo(iso?: string) {
-  if (!iso) return 'Updated just now';
-  const dt = new Date(iso);
-  const diffMs = Date.now() - dt.getTime();
-  const mins = Math.max(0, Math.round(diffMs / 60000));
-  if (mins < 1) return 'Updated just now';
-  if (mins < 60) return `Updated ${mins} min ago`;
-  const hrs = Math.round(mins / 60);
-  return `Updated ${hrs}h ago`;
-}
-
-function prettyDepartment(department: string): string {
-  return department
-    .toLowerCase()
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function priorityMeta(priority: Priority) {
-  switch (priority) {
-    case 'high':
-      return {
-        label: 'High priority',
-        ring: 'ring-rose-200',
-        bg: 'bg-rose-50',
-        text: 'text-rose-700',
-        icon: <IconAlertTriangle className="h-4 w-4" />,
-      };
-    case 'medium':
-      return {
-        label: 'Medium priority',
-        ring: 'ring-amber-200',
-        bg: 'bg-amber-50',
-        text: 'text-amber-700',
-        icon: <IconShield className="h-4 w-4" />,
-      };
-    default:
-      return {
-        label: 'Low priority',
-        ring: 'ring-emerald-200',
-        bg: 'bg-emerald-50',
-        text: 'text-emerald-700',
-        icon: <IconCheckCircle className="h-4 w-4" />,
-      };
+function makeId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
   }
-}
-
-function departmentIcon(dept: string) {
-  const d = dept.toLowerCase();
-  if (d.includes('front')) return <IconClipboard className="h-4 w-4" />;
-  if (d.includes('house')) return <IconCheckCircle className="h-4 w-4" />;
-  if (d.includes('maint')) return <IconAlertTriangle className="h-4 w-4" />;
-  if (d.includes('concierge')) return <IconShield className="h-4 w-4" />;
-  if (d.includes('bill')) return <IconClipboard className="h-4 w-4" />;
-  if (d.includes('manage')) return <IconShield className="h-4 w-4" />;
-  return <IconCloudRain className="h-4 w-4" />;
+  return `adv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export default function OpsAdvisories({ context, onCreateTask, onAssign, onDismiss }: Props) {
-  const navigate = useNavigate();
-  const [deptFilter, setDeptFilter] = useState<string>('All');
-  const [priorityFilter, setPriorityFilter] = useState<'All' | Priority>('All');
-  const [createdFilter, setCreatedFilter] = useState<'ALL' | 'NOT_CREATED' | 'CREATED'>('ALL');
-  const [dismissedIds, setDismissedIds] = useState<Record<string, boolean>>({});
-  const [createdTicketIds, setCreatedTicketIds] = useState<
-    Record<string, { ticketId: string; conversationId: string; createdAtUtc: string }>
-  >({});
-  const advisories = (context?.advisories ?? []) as Advisory[];
-  const updatedLabel = formatTimeAgo(context?.generatedAtUtc);
+  const advisoriesRaw = (context as any)?.advisories ?? [];
+  const generatedAtUtc = context?.generatedAtUtc;
 
-  const departments = useMemo(() => {
-    const set = new Set(advisories.map((a) => a.department).filter(Boolean));
-    return ['All', ...Array.from(set)];
+  const advisories = useMemo(() => {
+    return (Array.isArray(advisoriesRaw) ? advisoriesRaw : []).map((a: any) => ({
+      id: String(a?.id ?? makeId()),
+      title: String(a?.title ?? 'Advisory'),
+      reason: String(a?.reason ?? ''),
+      priority: String(a?.priority ?? 'MEDIUM').toUpperCase(),
+      department: String(a?.department ?? 'Front Desk'),
+      source: String(a?.source ?? 'OPS'),
+      created: Boolean(a?.created || a?.createdTicket),
+    }));
+  }, [advisoriesRaw]);
+
+  const [dept, setDept] = useState<string>('ALL');
+  const [prio, setPrio] = useState<string>('ALL');
+  const [createdState, setCreatedState] = useState<'ALL' | 'CREATED' | 'NOT_CREATED'>('ALL');
+
+  const depts = useMemo(() => {
+    const set = new Set<string>();
+    advisories.forEach((a) => set.add(a.department));
+    return ['ALL', ...Array.from(set).sort()];
   }, [advisories]);
 
   const filtered = useMemo(() => {
     return advisories.filter((a) => {
-      if (dismissedIds[a.id]) return false;
-      const createdTicket = a.createdTicket ?? createdTicketIds[a.id] ?? null;
-      const deptOk = deptFilter === 'All' ? true : a.department === deptFilter;
-      const prOk = priorityFilter === 'All' ? true : a.priority === priorityFilter;
-      const createdOk =
-        createdFilter === 'ALL'
-          ? true
-          : createdFilter === 'CREATED'
-            ? Boolean(createdTicket)
-            : !createdTicket;
-      return deptOk && prOk && createdOk;
+      if (dept !== 'ALL' && a.department !== dept) return false;
+      if (prio !== 'ALL' && a.priority !== prio) return false;
+      if (createdState === 'CREATED' && !a.created) return false;
+      if (createdState === 'NOT_CREATED' && a.created) return false;
+      return true;
     });
-  }, [advisories, deptFilter, priorityFilter, createdFilter, dismissedIds, createdTicketIds]);
+  }, [advisories, dept, prio, createdState]);
 
-  const createTicketMutation = useMutation({
-    mutationFn: async (input: { advisoryId: string; advisory: Advisory }) => {
-      const { advisory } = input;
-      const payload: CreateAdvisoryTicketInput = {
-        advisoryId: advisory.id,
-        title: advisory.title,
-        reason: advisory.reason,
-        priority: advisory.priority,
-        department: normalizeDepartment(advisory.department),
-        source: advisory.source as CreateAdvisoryTicketInput['source'],
-        meta: {
-          weatherSyncedAtUtc: context?.weather?.syncedAtUtc ?? null,
-          generatedAtUtc: context?.generatedAtUtc ?? null,
-        },
-      };
-      const result = await operationsService.createAdvisoryTicket(payload);
-      return { result, advisoryId: input.advisoryId };
-    },
-    onSuccess: ({ result, advisoryId }) => {
-      setCreatedTicketIds((prev) => ({
-        ...prev,
-        [advisoryId]: {
-          ticketId: result.ticketId,
-          conversationId: result.conversationId,
-          createdAtUtc: new Date().toISOString(),
-        },
-      }));
-      const assigneeName = result.assignedTo
-        ? `${result.assignedTo.firstName} ${result.assignedTo.lastName}`.trim()
-        : null;
-      if (result.deduped) {
-        toast.success(
-          assigneeName
-            ? `Ticket already exists for ${prettyDepartment(result.department)} (assigned to ${assigneeName})`
-            : `Ticket already exists for ${prettyDepartment(result.department)}`
-        );
-      } else {
-        toast.success(
-          assigneeName
-            ? `Task created for ${prettyDepartment(result.department)} and assigned to ${assigneeName}`
-            : 'Ticket created (Unassigned)'
-        );
-      }
-    },
-    onError: (error) => {
-      const message =
-        (error as any)?.response?.data?.error ||
-        (error as Error | null)?.message ||
-        'Failed to create ticket';
-      toast.error(message);
-    },
-  });
-
-  const handleCreateTask = (advisory: Advisory) => {
-    if (onCreateTask) {
-      onCreateTask(advisory);
-      return;
-    }
-    createTicketMutation.mutate({ advisoryId: advisory.id, advisory });
+  const handleCreateTask = (id: string) => {
+    if (onCreateTask) onCreateTask(id);
   };
 
-  const handleAssign = (advisory: Advisory) => {
-    if (onAssign) {
-      onAssign(advisory);
-      return;
-    }
-    toast('Auto-assignment already runs when task is created.');
+  const handleAssign = (id: string) => {
+    if (onAssign) onAssign(id);
   };
 
-  const handleDismiss = (advisory: Advisory) => {
-    onDismiss?.(advisory);
-    setDismissedIds((prev) => ({ ...prev, [advisory.id]: true }));
+  const handleDismiss = (id: string) => {
+    if (onDismiss) onDismiss(id);
   };
 
-  const handleViewTask = (createdTicket: NonNullable<Advisory['createdTicket']>) => {
-    navigate(`/tickets/${encodeURIComponent(createdTicket.ticketId)}`);
-  };
+  const updatedLabel = generatedAtUtc ? formatUtc(generatedAtUtc) : 'just now';
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <section className={`rounded-3xl border p-5 shadow-sm ${cardTone('neutral')}`}>
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <div className="text-sm font-semibold text-slate-900">Operations Advisory</div>
           <div className="mt-1 text-sm text-slate-600">
             Actionable recommendations based on current operational indicators.
           </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${pillTone('neutral')}`}>
+              Updated {updatedLabel}
+            </span>
+
+            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${pillTone('info')}`}>
+              <IconPin className="h-3.5 w-3.5" />
+              {filtered.length} items
+            </span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
-            {updatedLabel}
-          </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <Chip active={createdState === 'ALL'} label="All" onClick={() => setCreatedState('ALL')} />
+          <Chip active={createdState === 'NOT_CREATED'} label="Not created" onClick={() => setCreatedState('NOT_CREATED')} />
+          <Chip active={createdState === 'CREATED'} label="Created" onClick={() => setCreatedState('CREATED')} />
 
-          <div className="flex rounded-xl bg-slate-100 p-1 ring-1 ring-slate-200">
-            {[
-              { id: 'ALL', label: 'All' },
-              { id: 'NOT_CREATED', label: 'Not created' },
-              { id: 'CREATED', label: 'Created' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setCreatedFilter(tab.id as typeof createdFilter)}
-                className={`rounded-lg px-3 py-1 text-xs font-semibold ${
-                  createdFilter === tab.id
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex rounded-xl bg-slate-100 p-1 ring-1 ring-slate-200">
-            {(['All', 'low', 'medium', 'high'] as const).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setPriorityFilter(p === 'All' ? 'All' : p)}
-                className={`rounded-lg px-3 py-1 text-xs font-semibold ${
-                  (priorityFilter === 'All' && p === 'All') || priorityFilter === p
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {p === 'All' ? 'All priorities' : `${p.charAt(0).toUpperCase()}${p.slice(1)}`}
-              </button>
-            ))}
-          </div>
+          <div className="mx-1 hidden h-6 w-px bg-slate-200 sm:block" />
 
           <select
-            value={deptFilter}
-            onChange={(e) => setDeptFilter(e.target.value)}
-            className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm"
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            value={prio}
+            onChange={(e) => setPrio(e.target.value)}
           >
-            {departments.map((d) => (
+            <option value="ALL">All priorities</option>
+            <option value="LOW">Low</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="HIGH">High</option>
+            <option value="URGENT">Urgent</option>
+          </select>
+
+          <select
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            value={dept}
+            onChange={(e) => setDept(e.target.value)}
+          >
+            {depts.map((d) => (
               <option key={d} value={d}>
-                {d === 'All' ? 'All departments' : prettyDepartment(d)}
+                {d === 'ALL' ? 'All departments' : d}
               </option>
             ))}
           </select>
@@ -329,108 +199,105 @@ export default function OpsAdvisories({ context, onCreateTask, onAssign, onDismi
 
       <div className="mt-5 space-y-3">
         {filtered.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-white ring-1 ring-slate-200">
-              <IconCheckCircle className="h-5 w-5" />
-            </div>
-            <div className="mt-3 text-sm font-semibold text-slate-900">No advisories right now</div>
+          <div className="rounded-3xl border border-dashed border-slate-200 bg-gradient-to-br from-slate-50 to-white p-8">
+            <div className="text-sm font-semibold text-slate-900">No advisories match your filters</div>
             <div className="mt-1 text-sm text-slate-600">
-              You are all set. Refresh context if you want the latest indicators.
+              Try refreshing context or clearing filters to see recommendations.
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDept('ALL');
+                  setPrio('ALL');
+                  setCreatedState('ALL');
+                }}
+                className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Clear filters
+              </button>
             </div>
           </div>
         ) : (
           filtered.map((a) => {
-            const meta = priorityMeta(a.priority);
-            const createdTicket = a.createdTicket ?? createdTicketIds[a.id] ?? null;
-            const creatingThis =
-              createTicketMutation.isPending &&
-              createTicketMutation.variables?.advisoryId === a.id;
+            const pTone = toPriorityTone(a.priority);
+            const dTone = toDeptTone(a.department);
 
             return (
               <div
                 key={a.id}
-                className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow-md"
+                className="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300"
               >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 ring-1 ring-slate-200 transition group-hover:bg-slate-100">
-                        {departmentIcon(a.department)}
-                      </div>
-
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-slate-900">
-                          {a.title}
-                        </div>
-
-                        <div className="mt-1 flex flex-wrap items-center gap-2">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
-                            {prettyDepartment(a.department)}
-                          </span>
-
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${meta.bg} ${meta.text} ${meta.ring}`}
-                          >
-                            {meta.icon}
-                            {meta.label}
-                          </span>
-
-                          {createdTicket && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
-                              <IconCheckCircle className="h-3.5 w-3.5" />
-                              Created
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 text-sm leading-relaxed text-slate-600">
-                      {a.reason}
-                    </div>
+                <div className="flex gap-4 p-5">
+                  <div className="pt-1">
+                    <Accent tone={pTone} />
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-2">
-                    {createdTicket ? (
-                      <button
-                        type="button"
-                        onClick={() => handleViewTask(createdTicket)}
-                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 transition hover:bg-slate-50"
-                      >
-                        <IconClipboard className="h-4 w-4" />
-                        View task
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={creatingThis}
-                        onClick={() => handleCreateTask(a)}
-                        className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        <IconClipboard className="h-4 w-4" />
-                        {creatingThis ? 'Creating...' : 'Create task'}
-                      </button>
-                    )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-slate-900">{a.title}</div>
+                        {a.reason ? (
+                          <div className="mt-1 line-clamp-2 text-sm text-slate-600">{a.reason}</div>
+                        ) : (
+                          <div className="mt-1 text-sm text-slate-500">No reason provided.</div>
+                        )}
+                      </div>
 
-                    <button
-                      type="button"
-                      disabled={Boolean(createdTicket)}
-                      onClick={() => handleAssign(a)}
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      Assign
-                    </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${pillTone(dTone)}`}>
+                          {a.department}
+                        </span>
 
-                    <button
-                      type="button"
-                      onClick={() => handleDismiss(a)}
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                      aria-label="Dismiss"
-                    >
-                      <IconX className="h-4 w-4" />
-                    </button>
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${pillTone(pTone)}`}>
+                          {a.priority.toLowerCase()}
+                        </span>
+
+                        {a.created ? (
+                          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${pillTone('good')}`}>
+                            Task created
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                      <div className="text-xs text-slate-500">
+                        Source: <span className="font-semibold text-slate-700">{a.source}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleCreateTask(a.id)}
+                          className="inline-flex items-center rounded-xl bg-slate-900 px-3.5 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                        >
+                          Create task
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleAssign(a.id)}
+                          className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                          Assign
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDismiss(a.id)}
+                          className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                          title="Dismiss"
+                        >
+                          x
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
+
+                <div className="h-px w-full bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
               </div>
             );
           })
@@ -439,3 +306,4 @@ export default function OpsAdvisories({ context, onCreateTask, onAssign, onDismi
     </section>
   );
 }
+

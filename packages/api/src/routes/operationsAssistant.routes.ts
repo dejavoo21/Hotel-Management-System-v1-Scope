@@ -7,6 +7,7 @@ import { getOpsContextForHotel, getWeatherOpsActions } from '../services/operati
 import { getWeatherContextForHotel } from '../services/weatherContext.provider.js';
 import { buildConversationTranscript } from '../services/transcript.service.js';
 import { runOpsAssistant } from '../services/ai/opsAssistant.service.js';
+import { sendEmail } from '../services/email.service.js';
 
 const router = Router();
 
@@ -17,7 +18,7 @@ type ChatMode = 'general' | 'operations' | 'pricing' | 'weather';
 type ChatBody = {
   message?: string;
   mode?: ChatMode;
-  conversationId?: string;
+  conversationId?: string | null;
   context?: Record<string, unknown> | null;
 };
 
@@ -28,6 +29,22 @@ function toSenderTypeForUser(): MessageSender {
 function toSenderTypeForAssistant(): MessageSender {
   return MessageSender.SYSTEM;
 }
+
+router.get('/status', (_req, res) => {
+  const provider = String(process.env.ASSISTANT_PROVIDER || 'openai').toLowerCase();
+  const hasKey = Boolean(process.env.OPENAI_API_KEY);
+
+  res.json({
+    success: true,
+    data: {
+      provider,
+      enabled: provider !== 'none',
+      hasKey,
+      live: provider !== 'none' && hasKey,
+      model: process.env.OPENAI_MODEL || 'gpt-4.1-nano',
+    },
+  });
+});
 
 function compactContext(input: {
   hotelId: string;
@@ -219,6 +236,42 @@ router.get('/conversations/:id/transcript', async (req: AuthenticatedRequest, re
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="laflo-transcript-${conversation.id}.txt"`);
     res.status(200).send(text);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/conversations/:id/email', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const hotelId = req.user!.hotelId;
+    const conversationId = String(req.params.id ?? '').trim();
+    const to = String(req.body?.to ?? '').trim();
+    const subject = String(req.body?.subject ?? 'LaFlo Ops Assistant Transcript').trim();
+
+    if (!conversationId) {
+      res.status(400).json({ success: false, error: 'Conversation id is required' });
+      return;
+    }
+
+    if (!to) {
+      res.status(400).json({ success: false, error: '`to` email is required' });
+      return;
+    }
+
+    const { text } = await buildConversationTranscript(conversationId, hotelId);
+    const safeText = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    await sendEmail({
+      to,
+      subject,
+      text,
+      html: `<pre style="font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space:pre-wrap;">${safeText}</pre>`,
+    });
+
+    res.json({ success: true, data: { sent: true } });
   } catch (error) {
     next(error);
   }
