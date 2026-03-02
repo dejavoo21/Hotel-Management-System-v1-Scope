@@ -48,7 +48,15 @@ export const assistantService = {
     );
   },
   async opsChat(args: OpsChatArgs): Promise<OpsChatResponse> {
-    return this.chat(args);
+    const response = await api.post('/assistant/ops/chat', args);
+    return (
+      response.data?.data ?? {
+        reply: '',
+        mode: args.mode ?? 'operations',
+        conversationId: args.conversationId ?? '',
+        generatedAtUtc: new Date().toISOString(),
+      }
+    );
   },
   async status(): Promise<AssistantStatusResponse> {
     const response = await api.get('/assistant/status');

@@ -145,7 +145,7 @@ export default function AssistantChatPanel({ context, onConversationReady }: Pro
     setIsSending(true);
 
     try {
-      const data = await assistantService.chat({
+      const data = await assistantService.opsChat({
         message: trimmed,
         mode,
         context: ctxPayload,
