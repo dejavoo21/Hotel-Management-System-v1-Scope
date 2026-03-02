@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { assistantService } from '@/services';
+import { assistantService } from '@/services/assistant';
 import { getApiError } from '@/services/api';
 import type { OperationsContext } from '@/services/operations';
 
-type ChatMode = 'operations' | 'pricing' | 'weather' | 'general';
+type ChatMode = 'operations' | 'pricing' | 'weather' | 'general' | 'tasks';
 
 type Msg = {
   id: string;
@@ -54,10 +54,17 @@ function modePrompts(mode: ChatMode) {
       'What should I assign first?',
     ];
   }
+  if (mode === 'tasks') {
+    return [
+      'Create tasks from the top advisories.',
+      'What should be assigned first?',
+      'Which department needs attention most?',
+    ];
+  }
   return [
-    'How do I create a booking?',
-    'Where do I manage room status?',
-    'How do I generate an invoice?',
+    'What needs attention today?',
+    'Summarize top advisories by department.',
+    'What should I assign first?',
   ];
 }
 
@@ -138,7 +145,7 @@ export default function AssistantChatPanel({ context, onConversationReady }: Pro
     setIsSending(true);
 
     try {
-      const data = await assistantService.opsChat({
+      const data = await assistantService.chat({
         message: trimmed,
         mode,
         context: ctxPayload,
@@ -163,7 +170,9 @@ export default function AssistantChatPanel({ context, onConversationReady }: Pro
           id: makeId(),
           role: 'assistant',
           ts: Date.now(),
-          text: `I couldn't fetch a response (${err.message}).`,
+          text: status?.live
+            ? `I couldn't fetch a response (${err.message}).`
+            : 'AI is not enabled yet (fallback mode). Set OPENAI_API_KEY + ASSISTANT_PROVIDER=openai, then refresh.',
         },
       ]);
     } finally {
@@ -186,6 +195,7 @@ export default function AssistantChatPanel({ context, onConversationReady }: Pro
           <option value="operations">Operations mode</option>
           <option value="pricing">Pricing mode</option>
           <option value="weather">Weather mode</option>
+          <option value="tasks">Tasks mode</option>
           <option value="general">General mode</option>
         </select>
 

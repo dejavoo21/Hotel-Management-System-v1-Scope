@@ -1,10 +1,10 @@
 import api from './api';
 
-export type ChatMode = 'general' | 'operations' | 'pricing' | 'weather';
+export type AssistantMode = 'general' | 'operations' | 'pricing' | 'weather' | 'tasks';
 
 export type OpsChatArgs = {
   message: string;
-  mode?: ChatMode;
+  mode?: AssistantMode;
   context?: Record<string, unknown> | null;
   conversationId?: string | null;
 };
@@ -36,8 +36,8 @@ export const assistantService = {
     const response = await api.post('/assistant/ops', { message });
     return response.data?.data?.reply ?? '';
   },
-  async opsChat(args: OpsChatArgs): Promise<OpsChatResponse> {
-    const response = await api.post('/operations/assistant/chat', args);
+  async chat(args: OpsChatArgs): Promise<OpsChatResponse> {
+    const response = await api.post('/assistant/chat', args);
     return (
       response.data?.data ?? {
         reply: '',
@@ -47,8 +47,11 @@ export const assistantService = {
       }
     );
   },
+  async opsChat(args: OpsChatArgs): Promise<OpsChatResponse> {
+    return this.chat(args);
+  },
   async status(): Promise<AssistantStatusResponse> {
-    const response = await api.get('/operations/assistant/status');
+    const response = await api.get('/assistant/status');
     return (
       response.data?.data ?? {
         live: false,

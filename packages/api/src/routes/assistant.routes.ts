@@ -1,22 +1,40 @@
 import { Router, Response, NextFunction } from 'express';
-import { authenticate, requireModuleAccess } from '../middleware/auth.js';
+import { authenticate } from '../middleware/auth.js';
 import { AuthenticatedRequest } from '../types/index.js';
 import { runOpsAssistant } from '../services/ai/opsAssistant.service.js';
 import { prisma } from '../config/database.js';
 import { getOpenAIClient, OPENAI_MODEL } from '../config/openai.js';
+import { logger } from '../config/logger.js';
 
 const router = Router();
 
 router.use(authenticate);
-router.use(requireModuleAccess('bookings'));
 
-type OpsChatMode = 'general' | 'operations' | 'pricing' | 'weather';
+type OpsChatMode = 'general' | 'operations' | 'pricing' | 'weather' | 'tasks';
 type OpsChatBody = {
   message?: string;
   mode?: OpsChatMode;
   context?: Record<string, unknown> | null;
   conversationId?: string | null;
 };
+
+router.get('/status', (_req, res) => {
+  const provider = (process.env.ASSISTANT_PROVIDER || 'openai').toLowerCase();
+  const hasKey = Boolean(process.env.OPENAI_API_KEY);
+  const enabled = provider !== 'none';
+  const model = OPENAI_MODEL || 'gpt-4.1-mini';
+
+  res.json({
+    success: true,
+    data: {
+      provider,
+      hasKey,
+      enabled,
+      model,
+      live: enabled && hasKey,
+    },
+  });
+});
 
 const handleOpsChat = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
@@ -97,6 +115,7 @@ const handleOpsChat = async (req: AuthenticatedRequest, res: Response, next: Nex
       },
     });
   } catch (error) {
+    logger.error({ error }, 'assistant chat failed');
     next(error);
   }
 };
@@ -122,6 +141,7 @@ router.post('/ops', async (req: AuthenticatedRequest, res: Response, next: NextF
       data: { reply },
     });
   } catch (error) {
+    logger.error({ error }, 'assistant ops failed');
     next(error);
   }
 });
