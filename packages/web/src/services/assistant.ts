@@ -63,15 +63,19 @@ export const assistantService = {
     );
   },
   async health(): Promise<AssistantHealthResponse> {
-    const response = await api.get('/assistant/health');
-    return (
-      response.data?.data ?? {
-        enabled: false,
-        provider: 'unknown',
-        model: '',
-        reason: 'Unable to reach /assistant/health',
-      }
-    );
+    const status = await this.status();
+    return {
+      enabled: status.live,
+      provider: status.provider,
+      model: status.model,
+      reason: status.live
+        ? null
+        : !status.hasKey
+          ? 'OPENAI_API_KEY missing'
+          : !status.enabled
+            ? 'ASSISTANT_PROVIDER=none'
+            : 'OpenAI unavailable',
+    };
   },
   async downloadTranscript(conversationId: string): Promise<void> {
     const id = String(conversationId ?? '').trim();
