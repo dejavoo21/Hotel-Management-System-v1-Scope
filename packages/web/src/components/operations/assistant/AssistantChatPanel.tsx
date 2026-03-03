@@ -97,6 +97,35 @@ function makeId() {
   return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function describeAssistantError(error: unknown): string {
+  const err = getApiError(error);
+
+  if (!axios.isAxiosError(error)) {
+    return err.message || 'Unexpected assistant error.';
+  }
+
+  const statusCode = error.response?.status;
+  const requestUrl = error.config?.url || '/assistant/ops/chat';
+
+  if (!error.response) {
+    return `Network error: request did not reach server (${requestUrl}).`;
+  }
+  if (statusCode === 401) {
+    return '401 Unauthorized: please sign in again.';
+  }
+  if (statusCode === 403) {
+    return '403 Forbidden: your account does not have access to this assistant.';
+  }
+  if (statusCode === 404) {
+    return `404 Not Found: endpoint ${requestUrl} is missing.`;
+  }
+  if (statusCode && statusCode >= 500) {
+    return `${statusCode} Server error: assistant backend failed.`;
+  }
+
+  return statusCode ? `${statusCode}: ${err.message}` : err.message;
+}
+
 export default function AssistantChatPanel({ context, onConversationReady }: Props) {
   const [mode, setMode] = useState<ChatMode>('operations');
   const [input, setInput] = useState('');
@@ -165,9 +194,7 @@ export default function AssistantChatPanel({ context, onConversationReady }: Pro
       const assistantMsg: Msg = { id: makeId(), role: 'assistant', text: reply, ts: Date.now() };
       setMessages((m) => [...m, assistantMsg]);
     } catch (e) {
-      const err = getApiError(e);
-      const statusCode = axios.isAxiosError(e) ? e.response?.status : undefined;
-      const visibleMessage = statusCode ? `${statusCode}: ${err.message}` : err.message;
+      const visibleMessage = describeAssistantError(e);
       console.error('[OPS CHAT] error', e);
       toast.error(visibleMessage);
       setMessages((m) => [
