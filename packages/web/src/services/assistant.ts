@@ -31,13 +31,15 @@ export type AssistantHealthResponse = {
   reason?: string | null;
 };
 
+const ASSISTANT_CHAT_TIMEOUT_MS = 120_000;
+
 export const assistantService = {
   async ops(message: string): Promise<string> {
-    const response = await api.post('/assistant/ops', { message });
+    const response = await api.post('/assistant/ops', { message }, { timeout: ASSISTANT_CHAT_TIMEOUT_MS });
     return response.data?.data?.reply ?? '';
   },
   async chat(args: OpsChatArgs): Promise<OpsChatResponse> {
-    const response = await api.post('/assistant/chat', args);
+    const response = await api.post('/assistant/chat', args, { timeout: ASSISTANT_CHAT_TIMEOUT_MS });
     return (
       response.data?.data ?? {
         reply: '',
@@ -48,7 +50,7 @@ export const assistantService = {
     );
   },
   async opsChat(args: OpsChatArgs): Promise<OpsChatResponse> {
-    const response = await api.post('/assistant/ops/chat', args);
+    const response = await api.post('/assistant/ops/chat', args, { timeout: ASSISTANT_CHAT_TIMEOUT_MS });
     return (
       response.data?.data ?? {
         reply: '',
