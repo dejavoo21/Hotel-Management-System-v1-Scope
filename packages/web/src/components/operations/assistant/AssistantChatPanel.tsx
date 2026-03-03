@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import axios from 'axios';
 import toast from 'react-hot-toast';
 import { assistantService } from '@/services/assistant';
 import { getApiError } from '@/services/api';
@@ -138,6 +139,7 @@ export default function AssistantChatPanel({ context, onConversationReady }: Pro
   async function send(text: string) {
     const trimmed = text.trim();
     if (!trimmed) return;
+    console.log('[OPS CHAT] sending', { text: trimmed, mode, conversationId });
 
     const userMsg: Msg = { id: makeId(), role: 'user', text: trimmed, ts: Date.now() };
     setMessages((m) => [...m, userMsg]);
@@ -145,6 +147,7 @@ export default function AssistantChatPanel({ context, onConversationReady }: Pro
     setIsSending(true);
 
     try {
+      console.log('[OPS CHAT] calling opsChat', { ctxPayload });
       const data = await assistantService.opsChat({
         message: trimmed,
         mode,
@@ -163,7 +166,10 @@ export default function AssistantChatPanel({ context, onConversationReady }: Pro
       setMessages((m) => [...m, assistantMsg]);
     } catch (e) {
       const err = getApiError(e);
-      toast.error(err.message);
+      const statusCode = axios.isAxiosError(e) ? e.response?.status : undefined;
+      const visibleMessage = statusCode ? `${statusCode}: ${err.message}` : err.message;
+      console.error('[OPS CHAT] error', e);
+      toast.error(visibleMessage);
       setMessages((m) => [
         ...m,
         {
@@ -171,7 +177,7 @@ export default function AssistantChatPanel({ context, onConversationReady }: Pro
           role: 'assistant',
           ts: Date.now(),
           text: status?.live
-            ? `I couldn't fetch a response (${err.message}).`
+            ? `Error: ${visibleMessage}`
             : 'AI is not enabled yet (fallback mode). Set OPENAI_API_KEY + ASSISTANT_PROVIDER=openai, then refresh.',
         },
       ]);
