@@ -24,6 +24,11 @@ export const NavIcon = memo(function NavIcon({ name, className = 'h-5 w-5' }: Ic
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 12l3-3M12 15h.008v.008H12V15z" />
       </svg>
     ),
+    building: (
+      <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 21h16M6 21V5a2 2 0 012-2h8a2 2 0 012 2v16M9 7h1m4 0h1M9 11h1m4 0h1M9 15h1m4 0h1" />
+      </svg>
+    ),
     'calendar-check': (
       <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />

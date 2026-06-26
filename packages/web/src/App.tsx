@@ -32,6 +32,7 @@ import CalendarPage from '@/pages/CalendarPage';
 import MessagesPage from '@/pages/MessagesPageRedesigned';
 import CallsPage from '@/pages/CallsPage';
 import OperationsCenterPage from '@/pages/OperationsCenterPage';
+import SmartBuildingPage from '@/pages/SmartBuildingPage';
 import ForcePasswordChangePage from '@/pages/auth/ForcePasswordChangePage';
 import NotAuthorizedPage from '@/pages/NotAuthorizedPage';
 
@@ -201,6 +202,7 @@ export default function App() {
         <Route path="messages" element={<ModuleRoute requiredModule="messages"><MessagesPage /></ModuleRoute>} />
         <Route path="calls" element={<ModuleRoute requiredModule="messages"><CallsPage /></ModuleRoute>} />
         <Route path="operations" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="operations/smart-building" element={<ModuleRoute requiredModule="bookings"><SmartBuildingPage /></ModuleRoute>} />
         <Route path="calendar" element={<ModuleRoute requiredModule="calendar"><CalendarPage /></ModuleRoute>} />
         <Route path="guests" element={<ModuleRoute requiredModule="guests"><GuestsPage /></ModuleRoute>} />
         <Route path="housekeeping" element={<ModuleRoute requiredModule="housekeeping"><HousekeepingPage /></ModuleRoute>} />

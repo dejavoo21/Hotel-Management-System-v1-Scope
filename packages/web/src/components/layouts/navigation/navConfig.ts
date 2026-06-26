@@ -34,6 +34,7 @@ export const navSections: NavSection[] = [
     icon: 'operations',
     items: [
       { id: 'operations-center', label: 'Operations Center', href: '/operations', permission: 'bookings', icon: 'gauge', badge: 'NEW' },
+      { id: 'smart-building', label: 'Smart Building', href: '/operations/smart-building', permission: 'bookings', icon: 'building' },
       { id: 'reservation', label: 'Reservation', href: '/bookings', permission: 'bookings', icon: 'calendar-check' },
       { id: 'rooms', label: 'Rooms', href: '/rooms', permission: 'rooms', icon: 'door' },
       { id: 'housekeeping', label: 'Housekeeping', href: '/housekeeping', permission: 'housekeeping', icon: 'sparkles' },
