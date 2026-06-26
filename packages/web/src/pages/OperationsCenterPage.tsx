@@ -9,6 +9,9 @@ import PricingCalendarCard from '@/components/operations/pricing/PricingCalendar
 import MarketIntelligenceCard from '@/components/operations/pricing/MarketIntelligenceCard';
 import OpsKpiStrip from '@/components/operations/premium/OpsKpiStrip';
 import SignalsGrid from '@/components/operations/SignalsGrid';
+import ArrivalsSignalCard from '@/components/operations/signals/ArrivalsSignalCard';
+import DemandSignalCard from '@/components/operations/signals/DemandSignalCard';
+import PricingSignalCard from '@/components/operations/signals/PricingSignalCard';
 import WeatherSignalCard from '@/components/operations/signals/WeatherSignalCard';
 import { operationsService, weatherSignalsService } from '@/services';
 import { useAuthStore } from '@/stores/authStore';
@@ -185,6 +188,13 @@ export default function OperationsCenterPage() {
         />
       </div>
     );
+    const revenueSignalsPanel = (
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <DemandSignalCard context={context} />
+        <PricingSignalCard context={context} />
+      </div>
+    );
+    const arrivalsPanel = <ArrivalsSignalCard context={context} />;
     const tasksPanel = <OpsAdvisories context={context} />;
     const marketPanel = <MarketIntelligenceCard />;
     const aiPanel = <AssistantDock context={context} />;
@@ -194,7 +204,12 @@ export default function OperationsCenterPage() {
     }
 
     if (focus === 'revenue') {
-      return revenuePanel;
+      return (
+        <div className="space-y-6">
+          {revenueSignalsPanel}
+          {revenuePanel}
+        </div>
+      );
     }
 
     if (focus === 'market-intelligence') {
@@ -202,7 +217,12 @@ export default function OperationsCenterPage() {
     }
 
     if (focus === 'tasks') {
-      return tasksPanel;
+      return (
+        <div className="space-y-6">
+          <div className="max-w-3xl">{arrivalsPanel}</div>
+          {tasksPanel}
+        </div>
+      );
     }
 
     if (focus === 'ai') {
