@@ -449,7 +449,7 @@ export default function DashboardLayout() {
                         const groupItem = groupToNavItem(group);
                         const groupHref = group.href;
                         const groupIsActive = groupHref
-                          ? groupHref === '/operations'
+                          ? groupHref === '/operations-center'
                             ? location.pathname === groupHref
                             : location.pathname === groupHref || location.pathname.startsWith(`${groupHref}/`)
                           : group.items.some((item) => location.pathname === item.href || location.pathname.startsWith(`${item.href}/`));

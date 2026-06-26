@@ -83,7 +83,7 @@ export const SidebarRail = memo(function SidebarRail({
   const isRouteInSection = (section: NavSection): boolean => {
     return getSectionTargets(section).some(item => {
       if (item.href === '/') return location.pathname === '/';
-      if (item.href === '/operations') return location.pathname === '/operations';
+      if (item.href === '/operations-center') return location.pathname === '/operations-center';
       return location.pathname === item.href || location.pathname.startsWith(`${item.href}/`);
     });
   };

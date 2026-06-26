@@ -9,10 +9,38 @@ import PricingCalendarCard from '@/components/operations/pricing/PricingCalendar
 import MarketIntelligenceCard from '@/components/operations/pricing/MarketIntelligenceCard';
 import OpsKpiStrip from '@/components/operations/premium/OpsKpiStrip';
 import SignalsGrid from '@/components/operations/SignalsGrid';
+import WeatherSignalCard from '@/components/operations/signals/WeatherSignalCard';
 import { operationsService, weatherSignalsService } from '@/services';
 import { useAuthStore } from '@/stores/authStore';
 
 type OperationsFocus = 'overview' | 'ai' | 'revenue' | 'weather' | 'tasks' | 'market-intelligence';
+
+const focusMeta: Record<OperationsFocus, { title: string; description: string }> = {
+  overview: {
+    title: 'Operations Center',
+    description: 'Real-time visibility across weather signals, demand guidance, and task execution.',
+  },
+  ai: {
+    title: 'Operations Concierge',
+    description: 'Ask the AI panel about operations, pricing, weather, and task execution.',
+  },
+  revenue: {
+    title: 'Revenue Guidance',
+    description: 'Per-night recommendations based on booking pace, weather signals, and market rates when available.',
+  },
+  weather: {
+    title: 'Weather',
+    description: 'Forecast signals used for staffing, guest readiness, advisories, and service planning.',
+  },
+  tasks: {
+    title: 'Tasks',
+    description: 'Actionable operations advisories and task recommendations.',
+  },
+  'market-intelligence': {
+    title: 'Market Intelligence',
+    description: 'Competitor hotels and rate inputs used to strengthen revenue guidance.',
+  },
+};
 
 const getFocusFromPath = (pathname: string): OperationsFocus => {
   const segment = pathname.split('/').filter(Boolean)[1];
@@ -34,6 +62,8 @@ export default function OperationsCenterPage() {
   const { user } = useAuthStore();
   const hotelId = user?.hotel?.id || '';
   const focus = getFocusFromPath(location.pathname);
+  const isOverview = focus === 'overview';
+  const meta = focusMeta[focus];
 
   const operationsQuery = useQuery({
     queryKey: ['operationsContext', hotelId],
@@ -75,9 +105,9 @@ export default function OperationsCenterPage() {
                 <Sparkles className="h-5 w-5" />
               </div>
               <div>
-                <div className="text-lg font-semibold text-slate-900">Operations Center</div>
+                <div className="text-lg font-semibold text-slate-900">{meta.title}</div>
                 <div className="mt-1 text-sm text-slate-600">
-                  Real-time visibility across weather signals, demand guidance, and task execution.
+                  {meta.description}
                 </div>
               </div>
             </div>
@@ -102,12 +132,14 @@ export default function OperationsCenterPage() {
           </div>
         </div>
 
-        <div className="relative z-10 mt-6">
-          <OpsKpiStrip context={operationsQuery.data} isLoading={operationsQuery.isLoading} />
-        </div>
+        {isOverview ? (
+          <div className="relative z-10 mt-6">
+            <OpsKpiStrip context={operationsQuery.data} isLoading={operationsQuery.isLoading} />
+          </div>
+        ) : null}
       </div>
     );
-  }, [operationsQuery.data, operationsQuery.isLoading, refreshWeatherMutation.isPending]);
+  }, [isOverview, meta.description, meta.title, operationsQuery.data, operationsQuery.isLoading, refreshWeatherMutation.isPending]);
 
   const body = useMemo(() => {
     if (operationsQuery.isLoading) {
@@ -144,35 +176,29 @@ export default function OperationsCenterPage() {
         isRefreshingWeather={refreshWeatherMutation.isPending}
       />
     );
+    const weatherOnlyPanel = (
+      <div className="max-w-3xl">
+        <WeatherSignalCard
+          context={context}
+          onRefresh={refreshWeather}
+          isRefreshing={refreshWeatherMutation.isPending}
+        />
+      </div>
+    );
     const tasksPanel = <OpsAdvisories context={context} />;
     const marketPanel = <MarketIntelligenceCard />;
     const aiPanel = <AssistantDock context={context} />;
 
     if (focus === 'weather') {
-      return (
-        <div className="space-y-6">
-          {weatherPanel}
-          {tasksPanel}
-        </div>
-      );
+      return weatherOnlyPanel;
     }
 
     if (focus === 'revenue') {
-      return (
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-          <div className="space-y-6 xl:col-span-8">{revenuePanel}</div>
-          <div className="space-y-6 xl:col-span-4">{marketPanel}</div>
-        </div>
-      );
+      return revenuePanel;
     }
 
     if (focus === 'market-intelligence') {
-      return (
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-          <div className="space-y-6 xl:col-span-5">{marketPanel}</div>
-          <div className="space-y-6 xl:col-span-7">{revenuePanel}</div>
-        </div>
-      );
+      return <div className="max-w-4xl">{marketPanel}</div>;
     }
 
     if (focus === 'tasks') {
