@@ -24,7 +24,9 @@
     "db:reset": "prisma migrate reset --force",
     "db:backfill": "tsx scripts/backfill-data.ts",
     "db:backfill:dry": "tsx scripts/backfill-data.ts --dry-run --verbose",
-    "tickets:backfill": "tsx scripts/backfillTickets.ts"
+    "tickets:backfill": "tsx scripts/backfillTickets.ts",
+    "smart-building:seed": "tsx scripts/seedSmartBuilding.ts",
+    "smart-building:test-events": "tsx scripts/testSmartBuildingEvents.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

@@ -26,6 +26,18 @@ type CallCreatedPayload = { callId: string; room: string };
 type CallAcceptedPayload = { callId?: string; room?: string };
 type CallDeclinedPayload = { callId?: string; room: string; by: string };
 type WebRtcSignalPayload = { callId?: string; room?: string; data: unknown; fromUserId?: string };
+type SmartBuildingUpdatePayload = {
+  action: 'INGESTED' | 'ALERT_ACKNOWLEDGED' | 'ALERT_RESOLVED';
+  hotelId: string;
+  timestamp: string;
+  eventType?: string;
+  alertId?: string;
+};
+type SmartBuildingAlertPayload = {
+  eventType: string;
+  hotelId: string;
+  timestamp: string;
+};
 
 const dispatchSocketEvent = (name: string, detail: unknown) => {
   if (typeof window === 'undefined') return;
@@ -147,6 +159,23 @@ const bindSharedHandlers = (socket: Socket) => {
         Array.isArray(q.queryKey) &&
         (q.queryKey[0] === 'message-threads' || q.queryKey[0] === 'message-thread'),
     });
+  });
+
+  socket.on('smart-building:update', (payload: SmartBuildingUpdatePayload) => {
+    dispatchSocketEvent('hotelos:smart-building-update', payload);
+    if (!latestQueryClient) return;
+
+    latestQueryClient.invalidateQueries({
+      predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'smart-building',
+    });
+  });
+
+  socket.on('smart-building:alert', (payload: SmartBuildingAlertPayload) => {
+    dispatchSocketEvent('hotelos:smart-building-alert', payload);
+    if (!latestQueryClient) return;
+
+    latestQueryClient.invalidateQueries({ queryKey: ['smart-building', 'alerts'] });
+    latestQueryClient.invalidateQueries({ queryKey: ['smart-building', 'overview'] });
   });
 
   socket.on('call:ring', (payload: CallRingPayload) => {

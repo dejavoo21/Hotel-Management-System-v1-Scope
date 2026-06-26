@@ -19,6 +19,7 @@ export const MODULE_ROUTES: Record<PermissionId, string> = {
   financials: '/financials',
   reviews: '/reviews',
   concierge: '/concierge',
+  smart_building: '/operations/smart-building',
   users: '/users',
   settings: '/settings',
 };
@@ -31,6 +32,7 @@ export const ROUTE_MODULES: Record<string, PermissionId> = Object.entries(MODULE
 
 // Operations Center is temporarily mapped to bookings until a dedicated operations module exists.
 ROUTE_MODULES['/operations'] = 'bookings';
+ROUTE_MODULES['/operations/smart-building'] = 'smart_building';
 // Calls is part of messaging workflow.
 ROUTE_MODULES['/calls'] = 'messages';
 
@@ -48,6 +50,7 @@ const MODULE_PRIORITY: PermissionId[] = [
   'financials',
   'reviews',
   'concierge',
+  'smart_building',
   'users',
   'settings',
 ];

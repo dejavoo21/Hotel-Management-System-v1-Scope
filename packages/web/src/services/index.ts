@@ -23,6 +23,7 @@ export { default as ticketService } from './tickets';
 export { default as notificationService } from './notifications';
 export { default as presenceService } from './presence';
 export { default as operationsService } from './operations';
+export { default as smartBuildingService } from './smartBuilding';
 export { default as marketService } from './market';
 export { default as assistantService } from './assistant';
 export { createTicketFromAssistant } from './assistantActions';

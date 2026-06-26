@@ -70,6 +70,7 @@ const MODULE_ROUTE_PRIORITY: { module: PermissionId; path: string }[] = [
   { module: 'guests', path: '/guests' },
   { module: 'calendar', path: '/calendar' },
   { module: 'inventory', path: '/inventory' },
+  { module: 'smart_building', path: '/operations/smart-building' },
 ];
 
 // Helper to get first allowed page for a user
@@ -202,7 +203,7 @@ export default function App() {
         <Route path="messages" element={<ModuleRoute requiredModule="messages"><MessagesPage /></ModuleRoute>} />
         <Route path="calls" element={<ModuleRoute requiredModule="messages"><CallsPage /></ModuleRoute>} />
         <Route path="operations" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
-        <Route path="operations/smart-building" element={<ModuleRoute requiredModule="bookings"><SmartBuildingPage /></ModuleRoute>} />
+        <Route path="operations/smart-building" element={<ModuleRoute requiredModule="smart_building"><SmartBuildingPage /></ModuleRoute>} />
         <Route path="calendar" element={<ModuleRoute requiredModule="calendar"><CalendarPage /></ModuleRoute>} />
         <Route path="guests" element={<ModuleRoute requiredModule="guests"><GuestsPage /></ModuleRoute>} />
         <Route path="housekeeping" element={<ModuleRoute requiredModule="housekeeping"><HousekeepingPage /></ModuleRoute>} />

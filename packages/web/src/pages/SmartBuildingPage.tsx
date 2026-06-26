@@ -1,3 +1,13 @@
+import { useQuery } from '@tanstack/react-query';
+import smartBuildingService, {
+  type DoorAccessEvent,
+  type DoorStatus,
+  type IoTDevice,
+  type SecurityAlert,
+  type SensorReading,
+  type SmartBuildingOverview,
+} from '@/services/smartBuilding';
+
 type BuildingMetric = {
   label: string;
   value: string;
@@ -10,64 +20,6 @@ type BuildingSection = {
   description: string;
   items: { label: string; value: string; status: string; tone: BuildingMetric['tone'] }[];
 };
-
-const metrics: BuildingMetric[] = [
-  { label: 'Active Cameras', value: '42 Online', detail: '2 Offline', tone: 'emerald' },
-  { label: 'Doors', value: '315 Locked', detail: '4 Open', tone: 'sky' },
-  { label: 'Access Events', value: '127 Today', tone: 'slate' },
-  { label: 'Motion Alerts', value: '3 Active', tone: 'amber' },
-  { label: 'Temperature Sensors', value: '48 Normal', detail: '2 Warning', tone: 'amber' },
-  { label: 'Water Leak Sensors', value: '1 Alert', tone: 'rose' },
-  { label: 'Panic Buttons', value: '0 Active', tone: 'emerald' },
-];
-
-const sections: BuildingSection[] = [
-  {
-    title: 'Doors',
-    description: 'Lock state, forced-open activity, and high-traffic entries.',
-    items: [
-      { label: 'Guest Corridors', value: '184 locked', status: 'Normal', tone: 'emerald' },
-      { label: 'Service Areas', value: '4 open', status: 'Review', tone: 'amber' },
-      { label: 'Emergency Exits', value: '26 locked', status: 'Secure', tone: 'sky' },
-    ],
-  },
-  {
-    title: 'Sensors',
-    description: 'Temperature, motion, leak detection, and panic button telemetry.',
-    items: [
-      { label: 'Temperature', value: '48 normal', status: '2 warning', tone: 'amber' },
-      { label: 'Water Leak', value: '1 alert', status: 'Action needed', tone: 'rose' },
-      { label: 'Panic Buttons', value: '0 active', status: 'Clear', tone: 'emerald' },
-    ],
-  },
-  {
-    title: 'Energy',
-    description: 'Consumption, savings opportunities, and abnormal usage patterns.',
-    items: [
-      { label: 'Current Load', value: '72%', status: 'Stable', tone: 'sky' },
-      { label: 'Peak Zones', value: '5 zones', status: 'Monitor', tone: 'amber' },
-      { label: 'Savings Mode', value: '18 rooms', status: 'Active', tone: 'emerald' },
-    ],
-  },
-  {
-    title: 'HVAC',
-    description: 'Climate control health across rooms, public areas, and plant systems.',
-    items: [
-      { label: 'Normal Units', value: '86', status: 'Healthy', tone: 'emerald' },
-      { label: 'Warnings', value: '2', status: 'Inspect', tone: 'amber' },
-      { label: 'Offline Units', value: '0', status: 'Clear', tone: 'sky' },
-    ],
-  },
-  {
-    title: 'Assets',
-    description: 'Connected devices, inspection status, and maintenance readiness.',
-    items: [
-      { label: 'Online Assets', value: '412', status: 'Tracked', tone: 'emerald' },
-      { label: 'Needs Inspection', value: '7', status: 'Due today', tone: 'amber' },
-      { label: 'Critical Assets', value: '1', status: 'Open alert', tone: 'rose' },
-    ],
-  },
-];
 
 const toneClasses: Record<BuildingMetric['tone'], { card: string; pill: string; dot: string }> = {
   emerald: {
@@ -97,7 +49,301 @@ const toneClasses: Record<BuildingMetric['tone'], { card: string; pill: string; 
   },
 };
 
+const realtimeQueryOptions = {
+  refetchInterval: 15_000,
+  refetchIntervalInBackground: true,
+  staleTime: 5_000,
+};
+
+const formatStatus = (value?: string | null) =>
+  (value || 'Unknown')
+    .toLowerCase()
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const plural = (count: number, singular: string, pluralLabel = `${singular}s`) =>
+  `${count} ${count === 1 ? singular : pluralLabel}`;
+
+const emptyMetric = (label: string, tone: BuildingMetric['tone'] = 'slate'): BuildingMetric => ({
+  label,
+  value: 'No data',
+  detail: 'Waiting for events',
+  tone,
+});
+
+const emptyItem = (label: string) => ({
+  label,
+  value: 'No records yet',
+  status: 'Empty',
+  tone: 'slate' as const,
+});
+
+const metricList = (overview?: SmartBuildingOverview, hasRecords = false): BuildingMetric[] => {
+  if (!overview || !hasRecords) {
+    return [
+      emptyMetric('Active Cameras', 'emerald'),
+      emptyMetric('Doors', 'sky'),
+      emptyMetric('Access Events'),
+      emptyMetric('Motion Alerts', 'amber'),
+      emptyMetric('Temperature Sensors', 'amber'),
+      emptyMetric('Water Leak Sensors', 'rose'),
+      emptyMetric('Panic Buttons', 'emerald'),
+    ];
+  }
+
+  return [
+    {
+      label: 'Active Cameras',
+      value: `${overview.cameras.online} Online`,
+      detail: `${overview.cameras.offline} Offline`,
+      tone: overview.cameras.offline > 0 ? 'amber' : 'emerald',
+    },
+    {
+      label: 'Doors',
+      value: `${overview.doors.locked} Locked`,
+      detail: `${overview.doors.open} Open`,
+      tone: overview.doors.open > 0 ? 'amber' : 'sky',
+    },
+    { label: 'Access Events', value: `${overview.accessEvents.today} Today`, tone: 'slate' },
+    {
+      label: 'Motion Alerts',
+      value: `${overview.motionAlerts.active} Active`,
+      tone: overview.motionAlerts.active > 0 ? 'amber' : 'emerald',
+    },
+    {
+      label: 'Temperature Sensors',
+      value: `${overview.temperatureSensors.normal} Normal`,
+      detail: `${overview.temperatureSensors.warning} Warning`,
+      tone: overview.temperatureSensors.warning > 0 ? 'amber' : 'emerald',
+    },
+    {
+      label: 'Water Leak Sensors',
+      value: plural(overview.waterLeakSensors.alerts, 'Alert'),
+      tone: overview.waterLeakSensors.alerts > 0 ? 'rose' : 'emerald',
+    },
+    {
+      label: 'Panic Buttons',
+      value: `${overview.panicButtons.active} Active`,
+      tone: overview.panicButtons.active > 0 ? 'rose' : 'emerald',
+    },
+  ];
+};
+
+const toneForStatus = (status: string): BuildingMetric['tone'] => {
+  if (['ALERT', 'OFFLINE', 'CRITICAL', 'FORCED_OPEN', 'FORCED', 'ACTIVE'].includes(status)) return 'rose';
+  if (['WARNING', 'HELD_OPEN', 'OPEN', 'DENIED', 'ACKNOWLEDGED'].includes(status)) return 'amber';
+  if (['ONLINE', 'NORMAL', 'LOCKED', 'RESOLVED', 'GRANTED'].includes(status)) return 'emerald';
+  return 'sky';
+};
+
+const buildDoorItems = (doors: DoorStatus[], accessEvents: DoorAccessEvent[]) => {
+  const doorItems = doors.slice(0, 3).map((door) => ({
+    label: door.name,
+    value: `${formatStatus(door.lockState)} / ${formatStatus(door.openState)}`,
+    status: door.batteryLevel == null ? formatStatus(door.openState) : `${door.batteryLevel}% battery`,
+    tone: toneForStatus(door.openState),
+  }));
+
+  if (doorItems.length > 0) return doorItems;
+
+  return accessEvents.slice(0, 3).map((event) => ({
+    label: event.doorName || event.doorExternalId || 'Door access',
+    value: formatStatus(event.result),
+    status: event.actorName || formatStatus(event.actorType),
+    tone: toneForStatus(event.result),
+  }));
+};
+
+const buildSensorItems = (readings: SensorReading[], alerts: SecurityAlert[]) => {
+  const sensorItems = readings
+    .filter((reading) => !['ENERGY', 'POWER', 'HVAC'].includes(reading.sensorType))
+    .slice(0, 3)
+    .map((reading) => ({
+      label: formatStatus(reading.sensorType),
+      value: `${reading.value} ${reading.unit}`,
+      status: reading.location || formatStatus(reading.status),
+      tone: toneForStatus(reading.status),
+    }));
+
+  if (sensorItems.length > 0) return sensorItems;
+
+  return alerts
+    .filter((alert) => ['WATER_LEAK', 'PANIC', 'MOTION', 'OTHER'].includes(alert.alertType))
+    .slice(0, 3)
+    .map((alert) => ({
+      label: alert.title,
+      value: formatStatus(alert.severity),
+      status: formatStatus(alert.status),
+      tone: toneForStatus(alert.status),
+    }));
+};
+
+const buildEnergyItems = (readings: SensorReading[]) =>
+  readings
+    .filter((reading) => ['ENERGY', 'POWER'].includes(reading.sensorType))
+    .slice(0, 3)
+    .map((reading) => ({
+      label: reading.location || formatStatus(reading.sensorType),
+      value: `${reading.value} ${reading.unit}`,
+      status: formatStatus(reading.status),
+      tone: toneForStatus(reading.status),
+    }));
+
+const buildHvacItems = (devices: IoTDevice[], readings: SensorReading[]) => {
+  const hvacDevices = devices
+    .filter((device) => device.deviceType === 'HVAC')
+    .slice(0, 3)
+    .map((device) => ({
+      label: device.name,
+      value: device.location || device.zone || 'Connected unit',
+      status: formatStatus(device.status),
+      tone: toneForStatus(device.status),
+    }));
+
+  if (hvacDevices.length > 0) return hvacDevices;
+
+  return readings
+    .filter((reading) => reading.sensorType === 'HVAC')
+    .slice(0, 3)
+    .map((reading) => ({
+      label: reading.location || 'HVAC reading',
+      value: `${reading.value} ${reading.unit}`,
+      status: formatStatus(reading.status),
+      tone: toneForStatus(reading.status),
+    }));
+};
+
+const buildAssetItems = (devices: IoTDevice[], alerts: SecurityAlert[]) => {
+  const deviceItems = devices
+    .filter((device) => !['CAMERA', 'DOOR_LOCK', 'HVAC'].includes(device.deviceType))
+    .slice(0, 3)
+    .map((device) => ({
+      label: device.name,
+      value: device.location || device.vendor || formatStatus(device.deviceType),
+      status: formatStatus(device.status),
+      tone: toneForStatus(device.status),
+    }));
+
+  if (deviceItems.length > 0) return deviceItems;
+
+  return alerts.slice(0, 3).map((alert) => ({
+    label: alert.title,
+    value: alert.location || formatStatus(alert.alertType),
+    status: formatStatus(alert.status),
+    tone: toneForStatus(alert.status),
+  }));
+};
+
+const sectionList = ({
+  doors,
+  accessEvents,
+  readings,
+  alerts,
+  devices,
+}: {
+  doors: DoorStatus[];
+  accessEvents: DoorAccessEvent[];
+  readings: SensorReading[];
+  alerts: SecurityAlert[];
+  devices: IoTDevice[];
+}): BuildingSection[] => [
+  {
+    title: 'Doors',
+    description: 'Lock state, forced-open activity, and high-traffic entries.',
+    items: buildDoorItems(doors, accessEvents),
+  },
+  {
+    title: 'Sensors',
+    description: 'Temperature, motion, leak detection, and panic button telemetry.',
+    items: buildSensorItems(readings, alerts),
+  },
+  {
+    title: 'Energy',
+    description: 'Consumption, savings opportunities, and abnormal usage patterns.',
+    items: buildEnergyItems(readings),
+  },
+  {
+    title: 'HVAC',
+    description: 'Climate control health across rooms, public areas, and plant systems.',
+    items: buildHvacItems(devices, readings),
+  },
+  {
+    title: 'Assets',
+    description: 'Connected devices, inspection status, and maintenance readiness.',
+    items: buildAssetItems(devices, alerts),
+  },
+].map((section) => ({
+  ...section,
+  items: section.items.length > 0 ? section.items : [emptyItem(section.title)],
+}));
+
 export default function SmartBuildingPage() {
+  const overviewQuery = useQuery({
+    queryKey: ['smart-building', 'overview'],
+    queryFn: smartBuildingService.getOverview,
+    ...realtimeQueryOptions,
+  });
+  const devicesQuery = useQuery({
+    queryKey: ['smart-building', 'devices'],
+    queryFn: smartBuildingService.listDevices,
+    ...realtimeQueryOptions,
+  });
+  const camerasQuery = useQuery({
+    queryKey: ['smart-building', 'cameras'],
+    queryFn: smartBuildingService.listCameraFeeds,
+    ...realtimeQueryOptions,
+  });
+  const accessEventsQuery = useQuery({
+    queryKey: ['smart-building', 'access-events'],
+    queryFn: smartBuildingService.listDoorAccessEvents,
+    ...realtimeQueryOptions,
+  });
+  const doorStatusesQuery = useQuery({
+    queryKey: ['smart-building', 'door-statuses'],
+    queryFn: smartBuildingService.listDoorStatuses,
+    ...realtimeQueryOptions,
+  });
+  const sensorReadingsQuery = useQuery({
+    queryKey: ['smart-building', 'sensor-readings'],
+    queryFn: smartBuildingService.listSensorReadings,
+    ...realtimeQueryOptions,
+  });
+  const alertsQuery = useQuery({
+    queryKey: ['smart-building', 'alerts'],
+    queryFn: smartBuildingService.listSecurityAlerts,
+    ...realtimeQueryOptions,
+  });
+
+  const devices = devicesQuery.data || [];
+  const cameras = camerasQuery.data || [];
+  const accessEvents = accessEventsQuery.data || [];
+  const doors = doorStatusesQuery.data || [];
+  const readings = sensorReadingsQuery.data || [];
+  const alerts = alertsQuery.data || [];
+  const hasRecords =
+    devices.length + cameras.length + accessEvents.length + doors.length + readings.length + alerts.length > 0;
+  const isLoading =
+    overviewQuery.isLoading ||
+    devicesQuery.isLoading ||
+    camerasQuery.isLoading ||
+    accessEventsQuery.isLoading ||
+    doorStatusesQuery.isLoading ||
+    sensorReadingsQuery.isLoading ||
+    alertsQuery.isLoading;
+  const hasError =
+    overviewQuery.isError ||
+    devicesQuery.isError ||
+    camerasQuery.isError ||
+    accessEventsQuery.isError ||
+    doorStatusesQuery.isError ||
+    sensorReadingsQuery.isError ||
+    alertsQuery.isError;
+  const metrics = metricList(overviewQuery.data, hasRecords);
+  const sections = sectionList({ doors, accessEvents, readings, alerts, devices });
+  const activeAlerts = overviewQuery.data?.health.activeAlerts || 0;
+  const onlineDevices = overviewQuery.data?.health.onlineDevices || 0;
+  const totalDevices = overviewQuery.data?.health.totalDevices || 0;
+
   return (
     <div className="space-y-6">
       <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -109,11 +355,26 @@ export default function SmartBuildingPage() {
               Monitor security, access control, environmental sensors, utilities, HVAC, and connected assets from one interface.
             </p>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-100">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            Live systems online
+          <div
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold ring-1 ${
+              activeAlerts > 0
+                ? 'bg-rose-50 text-rose-800 ring-rose-100'
+                : 'bg-emerald-50 text-emerald-800 ring-emerald-100'
+            }`}
+          >
+            <span className={`h-2 w-2 rounded-full ${activeAlerts > 0 ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+            {isLoading
+              ? 'Loading systems'
+              : totalDevices > 0
+                ? `${onlineDevices}/${totalDevices} devices online`
+                : 'Waiting for IoT data'}
           </div>
         </div>
+        {hasError ? (
+          <div className="mt-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">
+            Smart Building data could not be loaded.
+          </div>
+        ) : null}
       </header>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Smart building summary">
@@ -136,7 +397,7 @@ export default function SmartBuildingPage() {
             <p className="mt-2 min-h-[56px] text-sm text-slate-600">{section.description}</p>
             <div className="mt-4 space-y-3">
               {section.items.map((item) => (
-                <div key={item.label} className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                <div key={`${section.title}-${item.label}`} className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-xs font-semibold text-slate-500">{item.label}</div>

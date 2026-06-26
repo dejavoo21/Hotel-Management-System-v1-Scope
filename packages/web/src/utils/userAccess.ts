@@ -12,6 +12,7 @@ export type PermissionId =
   | 'financials'
   | 'reviews'
   | 'concierge'
+  | 'smart_building'
   | 'users'
   | 'settings';
 
@@ -31,6 +32,7 @@ const permissionOptions: { id: PermissionId; label: string }[] = [
   { id: 'financials', label: 'Financials' },
   { id: 'reviews', label: 'Reviews' },
   { id: 'concierge', label: 'Concierge' },
+  { id: 'smart_building', label: 'Smart Building' },
   { id: 'users', label: 'Users' },
   { id: 'settings', label: 'Settings' },
 ];

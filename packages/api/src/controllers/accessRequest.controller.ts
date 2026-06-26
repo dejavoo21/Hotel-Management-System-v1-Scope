@@ -24,6 +24,7 @@ const defaultModulePermissions: Record<Role, string[]> = {
     'financials',
     'reviews',
     'concierge',
+    'smart_building',
     'users',
     'settings',
   ],

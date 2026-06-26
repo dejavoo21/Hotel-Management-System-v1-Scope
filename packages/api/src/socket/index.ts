@@ -384,6 +384,18 @@ export interface ServerToClientEvents {
 
   // Dashboard events
   'dashboard:updated': (data: { type: string }) => void;
+  'smart-building:update': (data: {
+    action: 'INGESTED' | 'ALERT_ACKNOWLEDGED' | 'ALERT_RESOLVED';
+    hotelId: string;
+    timestamp: string;
+    eventType?: string;
+    alertId?: string;
+  }) => void;
+  'smart-building:alert': (data: {
+    eventType: string;
+    hotelId: string;
+    timestamp: string;
+  }) => void;
 
   // Notification events
   'notification': (data: { type: 'info' | 'success' | 'warning' | 'error'; title: string; message: string }) => void;
