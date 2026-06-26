@@ -48,16 +48,16 @@ export const navSections: NavSection[] = [
       {
         id: 'operations-center',
         label: 'Operations Center',
-        href: '/operations',
+        href: '/operations-center',
         permission: 'bookings',
         icon: 'gauge',
         badge: 'NEW',
         items: [
-          { id: 'operations-ai', label: 'AI', href: '/operations/ai', permission: 'bookings', icon: 'sparkles' },
-          { id: 'operations-revenue', label: 'Revenue', href: '/operations/revenue', permission: 'financials', icon: 'chart' },
-          { id: 'operations-weather', label: 'Weather', href: '/operations/weather', permission: 'bookings', icon: 'calendar' },
-          { id: 'operations-tasks', label: 'Tasks', href: '/operations/tasks', permission: 'bookings', icon: 'calendar-check' },
-          { id: 'operations-market-intelligence', label: 'Market Intelligence', href: '/operations/market-intelligence', permission: 'bookings', icon: 'gauge' },
+          { id: 'operations-ai', label: 'AI', href: '/operations-center/ai', permission: 'bookings', icon: 'sparkles' },
+          { id: 'operations-revenue', label: 'Revenue', href: '/operations-center/revenue', permission: 'financials', icon: 'chart' },
+          { id: 'operations-weather', label: 'Weather', href: '/operations-center/weather', permission: 'bookings', icon: 'calendar' },
+          { id: 'operations-tasks', label: 'Tasks', href: '/operations-center/tasks', permission: 'bookings', icon: 'calendar-check' },
+          { id: 'operations-market-intelligence', label: 'Market Intelligence', href: '/operations-center/market-intelligence', permission: 'bookings', icon: 'gauge' },
         ],
       },
       {

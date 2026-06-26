@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { RefreshCcw, Sparkles } from 'lucide-react';
 import OpsAdvisories from '@/components/operations/advisories/OpsAdvisories';
@@ -7,13 +8,32 @@ import AssistantDock from '@/components/operations/assistant/AssistantDock';
 import PricingCalendarCard from '@/components/operations/pricing/PricingCalendarCard';
 import MarketIntelligenceCard from '@/components/operations/pricing/MarketIntelligenceCard';
 import OpsKpiStrip from '@/components/operations/premium/OpsKpiStrip';
+import SignalsGrid from '@/components/operations/SignalsGrid';
 import { operationsService, weatherSignalsService } from '@/services';
 import { useAuthStore } from '@/stores/authStore';
 
+type OperationsFocus = 'overview' | 'ai' | 'revenue' | 'weather' | 'tasks' | 'market-intelligence';
+
+const getFocusFromPath = (pathname: string): OperationsFocus => {
+  const segment = pathname.split('/').filter(Boolean)[1];
+  if (
+    segment === 'ai' ||
+    segment === 'revenue' ||
+    segment === 'weather' ||
+    segment === 'tasks' ||
+    segment === 'market-intelligence'
+  ) {
+    return segment;
+  }
+  return 'overview';
+};
+
 export default function OperationsCenterPage() {
   const queryClient = useQueryClient();
+  const location = useLocation();
   const { user } = useAuthStore();
   const hotelId = user?.hotel?.id || '';
+  const focus = getFocusFromPath(location.pathname);
 
   const operationsQuery = useQuery({
     queryKey: ['operationsContext', hotelId],
@@ -107,27 +127,83 @@ export default function OperationsCenterPage() {
     }
 
     const context = operationsQuery.data;
+    const refreshWeather = () => refreshWeatherMutation.mutate();
+    const revenuePanel = (
+      <PricingCalendarCard
+        pricingCalendar={context?.pricingCalendar}
+        pricingSummary={context?.pricingSignal}
+        snapshotMeta={context?.pricingSnapshotMeta}
+        title="Revenue Guidance (14 nights)"
+        subtitle="Per-night suggestions based on booking pace, weather signals, and market rates when available."
+      />
+    );
+    const weatherPanel = (
+      <SignalsGrid
+        context={context}
+        onRefreshWeather={refreshWeather}
+        isRefreshingWeather={refreshWeatherMutation.isPending}
+      />
+    );
+    const tasksPanel = <OpsAdvisories context={context} />;
+    const marketPanel = <MarketIntelligenceCard />;
+    const aiPanel = <AssistantDock context={context} />;
+
+    if (focus === 'weather') {
+      return (
+        <div className="space-y-6">
+          {weatherPanel}
+          {tasksPanel}
+        </div>
+      );
+    }
+
+    if (focus === 'revenue') {
+      return (
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+          <div className="space-y-6 xl:col-span-8">{revenuePanel}</div>
+          <div className="space-y-6 xl:col-span-4">{marketPanel}</div>
+        </div>
+      );
+    }
+
+    if (focus === 'market-intelligence') {
+      return (
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+          <div className="space-y-6 xl:col-span-5">{marketPanel}</div>
+          <div className="space-y-6 xl:col-span-7">{revenuePanel}</div>
+        </div>
+      );
+    }
+
+    if (focus === 'tasks') {
+      return tasksPanel;
+    }
+
+    if (focus === 'ai') {
+      return <div className="max-w-5xl">{aiPanel}</div>;
+    }
+
     return (
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
         <div className="space-y-6 xl:col-span-8">
-          <PricingCalendarCard
-            pricingCalendar={context?.pricingCalendar}
-            pricingSummary={context?.pricingSignal}
-            snapshotMeta={context?.pricingSnapshotMeta}
-            title="Revenue Guidance (14 nights)"
-            subtitle="Per-night suggestions based on booking pace, weather signals, and market rates when available."
-          />
-
-          <OpsAdvisories context={context} />
+          {weatherPanel}
+          {revenuePanel}
+          {tasksPanel}
         </div>
 
         <div className="space-y-6 xl:col-span-4">
-          <MarketIntelligenceCard />
-          <AssistantDock context={context} />
+          {marketPanel}
+          {aiPanel}
         </div>
       </div>
     );
-  }, [operationsQuery.isLoading, operationsQuery.isError, operationsQuery.data]);
+  }, [
+    focus,
+    operationsQuery.isLoading,
+    operationsQuery.isError,
+    operationsQuery.data,
+    refreshWeatherMutation.isPending,
+  ]);
 
   return (
     <div className="space-y-6">

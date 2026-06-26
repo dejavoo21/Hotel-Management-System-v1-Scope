@@ -207,12 +207,18 @@ export default function App() {
         <Route path="inventory" element={<ModuleRoute requiredModule="inventory"><InventoryPage /></ModuleRoute>} />
         <Route path="messages" element={<ModuleRoute requiredModule="messages"><MessagesPage /></ModuleRoute>} />
         <Route path="calls" element={<ModuleRoute requiredModule="messages"><CallsPage /></ModuleRoute>} />
-        <Route path="operations" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
-        <Route path="operations/ai" element={<ModuleRoute requiredModule="bookings"><OperationsPlaceholderPage section="Operations Center" title="AI" /></ModuleRoute>} />
-        <Route path="operations/revenue" element={<ModuleRoute requiredModule="financials"><OperationsPlaceholderPage section="Operations Center" title="Revenue" /></ModuleRoute>} />
-        <Route path="operations/weather" element={<ModuleRoute requiredModule="bookings"><OperationsPlaceholderPage section="Operations Center" title="Weather" /></ModuleRoute>} />
-        <Route path="operations/tasks" element={<ModuleRoute requiredModule="bookings"><OperationsPlaceholderPage section="Operations Center" title="Tasks" /></ModuleRoute>} />
-        <Route path="operations/market-intelligence" element={<ModuleRoute requiredModule="bookings"><OperationsPlaceholderPage section="Operations Center" title="Market Intelligence" /></ModuleRoute>} />
+        <Route path="operations" element={<Navigate to="/operations-center" replace />} />
+        <Route path="operations/ai" element={<Navigate to="/operations-center/ai" replace />} />
+        <Route path="operations/revenue" element={<Navigate to="/operations-center/revenue" replace />} />
+        <Route path="operations/weather" element={<Navigate to="/operations-center/weather" replace />} />
+        <Route path="operations/tasks" element={<Navigate to="/operations-center/tasks" replace />} />
+        <Route path="operations/market-intelligence" element={<Navigate to="/operations-center/market-intelligence" replace />} />
+        <Route path="operations-center" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="operations-center/ai" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="operations-center/revenue" element={<ModuleRoute requiredModule="financials"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="operations-center/weather" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="operations-center/tasks" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="operations-center/market-intelligence" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
         <Route path="security-center" element={<ModuleRoute requiredModule="security_center"><SecurityCenterPage /></ModuleRoute>} />
         <Route path="security-center/:tab" element={<ModuleRoute requiredModule="security_center"><SecurityCenterPage /></ModuleRoute>} />
         <Route path="operations/security/cctv" element={<Navigate to="/security-center/cctv" replace />} />
