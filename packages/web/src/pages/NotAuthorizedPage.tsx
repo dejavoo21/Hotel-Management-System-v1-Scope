@@ -43,6 +43,12 @@ export default function NotAuthorizedPage() {
           >
             Go Back
           </button>
+          <button
+            onClick={() => navigate('/login')}
+            className="rounded-lg border border-slate-300 bg-white px-6 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2"
+          >
+            Go to Login
+          </button>
         </div>
       </div>
     </div>

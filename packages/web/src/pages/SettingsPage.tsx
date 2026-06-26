@@ -1573,7 +1573,34 @@ export default function SettingsPage() {
                                     </button>
                                   </div>
                                 ) : (
-                                  <div className="flex justify-end">
+                                  <div className="flex flex-wrap justify-end gap-2">
+                                    {request.status === 'APPROVED' && (
+                                      <button
+                                        className="btn-outline text-sm"
+                                        disabled={
+                                          approveAccessMutation.isPending &&
+                                          approvingRequestId === request.id
+                                        }
+                                        onClick={async () => {
+                                          setApprovingRequestId(request.id);
+                                          try {
+                                            await approveAccessMutation.mutateAsync({
+                                              id: request.id,
+                                              role: selectedRole,
+                                            });
+                                          } finally {
+                                            setApprovingRequestId((current) =>
+                                              current === request.id ? null : current
+                                            );
+                                          }
+                                        }}
+                                      >
+                                        {approveAccessMutation.isPending &&
+                                        approvingRequestId === request.id
+                                          ? 'Sending...'
+                                          : 'Resend setup'}
+                                      </button>
+                                    )}
                                     <button
                                       className="btn-outline text-sm text-rose-600"
                                       onClick={() => {

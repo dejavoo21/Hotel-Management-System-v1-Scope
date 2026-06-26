@@ -45,6 +45,13 @@ function runMigrations() {
   return success;
 }
 
+function generatePrismaClient() {
+  console.log('Generating Prisma client...');
+  return runSync('npx', ['prisma', 'generate'], {
+    cwd: 'packages/api',
+  });
+}
+
 const serviceName = String(process.env.RAILWAY_SERVICE_NAME || '').toLowerCase();
 const port = String(process.env.PORT || '3000');
 
@@ -59,6 +66,8 @@ if (isWeb) {
     cwd: 'packages/web',
   });
 } else {
+  generatePrismaClient();
+
   // Run migrations before starting API
   runMigrations();
   
@@ -75,4 +84,3 @@ if (isWeb) {
     cwd: 'packages/api',
   });
 }
-

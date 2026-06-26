@@ -119,16 +119,32 @@ async function processMessage(message: ImapMessage): Promise<boolean> {
   }
 
   // Production mode: Use Prisma
-  // If no requestId was extracted from the email, skip
-  if (!requestId) {
-    logger.debug('No access request ID found in email', { fromEmail, subject });
-    return false;
-  }
-  
-  const accessRequest = await prisma.accessRequest.findFirst({ where: { id: requestId } });
+  let accessRequest = requestId
+    ? await prisma.accessRequest.findFirst({ where: { id: requestId } })
+    : null;
+
   if (!accessRequest) {
-    logger.warn('Access request not found for ID', { requestId });
-    return false;
+    if (requestId) {
+      logger.warn('Access request not found for ID; attempting sender fallback', {
+        requestId,
+        fromEmail,
+      });
+    }
+
+    if (fromEmail) {
+      accessRequest = await prisma.accessRequest.findFirst({
+        where: {
+          email: fromEmail,
+          status: { in: ['NEEDS_INFO', 'INFO_RECEIVED'] },
+        },
+        orderBy: { updatedAt: 'desc' },
+      });
+    }
+
+    if (!accessRequest) {
+      logger.debug('No matching access request found for email reply', { fromEmail, subject, requestId });
+      return false;
+    }
   }
 
   const existing = await prisma.accessRequestReply.findUnique({ where: { messageId } });
@@ -280,10 +296,8 @@ export async function startImapPolling(): Promise<void> {
     imapErrorCount = 0;
     logger.info('IMAP polling connected');
 
-    // On startup, scan recent emails to catch any missed replies
-    if (config.demoMode) {
-      await scanRecentEmails(imapClient);
-    }
+    // On startup, scan recent emails to catch any missed replies.
+    await scanRecentEmails(imapClient);
 
     const poll = async () => {
       if (!imapClient || !imapConnected) {

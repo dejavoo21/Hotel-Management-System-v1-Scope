@@ -54,6 +54,14 @@ type ChannelPerformance = {
   tone: 'emerald' | 'sky' | 'amber';
 };
 
+type SmartBuildingMetric = {
+  label: string;
+  primary: string;
+  secondary?: string;
+  tone: 'emerald' | 'sky' | 'amber' | 'rose' | 'slate';
+  icon: React.ReactNode;
+};
+
 type TaskTemplate = Omit<TaskRow, 'completed'>;
 
 function formatCurrency(value: number, currency = 'USD') {
@@ -173,6 +181,125 @@ function KpiCard({
         <TrendPill pct={trendPct} />
       </div>
     </ClickableCard>
+  );
+}
+
+function SmartBuildingDashboard() {
+  const metrics: SmartBuildingMetric[] = [
+    {
+      label: 'Active Cameras',
+      primary: '42 Online',
+      secondary: '2 Offline',
+      tone: 'emerald',
+      icon: (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M4 6h9a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Doors',
+      primary: '315 Locked',
+      secondary: '4 Open',
+      tone: 'sky',
+      icon: (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 21h10V4a1 1 0 00-1-1H8a1 1 0 00-1 1v17zM10 12h.01M5 21h14" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Access Events',
+      primary: '127 Today',
+      tone: 'slate',
+      icon: (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6M7 4h10a2 2 0 012 2v14H5V6a2 2 0 012-2z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Motion Alerts',
+      primary: '3 Active',
+      tone: 'amber',
+      icon: (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Temperature Sensors',
+      primary: '48 Normal',
+      secondary: '2 Warning',
+      tone: 'amber',
+      icon: (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M14 14.76V5a2 2 0 10-4 0v9.76a4 4 0 104 0z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Water Leak Sensors',
+      primary: '1 Alert',
+      tone: 'rose',
+      icon: (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 3s6 6.2 6 11a6 6 0 11-12 0c0-4.8 6-11 6-11z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Panic Buttons',
+      primary: '0 Active',
+      tone: 'emerald',
+      icon: (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 9v4m0 4h.01M5.07 19h13.86a1.5 1.5 0 001.3-2.25L13.3 4.75a1.5 1.5 0 00-2.6 0l-6.93 12A1.5 1.5 0 005.07 19z" />
+        </svg>
+      ),
+    },
+  ];
+
+  const toneClasses: Record<SmartBuildingMetric['tone'], string> = {
+    emerald: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+    sky: 'bg-sky-50 text-sky-700 ring-sky-100',
+    amber: 'bg-amber-50 text-amber-700 ring-amber-100',
+    rose: 'bg-rose-50 text-rose-700 ring-rose-100',
+    slate: 'bg-slate-50 text-slate-700 ring-slate-100',
+  };
+
+  return (
+    <section className="rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200" aria-label="Smart Building Dashboard">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-slate-900">Smart Building Dashboard</div>
+          <div className="mt-1 text-xs font-semibold text-slate-500">Live safety and access overview</div>
+        </div>
+        <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 ring-4 ring-emerald-100" aria-label="Live" />
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 2xl:grid-cols-1">
+        {metrics.map((metric) => (
+          <div key={metric.label} className="rounded-2xl border border-slate-100 bg-slate-50/60 p-3">
+            <div className="flex items-start gap-3">
+              <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ${toneClasses[metric.tone]}`}>
+                {metric.icon}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-semibold text-slate-500">{metric.label}</div>
+                <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className="text-sm font-extrabold text-slate-900">{metric.primary}</span>
+                  {metric.secondary ? (
+                    <span className="text-xs font-semibold text-slate-500">{metric.secondary}</span>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -1298,6 +1425,8 @@ export default function DashboardPage() {
         </div>
 
         <div className="min-w-0 flex h-full flex-col gap-5">
+          <SmartBuildingDashboard />
+
           {canViewReviews && (
             <ClickableCard to="/reviews" ariaLabel="Go to reviews" className="min-h-[460px] rounded-[20px] bg-white p-5 shadow-sm ring-1 ring-slate-200">
               <div className="flex items-center justify-between">

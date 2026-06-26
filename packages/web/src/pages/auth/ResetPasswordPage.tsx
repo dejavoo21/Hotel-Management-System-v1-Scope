@@ -3,6 +3,13 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { authService } from '@/services';
 import toast from 'react-hot-toast';
 
+const passwordRequirements = [
+  'At least 8 characters',
+  'One uppercase letter',
+  'One lowercase letter',
+  'One number',
+];
+
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -118,40 +125,62 @@ export default function ResetPasswordPage() {
         </div>
 
         <div>
-          <label className="label">Verification code</label>
-          <div className="flex gap-2">
-            <input
-              name="otpCode"
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              value={otpCode}
-              onChange={(event) => setOtpCode(event.target.value)}
-              required={Boolean(token)}
-              className="input"
-              placeholder="Enter 6-digit code"
-              disabled={!token}
-            />
-            <button
-              type="button"
-              onClick={handleSendCode}
-              className="btn-outline whitespace-nowrap"
-              disabled={isSendingCode || isLoadingContext}
-            >
-              {isSendingCode
-                ? 'Sending...'
-                : token
-                  ? codeSent
-                    ? 'Resend code'
-                    : 'Send code'
-                  : 'Send reset link'}
-            </button>
+          <label className="label">New password</label>
+          <input
+            name="newPassword"
+            type="password"
+            required
+            minLength={8}
+            pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+            title="Use at least 8 characters with one uppercase letter, one lowercase letter, and one number."
+            autoComplete="new-password"
+            className="input"
+            aria-describedby="password-requirements"
+          />
+          <div id="password-requirements" className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+            <p className="text-xs font-semibold text-slate-700">Password must include:</p>
+            <ul className="mt-1 space-y-1 text-xs text-slate-600">
+              {passwordRequirements.map((requirement) => (
+                <li key={requirement} className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary-500" aria-hidden="true" />
+                  <span>{requirement}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
 
         <div>
-          <label className="label">New password</label>
-          <input name="newPassword" type="password" required className="input" />
+          <label className="label">Verification code</label>
+          <input
+            name="otpCode"
+            type="text"
+            inputMode="numeric"
+            maxLength={6}
+            value={otpCode}
+            onChange={(event) => setOtpCode(event.target.value)}
+            required={Boolean(token)}
+            className="input"
+            placeholder="Enter 6-digit code"
+            disabled={!token}
+          />
+          <p className="mt-1 text-xs text-slate-500">
+            Send the code after confirming the email above, then enter the 6-digit code here.
+          </p>
+          <button
+            type="button"
+            onClick={handleSendCode}
+            className="btn-outline mt-3 w-full"
+            disabled={isSendingCode || isLoadingContext}
+          >
+            {isSendingCode
+              ? 'Sending...'
+              : token
+                ? codeSent
+                  ? 'Resend code'
+                  : 'Send code'
+                : 'Send reset link'}
+          </button>
         </div>
 
         <button type="submit" disabled={isSubmitting || !token} className="btn-primary w-full">

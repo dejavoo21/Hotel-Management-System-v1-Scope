@@ -11,6 +11,40 @@ import { renderLafloEmail, escapeEmailText } from '../utils/emailTemplates.js';
 
 type AccessRequestUpdateAction = 'APPROVED' | 'REJECTED' | 'NEEDS_INFO';
 
+const defaultModulePermissions: Record<Role, string[]> = {
+  ADMIN: [
+    'dashboard',
+    'bookings',
+    'rooms',
+    'messages',
+    'housekeeping',
+    'inventory',
+    'calendar',
+    'guests',
+    'financials',
+    'reviews',
+    'concierge',
+    'users',
+    'settings',
+  ],
+  MANAGER: [
+    'dashboard',
+    'bookings',
+    'rooms',
+    'messages',
+    'housekeeping',
+    'inventory',
+    'calendar',
+    'guests',
+    'financials',
+    'reviews',
+    'concierge',
+    'settings',
+  ],
+  RECEPTIONIST: ['dashboard', 'bookings', 'rooms', 'messages', 'calendar', 'guests', 'financials'],
+  HOUSEKEEPING: ['dashboard', 'rooms', 'housekeeping', 'calendar', 'messages'],
+};
+
 function parseName(fullName: string) {
   const parts = fullName.trim().split(/\s+/);
   return {
@@ -247,7 +281,25 @@ export async function approveAccessRequest(
           firstName,
           lastName,
           role: normalizedRole,
+          isActive: true,
           mustChangePassword: true,
+          modulePermissions: defaultModulePermissions[normalizedRole],
+        },
+      });
+    } else {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          hotelId,
+          firstName,
+          lastName,
+          role: normalizedRole,
+          isActive: true,
+          mustChangePassword: true,
+          modulePermissions:
+            user.modulePermissions && user.modulePermissions.length > 0
+              ? user.modulePermissions
+              : defaultModulePermissions[normalizedRole],
         },
       });
     }
