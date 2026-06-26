@@ -13,6 +13,7 @@ export type PermissionId =
   | 'reviews'
   | 'concierge'
   | 'security_center'
+  | 'maintenance_center'
   | 'smart_building'
   | 'users'
   | 'settings';
@@ -34,6 +35,7 @@ const permissionOptions: { id: PermissionId; label: string }[] = [
   { id: 'reviews', label: 'Reviews' },
   { id: 'concierge', label: 'Concierge' },
   { id: 'security_center', label: 'Security Center' },
+  { id: 'maintenance_center', label: 'Maintenance Center' },
   { id: 'smart_building', label: 'Smart Building' },
   { id: 'users', label: 'Users' },
   { id: 'settings', label: 'Settings' },
@@ -54,6 +56,7 @@ const defaultPermissions: Record<UserRole, PermissionId[]> = {
     'reviews',
     'concierge',
     'security_center',
+    'maintenance_center',
     'settings',
   ],
   RECEPTIONIST: [
@@ -65,7 +68,7 @@ const defaultPermissions: Record<UserRole, PermissionId[]> = {
     'guests',
     'financials',
   ],
-  HOUSEKEEPING: ['dashboard', 'rooms', 'housekeeping', 'calendar', 'messages'],
+  HOUSEKEEPING: ['dashboard', 'rooms', 'housekeeping', 'maintenance_center', 'calendar', 'messages'],
 };
 
 const loadStorage = <T>(key: string, fallback: T): T => {

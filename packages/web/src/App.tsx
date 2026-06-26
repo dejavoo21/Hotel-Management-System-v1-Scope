@@ -34,6 +34,7 @@ import CallsPage from '@/pages/CallsPage';
 import OperationsCenterPage from '@/pages/OperationsCenterPage';
 import OperationsPlaceholderPage from '@/pages/OperationsPlaceholderPage';
 import SecurityCenterPage from '@/pages/SecurityCenterPage';
+import MaintenanceCenterPage from '@/pages/MaintenanceCenterPage';
 import SmartBuildingPage from '@/pages/SmartBuildingPage';
 import ForcePasswordChangePage from '@/pages/auth/ForcePasswordChangePage';
 import NotAuthorizedPage from '@/pages/NotAuthorizedPage';
@@ -73,6 +74,7 @@ const MODULE_ROUTE_PRIORITY: { module: PermissionId; path: string }[] = [
   { module: 'calendar', path: '/calendar' },
   { module: 'inventory', path: '/inventory' },
   { module: 'security_center', path: '/security-center' },
+  { module: 'maintenance_center', path: '/maintenance-center' },
   { module: 'smart_building', path: '/operations/smart-building' },
 ];
 
@@ -223,9 +225,11 @@ export default function App() {
         <Route path="operations/smart-building/energy" element={<ModuleRoute requiredModule="smart_building"><OperationsPlaceholderPage section="Smart Building" title="Energy" /></ModuleRoute>} />
         <Route path="operations/smart-building/hvac" element={<ModuleRoute requiredModule="smart_building"><OperationsPlaceholderPage section="Smart Building" title="HVAC" /></ModuleRoute>} />
         <Route path="operations/smart-building/assets" element={<ModuleRoute requiredModule="smart_building"><OperationsPlaceholderPage section="Smart Building" title="Assets" /></ModuleRoute>} />
-        <Route path="operations/maintenance/work-orders" element={<ModuleRoute requiredModule="housekeeping"><OperationsPlaceholderPage section="Maintenance" title="Work Orders" /></ModuleRoute>} />
-        <Route path="operations/maintenance/faults" element={<ModuleRoute requiredModule="housekeeping"><OperationsPlaceholderPage section="Maintenance" title="Faults" /></ModuleRoute>} />
-        <Route path="operations/maintenance/repairs" element={<ModuleRoute requiredModule="housekeeping"><OperationsPlaceholderPage section="Maintenance" title="Repairs" /></ModuleRoute>} />
+        <Route path="maintenance-center" element={<ModuleRoute requiredModule="maintenance_center"><MaintenanceCenterPage /></ModuleRoute>} />
+        <Route path="maintenance-center/:tab" element={<ModuleRoute requiredModule="maintenance_center"><MaintenanceCenterPage /></ModuleRoute>} />
+        <Route path="operations/maintenance/work-orders" element={<Navigate to="/maintenance-center/work-orders" replace />} />
+        <Route path="operations/maintenance/faults" element={<Navigate to="/maintenance-center/faults" replace />} />
+        <Route path="operations/maintenance/repairs" element={<Navigate to="/maintenance-center/repairs" replace />} />
         <Route path="calendar" element={<ModuleRoute requiredModule="calendar"><CalendarPage /></ModuleRoute>} />
         <Route path="guests" element={<ModuleRoute requiredModule="guests"><GuestsPage /></ModuleRoute>} />
         <Route path="housekeeping" element={<ModuleRoute requiredModule="housekeeping"><HousekeepingPage /></ModuleRoute>} />

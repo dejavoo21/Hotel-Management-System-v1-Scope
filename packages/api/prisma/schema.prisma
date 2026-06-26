@@ -133,6 +133,11 @@ model Hotel {
   sensorReadings    SensorReading[]
   securityAlerts    SecurityAlert[]
   visitors          Visitor[]
+  maintenanceWorkOrders MaintenanceWorkOrder[]
+  maintenanceFaults MaintenanceFault[]
+  maintenanceRepairs MaintenanceRepair[]
+  preventiveMaintenanceSchedules PreventiveMaintenanceSchedule[]
+  assetMaintenanceRecords AssetMaintenanceRecord[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 }
@@ -241,6 +246,7 @@ model IoTDevice {
   doorStatuses   DoorStatus[]
   sensorReadings SensorReading[]
   securityAlerts SecurityAlert[]
+  assetMaintenanceRecords AssetMaintenanceRecord[]
 
   @@unique([hotelId, externalId])
   @@index([hotelId])
@@ -823,6 +829,123 @@ model MaintenanceIssue {
   @@index([status])
 }
 
+model MaintenanceWorkOrder {
+  id              String                     @id @default(cuid())
+  hotelId         String
+  hotel           Hotel                      @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  title           String
+  description     String?
+  category        String?
+  location        String?
+  assetName       String?
+  assetExternalId String?
+  priority        MaintenanceCenterPriority @default(MEDIUM)
+  status          MaintenanceWorkOrderStatus @default(OPEN)
+  assignedTo      String?
+  dueAt           DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  faults          MaintenanceFault[]
+  repairs         MaintenanceRepair[]
+
+  @@index([hotelId])
+  @@index([status])
+  @@index([priority])
+  @@index([dueAt])
+}
+
+model MaintenanceFault {
+  id          String                  @id @default(cuid())
+  hotelId     String
+  hotel       Hotel                   @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  workOrderId String?
+  workOrder   MaintenanceWorkOrder?   @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+  title       String
+  description String?
+  location    String?
+  assetName   String?
+  severity    MaintenanceFaultSeverity @default(MEDIUM)
+  status      MaintenanceFaultStatus   @default(OPEN)
+  reportedAt  DateTime                 @default(now())
+  resolvedAt  DateTime?
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+  repairs     MaintenanceRepair[]
+
+  @@index([hotelId])
+  @@index([workOrderId])
+  @@index([severity])
+  @@index([status])
+  @@index([reportedAt])
+}
+
+model MaintenanceRepair {
+  id          String                  @id @default(cuid())
+  hotelId     String
+  hotel       Hotel                   @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  workOrderId String?
+  workOrder   MaintenanceWorkOrder?   @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+  faultId     String?
+  fault       MaintenanceFault?       @relation(fields: [faultId], references: [id], onDelete: SetNull)
+  title       String
+  description String?
+  technician  String?
+  status      MaintenanceRepairStatus @default(SCHEDULED)
+  startedAt   DateTime?
+  completedAt DateTime?
+  cost        Decimal?                @db.Decimal(10, 2)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  @@index([hotelId])
+  @@index([workOrderId])
+  @@index([faultId])
+  @@index([status])
+}
+
+model PreventiveMaintenanceSchedule {
+  id              String                      @id @default(cuid())
+  hotelId         String
+  hotel           Hotel                       @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  title           String
+  assetName       String
+  assetExternalId String?
+  frequency       PreventiveMaintenanceFrequency
+  nextDueAt       DateTime
+  lastCompletedAt DateTime?
+  status          PreventiveMaintenanceStatus @default(ACTIVE)
+  notes           String?
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+
+  @@index([hotelId])
+  @@index([status])
+  @@index([nextDueAt])
+}
+
+model AssetMaintenanceRecord {
+  id               String                @id @default(cuid())
+  hotelId          String
+  hotel            Hotel                 @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  deviceId         String?
+  device           IoTDevice?            @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  assetName        String
+  assetExternalId  String?
+  location         String?
+  inspectionStatus AssetInspectionStatus @default(OK)
+  lastInspectionAt DateTime?
+  nextInspectionAt DateTime?
+  notes            String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  @@index([hotelId])
+  @@index([deviceId])
+  @@index([inspectionStatus])
+  @@index([nextInspectionAt])
+}
+
 enum MaintenancePriority {
   LOW
   MEDIUM
@@ -835,6 +958,66 @@ enum MaintenanceStatus {
   IN_PROGRESS
   RESOLVED
   CLOSED
+}
+
+enum MaintenanceCenterPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum MaintenanceWorkOrderStatus {
+  OPEN
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum MaintenanceFaultSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+  CRITICAL
+}
+
+enum MaintenanceFaultStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum MaintenanceRepairStatus {
+  SCHEDULED
+  IN_PROGRESS
+  WAITING_PARTS
+  COMPLETED
+  CANCELLED
+}
+
+enum PreventiveMaintenanceFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+enum PreventiveMaintenanceStatus {
+  ACTIVE
+  PAUSED
+  OVERDUE
+  COMPLETED
+}
+
+enum AssetInspectionStatus {
+  OK
+  DUE
+  OVERDUE
+  NEEDS_REPAIR
 }
 
 // ===========================================

@@ -20,6 +20,7 @@ export const MODULE_ROUTES: Record<PermissionId, string> = {
   reviews: '/reviews',
   concierge: '/concierge',
   security_center: '/security-center',
+  maintenance_center: '/maintenance-center',
   smart_building: '/operations/smart-building',
   users: '/users',
   settings: '/settings',
@@ -53,9 +54,15 @@ ROUTE_MODULES['/operations/smart-building/sensors'] = 'smart_building';
 ROUTE_MODULES['/operations/smart-building/energy'] = 'smart_building';
 ROUTE_MODULES['/operations/smart-building/hvac'] = 'smart_building';
 ROUTE_MODULES['/operations/smart-building/assets'] = 'smart_building';
-ROUTE_MODULES['/operations/maintenance/work-orders'] = 'housekeeping';
-ROUTE_MODULES['/operations/maintenance/faults'] = 'housekeeping';
-ROUTE_MODULES['/operations/maintenance/repairs'] = 'housekeeping';
+ROUTE_MODULES['/maintenance-center'] = 'maintenance_center';
+ROUTE_MODULES['/maintenance-center/work-orders'] = 'maintenance_center';
+ROUTE_MODULES['/maintenance-center/faults'] = 'maintenance_center';
+ROUTE_MODULES['/maintenance-center/repairs'] = 'maintenance_center';
+ROUTE_MODULES['/maintenance-center/preventive-maintenance'] = 'maintenance_center';
+ROUTE_MODULES['/maintenance-center/assets'] = 'maintenance_center';
+ROUTE_MODULES['/operations/maintenance/work-orders'] = 'maintenance_center';
+ROUTE_MODULES['/operations/maintenance/faults'] = 'maintenance_center';
+ROUTE_MODULES['/operations/maintenance/repairs'] = 'maintenance_center';
 // Calls is part of messaging workflow.
 ROUTE_MODULES['/calls'] = 'messages';
 
@@ -83,6 +90,7 @@ const MODULE_PRIORITY: PermissionId[] = [
   'reviews',
   'concierge',
   'security_center',
+  'maintenance_center',
   'smart_building',
   'users',
   'settings',

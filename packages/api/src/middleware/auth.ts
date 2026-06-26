@@ -20,6 +20,7 @@ export type ModulePermission =
   | 'reviews'
   | 'concierge'
   | 'security_center'
+  | 'maintenance_center'
   | 'smart_building'
   | 'users'
   | 'settings';

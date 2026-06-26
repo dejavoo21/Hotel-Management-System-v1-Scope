@@ -25,6 +25,7 @@ const defaultModulePermissions: Record<Role, string[]> = {
     'reviews',
     'concierge',
     'security_center',
+    'maintenance_center',
     'smart_building',
     'users',
     'settings',
@@ -42,10 +43,11 @@ const defaultModulePermissions: Record<Role, string[]> = {
     'reviews',
     'concierge',
     'security_center',
+    'maintenance_center',
     'settings',
   ],
   RECEPTIONIST: ['dashboard', 'bookings', 'rooms', 'messages', 'calendar', 'guests', 'financials'],
-  HOUSEKEEPING: ['dashboard', 'rooms', 'housekeeping', 'calendar', 'messages'],
+  HOUSEKEEPING: ['dashboard', 'rooms', 'housekeeping', 'maintenance_center', 'calendar', 'messages'],
 };
 
 function parseName(fullName: string) {

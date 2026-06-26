@@ -27,7 +27,8 @@
     "tickets:backfill": "tsx scripts/backfillTickets.ts",
     "smart-building:seed": "tsx scripts/seedSmartBuilding.ts",
     "smart-building:test-events": "tsx scripts/testSmartBuildingEvents.ts",
-    "security-center:seed": "tsx scripts/seedSecurityCenter.ts"
+    "security-center:seed": "tsx scripts/seedSecurityCenter.ts",
+    "maintenance-center:seed": "tsx scripts/seedMaintenanceCenter.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

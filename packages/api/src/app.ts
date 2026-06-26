@@ -44,6 +44,7 @@ import presenceRoutes from './routes/presence.routes.js';
 import operationsRoutes from './routes/operations.routes.js';
 import smartBuildingRoutes from './routes/smartBuilding.routes.js';
 import securityCenterRoutes from './routes/securityCenter.routes.js';
+import maintenanceCenterRoutes from './routes/maintenanceCenter.routes.js';
 
 const normalizeOrigin = (value?: string): string | undefined =>
   value ? value.replace(/\/+$/, '') : undefined;
@@ -174,6 +175,7 @@ export function createApp(): Application {
           accessRequests: '/api/access-requests',
           operations: '/api/operations',
           securityCenter: '/api/security-center',
+          maintenanceCenter: '/api/maintenance-center',
           smartBuilding: '/api/smart-building',
           market: '/api/market',
           assistant: '/api/assistant',
@@ -246,6 +248,7 @@ export function createApp(): Application {
   app.use('/api/presence', presenceRoutes);
   app.use('/api/operations', operationsRoutes);
   app.use('/api/security-center', securityCenterRoutes);
+  app.use('/api/maintenance-center', maintenanceCenterRoutes);
   app.use('/api/smart-building', smartBuildingRoutes);
 
   // API documentation endpoint
@@ -282,6 +285,7 @@ export function createApp(): Application {
           weatherSignals: '/api/signals/weather',
           operations: '/api/operations',
           securityCenter: '/api/security-center',
+          maintenanceCenter: '/api/maintenance-center',
           smartBuilding: '/api/smart-building',
           market: '/api/market',
           assistant: '/api/assistant',

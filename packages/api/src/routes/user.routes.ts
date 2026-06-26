@@ -49,7 +49,7 @@ const updatePermissionsSchema = z.object({
   modulePermissions: z.array(z.enum([
     'dashboard', 'bookings', 'rooms', 'messages', 'housekeeping',
     'inventory', 'calendar', 'guests', 'financials', 'reviews',
-    'concierge', 'security_center', 'smart_building', 'users', 'settings'
+    'concierge', 'security_center', 'maintenance_center', 'smart_building', 'users', 'settings'
   ])),
 });
 
