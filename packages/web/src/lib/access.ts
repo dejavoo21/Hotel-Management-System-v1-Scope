@@ -19,6 +19,7 @@ export const MODULE_ROUTES: Record<PermissionId, string> = {
   financials: '/financials',
   reviews: '/reviews',
   concierge: '/concierge',
+  security_center: '/security-center',
   smart_building: '/operations/smart-building',
   users: '/users',
   settings: '/settings',
@@ -32,9 +33,40 @@ export const ROUTE_MODULES: Record<string, PermissionId> = Object.entries(MODULE
 
 // Operations Center is temporarily mapped to bookings until a dedicated operations module exists.
 ROUTE_MODULES['/operations'] = 'bookings';
+ROUTE_MODULES['/operations/ai'] = 'bookings';
+ROUTE_MODULES['/operations/revenue'] = 'financials';
+ROUTE_MODULES['/operations/weather'] = 'bookings';
+ROUTE_MODULES['/operations/tasks'] = 'bookings';
+ROUTE_MODULES['/operations/market-intelligence'] = 'bookings';
+ROUTE_MODULES['/security-center'] = 'security_center';
+ROUTE_MODULES['/security-center/cctv'] = 'security_center';
+ROUTE_MODULES['/security-center/access-logs'] = 'security_center';
+ROUTE_MODULES['/security-center/visitors'] = 'security_center';
+ROUTE_MODULES['/security-center/alerts'] = 'security_center';
+ROUTE_MODULES['/operations/security/cctv'] = 'security_center';
+ROUTE_MODULES['/operations/security/access-logs'] = 'security_center';
+ROUTE_MODULES['/operations/security/visitors'] = 'security_center';
+ROUTE_MODULES['/operations/security/alerts'] = 'security_center';
 ROUTE_MODULES['/operations/smart-building'] = 'smart_building';
+ROUTE_MODULES['/operations/smart-building/doors'] = 'smart_building';
+ROUTE_MODULES['/operations/smart-building/sensors'] = 'smart_building';
+ROUTE_MODULES['/operations/smart-building/energy'] = 'smart_building';
+ROUTE_MODULES['/operations/smart-building/hvac'] = 'smart_building';
+ROUTE_MODULES['/operations/smart-building/assets'] = 'smart_building';
+ROUTE_MODULES['/operations/maintenance/work-orders'] = 'housekeeping';
+ROUTE_MODULES['/operations/maintenance/faults'] = 'housekeeping';
+ROUTE_MODULES['/operations/maintenance/repairs'] = 'housekeeping';
 // Calls is part of messaging workflow.
 ROUTE_MODULES['/calls'] = 'messages';
+
+function getRouteModule(route: string): PermissionId | undefined {
+  const normalizedRoute = route.split('?')[0].replace(/\/+$/, '') || '/';
+  const matches = Object.entries(ROUTE_MODULES)
+    .filter(([path]) => normalizedRoute === path || normalizedRoute.startsWith(`${path}/`))
+    .sort((a, b) => b[0].length - a[0].length);
+
+  return matches[0]?.[1];
+}
 
 
 // Priority order for determining first allowed route
@@ -50,6 +82,7 @@ const MODULE_PRIORITY: PermissionId[] = [
   'financials',
   'reviews',
   'concierge',
+  'security_center',
   'smart_building',
   'users',
   'settings',
@@ -87,10 +120,8 @@ export function canAccess(user: AccessUser | null, moduleKey: PermissionId): boo
 export function canAccessRoute(user: AccessUser | null, route: string): boolean {
   if (!user) return false;
   
-  // Extract base route (first path segment)
-  const basePath = '/' + (route.split('/')[1] || '');
-  if (basePath === '/settings') return true;
-  const module = ROUTE_MODULES[basePath];
+  if (route.startsWith('/settings')) return true;
+  const module = getRouteModule(route);
   
   // If no module mapping exists, allow access (public route)
   if (!module) return true;
@@ -162,6 +193,5 @@ export function canViewDashboard(user: AccessUser | null): boolean {
  * Get module permission from route path
  */
 export function getModuleFromRoute(route: string): PermissionId | null {
-  const basePath = '/' + (route.split('/')[1] || '');
-  return ROUTE_MODULES[basePath] || null;
+  return getRouteModule(route) || null;
 }

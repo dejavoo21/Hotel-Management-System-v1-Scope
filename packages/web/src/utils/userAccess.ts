@@ -12,6 +12,7 @@ export type PermissionId =
   | 'financials'
   | 'reviews'
   | 'concierge'
+  | 'security_center'
   | 'smart_building'
   | 'users'
   | 'settings';
@@ -32,6 +33,7 @@ const permissionOptions: { id: PermissionId; label: string }[] = [
   { id: 'financials', label: 'Financials' },
   { id: 'reviews', label: 'Reviews' },
   { id: 'concierge', label: 'Concierge' },
+  { id: 'security_center', label: 'Security Center' },
   { id: 'smart_building', label: 'Smart Building' },
   { id: 'users', label: 'Users' },
   { id: 'settings', label: 'Settings' },
@@ -51,6 +53,7 @@ const defaultPermissions: Record<UserRole, PermissionId[]> = {
     'financials',
     'reviews',
     'concierge',
+    'security_center',
     'settings',
   ],
   RECEPTIONIST: [

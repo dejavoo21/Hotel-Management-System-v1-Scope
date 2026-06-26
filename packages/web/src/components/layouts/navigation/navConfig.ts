@@ -10,11 +10,23 @@ export type NavItem = {
   badge?: string;
 };
 
+export type NavGroup = {
+  id: string;
+  label: string;
+  href?: string;
+  permission?: PermissionId;
+  roles?: UserRole[];
+  icon: string;
+  badge?: string;
+  items: NavItem[];
+};
+
 export type NavSection = {
   id: string;
   label: string;
   icon: string;
-  items: NavItem[];
+  items?: NavItem[];
+  groups?: NavGroup[];
   permission?: PermissionId;
   roles?: UserRole[];
 };
@@ -32,14 +44,60 @@ export const navSections: NavSection[] = [
     id: 'operations',
     label: 'Operations',
     icon: 'operations',
-    items: [
-      { id: 'operations-center', label: 'Operations Center', href: '/operations', permission: 'bookings', icon: 'gauge', badge: 'NEW' },
-      { id: 'smart-building', label: 'Smart Building', href: '/operations/smart-building', permission: 'smart_building', icon: 'building' },
-      { id: 'reservation', label: 'Reservation', href: '/bookings', permission: 'bookings', icon: 'calendar-check' },
-      { id: 'rooms', label: 'Rooms', href: '/rooms', permission: 'rooms', icon: 'door' },
-      { id: 'housekeeping', label: 'Housekeeping', href: '/housekeeping', permission: 'housekeeping', icon: 'sparkles' },
-      { id: 'inventory', label: 'Inventory', href: '/inventory', permission: 'inventory', icon: 'package' },
-      { id: 'calendar', label: 'Calendar', href: '/calendar', permission: 'calendar', icon: 'calendar' },
+    groups: [
+      {
+        id: 'operations-center',
+        label: 'Operations Center',
+        href: '/operations',
+        permission: 'bookings',
+        icon: 'gauge',
+        badge: 'NEW',
+        items: [
+          { id: 'operations-ai', label: 'AI', href: '/operations/ai', permission: 'bookings', icon: 'sparkles' },
+          { id: 'operations-revenue', label: 'Revenue', href: '/operations/revenue', permission: 'financials', icon: 'chart' },
+          { id: 'operations-weather', label: 'Weather', href: '/operations/weather', permission: 'bookings', icon: 'calendar' },
+          { id: 'operations-tasks', label: 'Tasks', href: '/operations/tasks', permission: 'bookings', icon: 'calendar-check' },
+          { id: 'operations-market-intelligence', label: 'Market Intelligence', href: '/operations/market-intelligence', permission: 'bookings', icon: 'gauge' },
+        ],
+      },
+      {
+        id: 'security-center',
+        label: 'Security Center',
+        href: '/security-center',
+        permission: 'security_center',
+        icon: 'admin',
+        items: [
+          { id: 'security-cctv', label: 'CCTV', href: '/security-center/cctv', permission: 'security_center', icon: 'dashboard' },
+          { id: 'security-access-logs', label: 'Access Logs', href: '/security-center/access-logs', permission: 'security_center', icon: 'receipt' },
+          { id: 'security-visitors', label: 'Visitors', href: '/security-center/visitors', permission: 'security_center', icon: 'users' },
+          { id: 'security-alerts', label: 'Alerts', href: '/security-center/alerts', permission: 'security_center', icon: 'admin' },
+        ],
+      },
+      {
+        id: 'smart-building',
+        label: 'Smart Building',
+        href: '/operations/smart-building',
+        permission: 'smart_building',
+        icon: 'building',
+        items: [
+          { id: 'smart-building-doors', label: 'Doors', href: '/operations/smart-building/doors', permission: 'smart_building', icon: 'door' },
+          { id: 'smart-building-sensors', label: 'Sensors', href: '/operations/smart-building/sensors', permission: 'smart_building', icon: 'gauge' },
+          { id: 'smart-building-energy', label: 'Energy', href: '/operations/smart-building/energy', permission: 'smart_building', icon: 'chart' },
+          { id: 'smart-building-hvac', label: 'HVAC', href: '/operations/smart-building/hvac', permission: 'smart_building', icon: 'settings' },
+          { id: 'smart-building-assets', label: 'Assets', href: '/operations/smart-building/assets', permission: 'smart_building', icon: 'package' },
+        ],
+      },
+      {
+        id: 'maintenance',
+        label: 'Maintenance',
+        permission: 'housekeeping',
+        icon: 'sparkles',
+        items: [
+          { id: 'maintenance-work-orders', label: 'Work Orders', href: '/operations/maintenance/work-orders', permission: 'housekeeping', icon: 'calendar-check' },
+          { id: 'maintenance-faults', label: 'Faults', href: '/operations/maintenance/faults', permission: 'housekeeping', icon: 'admin' },
+          { id: 'maintenance-repairs', label: 'Repairs', href: '/operations/maintenance/repairs', permission: 'housekeeping', icon: 'settings' },
+        ],
+      },
     ],
   },
   {

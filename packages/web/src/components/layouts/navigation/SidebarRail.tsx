@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-import { navSections, type NavSection } from './navConfig';
+import { navSections, type NavGroup, type NavItem, type NavSection } from './navConfig';
 import { NavIcon } from './NavIcon';
 import { getExplicitPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
 import { useAuthStore } from '@/stores/authStore';
@@ -38,6 +38,30 @@ export const SidebarRail = memo(function SidebarRail({
   const hasRoleAccess = (roles?: UserRole[]) =>
     !roles || roles.includes((user?.role || '') as UserRole);
 
+  const canShowItem = (item: NavItem) =>
+    hasAccess(item.permission) && hasRoleAccess(item.roles);
+
+  const canShowGroup = (group: NavGroup) =>
+    hasAccess(group.permission) && hasRoleAccess(group.roles);
+
+  const getSectionTargets = (section: NavSection) => {
+    const flatItems = section.items ?? [];
+    const groupedItems = (section.groups ?? []).flatMap((group) => group.items);
+    const groupLinks = (section.groups ?? [])
+      .filter((group) => group.href)
+      .map((group) => ({
+        id: group.id,
+        label: group.label,
+        href: group.href as string,
+        permission: group.permission,
+        roles: group.roles,
+        icon: group.icon,
+        badge: group.badge,
+      }));
+
+    return [...flatItems, ...groupLinks, ...groupedItems];
+  };
+
   // Filter sections to only show those user has access to
   const visibleSections = useMemo(() => {
     return navSections.filter(section => {
@@ -45,18 +69,22 @@ export const SidebarRail = memo(function SidebarRail({
       if (section.permission && !hasAccess(section.permission)) return false;
       if (section.roles && !hasRoleAccess(section.roles)) return false;
       
-      // Check if at least one item in section is accessible
-      return section.items.some(item => 
-        hasAccess(item.permission) && hasRoleAccess(item.roles)
-      );
+      const hasVisibleFlatItem = (section.items ?? []).some(canShowItem);
+      const hasVisibleGroup = (section.groups ?? []).some((group) => {
+        if (!canShowGroup(group)) return false;
+        return Boolean(group.href) || group.items.some(canShowItem);
+      });
+
+      return hasVisibleFlatItem || hasVisibleGroup;
     });
   }, [userPermissions, isSuperAdmin, user?.role]);
 
   // Check if current route is within a section
   const isRouteInSection = (section: NavSection): boolean => {
-    return section.items.some(item => {
+    return getSectionTargets(section).some(item => {
       if (item.href === '/') return location.pathname === '/';
-      return location.pathname.startsWith(item.href);
+      if (item.href === '/operations') return location.pathname === '/operations';
+      return location.pathname === item.href || location.pathname.startsWith(`${item.href}/`);
     });
   };
 

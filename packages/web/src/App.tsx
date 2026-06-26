@@ -32,6 +32,8 @@ import CalendarPage from '@/pages/CalendarPage';
 import MessagesPage from '@/pages/MessagesPageRedesigned';
 import CallsPage from '@/pages/CallsPage';
 import OperationsCenterPage from '@/pages/OperationsCenterPage';
+import OperationsPlaceholderPage from '@/pages/OperationsPlaceholderPage';
+import SecurityCenterPage from '@/pages/SecurityCenterPage';
 import SmartBuildingPage from '@/pages/SmartBuildingPage';
 import ForcePasswordChangePage from '@/pages/auth/ForcePasswordChangePage';
 import NotAuthorizedPage from '@/pages/NotAuthorizedPage';
@@ -70,6 +72,7 @@ const MODULE_ROUTE_PRIORITY: { module: PermissionId; path: string }[] = [
   { module: 'guests', path: '/guests' },
   { module: 'calendar', path: '/calendar' },
   { module: 'inventory', path: '/inventory' },
+  { module: 'security_center', path: '/security-center' },
   { module: 'smart_building', path: '/operations/smart-building' },
 ];
 
@@ -203,7 +206,26 @@ export default function App() {
         <Route path="messages" element={<ModuleRoute requiredModule="messages"><MessagesPage /></ModuleRoute>} />
         <Route path="calls" element={<ModuleRoute requiredModule="messages"><CallsPage /></ModuleRoute>} />
         <Route path="operations" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="operations/ai" element={<ModuleRoute requiredModule="bookings"><OperationsPlaceholderPage section="Operations Center" title="AI" /></ModuleRoute>} />
+        <Route path="operations/revenue" element={<ModuleRoute requiredModule="financials"><OperationsPlaceholderPage section="Operations Center" title="Revenue" /></ModuleRoute>} />
+        <Route path="operations/weather" element={<ModuleRoute requiredModule="bookings"><OperationsPlaceholderPage section="Operations Center" title="Weather" /></ModuleRoute>} />
+        <Route path="operations/tasks" element={<ModuleRoute requiredModule="bookings"><OperationsPlaceholderPage section="Operations Center" title="Tasks" /></ModuleRoute>} />
+        <Route path="operations/market-intelligence" element={<ModuleRoute requiredModule="bookings"><OperationsPlaceholderPage section="Operations Center" title="Market Intelligence" /></ModuleRoute>} />
+        <Route path="security-center" element={<ModuleRoute requiredModule="security_center"><SecurityCenterPage /></ModuleRoute>} />
+        <Route path="security-center/:tab" element={<ModuleRoute requiredModule="security_center"><SecurityCenterPage /></ModuleRoute>} />
+        <Route path="operations/security/cctv" element={<Navigate to="/security-center/cctv" replace />} />
+        <Route path="operations/security/access-logs" element={<Navigate to="/security-center/access-logs" replace />} />
+        <Route path="operations/security/visitors" element={<Navigate to="/security-center/visitors" replace />} />
+        <Route path="operations/security/alerts" element={<Navigate to="/security-center/alerts" replace />} />
         <Route path="operations/smart-building" element={<ModuleRoute requiredModule="smart_building"><SmartBuildingPage /></ModuleRoute>} />
+        <Route path="operations/smart-building/doors" element={<ModuleRoute requiredModule="smart_building"><OperationsPlaceholderPage section="Smart Building" title="Doors" /></ModuleRoute>} />
+        <Route path="operations/smart-building/sensors" element={<ModuleRoute requiredModule="smart_building"><OperationsPlaceholderPage section="Smart Building" title="Sensors" /></ModuleRoute>} />
+        <Route path="operations/smart-building/energy" element={<ModuleRoute requiredModule="smart_building"><OperationsPlaceholderPage section="Smart Building" title="Energy" /></ModuleRoute>} />
+        <Route path="operations/smart-building/hvac" element={<ModuleRoute requiredModule="smart_building"><OperationsPlaceholderPage section="Smart Building" title="HVAC" /></ModuleRoute>} />
+        <Route path="operations/smart-building/assets" element={<ModuleRoute requiredModule="smart_building"><OperationsPlaceholderPage section="Smart Building" title="Assets" /></ModuleRoute>} />
+        <Route path="operations/maintenance/work-orders" element={<ModuleRoute requiredModule="housekeeping"><OperationsPlaceholderPage section="Maintenance" title="Work Orders" /></ModuleRoute>} />
+        <Route path="operations/maintenance/faults" element={<ModuleRoute requiredModule="housekeeping"><OperationsPlaceholderPage section="Maintenance" title="Faults" /></ModuleRoute>} />
+        <Route path="operations/maintenance/repairs" element={<ModuleRoute requiredModule="housekeeping"><OperationsPlaceholderPage section="Maintenance" title="Repairs" /></ModuleRoute>} />
         <Route path="calendar" element={<ModuleRoute requiredModule="calendar"><CalendarPage /></ModuleRoute>} />
         <Route path="guests" element={<ModuleRoute requiredModule="guests"><GuestsPage /></ModuleRoute>} />
         <Route path="housekeeping" element={<ModuleRoute requiredModule="housekeeping"><HousekeepingPage /></ModuleRoute>} />

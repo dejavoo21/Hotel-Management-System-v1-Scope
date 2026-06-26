@@ -1,6 +1,6 @@
 import { memo, useMemo, useRef, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { navSections, type NavItem } from './navConfig';
+import { navSections, type NavGroup, type NavItem } from './navConfig';
 import { NavIcon } from './NavIcon';
 import { getExplicitPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
 import { useAuthStore } from '@/stores/authStore';
@@ -41,6 +41,12 @@ export const SidebarFlyout = memo(function SidebarFlyout({
   const hasRoleAccess = (roles?: UserRole[]) =>
     !roles || roles.includes((user?.role || '') as UserRole);
 
+  const canShowItem = (item: NavItem) =>
+    hasAccess(item.permission) && hasRoleAccess(item.roles);
+
+  const canShowGroup = (group: NavGroup) =>
+    hasAccess(group.permission) && hasRoleAccess(group.roles);
+
   // Get current section
   const currentSection = useMemo(() => {
     if (!openSection) return null;
@@ -50,9 +56,18 @@ export const SidebarFlyout = memo(function SidebarFlyout({
   // Filter items user has access to
   const visibleItems = useMemo(() => {
     if (!currentSection) return [];
-    return currentSection.items.filter(item =>
-      hasAccess(item.permission) && hasRoleAccess(item.roles)
-    );
+    return (currentSection.items ?? []).filter(canShowItem);
+  }, [currentSection, userPermissions, isSuperAdmin, user?.role]);
+
+  const visibleGroups = useMemo(() => {
+    if (!currentSection) return [];
+    return (currentSection.groups ?? [])
+      .filter(canShowGroup)
+      .map((group) => ({
+        ...group,
+        items: group.items.filter(canShowItem),
+      }))
+      .filter((group) => group.href || group.items.length > 0);
   }, [currentSection, userPermissions, isSuperAdmin, user?.role]);
 
   // Click outside handler
@@ -80,16 +95,115 @@ export const SidebarFlyout = memo(function SidebarFlyout({
     return null;
   }
 
+  const isHrefActive = (href: string): boolean => {
+    if (href === '/') return location.pathname === '/';
+    if (href === '/operations') return location.pathname === '/operations';
+    return location.pathname === href || location.pathname.startsWith(`${href}/`);
+  };
+
   const isItemActive = (item: NavItem): boolean => {
-    if (item.href === '/') return location.pathname === '/';
-    return location.pathname.startsWith(item.href);
+    return isHrefActive(item.href);
+  };
+
+  const renderNavItem = (item: NavItem, nested = false) => {
+    const isActive = isItemActive(item);
+    const showBadge = item.id === 'settings' && accessRequestBadge > 0;
+
+    return (
+      <NavLink
+        key={item.id}
+        to={item.href}
+        onClick={onItemClick}
+        className={`
+          flex items-center gap-3 rounded-lg
+          text-sm font-medium
+          transition-all duration-150
+          focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400
+          ${nested ? 'px-3 py-2 pl-8' : 'px-3 py-2.5'}
+          ${isActive
+            ? 'bg-slate-800 text-white shadow-sm'
+            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+          }
+        `}
+        role="menuitem"
+      >
+        <NavIcon
+          name={item.icon}
+          className={`h-4 w-4 ${isActive ? 'text-white' : 'text-slate-400'}`}
+        />
+        <span className="flex-1">{item.label}</span>
+        {item.badge && !isActive ? (
+          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
+            {item.badge}
+          </span>
+        ) : null}
+
+        {isActive && (
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+        )}
+
+        {showBadge && !isActive && (
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-semibold text-white">
+            {accessRequestBadge}
+          </span>
+        )}
+      </NavLink>
+    );
+  };
+
+  const renderGroupHeader = (group: NavGroup) => {
+    const groupIsActive = group.href ? isHrefActive(group.href) : group.items.some(isItemActive);
+    const label = (
+      <>
+        <NavIcon
+          name={group.icon}
+          className={`h-4 w-4 ${groupIsActive ? 'text-white' : 'text-slate-400'}`}
+        />
+        <span className="flex-1">{group.label}</span>
+        {group.badge && !groupIsActive ? (
+          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
+            {group.badge}
+          </span>
+        ) : null}
+        {groupIsActive && (
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+        )}
+      </>
+    );
+
+    if (!group.href) {
+      return (
+        <div className="flex items-center gap-3 px-3 py-2 text-sm font-semibold text-slate-800">
+          {label}
+        </div>
+      );
+    }
+
+    return (
+      <NavLink
+        to={group.href}
+        onClick={onItemClick}
+        className={`
+          flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold
+          transition-all duration-150
+          focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400
+          ${groupIsActive
+            ? 'bg-slate-800 text-white shadow-sm'
+            : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+          }
+        `}
+        role="menuitem"
+      >
+        {label}
+      </NavLink>
+    );
   };
 
   return (
     <div
       ref={flyoutRef}
       className={`
-        absolute left-[68px] top-0 h-full w-56 bg-white
+        absolute left-[68px] top-0 h-full w-72 bg-white
         border-r border-slate-200/80
         shadow-xl shadow-slate-200/50
         transform transition-transform duration-200 ease-out
@@ -120,53 +234,19 @@ export const SidebarFlyout = memo(function SidebarFlyout({
       </div>
 
       {/* Navigation items */}
-      <nav className="flex flex-col gap-0.5 p-3" aria-label={`${currentSection.label} menu`}>
-        {visibleItems.map((item) => {
-          const isActive = isItemActive(item);
-          const showBadge = item.id === 'settings' && accessRequestBadge > 0;
-
-          return (
-            <NavLink
-              key={item.id}
-              to={item.href}
-              onClick={onItemClick}
-              className={`
-                flex items-center gap-3 px-3 py-2.5 rounded-lg
-                text-sm font-medium
-                transition-all duration-150
-                focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400
-                ${isActive
-                  ? 'bg-slate-800 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }
-              `}
-              role="menuitem"
-            >
-              <NavIcon 
-                name={item.icon} 
-                className={`h-4 w-4 ${isActive ? 'text-white' : 'text-slate-400'}`} 
-              />
-              <span className="flex-1">{item.label}</span>
-              {item.badge && !isActive ? (
-                <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
-                  {item.badge}
-                </span>
-              ) : null}
-              
-              {/* Active indicator */}
-              {isActive && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              )}
-              
-              {/* Badge for settings */}
-              {showBadge && !isActive && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-semibold text-white">
-                  {accessRequestBadge}
-                </span>
-              )}
-            </NavLink>
-          );
-        })}
+      <nav className="flex flex-col gap-0.5 overflow-y-auto p-3" aria-label={`${currentSection.label} menu`}>
+        {visibleGroups.length > 0
+          ? visibleGroups.map((group) => (
+              <div key={group.id} className="mb-2 last:mb-0">
+                {renderGroupHeader(group)}
+                {group.items.length > 0 ? (
+                  <div className="mt-1 space-y-0.5">
+                    {group.items.map((item) => renderNavItem(item, true))}
+                  </div>
+                ) : null}
+              </div>
+            ))
+          : visibleItems.map((item) => renderNavItem(item))}
       </nav>
 
       {/* Section-specific quick actions */}

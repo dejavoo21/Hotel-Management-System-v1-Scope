@@ -132,6 +132,7 @@ model Hotel {
   doorStatuses      DoorStatus[]
   sensorReadings    SensorReading[]
   securityAlerts    SecurityAlert[]
+  visitors          Visitor[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 }
@@ -365,6 +366,34 @@ model SecurityAlert {
   @@index([status])
   @@index([severity])
   @@index([occurredAt])
+}
+
+model Visitor {
+  id         String        @id @default(cuid())
+  hotelId    String
+  hotel      Hotel         @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  fullName   String
+  company    String?
+  phone      String?
+  email      String?
+  purpose    String?
+  hostName   String?
+  checkInAt  DateTime      @default(now())
+  checkOutAt DateTime?
+  status     VisitorStatus @default(CHECKED_IN)
+  notes      String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@index([hotelId])
+  @@index([status])
+  @@index([checkInAt])
+}
+
+enum VisitorStatus {
+  CHECKED_IN
+  CHECKED_OUT
+  DENIED
 }
 
 enum IoTDeviceType {

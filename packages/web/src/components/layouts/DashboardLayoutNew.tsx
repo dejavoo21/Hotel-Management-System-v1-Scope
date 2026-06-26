@@ -19,6 +19,7 @@ import { PresenceDot } from '@/components/presence';
 import { useSocketPresence } from '@/hooks/useSocketPresence';
 import type { PresenceStatus } from '@/types';
 import { SidebarRail, SidebarFlyout, useSidebarNav, navSections } from './navigation';
+import type { NavGroup, NavItem, NavSection } from './navigation';
 
 type GlobalSearchTarget = {
   id: string;
@@ -102,6 +103,36 @@ export default function DashboardLayout() {
   const isSuperAdmin = isSuperAdminUser(user?.id, user?.role as UserRole | undefined);
   const hasAccess = (permission?: PermissionId) =>
     !permission || isSuperAdmin || userPermissions.includes(permission);
+  const hasRoleAccess = (roles?: UserRole[]) =>
+    !roles || roles.includes((user?.role || '') as UserRole);
+  const canShowNavItem = (item: NavItem) =>
+    hasAccess(item.permission) && hasRoleAccess(item.roles);
+  const canShowNavGroup = (group: NavGroup) =>
+    hasAccess(group.permission) && hasRoleAccess(group.roles);
+  const groupToNavItem = (group: NavGroup): NavItem | null =>
+    group.href
+      ? {
+          id: group.id,
+          label: group.label,
+          href: group.href,
+          permission: group.permission,
+          roles: group.roles,
+          icon: group.icon,
+          badge: group.badge,
+        }
+      : null;
+  const getSectionSearchItems = (section: NavSection): NavItem[] => {
+    const items = [...(section.items ?? [])];
+
+    for (const group of section.groups ?? []) {
+      if (!canShowNavGroup(group)) continue;
+      const groupItem = groupToNavItem(group);
+      if (groupItem) items.push(groupItem);
+      items.push(...group.items);
+    }
+
+    return items.filter(canShowNavItem);
+  };
 
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const lastPendingCount = useRef<number | null>(null);
@@ -293,11 +324,7 @@ export default function DashboardLayout() {
     const targets: GlobalSearchTarget[] = [];
     
     for (const section of navSections) {
-      for (const item of section.items) {
-        // Check access
-        if (item.permission && !hasAccess(item.permission)) continue;
-        if (item.roles && !item.roles.includes((user?.role || '') as UserRole)) continue;
-        
+      for (const item of getSectionSearchItems(section)) {
         targets.push({
           id: `${section.id}:${item.id}`,
           name: item.label,
@@ -313,6 +340,10 @@ export default function DashboardLayout() {
             ? ['invoice', 'invoices', 'billing', 'bill', 'charge', 'charges']
             : item.label === 'Expenses'
             ? ['expense', 'expenses', 'spend', 'spending', 'cost', 'costs', 'transactions']
+            : item.label === 'Smart Building'
+            ? ['smart building', 'iot', 'doors', 'sensors', 'energy', 'hvac', 'assets']
+            : item.label === 'CCTV'
+            ? ['camera', 'cameras', 'security', 'video']
             : undefined,
         });
       }
@@ -397,37 +428,97 @@ export default function DashboardLayout() {
           {/* Mobile Nav Links */}
           <nav className="flex-1 overflow-y-auto p-4 space-y-1">
             {navSections.map((section) => {
-              const visibleItems = section.items.filter(item => 
-                hasAccess(item.permission) && 
-                (!item.roles || item.roles.includes((user?.role || '') as UserRole))
-              );
-              if (visibleItems.length === 0) return null;
+              const visibleItems = (section.items ?? []).filter(canShowNavItem);
+              const visibleGroups = (section.groups ?? [])
+                .filter(canShowNavGroup)
+                .map((group) => ({
+                  ...group,
+                  items: group.items.filter(canShowNavItem),
+                }))
+                .filter((group) => group.href || group.items.length > 0);
+              if (visibleItems.length === 0 && visibleGroups.length === 0) return null;
 
               return (
                 <div key={section.id} className="mb-4">
                   <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                     {section.label}
                   </p>
-                  {visibleItems.map((item) => {
-                    const isActive = item.href === '/' 
-                      ? location.pathname === '/' 
-                      : location.pathname.startsWith(item.href);
-                    
-                    return (
-                      <NavLink
-                        key={item.id}
-                        to={item.href}
-                        onClick={sidebarNav.closeMobile}
-                        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
-                          isActive
-                            ? 'bg-slate-800 text-white'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                        }`}
-                      >
-                        {item.label}
-                      </NavLink>
-                    );
-                  })}
+                  {visibleGroups.length > 0 ? (
+                    <div className="space-y-2">
+                      {visibleGroups.map((group) => {
+                        const groupItem = groupToNavItem(group);
+                        const groupHref = group.href;
+                        const groupIsActive = groupHref
+                          ? groupHref === '/operations'
+                            ? location.pathname === groupHref
+                            : location.pathname === groupHref || location.pathname.startsWith(`${groupHref}/`)
+                          : group.items.some((item) => location.pathname === item.href || location.pathname.startsWith(`${item.href}/`));
+
+                        return (
+                          <div key={group.id}>
+                            {groupItem ? (
+                              <NavLink
+                                to={groupItem.href}
+                                onClick={sidebarNav.closeMobile}
+                                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all ${
+                                  groupIsActive
+                                    ? 'bg-slate-800 text-white'
+                                    : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                                }`}
+                              >
+                                {group.label}
+                              </NavLink>
+                            ) : (
+                              <p className="px-3 py-2 text-sm font-semibold text-slate-800">{group.label}</p>
+                            )}
+                            <div className="mt-1 space-y-1">
+                              {group.items.map((item) => {
+                                const isActive = item.href === '/'
+                                  ? location.pathname === '/'
+                                  : location.pathname === item.href || location.pathname.startsWith(`${item.href}/`);
+
+                                return (
+                                  <NavLink
+                                    key={item.id}
+                                    to={item.href}
+                                    onClick={sidebarNav.closeMobile}
+                                    className={`flex items-center gap-3 rounded-xl px-6 py-2 text-sm font-medium transition-all ${
+                                      isActive
+                                        ? 'bg-slate-800 text-white'
+                                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                    }`}
+                                  >
+                                    {item.label}
+                                  </NavLink>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    visibleItems.map((item) => {
+                      const isActive = item.href === '/'
+                        ? location.pathname === '/'
+                        : location.pathname === item.href || location.pathname.startsWith(`${item.href}/`);
+
+                      return (
+                        <NavLink
+                          key={item.id}
+                          to={item.href}
+                          onClick={sidebarNav.closeMobile}
+                          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+                            isActive
+                              ? 'bg-slate-800 text-white'
+                              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                          }`}
+                        >
+                          {item.label}
+                        </NavLink>
+                      );
+                    })
+                  )}
                 </div>
               );
             })}

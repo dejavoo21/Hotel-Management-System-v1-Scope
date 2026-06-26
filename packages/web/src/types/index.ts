@@ -24,6 +24,7 @@ export type ModulePermission =
   | 'financials'
   | 'reviews'
   | 'concierge'
+  | 'security_center'
   | 'smart_building'
   | 'users'
   | 'settings';
