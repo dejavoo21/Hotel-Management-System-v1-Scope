@@ -10,16 +10,6 @@ const brandLabels: Record<CardBrand, string> = {
   unknown: 'Card',
 };
 
-const brandMarks: Record<CardBrand, string> = {
-  visa: 'VISA',
-  mastercard: 'MC',
-  amex: 'AMEX',
-  discover: 'DISC',
-  jcb: 'JCB',
-  diners: 'DC',
-  unknown: 'CARD',
-};
-
 const digitsOnly = (value: string) => value.replace(/\D/g, '');
 
 export const detectCardBrand = (value: string): CardBrand => {
@@ -119,19 +109,21 @@ export const validatePostcode = (value: string) => {
 };
 
 export function AcceptedPaymentBadges() {
-  const methods = ['Visa', 'Mastercard', 'American Express', 'Discover', 'Apple Pay', 'Contactless'];
+  const methods: Array<CardBrand | 'apple-pay' | 'contactless'> = [
+    'visa',
+    'mastercard',
+    'amex',
+    'discover',
+    'apple-pay',
+    'contactless',
+  ];
 
   return (
     <div>
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Accepted payment methods</p>
       <div className="mt-2 flex flex-wrap gap-2">
         {methods.map((method) => (
-          <span
-            key={method}
-            className="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-700 shadow-sm"
-          >
-            {method}
-          </span>
+          <PaymentMark key={method} brand={method} size="md" />
         ))}
       </div>
     </div>
@@ -139,20 +131,91 @@ export function AcceptedPaymentBadges() {
 }
 
 export function CardTypeBadge({ brand }: { brand: CardBrand }) {
-  const brandClass =
-    brand === 'unknown'
-      ? 'border-slate-200 bg-slate-50 text-slate-500'
-      : 'border-primary-200 bg-primary-50 text-primary-700';
+  return <PaymentMark brand={brand} size="sm" />;
+}
+
+function PaymentMark({
+  brand,
+  size = 'md',
+}: {
+  brand: CardBrand | 'apple-pay' | 'contactless';
+  size?: 'sm' | 'md';
+}) {
+  const compact = size === 'sm';
+  const baseClass = compact
+    ? 'h-7 min-w-14 rounded-md px-2 text-[10px]'
+    : 'h-8 min-w-[76px] rounded-md px-3 text-[11px]';
 
   return (
     <span
-      className={`inline-flex h-7 min-w-14 items-center justify-center rounded-md border px-2 text-[10px] font-bold tracking-wide ${brandClass}`}
-      aria-label={`Detected card type: ${brandLabels[brand]}`}
-      title={brandLabels[brand]}
+      className={`inline-flex items-center justify-center overflow-hidden border font-bold tracking-wide shadow-sm ${baseClass} ${paymentMarkClass(
+        brand
+      )}`}
+      aria-label={paymentMarkLabel(brand)}
+      title={paymentMarkLabel(brand)}
     >
-      {brandMarks[brand]}
+      {brand === 'mastercard' ? (
+        <span className="relative mr-1 inline-flex h-4 w-7 items-center">
+          <span className="absolute left-0 h-4 w-4 rounded-full bg-red-500 opacity-95" />
+          <span className="absolute right-0 h-4 w-4 rounded-full bg-amber-400 opacity-95 mix-blend-multiply" />
+        </span>
+      ) : null}
+      {brand === 'contactless' ? <span className="mr-1 text-base leading-none">)))</span> : null}
+      <span>{paymentMarkText(brand, compact)}</span>
     </span>
   );
+}
+
+function paymentMarkLabel(brand: CardBrand | 'apple-pay' | 'contactless') {
+  if (brand === 'apple-pay') return 'Apple Pay';
+  if (brand === 'contactless') return 'Contactless';
+  return brandLabels[brand];
+}
+
+function paymentMarkText(brand: CardBrand | 'apple-pay' | 'contactless', compact: boolean) {
+  switch (brand) {
+    case 'visa':
+      return 'VISA';
+    case 'mastercard':
+      return compact ? 'MC' : 'Mastercard';
+    case 'amex':
+      return compact ? 'AMEX' : 'American Express';
+    case 'discover':
+      return compact ? 'DISC' : 'Discover';
+    case 'jcb':
+      return 'JCB';
+    case 'diners':
+      return compact ? 'DC' : 'Diners Club';
+    case 'apple-pay':
+      return 'Apple Pay';
+    case 'contactless':
+      return compact ? 'Tap' : 'Contactless';
+    default:
+      return 'CARD';
+  }
+}
+
+function paymentMarkClass(brand: CardBrand | 'apple-pay' | 'contactless') {
+  switch (brand) {
+    case 'visa':
+      return 'border-blue-200 bg-blue-700 text-white';
+    case 'mastercard':
+      return 'border-slate-200 bg-white text-slate-900';
+    case 'amex':
+      return 'border-sky-200 bg-sky-600 text-white';
+    case 'discover':
+      return 'border-orange-200 bg-gradient-to-r from-white via-orange-100 to-orange-500 text-slate-900';
+    case 'jcb':
+      return 'border-emerald-200 bg-gradient-to-r from-blue-600 via-red-600 to-emerald-600 text-white';
+    case 'diners':
+      return 'border-cyan-200 bg-cyan-700 text-white';
+    case 'apple-pay':
+      return 'border-slate-300 bg-black text-white';
+    case 'contactless':
+      return 'border-slate-300 bg-white text-slate-900';
+    default:
+      return 'border-slate-200 bg-slate-50 text-slate-500';
+  }
 }
 
 export function CardNumberInput({
