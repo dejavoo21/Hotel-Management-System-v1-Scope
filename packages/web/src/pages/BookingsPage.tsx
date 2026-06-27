@@ -8,6 +8,15 @@ import { useAuthStore } from '@/stores/authStore';
 import toast from 'react-hot-toast';
 import { formatEnumLabel } from '@/utils';
 import { appendAuditLog } from '@/utils/auditLog';
+import {
+  CardNumberInput,
+  ExpiryInput,
+  SecurityCodeInput,
+  detectCardBrand,
+  validateCardNumber,
+  validateExpiry,
+  validateSecurityCode,
+} from '@/components/payments/cardInputs';
 
 type StatusFilter = 'all' | 'CONFIRMED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED' | 'NO_SHOW';
 
@@ -20,6 +29,14 @@ export default function BookingsPage() {
   const [guestSearch, setGuestSearch] = useState('');
   const [bookingPaymentMethod, setBookingPaymentMethod] = useState('');
   const [bookingCardInfo, setBookingCardInfo] = useState({ number: '', expiry: '', cvv: '' });
+  const [bookingCardholderName, setBookingCardholderName] = useState('');
+  const [saveBookingCard, setSaveBookingCard] = useState(false);
+  const [bookingCardTouched, setBookingCardTouched] = useState({
+    number: false,
+    expiry: false,
+    securityCode: false,
+    cardholderName: false,
+  });
 
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
   const [roomTypeId, setRoomTypeId] = useState('');
@@ -56,6 +73,9 @@ export default function BookingsPage() {
   const openCreateModal = () => {
     setBookingPaymentMethod('');
     setBookingCardInfo({ number: '', expiry: '', cvv: '' });
+    setBookingCardholderName('');
+    setSaveBookingCard(false);
+    setBookingCardTouched({ number: false, expiry: false, securityCode: false, cardholderName: false });
     setShowCreateModal(true);
     setSearchParams((prev) => {
       const params = new URLSearchParams(prev);
@@ -99,9 +119,28 @@ export default function BookingsPage() {
     if (!showCreateModal) {
       setBookingPaymentMethod('');
       setBookingCardInfo({ number: '', expiry: '', cvv: '' });
+      setBookingCardholderName('');
+      setSaveBookingCard(false);
+      setBookingCardTouched({ number: false, expiry: false, securityCode: false, cardholderName: false });
     }
   }, [showCreateModal]);
   const isBookingCardMethod = ['CREDIT_CARD', 'DEBIT_CARD'].includes(bookingPaymentMethod);
+  const bookingCardBrand = useMemo(() => detectCardBrand(bookingCardInfo.number), [bookingCardInfo.number]);
+  const bookingCardValidation = useMemo(
+    () => ({
+      number: validateCardNumber(bookingCardInfo.number, bookingCardBrand),
+      expiry: validateExpiry(bookingCardInfo.expiry),
+      securityCode: validateSecurityCode(bookingCardInfo.cvv, bookingCardBrand),
+      cardholderName: bookingCardholderName.trim() ? '' : 'Cardholder name is required.',
+    }),
+    [bookingCardBrand, bookingCardInfo.cvv, bookingCardInfo.expiry, bookingCardInfo.number, bookingCardholderName]
+  );
+  const isBookingCardValid =
+    !isBookingCardMethod ||
+    (!bookingCardValidation.number &&
+      !bookingCardValidation.expiry &&
+      !bookingCardValidation.securityCode &&
+      !bookingCardValidation.cardholderName);
 
   const { data: bookingsData, isLoading } = useQuery({
     queryKey: ['bookings', statusFilter, searchQuery, page, guestIdFilter],
@@ -595,45 +634,86 @@ export default function BookingsPage() {
 
               <div>
                 {isBookingCardMethod && (
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div>
-                    <label className="label">Card number</label>
-                    <input
-                      name="cardNumber"
-                      value={bookingCardInfo.number}
-                      onChange={(event) =>
-                        setBookingCardInfo((prev) => ({ ...prev, number: event.target.value }))
-                      }
-                      className="input"
-                      placeholder="0000 0000 0000 0000"
-                    />
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <div className="sm:col-span-3">
+                        <CardNumberInput
+                          value={bookingCardInfo.number}
+                          onChange={(value) => setBookingCardInfo((prev) => ({ ...prev, number: value }))}
+                          onBlur={() => setBookingCardTouched((prev) => ({ ...prev, number: true }))}
+                          error={
+                            bookingCardTouched.number || bookingCardInfo.number
+                              ? bookingCardValidation.number
+                              : undefined
+                          }
+                        />
+                      </div>
+                      <ExpiryInput
+                        value={bookingCardInfo.expiry}
+                        onChange={(value) => setBookingCardInfo((prev) => ({ ...prev, expiry: value }))}
+                        onBlur={() => setBookingCardTouched((prev) => ({ ...prev, expiry: true }))}
+                        error={
+                          bookingCardTouched.expiry || bookingCardInfo.expiry
+                            ? bookingCardValidation.expiry
+                            : undefined
+                        }
+                      />
+                      <SecurityCodeInput
+                        value={bookingCardInfo.cvv}
+                        onChange={(value) => setBookingCardInfo((prev) => ({ ...prev, cvv: value }))}
+                        onBlur={() => setBookingCardTouched((prev) => ({ ...prev, securityCode: true }))}
+                        brand={bookingCardBrand}
+                        error={
+                          bookingCardTouched.securityCode || bookingCardInfo.cvv
+                            ? bookingCardValidation.securityCode
+                            : undefined
+                        }
+                      />
+                      <div>
+                        <label className="label">Cardholder Name</label>
+                        <input
+                          name="cardholderName"
+                          autoComplete="cc-name"
+                          value={bookingCardholderName}
+                          onChange={(event) => setBookingCardholderName(event.target.value)}
+                          onBlur={() => setBookingCardTouched((prev) => ({ ...prev, cardholderName: true }))}
+                          className={`input ${
+                            (bookingCardTouched.cardholderName || bookingCardholderName) &&
+                            bookingCardValidation.cardholderName
+                              ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                              : ''
+                          }`}
+                          placeholder="Name on card"
+                          aria-invalid={Boolean(
+                            (bookingCardTouched.cardholderName || bookingCardholderName) &&
+                              bookingCardValidation.cardholderName
+                          )}
+                        />
+                        {(bookingCardTouched.cardholderName || bookingCardholderName) &&
+                        bookingCardValidation.cardholderName ? (
+                          <p className="mt-1 text-xs font-medium text-red-600">
+                            {bookingCardValidation.cardholderName}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <label className="mt-4 flex items-start gap-3 text-sm text-slate-700">
+                      <input
+                        name="saveCard"
+                        type="checkbox"
+                        checked={saveBookingCard}
+                        onChange={(event) => setSaveBookingCard(event.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <span>Save card securely for future bookings</span>
+                    </label>
+
+                    <p className="mt-4 border-t border-slate-200 pt-3 text-xs font-medium text-slate-500">
+                      🔒 Payments are encrypted and PCI DSS compliant.
+                    </p>
                   </div>
-                  <div>
-                    <label className="label">Expiry</label>
-                    <input
-                      name="cardExpiry"
-                      value={bookingCardInfo.expiry}
-                      onChange={(event) =>
-                        setBookingCardInfo((prev) => ({ ...prev, expiry: event.target.value }))
-                      }
-                      className="input"
-                      placeholder="MM/YY"
-                    />
-                  </div>
-                  <div>
-                    <label className="label">CVV</label>
-                    <input
-                      name="cardCvv"
-                      value={bookingCardInfo.cvv}
-                      onChange={(event) =>
-                        setBookingCardInfo((prev) => ({ ...prev, cvv: event.target.value }))
-                      }
-                      className="input"
-                      placeholder="123"
-                    />
-                  </div>
-                </div>
-              )}
+                )}
               <label className="label">Special requests</label>
                 <textarea name="requests" rows={3} className="input" />
               </div>
@@ -648,7 +728,7 @@ export default function BookingsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={createBookingMutation.isPending}
+                  disabled={createBookingMutation.isPending || !isBookingCardValid}
                   className="btn-primary flex-1"
                 >
                   {createBookingMutation.isPending ? 'Creating...' : 'Create booking'}
