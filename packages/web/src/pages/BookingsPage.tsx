@@ -9,12 +9,14 @@ import toast from 'react-hot-toast';
 import { formatEnumLabel } from '@/utils';
 import { appendAuditLog } from '@/utils/auditLog';
 import {
+  AcceptedPaymentBadges,
   CardNumberInput,
   ExpiryInput,
   SecurityCodeInput,
   detectCardBrand,
   validateCardNumber,
   validateExpiry,
+  validatePostcode,
   validateSecurityCode,
 } from '@/components/payments/cardInputs';
 
@@ -30,12 +32,14 @@ export default function BookingsPage() {
   const [bookingPaymentMethod, setBookingPaymentMethod] = useState('');
   const [bookingCardInfo, setBookingCardInfo] = useState({ number: '', expiry: '', cvv: '' });
   const [bookingCardholderName, setBookingCardholderName] = useState('');
+  const [bookingBillingPostcode, setBookingBillingPostcode] = useState('');
   const [saveBookingCard, setSaveBookingCard] = useState(false);
   const [bookingCardTouched, setBookingCardTouched] = useState({
     number: false,
     expiry: false,
     securityCode: false,
     cardholderName: false,
+    postcode: false,
   });
 
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
@@ -74,8 +78,9 @@ export default function BookingsPage() {
     setBookingPaymentMethod('');
     setBookingCardInfo({ number: '', expiry: '', cvv: '' });
     setBookingCardholderName('');
+    setBookingBillingPostcode('');
     setSaveBookingCard(false);
-    setBookingCardTouched({ number: false, expiry: false, securityCode: false, cardholderName: false });
+    setBookingCardTouched({ number: false, expiry: false, securityCode: false, cardholderName: false, postcode: false });
     setShowCreateModal(true);
     setSearchParams((prev) => {
       const params = new URLSearchParams(prev);
@@ -120,8 +125,9 @@ export default function BookingsPage() {
       setBookingPaymentMethod('');
       setBookingCardInfo({ number: '', expiry: '', cvv: '' });
       setBookingCardholderName('');
+      setBookingBillingPostcode('');
       setSaveBookingCard(false);
-      setBookingCardTouched({ number: false, expiry: false, securityCode: false, cardholderName: false });
+      setBookingCardTouched({ number: false, expiry: false, securityCode: false, cardholderName: false, postcode: false });
     }
   }, [showCreateModal]);
   const isBookingCardMethod = ['CREDIT_CARD', 'DEBIT_CARD'].includes(bookingPaymentMethod);
@@ -132,15 +138,24 @@ export default function BookingsPage() {
       expiry: validateExpiry(bookingCardInfo.expiry),
       securityCode: validateSecurityCode(bookingCardInfo.cvv, bookingCardBrand),
       cardholderName: bookingCardholderName.trim() ? '' : 'Cardholder name is required.',
+      postcode: validatePostcode(bookingBillingPostcode),
     }),
-    [bookingCardBrand, bookingCardInfo.cvv, bookingCardInfo.expiry, bookingCardInfo.number, bookingCardholderName]
+    [
+      bookingBillingPostcode,
+      bookingCardBrand,
+      bookingCardInfo.cvv,
+      bookingCardInfo.expiry,
+      bookingCardInfo.number,
+      bookingCardholderName,
+    ]
   );
   const isBookingCardValid =
     !isBookingCardMethod ||
     (!bookingCardValidation.number &&
       !bookingCardValidation.expiry &&
       !bookingCardValidation.securityCode &&
-      !bookingCardValidation.cardholderName);
+      !bookingCardValidation.cardholderName &&
+      !bookingCardValidation.postcode);
 
   const { data: bookingsData, isLoading } = useQuery({
     queryKey: ['bookings', statusFilter, searchQuery, page, guestIdFilter],
@@ -635,7 +650,36 @@ export default function BookingsPage() {
               <div>
                 {isBookingCardMethod && (
                   <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-                    <div className="grid gap-4 sm:grid-cols-3">
+                    <AcceptedPaymentBadges />
+
+                    <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                      <div className="sm:col-span-3">
+                        <label className="label">Cardholder name</label>
+                        <input
+                          name="cardholderName"
+                          autoComplete="cc-name"
+                          value={bookingCardholderName}
+                          onChange={(event) => setBookingCardholderName(event.target.value)}
+                          onBlur={() => setBookingCardTouched((prev) => ({ ...prev, cardholderName: true }))}
+                          className={`input ${
+                            (bookingCardTouched.cardholderName || bookingCardholderName) &&
+                            bookingCardValidation.cardholderName
+                              ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                              : ''
+                          }`}
+                          placeholder="Name on card"
+                          aria-invalid={Boolean(
+                            (bookingCardTouched.cardholderName || bookingCardholderName) &&
+                              bookingCardValidation.cardholderName
+                          )}
+                        />
+                        {(bookingCardTouched.cardholderName || bookingCardholderName) &&
+                        bookingCardValidation.cardholderName ? (
+                          <p className="mt-1 text-xs font-medium text-red-600">
+                            {bookingCardValidation.cardholderName}
+                          </p>
+                        ) : null}
+                      </div>
                       <div className="sm:col-span-3">
                         <CardNumberInput
                           value={bookingCardInfo.number}
@@ -670,29 +714,26 @@ export default function BookingsPage() {
                         }
                       />
                       <div>
-                        <label className="label">Cardholder Name</label>
+                        <label className="label">ZIP/Postcode</label>
                         <input
-                          name="cardholderName"
-                          autoComplete="cc-name"
-                          value={bookingCardholderName}
-                          onChange={(event) => setBookingCardholderName(event.target.value)}
-                          onBlur={() => setBookingCardTouched((prev) => ({ ...prev, cardholderName: true }))}
+                          name="billingPostcode"
+                          autoComplete="postal-code"
+                          value={bookingBillingPostcode}
+                          onChange={(event) => setBookingBillingPostcode(event.target.value)}
+                          onBlur={() => setBookingCardTouched((prev) => ({ ...prev, postcode: true }))}
                           className={`input ${
-                            (bookingCardTouched.cardholderName || bookingCardholderName) &&
-                            bookingCardValidation.cardholderName
+                            (bookingCardTouched.postcode || bookingBillingPostcode) && bookingCardValidation.postcode
                               ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
                               : ''
                           }`}
-                          placeholder="Name on card"
+                          placeholder="ZIP or postcode"
                           aria-invalid={Boolean(
-                            (bookingCardTouched.cardholderName || bookingCardholderName) &&
-                              bookingCardValidation.cardholderName
+                            (bookingCardTouched.postcode || bookingBillingPostcode) && bookingCardValidation.postcode
                           )}
                         />
-                        {(bookingCardTouched.cardholderName || bookingCardholderName) &&
-                        bookingCardValidation.cardholderName ? (
+                        {(bookingCardTouched.postcode || bookingBillingPostcode) && bookingCardValidation.postcode ? (
                           <p className="mt-1 text-xs font-medium text-red-600">
-                            {bookingCardValidation.cardholderName}
+                            {bookingCardValidation.postcode}
                           </p>
                         ) : null}
                       </div>
@@ -709,8 +750,11 @@ export default function BookingsPage() {
                       <span>Save card securely for future bookings</span>
                     </label>
 
-                    <p className="mt-4 border-t border-slate-200 pt-3 text-xs font-medium text-slate-500">
+                    <p className="hidden">
                       🔒 Payments are encrypted and PCI DSS compliant.
+                    </p>
+                    <p className="mt-4 border-t border-slate-200 pt-3 text-xs font-medium text-slate-500">
+                      Payments are encrypted and processed securely. Full card numbers are never stored.
                     </p>
                   </div>
                 )}

@@ -113,6 +113,31 @@ export const validateSecurityCode = (value: string, brand: CardBrand) => {
 
 export const getCardBrandLabel = (brand: CardBrand) => brandLabels[brand];
 
+export const validatePostcode = (value: string) => {
+  if (!value.trim()) return 'ZIP/Postcode is required.';
+  return '';
+};
+
+export function AcceptedPaymentBadges() {
+  const methods = ['Visa', 'Mastercard', 'American Express', 'Discover', 'Apple Pay', 'Contactless'];
+
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Accepted payment methods</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {methods.map((method) => (
+          <span
+            key={method}
+            className="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-700 shadow-sm"
+          >
+            {method}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function CardTypeBadge({ brand }: { brand: CardBrand }) {
   const brandClass =
     brand === 'unknown'
