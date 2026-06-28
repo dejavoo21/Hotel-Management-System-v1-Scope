@@ -27,6 +27,7 @@ router.get('/visitors', securityCenterController.listVisitors);
 router.post('/visitors', validate(visitorSchema), securityCenterController.createVisitor);
 router.patch('/visitors/:id/checkout', securityCenterController.checkoutVisitor);
 router.get('/alerts', securityCenterController.listAlerts);
+router.get('/tasks', securityCenterController.listSmartBuildingTasks);
 router.patch('/alerts/:id/acknowledge', securityCenterController.acknowledgeAlert);
 router.patch('/alerts/:id/resolve', securityCenterController.resolveAlert);
 

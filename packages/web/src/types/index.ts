@@ -146,7 +146,7 @@ export interface Booking {
   numberOfChildren: number;
   status: 'CONFIRMED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED' | 'NO_SHOW';
   source: 'DIRECT' | 'BOOKING_COM' | 'EXPEDIA' | 'AIRBNB' | 'WALK_IN' | 'PHONE' | 'CORPORATE' | 'WEBSITE';
-  paymentMethod?: 'CASH' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'BANK_TRANSFER' | 'STRIPE' | 'CHECK' | 'OTHER';
+  paymentMethod?: 'CASH' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'BANK_TRANSFER' | 'STRIPE' | 'PAYPAL' | 'CHECK' | 'OTHER';
   paymentConfirmed: boolean;
   specialRequests?: string;
   internalNotes?: string;
@@ -172,7 +172,7 @@ export interface Charge {
 export interface Payment {
   id: string;
   amount: number;
-  method: 'CASH' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'BANK_TRANSFER' | 'STRIPE' | 'CHECK' | 'OTHER';
+  method: 'CASH' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'BANK_TRANSFER' | 'STRIPE' | 'PAYPAL' | 'CHECK' | 'OTHER';
   reference?: string;
   status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
   processedAt: string;

@@ -9,6 +9,7 @@ import {
   acknowledgeSecurityAlert,
   resolveSecurityAlert,
 } from './smartBuilding.service.js';
+import { getSmartBuildingWorkflowTaskSummary, listSmartBuildingWorkflowTasks } from './smartBuildingTask.service.js';
 
 const todayStart = () => {
   const d = new Date();
@@ -27,6 +28,8 @@ export async function getSecurityCenterOverview(hotelId: string) {
     recentAccessEvents,
     recentAlerts,
     recentVisitors,
+    smartBuildingTasks,
+    smartBuildingTaskSummary,
   ] = await Promise.all([
     prisma.cameraFeed.count({ where: { hotelId } }),
     prisma.cameraFeed.count({ where: { hotelId, status: CameraStatus.ONLINE } }),
@@ -49,6 +52,8 @@ export async function getSecurityCenterOverview(hotelId: string) {
       orderBy: { checkInAt: 'desc' },
       take: 5,
     }),
+    listSmartBuildingWorkflowTasks(hotelId, 'security'),
+    getSmartBuildingWorkflowTaskSummary(hotelId),
   ]);
 
   const recentActivity = [
@@ -76,6 +81,15 @@ export async function getSecurityCenterOverview(hotelId: string) {
       status: visitor.status,
       occurredAt: visitor.checkInAt,
     })),
+    ...smartBuildingTasks.slice(0, 5).map((task) => ({
+      id: `smart-building-task:${task.id}`,
+      type: 'SMART_BUILDING_TASK',
+      title: task.title,
+      detail: task.location || task.deviceExternalId || task.sourceSignal || task.sourceModule,
+      status: task.status,
+      occurredAt: task.updatedAt,
+      sourceModule: task.sourceModule,
+    })),
   ]
     .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())
     .slice(0, 10);
@@ -85,6 +99,7 @@ export async function getSecurityCenterOverview(hotelId: string) {
     accessEvents: { today: accessEventsToday },
     visitors: { onsite: visitorsOnsite },
     alerts: { open: openAlerts },
+    smartBuildingTasks: smartBuildingTaskSummary,
     recentActivity,
   };
 }
@@ -157,6 +172,10 @@ export async function listAlerts(hotelId: string) {
     orderBy: [{ status: 'asc' }, { occurredAt: 'desc' }],
     take: 250,
   });
+}
+
+export function listSmartBuildingSecurityTasks(hotelId: string) {
+  return listSmartBuildingWorkflowTasks(hotelId, 'security');
 }
 
 export { acknowledgeSecurityAlert, resolveSecurityAlert };

@@ -58,5 +58,6 @@ router.get('/repairs', maintenanceCenterController.listRepairs);
 router.post('/repairs', validate(repairSchema), maintenanceCenterController.createRepair);
 router.get('/preventive-maintenance', maintenanceCenterController.listPreventiveMaintenance);
 router.get('/assets', maintenanceCenterController.listAssets);
+router.get('/smart-building-tasks', maintenanceCenterController.listSmartBuildingTasks);
 
 export default router;

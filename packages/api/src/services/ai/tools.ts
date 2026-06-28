@@ -4,6 +4,7 @@ import { syncWeatherSignalsForHotel } from '../weatherSignal.service.js';
 import { runPricingSnapshotJob } from '../pricingSnapshot.job.js';
 import { Department, TicketPriority } from '@prisma/client';
 import { pickAssigneeForDepartment } from '../opsAssignment.rules.js';
+import { createTask } from '../../platform/tasks/taskEngine.service.js';
 
 export const tools = [
   {
@@ -140,80 +141,40 @@ export async function runTool(name: string, args: ToolArgs): Promise<unknown> {
 
       const department = parseDepartment(args.department);
       const priority = parsePriority(args.priority);
+      const assignedToId = await prisma.$transaction((tx) =>
+        pickAssigneeForDepartment({
+          tx,
+          hotelId,
+          department,
+        })
+      );
 
-      return prisma.$transaction(async (tx) => {
-        const conversation = await tx.conversation.create({
-          data: {
-            hotelId,
-            subject: subject.slice(0, 120),
-            status: 'OPEN',
-            lastMessageAt: new Date(),
-          },
-        });
-
-        await tx.message.create({
-          data: {
-            conversationId: conversation.id,
-            senderType: 'SYSTEM',
-            senderUserId: userId,
-            body: reason.slice(0, 500),
-          },
-        });
-
-        const ticket = await tx.ticket.create({
-          data: {
-            hotelId,
-            conversationId: conversation.id,
-            type: 'GENERAL_INQUIRY',
-            category: 'OTHER',
-            department,
-            priority,
-            status: 'OPEN',
-            assignedToId: await pickAssigneeForDepartment({
-              tx,
-              hotelId,
-              department,
-            }),
-            details: {
-              source: 'OPS_ASSISTANT',
-              ...details,
-            },
-          },
-          select: {
-            id: true,
-            conversationId: true,
-            department: true,
-            priority: true,
-            status: true,
-          },
-        });
-
-        await tx.activityLog.create({
-          data: {
-            userId,
-            entity: 'OPS_ASSISTANT',
-            entityId: ticket.id,
-            action: 'CREATE_TICKET',
-            details: {
-              conversationId: conversation.id,
-              subject,
-              reason,
-              department,
-              priority,
-              ...details,
-            },
-          },
-        });
-
-        return {
-          ticketId: ticket.id,
-          conversationId: conversation.id,
-          department: ticket.department,
-          priority: ticket.priority,
-          status: ticket.status,
-          ticketUrl: `/tickets/${ticket.id}`,
-        };
+      const task = await createTask({
+        hotelId,
+        title: subject,
+        description: reason,
+        category: 'OTHER',
+        department,
+        priority,
+        assignedToId,
+        details: {
+          source: 'OPS_ASSISTANT',
+          subject,
+          reason,
+          ...details,
+        },
+        actor: { userId },
+        source: 'ai',
       });
+
+      return {
+        ticketId: task.id,
+        conversationId: task.conversationId,
+        department: task.department,
+        priority: task.priority,
+        status: task.status,
+        ticketUrl: `/tickets/${task.id}`,
+      };
     }
 
     default:

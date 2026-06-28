@@ -13,6 +13,7 @@ import ArrivalsSignalCard from '@/components/operations/signals/ArrivalsSignalCa
 import DemandSignalCard from '@/components/operations/signals/DemandSignalCard';
 import PricingSignalCard from '@/components/operations/signals/PricingSignalCard';
 import WeatherSignalCard from '@/components/operations/signals/WeatherSignalCard';
+import OperationalTimeline from '@/components/timeline/OperationalTimeline';
 import { operationsService, weatherSignalsService } from '@/services';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -235,6 +236,7 @@ export default function OperationsCenterPage() {
           {weatherPanel}
           {revenuePanel}
           {tasksPanel}
+          <OperationalTimeline />
         </div>
 
         <div className="space-y-6 xl:col-span-4">

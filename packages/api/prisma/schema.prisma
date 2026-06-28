@@ -746,6 +746,7 @@ enum PaymentMethod {
   DEBIT_CARD
   BANK_TRANSFER
   STRIPE
+  PAYPAL
   CHECK
   OTHER
 }

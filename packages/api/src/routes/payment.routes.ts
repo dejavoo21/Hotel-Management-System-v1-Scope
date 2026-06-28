@@ -15,7 +15,7 @@ const createPaymentIntentSchema = z.object({
 const recordPaymentSchema = z.object({
   bookingId: z.string().min(1, 'Booking ID is required'),
   amount: z.number().positive('Amount must be positive'),
-  method: z.enum(['CASH', 'CREDIT_CARD', 'DEBIT_CARD', 'BANK_TRANSFER', 'CHECK', 'OTHER']),
+  method: z.enum(['CASH', 'CREDIT_CARD', 'DEBIT_CARD', 'BANK_TRANSFER', 'STRIPE', 'PAYPAL', 'CHECK', 'OTHER']),
   reference: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -30,7 +30,7 @@ const emailSchema = z.object({
 
 const querySchema = z.object({
   bookingId: z.string().optional(),
-  method: z.enum(['CASH', 'CREDIT_CARD', 'DEBIT_CARD', 'BANK_TRANSFER', 'STRIPE', 'CHECK', 'OTHER']).optional(),
+  method: z.enum(['CASH', 'CREDIT_CARD', 'DEBIT_CARD', 'BANK_TRANSFER', 'STRIPE', 'PAYPAL', 'CHECK', 'OTHER']).optional(),
   status: z.enum(['PENDING', 'COMPLETED', 'FAILED', 'REFUNDED', 'PARTIALLY_REFUNDED']).optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),

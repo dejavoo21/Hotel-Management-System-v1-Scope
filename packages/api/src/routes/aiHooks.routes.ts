@@ -20,6 +20,8 @@ import {
 import { getWeatherContextForHotel } from '../services/weatherContext.provider.js';
 import { getOpsContextForHotel, getWeatherOpsActions } from '../services/operationsContext.service.js';
 import { prisma } from '../config/database.js';
+import { pickAssigneeForDepartment } from '../services/opsAssignment.rules.js';
+import { createTask } from '../platform/tasks/taskEngine.service.js';
 
 const router = Router();
 
@@ -96,96 +98,56 @@ async function createWeatherActionTicket(
       return;
     }
 
-    const created = await prisma.$transaction(async (tx) => {
-      const conversation = await tx.conversation.create({
-        data: {
-          hotelId,
-          subject: `[Weather Action] ${title.slice(0, 100)}`,
-          status: 'OPEN',
-          lastMessageAt: new Date(),
-        },
-      });
+    const assignedToId = await prisma.$transaction((tx) =>
+      pickAssigneeForDepartment({
+        tx,
+        hotelId,
+        department,
+      })
+    );
 
-      await tx.message.create({
-        data: {
-          conversationId: conversation.id,
-          senderType: 'SYSTEM',
-          senderUserId: userId,
-          body: reason.slice(0, 500),
-        },
-      });
-
-      const ticket = await tx.ticket.create({
-        data: {
-          hotelId,
-          conversationId: conversation.id,
-          type: 'GENERAL_INQUIRY',
-          category: categoryForDepartment(department),
-          department,
-          priority,
-          status: 'OPEN',
-          details: {
-            source: 'WEATHER_ACTIONS',
-            actionId: actionId || null,
-            title,
-            reason,
-            weatherSyncedAtUtc: body.weatherSyncedAtUtc ?? null,
-            aiGeneratedAtUtc: body.aiGeneratedAtUtc ?? null,
-            createdAtUtc: new Date().toISOString(),
-            createdByUserId: userId || null,
-          },
-        },
-        select: {
-          id: true,
-          status: true,
-          department: true,
-          priority: true,
-        },
-      });
-
-      if (userId) {
-        await tx.activityLog.create({
-          data: {
-            userId,
-            action: 'WEATHER_ACTION_TICKET_CREATED',
-            entity: 'ticket',
-            entityId: ticket.id,
-            details: {
-              source: 'WEATHER_ACTIONS',
-              actionId: actionId || null,
-              title,
-              reason,
-              department,
-              priority,
-              weatherSyncedAtUtc: body.weatherSyncedAtUtc ?? null,
-              aiGeneratedAtUtc: body.aiGeneratedAtUtc ?? null,
-              conversationId: conversation.id,
-            },
-          },
-        });
-      }
-
-      return { ticket, conversationId: conversation.id };
+    const ticket = await createTask({
+      hotelId,
+      title: `[Weather Action] ${title.slice(0, 100)}`,
+      description: reason,
+      category: categoryForDepartment(department),
+      department,
+      priority,
+      assignedToId,
+      details: {
+        source: 'WEATHER_ACTIONS',
+        actionId: actionId || null,
+        title,
+        reason,
+        weatherSyncedAtUtc: body.weatherSyncedAtUtc ?? null,
+        aiGeneratedAtUtc: body.aiGeneratedAtUtc ?? null,
+        createdAtUtc: new Date().toISOString(),
+        createdByUserId: userId || null,
+      },
+      actor: { userId },
+      source: 'ai',
+      idempotencyKey: actionId ? `weather-action:${actionId}` : undefined,
     });
 
     await logAiInteraction(
       'WEATHER_ACTIONS',
       JSON.stringify({ createTicket: true, hotelId, title, actionId: actionId || null }),
       {
-        ticketId: created.ticket.id,
-        department: created.ticket.department,
-        priority: created.ticket.priority,
+        ticketId: ticket.id,
+        department: ticket.department,
+        priority: ticket.priority,
       },
-      userId
+      userId,
+      hotelId
     );
 
     res.json({
       success: true,
       data: {
-        ticketId: created.ticket.id,
-        status: created.ticket.status,
-        department: created.ticket.department,
-        conversationId: created.conversationId,
+        ticketId: ticket.id,
+        status: ticket.status,
+        department: ticket.department,
+        conversationId: ticket.conversationId,
         source: 'WEATHER_ACTIONS',
         actionId: actionId || null,
         title,
@@ -220,7 +182,8 @@ router.post('/intent', async (req: AuthenticatedRequest, res: Response, next: Ne
       'INTENT_DETECTION',
       message,
       intent,
-      req.user!.id
+      req.user!.id,
+      req.user!.hotelId
     );
 
     res.json({
@@ -263,7 +226,8 @@ router.post('/suggestions', async (req: AuthenticatedRequest, res: Response, nex
       'SUGGESTED_REPLY',
       message || conversationId,
       suggestions,
-      req.user!.id
+      req.user!.id,
+      req.user!.hotelId
     );
 
     res.json({
@@ -309,7 +273,8 @@ router.post('/actions', async (req: AuthenticatedRequest, res: Response, next: N
       'RECOMMENDED_ACTION',
       message || conversationId,
       actions,
-      req.user!.id
+      req.user!.id,
+      req.user!.hotelId
     );
 
     res.json({
@@ -353,7 +318,8 @@ router.post('/weather-actions', async (req: AuthenticatedRequest, res: Response,
         opsContext: ops,
       }),
       result,
-      req.user!.id
+      req.user!.id,
+      hotelId
     );
 
     res.json({

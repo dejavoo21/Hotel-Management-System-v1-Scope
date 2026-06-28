@@ -1,5 +1,5 @@
 import api from './api';
-import type { CameraFeed, DoorAccessEvent, SecurityAlert } from './smartBuilding';
+import type { CameraFeed, DoorAccessEvent, SecurityAlert, SmartBuildingWorkflowTask } from './smartBuilding';
 
 export type VisitorStatus = 'CHECKED_IN' | 'CHECKED_OUT' | 'DENIED';
 
@@ -19,11 +19,12 @@ export type Visitor = {
 
 export type SecurityActivity = {
   id: string;
-  type: 'ALERT' | 'ACCESS' | 'VISITOR';
+  type: 'ALERT' | 'ACCESS' | 'VISITOR' | 'SMART_BUILDING_TASK';
   title: string;
   detail?: string | null;
   status: string;
   occurredAt: string;
+  sourceModule?: string | null;
 };
 
 export type SecurityCenterOverview = {
@@ -31,6 +32,7 @@ export type SecurityCenterOverview = {
   accessEvents: { today: number };
   visitors: { onsite: number };
   alerts: { open: number };
+  smartBuildingTasks?: { maintenance: number; security: number; criticalOpen: number };
   recentActivity: SecurityActivity[];
 };
 
@@ -78,6 +80,11 @@ export const securityCenterService = {
 
   async listAlerts(): Promise<SecurityAlert[]> {
     const response = await api.get('/security-center/alerts');
+    return response.data.data;
+  },
+
+  async listTasks(): Promise<SmartBuildingWorkflowTask[]> {
+    const response = await api.get('/security-center/tasks');
     return response.data.data;
   },
 

@@ -45,6 +45,7 @@ import operationsRoutes from './routes/operations.routes.js';
 import smartBuildingRoutes from './routes/smartBuilding.routes.js';
 import securityCenterRoutes from './routes/securityCenter.routes.js';
 import maintenanceCenterRoutes from './routes/maintenanceCenter.routes.js';
+import timelineRoutes from './routes/timeline.routes.js';
 
 const normalizeOrigin = (value?: string): string | undefined =>
   value ? value.replace(/\/+$/, '') : undefined;
@@ -177,6 +178,7 @@ export function createApp(): Application {
           securityCenter: '/api/security-center',
           maintenanceCenter: '/api/maintenance-center',
           smartBuilding: '/api/smart-building',
+          timeline: '/api/timeline',
           market: '/api/market',
           assistant: '/api/assistant',
           conversations: '/api/conversations',
@@ -250,6 +252,7 @@ export function createApp(): Application {
   app.use('/api/security-center', securityCenterRoutes);
   app.use('/api/maintenance-center', maintenanceCenterRoutes);
   app.use('/api/smart-building', smartBuildingRoutes);
+  app.use('/api/timeline', timelineRoutes);
 
   // API documentation endpoint
   app.get('/api', (_req, res) => {

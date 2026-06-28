@@ -27,6 +27,7 @@
     "tickets:backfill": "tsx scripts/backfillTickets.ts",
     "smart-building:seed": "tsx scripts/seedSmartBuilding.ts",
     "smart-building:test-events": "tsx scripts/testSmartBuildingEvents.ts",
+    "smart-building:test-workflow": "tsx scripts/testSmartBuildingWorkflow.ts",
     "security-center:seed": "tsx scripts/seedSecurityCenter.ts",
     "maintenance-center:seed": "tsx scripts/seedMaintenanceCenter.ts"
   },

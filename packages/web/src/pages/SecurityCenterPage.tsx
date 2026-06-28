@@ -6,7 +6,7 @@ import securityCenterService, {
   type SecurityActivity,
   type Visitor,
 } from '@/services/securityCenter';
-import type { CameraFeed, DoorAccessEvent, SecurityAlert } from '@/services/smartBuilding';
+import type { CameraFeed, DoorAccessEvent, SecurityAlert, SmartBuildingWorkflowTask } from '@/services/smartBuilding';
 
 type TabId = 'overview' | 'cctv' | 'access-logs' | 'visitors' | 'alerts';
 type Tone = 'emerald' | 'sky' | 'amber' | 'rose' | 'slate';
@@ -78,6 +78,9 @@ const ActivityList = ({ activities }: { activities: SecurityActivity[] }) => {
             <div>
               <div className="text-sm font-bold text-slate-900">{activity.title}</div>
               <div className="mt-1 text-sm text-slate-600">{activity.detail || formatStatus(activity.type)}</div>
+              {activity.sourceModule ? (
+                <div className="mt-1 text-xs font-semibold text-sky-700">Source: {formatStatus(activity.sourceModule)}</div>
+              ) : null}
               <div className="mt-1 text-xs text-slate-500">{formatDateTime(activity.occurredAt)}</div>
             </div>
             <span className={`rounded-full px-2 py-1 text-xs font-semibold ${toneClasses[toneForStatus(activity.status)].pill}`}>
@@ -89,6 +92,47 @@ const ActivityList = ({ activities }: { activities: SecurityActivity[] }) => {
     </div>
   );
 };
+
+const SecurityTaskCard = ({ task }: { task: SmartBuildingWorkflowTask }) => (
+  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <div className="text-sm font-bold text-slate-900">{task.title}</div>
+        <div className="mt-1 text-sm text-slate-600">{task.sourceSummary || task.description || task.sourceSignal || 'Smart Building security task'}</div>
+        <div className="mt-1 text-xs font-semibold text-sky-700">Source: {formatStatus(task.sourceModule)}</div>
+        <div className="mt-1 text-xs text-slate-500">
+          {[
+            task.location ? `Location: ${task.location}` : null,
+            task.deviceExternalId ? `Device: ${task.deviceExternalId}` : null,
+            task.dueAt ? `Due ${formatDateTime(task.dueAt)}` : null,
+          ].filter(Boolean).join(' / ') || formatDateTime(task.createdAt)}
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`rounded-full px-2 py-1 text-xs font-semibold ${toneClasses[toneForStatus(task.priority)].pill}`}>
+          {formatStatus(task.priority)}
+        </span>
+        <span className={`rounded-full px-2 py-1 text-xs font-semibold ${toneClasses[toneForStatus(task.status)].pill}`}>
+          {formatStatus(task.status)}
+        </span>
+      </div>
+    </div>
+  </div>
+);
+
+const SecurityTasksPanel = ({ tasks }: { tasks: SmartBuildingWorkflowTask[] }) => (
+  <div className="space-y-3">
+    <div>
+      <div className="text-sm font-bold text-slate-900">Smart Building security tasks</div>
+      <p className="mt-1 text-sm text-slate-500">Auto-created by forced door, camera offline, and panic button events.</p>
+    </div>
+    {tasks.length === 0 ? (
+      <EmptyState label="No Smart Building security tasks yet." />
+    ) : (
+      tasks.map((task) => <SecurityTaskCard key={task.id} task={task} />)
+    )}
+  </div>
+);
 
 const CctvPanel = ({ cameras }: { cameras: CameraFeed[] }) => {
   if (cameras.length === 0) return <EmptyState label="No CCTV feeds connected." />;
@@ -219,43 +263,48 @@ const VisitorsPanel = ({
 
 const AlertsPanel = ({
   alerts,
+  tasks,
   onAcknowledge,
   onResolve,
 }: {
   alerts: SecurityAlert[];
+  tasks: SmartBuildingWorkflowTask[];
   onAcknowledge: (alertId: string) => void;
   onResolve: (alertId: string) => void;
 }) => {
-  if (alerts.length === 0) return <EmptyState label="No security alerts recorded." />;
-
   return (
     <div className="space-y-3">
-      {alerts.map((alert) => (
-        <div key={alert.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="text-sm font-bold text-slate-900">{alert.title}</div>
-              <div className="mt-1 text-sm text-slate-600">{alert.message || alert.location || formatStatus(alert.alertType)}</div>
-              <div className="mt-1 text-xs text-slate-500">{formatDateTime(alert.occurredAt)}</div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={`rounded-full px-2 py-1 text-xs font-semibold ${toneClasses[toneForStatus(alert.status)].pill}`}>
-                {formatStatus(alert.status)}
-              </span>
-              {alert.status === 'ACTIVE' ? (
-                <button type="button" onClick={() => onAcknowledge(alert.id)} className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                  Acknowledge
-                </button>
-              ) : null}
-              {alert.status !== 'RESOLVED' ? (
-                <button type="button" onClick={() => onResolve(alert.id)} className="rounded-lg bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
-                  Resolve
-                </button>
-              ) : null}
+      <SecurityTasksPanel tasks={tasks} />
+      {alerts.length === 0 ? (
+        <EmptyState label="No security alerts recorded." />
+      ) : (
+        alerts.map((alert) => (
+          <div key={alert.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-bold text-slate-900">{alert.title}</div>
+                <div className="mt-1 text-sm text-slate-600">{alert.message || alert.location || formatStatus(alert.alertType)}</div>
+                <div className="mt-1 text-xs text-slate-500">{formatDateTime(alert.occurredAt)}</div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`rounded-full px-2 py-1 text-xs font-semibold ${toneClasses[toneForStatus(alert.status)].pill}`}>
+                  {formatStatus(alert.status)}
+                </span>
+                {alert.status === 'ACTIVE' ? (
+                  <button type="button" onClick={() => onAcknowledge(alert.id)} className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                    Acknowledge
+                  </button>
+                ) : null}
+                {alert.status !== 'RESOLVED' ? (
+                  <button type="button" onClick={() => onResolve(alert.id)} className="rounded-lg bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
+                    Resolve
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        ))
+      )}
     </div>
   );
 };
@@ -271,6 +320,7 @@ export default function SecurityCenterPage() {
   const accessLogsQuery = useQuery({ queryKey: ['security-center', 'access-logs'], queryFn: securityCenterService.listAccessLogs, ...realtimeQueryOptions });
   const visitorsQuery = useQuery({ queryKey: ['security-center', 'visitors'], queryFn: securityCenterService.listVisitors, ...realtimeQueryOptions });
   const alertsQuery = useQuery({ queryKey: ['security-center', 'alerts'], queryFn: securityCenterService.listAlerts, ...realtimeQueryOptions });
+  const tasksQuery = useQuery({ queryKey: ['security-center', 'tasks'], queryFn: securityCenterService.listTasks, ...realtimeQueryOptions });
 
   const invalidateSecurityCenter = () => queryClient.invalidateQueries({ queryKey: ['security-center'] });
   const createVisitorMutation = useMutation({ mutationFn: securityCenterService.createVisitor, onSuccess: invalidateSecurityCenter });
@@ -283,7 +333,8 @@ export default function SecurityCenterPage() {
   const accessLogs = accessLogsQuery.data || [];
   const visitors = visitorsQuery.data || [];
   const alerts = alertsQuery.data || [];
-  const hasError = overviewQuery.isError || cctvQuery.isError || accessLogsQuery.isError || visitorsQuery.isError || alertsQuery.isError;
+  const tasks = tasksQuery.data || [];
+  const hasError = overviewQuery.isError || cctvQuery.isError || accessLogsQuery.isError || visitorsQuery.isError || alertsQuery.isError || tasksQuery.isError;
 
   const metrics = useMemo(
     () => [
@@ -310,6 +361,12 @@ export default function SecurityCenterPage() {
         value: overview ? String(overview.alerts.open) : 'No data',
         detail: 'Active or acknowledged',
         tone: overview && overview.alerts.open > 0 ? 'rose' : 'emerald',
+      },
+      {
+        label: 'Smart Building tasks',
+        value: overview ? String(overview.smartBuildingTasks?.security || 0) : 'No data',
+        detail: 'Generated by IoT alerts',
+        tone: overview && (overview.smartBuildingTasks?.security || 0) > 0 ? 'amber' : 'emerald',
       },
     ] as const,
     [overview]
@@ -377,6 +434,7 @@ export default function SecurityCenterPage() {
       {validTab === 'alerts' ? (
         <AlertsPanel
           alerts={alerts}
+          tasks={tasks}
           onAcknowledge={(alertId) => acknowledgeAlertMutation.mutate(alertId)}
           onResolve={(alertId) => resolveAlertMutation.mutate(alertId)}
         />

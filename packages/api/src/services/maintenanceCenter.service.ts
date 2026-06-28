@@ -9,6 +9,7 @@ import {
   type Prisma,
 } from '@prisma/client';
 import { prisma } from '../config/database.js';
+import { getSmartBuildingWorkflowTaskSummary, listSmartBuildingWorkflowTasks } from './smartBuildingTask.service.js';
 
 const todayStart = () => {
   const d = new Date();
@@ -30,6 +31,8 @@ export async function getMaintenanceCenterOverview(hotelId: string) {
     recentWorkOrders,
     recentFaults,
     recentRepairs,
+    smartBuildingTasks,
+    smartBuildingTaskSummary,
   ] = await Promise.all([
     prisma.maintenanceWorkOrder.count({
       where: { hotelId, status: { in: [MaintenanceWorkOrderStatus.OPEN, MaintenanceWorkOrderStatus.IN_PROGRESS, MaintenanceWorkOrderStatus.ON_HOLD] } },
@@ -64,6 +67,8 @@ export async function getMaintenanceCenterOverview(hotelId: string) {
     prisma.maintenanceWorkOrder.findMany({ where: { hotelId }, orderBy: { updatedAt: 'desc' }, take: 5 }),
     prisma.maintenanceFault.findMany({ where: { hotelId }, orderBy: { reportedAt: 'desc' }, take: 5 }),
     prisma.maintenanceRepair.findMany({ where: { hotelId }, orderBy: { updatedAt: 'desc' }, take: 5 }),
+    listSmartBuildingWorkflowTasks(hotelId, 'maintenance'),
+    getSmartBuildingWorkflowTaskSummary(hotelId),
   ]);
 
   const recentActivity = [
@@ -91,6 +96,15 @@ export async function getMaintenanceCenterOverview(hotelId: string) {
       status: item.status,
       occurredAt: item.updatedAt,
     })),
+    ...smartBuildingTasks.slice(0, 5).map((item) => ({
+      id: `smart-building-task:${item.id}`,
+      type: 'SMART_BUILDING_TASK',
+      title: item.title,
+      detail: item.location || item.deviceExternalId || item.sourceSignal || item.sourceModule,
+      status: item.status,
+      occurredAt: item.updatedAt,
+      sourceModule: item.sourceModule,
+    })),
   ]
     .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())
     .slice(0, 10);
@@ -102,6 +116,7 @@ export async function getMaintenanceCenterOverview(hotelId: string) {
     preventiveMaintenance: { overdue: overdueMaintenance },
     assets: { dueInspection: assetsDueInspection },
     completed: { today: completedWorkOrdersToday + completedRepairsToday + completedSchedulesToday },
+    smartBuildingTasks: smartBuildingTaskSummary,
     recentActivity,
   };
 }
@@ -196,4 +211,8 @@ export function listAssets(hotelId: string) {
     orderBy: [{ inspectionStatus: 'desc' }, { nextInspectionAt: 'asc' }],
     take: 250,
   });
+}
+
+export function listSmartBuildingMaintenanceTasks(hotelId: string) {
+  return listSmartBuildingWorkflowTasks(hotelId, 'maintenance');
 }

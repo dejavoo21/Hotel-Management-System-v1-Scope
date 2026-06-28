@@ -14,6 +14,7 @@ import {
   SensorType,
 } from '@prisma/client';
 import { prisma } from '../config/database.js';
+import { listSmartBuildingWorkflowTasks } from './smartBuildingTask.service.js';
 
 const todayStart = () => {
   const d = new Date();
@@ -210,6 +211,10 @@ export async function resolveSecurityAlert(hotelId: string, alertId: string, use
       acknowledgedById: userId,
     },
   });
+}
+
+export function listLinkedSmartBuildingTasks(hotelId: string) {
+  return listSmartBuildingWorkflowTasks(hotelId, 'all');
 }
 
 export type SmartBuildingEvent =

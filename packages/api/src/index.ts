@@ -6,6 +6,8 @@ import { prisma, disconnectDatabase, checkDatabaseHealth } from './config/databa
 import { logger } from './config/logger.js';
 import { setupSocketHandlers } from './socket/index.js';
 import { startImapPolling } from './services/imap.service.js';
+import { startTimelineEngine } from './platform/timeline/timelineEngine.service.js';
+import { startWorkflowRunner } from './platform/workflows/workflowRunner.js';
 
 // Module-level io reference for getIo() export
 let ioInstance: SocketIOServer | null = null;
@@ -40,6 +42,8 @@ async function startServer(): Promise<void> {
     });
 
     setupSocketHandlers(io);
+    startTimelineEngine(io);
+    startWorkflowRunner();
     logger.info('Socket.IO initialized');
 
     // Store io instance for getIo() export

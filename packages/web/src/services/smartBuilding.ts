@@ -76,6 +76,28 @@ export type SecurityAlert = {
   resolvedAt?: string | null;
 };
 
+export type SmartBuildingWorkflowTask = {
+  id: string;
+  title: string;
+  description?: string | null;
+  department: string;
+  category: string;
+  priority: string;
+  status: string;
+  sourceModule: 'SMART_BUILDING' | string;
+  workflowId?: string | null;
+  sourceSignal?: string | null;
+  eventType?: string | null;
+  linkedEntityType?: string | null;
+  linkedEntityId?: string | null;
+  deviceExternalId?: string | null;
+  location?: string | null;
+  sourceSummary?: string | null;
+  dueAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type SmartBuildingOverview = {
   cameras: { online: number; offline: number };
   doors: { locked: number; open: number };
@@ -126,6 +148,11 @@ export const smartBuildingService = {
 
   async listSecurityAlerts(): Promise<SecurityAlert[]> {
     const response = await api.get('/smart-building/alerts');
+    return response.data.data;
+  },
+
+  async listLinkedTasks(): Promise<SmartBuildingWorkflowTask[]> {
+    const response = await api.get('/smart-building/linked-tasks');
     return response.data.data;
   },
 

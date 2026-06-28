@@ -131,6 +131,9 @@ export default function BookingsPage() {
     }
   }, [showCreateModal]);
   const isBookingCardMethod = ['CREDIT_CARD', 'DEBIT_CARD'].includes(bookingPaymentMethod);
+  const isStripeMethod = bookingPaymentMethod === 'STRIPE';
+  const isPaypalMethod = bookingPaymentMethod === 'PAYPAL';
+  const isBankTransferMethod = bookingPaymentMethod === 'BANK_TRANSFER';
   const bookingCardBrand = useMemo(() => detectCardBrand(bookingCardInfo.number), [bookingCardInfo.number]);
   const bookingCardValidation = useMemo(
     () => ({
@@ -630,6 +633,7 @@ export default function BookingsPage() {
                     <option value="DEBIT_CARD">Debit card</option>
                     <option value="BANK_TRANSFER">Bank transfer</option>
                     <option value="STRIPE">Stripe</option>
+                    <option value="PAYPAL">PayPal</option>
                     <option value="CHECK">Check</option>
                     <option value="OTHER">Other</option>
                   </select>
@@ -756,6 +760,54 @@ export default function BookingsPage() {
                     <p className="mt-4 border-t border-slate-200 pt-3 text-xs font-medium text-slate-500">
                       Payments are encrypted and processed securely. Full card numbers are never stored.
                     </p>
+                  </div>
+                )}
+                {isStripeMethod && (
+                  <div className="rounded-xl border border-violet-200 bg-violet-50/70 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">Stripe payment</p>
+                        <p className="mt-1 text-sm text-slate-600">
+                          Stripe Checkout can be used after the booking is created to collect card, wallet, or local
+                          payment methods.
+                        </p>
+                      </div>
+                      <span className="rounded-md bg-violet-700 px-3 py-1.5 text-xs font-bold text-white">Stripe</span>
+                    </div>
+                    <p className="mt-3 text-xs text-slate-500">
+                      Gateway integration is provider-agnostic here. No raw card details are collected in this form.
+                    </p>
+                  </div>
+                )}
+                {isPaypalMethod && (
+                  <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">PayPal payment</p>
+                        <p className="mt-1 text-sm text-slate-600">
+                          PayPal can be connected later to send a payment request or redirect the guest to PayPal
+                          checkout.
+                        </p>
+                      </div>
+                      <span className="rounded-md bg-blue-700 px-3 py-1.5 text-xs font-bold text-white">PayPal</span>
+                    </div>
+                    <p className="mt-3 text-xs text-slate-500">
+                      No PayPal account token is stored at booking creation. The gateway adapter will handle checkout
+                      sessions when connected.
+                    </p>
+                  </div>
+                )}
+                {isBankTransferMethod && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                    <p className="text-sm font-semibold text-slate-900">Bank transfer</p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      A bank list is only needed if the hotel has multiple receiving accounts. For now, record the
+                      booking and add the bank reference when the transfer is received.
+                    </p>
+                    <div className="mt-3">
+                      <label className="label">Transfer reference</label>
+                      <input name="bankTransferReference" className="input" placeholder="Optional bank reference" />
+                    </div>
                   </div>
                 )}
               <label className="label">Special requests</label>

@@ -28,4 +28,5 @@ export { default as maintenanceCenterService } from './maintenanceCenter';
 export { default as smartBuildingService } from './smartBuilding';
 export { default as marketService } from './market';
 export { default as assistantService } from './assistant';
+export { default as timelineService } from './timeline';
 export { createTicketFromAssistant } from './assistantActions';

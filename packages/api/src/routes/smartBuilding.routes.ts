@@ -133,6 +133,7 @@ router.get('/access-events', smartBuildingController.listDoorAccessEvents);
 router.get('/door-statuses', smartBuildingController.listDoorStatuses);
 router.get('/sensor-readings', smartBuildingController.listSensorReadings);
 router.get('/alerts', smartBuildingController.listSecurityAlerts);
+router.get('/linked-tasks', smartBuildingController.listLinkedTasks);
 router.patch('/alerts/:id/acknowledge', smartBuildingController.acknowledgeSecurityAlert);
 router.patch('/alerts/:id/resolve', smartBuildingController.resolveSecurityAlert);
 router.post('/events', validate(eventSchema), smartBuildingController.ingestEvent);

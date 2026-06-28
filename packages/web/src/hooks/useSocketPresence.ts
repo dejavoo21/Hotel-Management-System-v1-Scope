@@ -38,6 +38,14 @@ type SmartBuildingAlertPayload = {
   hotelId: string;
   timestamp: string;
 };
+type TimelineEventPayload = {
+  id: string;
+  hotelId: string;
+  module: string;
+  eventType: string;
+  severity: string;
+  timestamp: string;
+};
 
 const dispatchSocketEvent = (name: string, detail: unknown) => {
   if (typeof window === 'undefined') return;
@@ -176,6 +184,13 @@ const bindSharedHandlers = (socket: Socket) => {
 
     latestQueryClient.invalidateQueries({ queryKey: ['smart-building', 'alerts'] });
     latestQueryClient.invalidateQueries({ queryKey: ['smart-building', 'overview'] });
+  });
+
+  socket.on('timeline:event', (payload: TimelineEventPayload) => {
+    dispatchSocketEvent('hotelos:timeline-event', payload);
+    if (!latestQueryClient) return;
+
+    latestQueryClient.invalidateQueries({ queryKey: ['timeline'] });
   });
 
   socket.on('call:ring', (payload: CallRingPayload) => {

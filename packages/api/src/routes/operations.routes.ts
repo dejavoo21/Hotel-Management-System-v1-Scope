@@ -8,6 +8,7 @@ import { AdvisoryPriority, routeOpsAdvisory } from '../services/opsRouting.rules
 import { pickAssigneeForDepartment } from '../services/opsAssignment.rules.js';
 import { runOpsAssistant } from '../services/ai/opsAssistant.service.js';
 import { getOpenAIClient, OPENAI_MODEL } from '../config/openai.js';
+import { createTask } from '../platform/tasks/taskEngine.service.js';
 
 const router = Router();
 
@@ -393,6 +394,27 @@ function categoryForDepartment(department: Department): TicketCategory {
   }
 }
 
+async function getTaskResponse(hotelId: string, ticketId: string) {
+  return prisma.ticket.findFirst({
+    where: { id: ticketId, hotelId },
+    select: {
+      id: true,
+      conversationId: true,
+      status: true,
+      department: true,
+      priority: true,
+      assignedToId: true,
+      assignedTo: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+    },
+  });
+}
+
 router.get('/context', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const hotelId = req.user!.hotelId;
@@ -443,7 +465,7 @@ router.post('/advisories/create-ticket', async (req: AuthenticatedRequest, res: 
       const existingLog = await prisma.activityLog.findFirst({
         where: {
           userId,
-          action: 'OPERATIONS_ADVISORY_TICKET_CREATED',
+          action: { in: ['OPERATIONS_ADVISORY_TICKET_CREATED', 'TASK_CREATED'] },
           entity: 'ticket',
           createdAt: { gte: dedupeSince },
           details: {
@@ -494,91 +516,45 @@ router.post('/advisories/create-ticket', async (req: AuthenticatedRequest, res: 
       }
     }
 
-    const created = await prisma.$transaction(async (tx) => {
-      const conversation = await tx.conversation.create({
-        data: {
-          hotelId,
-          subject: `[Operations Advisory] ${title.slice(0, 100)}`,
-          status: 'OPEN',
-          lastMessageAt: new Date(),
-        },
-      });
-
-      await tx.message.create({
-        data: {
-          conversationId: conversation.id,
-          senderType: 'SYSTEM',
-          senderUserId: userId,
-          body: reason.slice(0, 500),
-        },
-      });
-
-      const ticket = await tx.ticket.create({
-        data: {
-          hotelId,
-          conversationId: conversation.id,
-          type: 'GENERAL_INQUIRY',
-          category: categoryForDepartment(department),
-          department,
-          priority,
-          status: 'OPEN',
-          assignedToId: await pickAssigneeForDepartment({
-            tx,
-            hotelId,
-            department,
-          }),
-        },
-        select: {
-          id: true,
-          status: true,
-          department: true,
-          priority: true,
-          assignedToId: true,
-          assignedTo: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
-        },
-      });
-
-      if (userId) {
-        await tx.activityLog.create({
-          data: {
-            userId,
-            action: 'OPERATIONS_ADVISORY_TICKET_CREATED',
-            entity: 'ticket',
-            entityId: ticket.id,
-            details: {
-              source: body.source || 'WEATHER_ACTIONS',
-              advisoryId: body.advisoryId || null,
-              title,
-              reason,
-              requestedDepartment: body.department || null,
-              department,
-              priority: routed.priority,
-              weatherSyncedAtUtc: body.meta?.weatherSyncedAtUtc ?? null,
-              generatedAtUtc: body.meta?.generatedAtUtc ?? null,
-              conversationId: conversation.id,
-            },
-          },
-        });
-      }
-
-      return { ticket, conversationId: conversation.id };
+    const assignedToId = await prisma.$transaction((tx) =>
+      pickAssigneeForDepartment({ tx, hotelId, department })
+    );
+    const task = await createTask({
+      hotelId,
+      title: `[Operations Advisory] ${title.slice(0, 100)}`,
+      description: reason.slice(0, 500),
+      category: categoryForDepartment(department),
+      department,
+      priority,
+      status: 'OPEN',
+      assignedToId,
+      details: {
+        source: body.source || 'WEATHER_ACTIONS',
+        advisoryId: body.advisoryId || null,
+        title,
+        reason,
+        requestedDepartment: body.department || null,
+        department,
+        priority: routed.priority,
+        weatherSyncedAtUtc: body.meta?.weatherSyncedAtUtc ?? null,
+        generatedAtUtc: body.meta?.generatedAtUtc ?? null,
+      },
+      actor: { userId },
+      source: 'operations-center',
+      idempotencyKey: body.advisoryId ? `operations-advisory:${body.advisoryId}` : undefined,
     });
+    const created = await getTaskResponse(hotelId, task.id);
+    if (!created) throw new Error('Created task could not be loaded');
 
     res.json({
       success: true,
       data: {
-        ticketId: created.ticket.id,
-        status: created.ticket.status,
-        department: created.ticket.department,
+        ticketId: created.id,
+        status: created.status,
+        department: created.department,
         conversationId: created.conversationId,
-        assignedToId: created.ticket.assignedToId,
-        assignedTo: created.ticket.assignedTo,
+        assignedToId: created.assignedToId,
+        assignedTo: created.assignedTo,
         deduped: false,
       },
     });
@@ -650,92 +626,37 @@ router.post('/pricing-actions/create-ticket', async (req: AuthenticatedRequest, 
       return;
     }
 
-    const created = await prisma.$transaction(async (tx) => {
-      const subject = `[Pricing Task] ${nightDate} - ${action}`.slice(0, 120);
-      const conversation = await tx.conversation.create({
-        data: {
-          hotelId,
-          subject,
-          status: 'OPEN',
-          lastMessageAt: new Date(),
-        },
-      });
-
-      await tx.message.create({
-        data: {
-          conversationId: conversation.id,
-          senderType: 'SYSTEM',
-          senderUserId: userId,
-          body: reason.slice(0, 500),
-        },
-      });
-
-      const ticket = await tx.ticket.create({
-        data: {
-          hotelId,
-          conversationId: conversation.id,
-          type: 'GENERAL_INQUIRY',
-          category: categoryForDepartment(department),
-          department,
-          priority,
-          status: 'OPEN',
-          assignedToId: await pickAssigneeForDepartment({
-            tx,
-            hotelId,
-            department,
-          }),
-          sourceKey,
-          details: {
-            source: 'PRICING_ACTION',
-            nightDate,
-            action,
-            reason,
-            metadata,
-            createdByUserId: userId,
-            createdAtUtc: new Date().toISOString(),
-            confidence,
-            suggestedAdjustmentPct,
-          },
-        },
-        select: {
-          id: true,
-          conversationId: true,
-          status: true,
-          department: true,
-          priority: true,
-          assignedToId: true,
-          assignedTo: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
-        },
-      });
-
-      await tx.activityLog.create({
-        data: {
-          userId,
-          action: 'PRICING_ACTION_TICKET_CREATED',
-          entity: 'ticket',
-          entityId: ticket.id,
-          details: {
-            source: 'PRICING_ACTION',
-            nightDate,
-            action,
-            reason,
-            department,
-            priority,
-            sourceKey,
-            metadata,
-            conversationId: conversation.id,
-          },
-        },
-      });
-
-      return ticket;
+    const subject = `[Pricing Task] ${nightDate} - ${action}`.slice(0, 120);
+    const assignedToId = await prisma.$transaction((tx) =>
+      pickAssigneeForDepartment({ tx, hotelId, department })
+    );
+    const task = await createTask({
+      hotelId,
+      title: subject,
+      description: reason.slice(0, 500),
+      category: categoryForDepartment(department),
+      department,
+      priority,
+      status: 'OPEN',
+      assignedToId,
+      sourceKey,
+      details: {
+        source: 'PRICING_ACTION',
+        nightDate,
+        action,
+        reason,
+        metadata,
+        createdByUserId: userId,
+        createdAtUtc: new Date().toISOString(),
+        confidence,
+        suggestedAdjustmentPct,
+      },
+      actor: { userId },
+      source: 'operations-center',
+      idempotencyKey: sourceKey,
     });
+    const created = await getTaskResponse(hotelId, task.id);
+    if (!created) throw new Error('Created pricing task could not be loaded');
 
     res.json({
       success: true,

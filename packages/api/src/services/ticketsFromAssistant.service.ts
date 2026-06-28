@@ -1,6 +1,7 @@
-import { Department, TicketCategory, TicketPriority, TicketType } from '@prisma/client';
+import { Department, TicketCategory, TicketPriority } from '@prisma/client';
 import { prisma } from '../config/database.js';
 import { pickAssigneeForDepartment } from './opsAssignment.rules.js';
+import { createTask } from '../platform/tasks/taskEngine.service.js';
 
 export type CreateAssistantTicketInput = {
   hotelId: string;
@@ -25,82 +26,39 @@ export async function createAssistantTicket(input: CreateAssistantTicketInput) {
     details = null,
   } = input;
 
-  return prisma.$transaction(async (tx) => {
-    const conversation = await tx.conversation.create({
-      data: {
-        hotelId,
-        subject: title.slice(0, 120),
-        status: 'OPEN',
-        lastMessageAt: new Date(),
-      },
-      select: { id: true },
-    });
+  const assignedToId = await prisma.$transaction((tx) =>
+    pickAssigneeForDepartment({
+      tx,
+      hotelId,
+      department,
+    })
+  );
 
-    await tx.message.create({
-      data: {
-        conversationId: conversation.id,
-        senderType: 'SYSTEM',
-        senderUserId: userId,
-        body: (reason || `Created from ${source}.`).slice(0, 500),
-      },
-    });
-
-    const ticket = await tx.ticket.create({
-      data: {
-        hotelId,
-        conversationId: conversation.id,
-        type: TicketType.GENERAL_INQUIRY,
-        category: categoryForDepartment(department),
-        department,
-        priority,
-        status: 'OPEN',
-        assignedToId: await pickAssigneeForDepartment({
-          tx,
-          hotelId,
-          department,
-        }),
-        details: {
-          source,
-          reason: reason ?? null,
-          ...(details ?? {}),
-        },
-      },
-      select: {
-        id: true,
-        conversationId: true,
-        department: true,
-        priority: true,
-        status: true,
-      },
-    });
-
-    await tx.activityLog.create({
-      data: {
-        userId,
-        entity: 'OPS_ASSISTANT',
-        entityId: ticket.id,
-        action: 'CREATE_TICKET',
-        details: {
-          source,
-          title,
-          reason: reason ?? null,
-          department,
-          priority,
-          conversationId: conversation.id,
-          ...(details ?? {}),
-        },
-      },
-    });
-
-    return {
-      ticketId: ticket.id,
-      conversationId: conversation.id,
-      ticketUrl: `/tickets/${ticket.id}`,
-      department: ticket.department,
-      priority: ticket.priority,
-      status: ticket.status,
-    };
+  const task = await createTask({
+    hotelId,
+    title,
+    description: reason || `Created from ${source}.`,
+    category: categoryForDepartment(department),
+    department,
+    priority,
+    assignedToId,
+    details: {
+      source,
+      reason: reason ?? null,
+      ...(details ?? {}),
+    },
+    actor: { userId },
+    source: 'ai',
   });
+
+  return {
+    ticketId: task.id,
+    conversationId: task.conversationId,
+    ticketUrl: `/tickets/${task.id}`,
+    department: task.department,
+    priority: task.priority,
+    status: task.status,
+  };
 }
 
 function categoryForDepartment(department: Department): TicketCategory {
@@ -120,4 +78,3 @@ function categoryForDepartment(department: Department): TicketCategory {
       return 'OTHER';
   }
 }
-

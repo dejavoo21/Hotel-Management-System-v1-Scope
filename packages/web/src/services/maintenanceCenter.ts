@@ -1,4 +1,5 @@
 import api from './api';
+import type { SmartBuildingWorkflowTask } from './smartBuilding';
 
 export type MaintenancePriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 export type WorkOrderStatus = 'OPEN' | 'IN_PROGRESS' | 'ON_HOLD' | 'COMPLETED' | 'CANCELLED';
@@ -8,11 +9,12 @@ export type RepairStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'WAITING_PARTS' | 'COMP
 
 export type MaintenanceActivity = {
   id: string;
-  type: 'WORK_ORDER' | 'FAULT' | 'REPAIR';
+  type: 'WORK_ORDER' | 'FAULT' | 'REPAIR' | 'SMART_BUILDING_TASK';
   title: string;
   detail?: string | null;
   status: string;
   occurredAt: string;
+  sourceModule?: string | null;
 };
 
 export type MaintenanceOverview = {
@@ -22,6 +24,7 @@ export type MaintenanceOverview = {
   preventiveMaintenance: { overdue: number };
   assets: { dueInspection: number };
   completed: { today: number };
+  smartBuildingTasks?: { maintenance: number; security: number; criticalOpen: number };
   recentActivity: MaintenanceActivity[];
 };
 
@@ -144,6 +147,11 @@ export const maintenanceCenterService = {
 
   async listAssets(): Promise<AssetMaintenanceRecord[]> {
     const response = await api.get('/maintenance-center/assets');
+    return response.data.data;
+  },
+
+  async listSmartBuildingTasks(): Promise<SmartBuildingWorkflowTask[]> {
+    const response = await api.get('/maintenance-center/smart-building-tasks');
     return response.data.data;
   },
 };

@@ -3,6 +3,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { AuthenticatedRequest, ApiResponse } from '../types/index.js';
 import * as bookingService from '../services/booking.service.js';
 import { emitToHotel } from '../socket/index.js';
+import { eventBus } from '../platform/event-bus/eventBus.service.js';
 
 export async function getAllBookings(
   req: AuthenticatedRequest,
@@ -107,6 +108,18 @@ export async function createBooking(
       guestName: `${booking.guest.firstName} ${booking.guest.lastName}`,
       checkInDate: booking.checkInDate,
     });
+    await eventBus.publish({
+      eventType: 'booking.created',
+      hotelId,
+      source: 'bookings',
+      userId,
+      payload: {
+        bookingId: booking.id,
+        actorName: `${booking.guest.firstName} ${booking.guest.lastName}`,
+        status: booking.status,
+        summary: `Booking created for ${booking.guest.firstName} ${booking.guest.lastName}`,
+      },
+    });
 
     res.status(201).json({ success: true, data: booking, message: 'Booking created' });
   } catch (error) {
@@ -128,6 +141,17 @@ export async function updateBooking(
 
     const io = req.app.get('io') as SocketIOServer;
     emitToHotel(io, hotelId, 'booking:updated', { bookingId: id });
+    await eventBus.publish({
+      eventType: 'booking.updated',
+      hotelId,
+      source: 'bookings',
+      userId,
+      payload: {
+        bookingId: id,
+        status: booking.status,
+        summary: `Booking ${id.slice(0, 8)} updated`,
+      },
+    });
 
     res.json({ success: true, data: booking, message: 'Booking updated' });
   } catch (error) {
@@ -146,6 +170,18 @@ export async function cancelBooking(
     const { id } = req.params;
 
     await bookingService.cancelBooking(hotelId, id, userId);
+    await eventBus.publish({
+      eventType: 'booking.cancelled',
+      hotelId,
+      source: 'bookings',
+      userId,
+      payload: {
+        bookingId: id,
+        status: 'CANCELLED',
+        severity: 'WARNING',
+        summary: `Booking ${id.slice(0, 8)} cancelled`,
+      },
+    });
 
     res.json({ success: true, message: 'Booking cancelled' });
   } catch (error) {
@@ -165,12 +201,28 @@ export async function checkIn(
     const { roomId, notes } = req.body;
 
     const result = await bookingService.checkIn(hotelId, id, userId, roomId, notes);
+    if (!result.room) {
+      throw new Error('Checked-in room could not be loaded');
+    }
 
     const io = req.app.get('io') as SocketIOServer;
     emitToHotel(io, hotelId, 'booking:checkedIn', {
       bookingId: id,
       roomId: result.room.id,
       roomNumber: result.room.number,
+    });
+    await eventBus.publish({
+      eventType: 'booking.checked_in',
+      hotelId,
+      source: 'bookings',
+      userId,
+      payload: {
+        bookingId: id,
+        roomId: result.room.id,
+        location: `Room ${result.room.number}`,
+        status: 'CHECKED_IN',
+        summary: `Guest checked in to room ${result.room.number}`,
+      },
     });
 
     res.json({ success: true, data: result, message: 'Check-in successful' });
@@ -189,12 +241,28 @@ export async function checkOut(
     const userId = req.user!.id;
     const { id } = req.params;
 
-    const result = await bookingService.checkOut(hotelId, id, userId, req.body);
+    const result = await bookingService.checkOut(hotelId, id, userId);
+    if (!result.room) {
+      throw new Error('Checked-out room could not be loaded');
+    }
 
     const io = req.app.get('io') as SocketIOServer;
     emitToHotel(io, hotelId, 'booking:checkedOut', {
       bookingId: id,
       roomId: result.room.id,
+    });
+    await eventBus.publish({
+      eventType: 'booking.checked_out',
+      hotelId,
+      source: 'bookings',
+      userId,
+      payload: {
+        bookingId: id,
+        roomId: result.room.id,
+        location: `Room ${result.room.number}`,
+        status: 'CHECKED_OUT',
+        summary: `Guest checked out of room ${result.room.number}`,
+      },
     });
 
     res.json({ success: true, data: result, message: 'Check-out successful' });

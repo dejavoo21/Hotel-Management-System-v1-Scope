@@ -5,8 +5,8 @@ import {
   getWeatherSignalsStatus,
   syncWeatherSignalsForHotel,
 } from '../services/weatherSignal.service.js';
-import { prisma } from '../config/database.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { recordAuditEvent } from '../platform/audit/auditEngine.service.js';
 
 type WeatherQuery = { hotelId?: string };
 
@@ -17,16 +17,20 @@ async function appendWeatherAudit(
   details: Record<string, unknown>
 ) {
   if (!req.user?.id) return;
-  await prisma.activityLog.create({
-    data: {
+  await recordAuditEvent({
+    hotelId,
+    actor: {
       userId: req.user.id,
-      action,
-      entity: 'weather_signal',
-      entityId: hotelId,
-      details,
       ipAddress: req.ip,
-      userAgent: req.headers['user-agent'] ?? null,
+      userAgent: Array.isArray(req.headers['user-agent'])
+        ? req.headers['user-agent'].join(', ')
+        : req.headers['user-agent'] ?? null,
     },
+    action,
+    entity: 'weather_signal',
+    entityId: hotelId,
+    details,
+    source: 'weather-signals',
   });
 }
 

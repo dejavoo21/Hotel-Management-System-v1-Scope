@@ -7,6 +7,7 @@
 
 import { prisma } from '../config/database.js';
 import type { WeatherContext } from './weatherContext.provider.js';
+import { recordAuditEvent } from '../platform/audit/auditEngine.service.js';
 
 // Intent categories detected from messages
 export type IntentCategory = 
@@ -361,19 +362,20 @@ export async function logAiInteraction(
   type: 'INTENT_DETECTION' | 'SUGGESTED_REPLY' | 'RECOMMENDED_ACTION' | 'WEATHER_ACTIONS',
   input: string,
   output: any,
-  userId: string
+  userId: string,
+  hotelId: string
 ): Promise<void> {
-  await prisma.activityLog.create({
-    data: {
-      userId,
-      entity: 'AI_HOOK',
-      entityId: type,
-      action: type,
-      details: {
-        input: input.substring(0, 500), // Truncate for storage
-        output,
-        timestamp: new Date().toISOString(),
-      },
+  await recordAuditEvent({
+    hotelId,
+    actor: { userId },
+    entity: 'AI_HOOK',
+    entityId: type,
+    action: type,
+    details: {
+      input: input.substring(0, 500), // Truncate for storage
+      output,
+      timestamp: new Date().toISOString(),
     },
+    source: 'ai',
   });
 }

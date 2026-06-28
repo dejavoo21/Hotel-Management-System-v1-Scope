@@ -22,7 +22,7 @@ const createBookingSchema = z.object({
   numberOfAdults: z.number().int().min(1).default(1),
   numberOfChildren: z.number().int().min(0).default(0),
   source: z.enum(['DIRECT', 'BOOKING_COM', 'EXPEDIA', 'AIRBNB', 'WALK_IN', 'PHONE', 'CORPORATE', 'WEBSITE']).default('DIRECT'),
-  paymentMethod: z.enum(['CASH', 'CREDIT_CARD', 'DEBIT_CARD', 'BANK_TRANSFER', 'STRIPE', 'CHECK', 'OTHER']).optional(),
+  paymentMethod: z.enum(['CASH', 'CREDIT_CARD', 'DEBIT_CARD', 'BANK_TRANSFER', 'STRIPE', 'PAYPAL', 'CHECK', 'OTHER']).optional(),
   specialRequests: z.string().optional(),
   roomRate: z.number().positive().optional(),
 }).refine(data => data.guestId || data.guest, {
@@ -37,7 +37,7 @@ const updateBookingSchema = z.object({
   numberOfChildren: z.number().int().min(0).optional(),
   status: z.enum(['CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED', 'NO_SHOW']).optional(),
   source: z.enum(['DIRECT', 'BOOKING_COM', 'EXPEDIA', 'AIRBNB', 'WALK_IN', 'PHONE', 'CORPORATE', 'WEBSITE']).optional(),
-  paymentMethod: z.enum(['CASH', 'CREDIT_CARD', 'DEBIT_CARD', 'BANK_TRANSFER', 'STRIPE', 'CHECK', 'OTHER']).optional(),
+  paymentMethod: z.enum(['CASH', 'CREDIT_CARD', 'DEBIT_CARD', 'BANK_TRANSFER', 'STRIPE', 'PAYPAL', 'CHECK', 'OTHER']).optional(),
   specialRequests: z.string().nullable().optional(),
   internalNotes: z.string().nullable().optional(),
   roomRate: z.number().positive().optional(),
@@ -49,7 +49,7 @@ const checkInSchema = z.object({
 });
 
 const checkOutSchema = z.object({
-  paymentMethod: z.enum(['CASH', 'CREDIT_CARD', 'DEBIT_CARD', 'BANK_TRANSFER', 'STRIPE', 'CHECK', 'OTHER']).optional(),
+  paymentMethod: z.enum(['CASH', 'CREDIT_CARD', 'DEBIT_CARD', 'BANK_TRANSFER', 'STRIPE', 'PAYPAL', 'CHECK', 'OTHER']).optional(),
   paymentAmount: z.number().min(0).optional(),
   paymentReference: z.string().optional(),
   notes: z.string().optional(),
@@ -63,7 +63,7 @@ const addChargeSchema = z.object({
 });
 
 const confirmPaymentSchema = z.object({
-  paymentMethod: z.enum(['CASH', 'CREDIT_CARD', 'DEBIT_CARD', 'BANK_TRANSFER', 'STRIPE', 'CHECK', 'OTHER']).optional(),
+  paymentMethod: z.enum(['CASH', 'CREDIT_CARD', 'DEBIT_CARD', 'BANK_TRANSFER', 'STRIPE', 'PAYPAL', 'CHECK', 'OTHER']).optional(),
 });
 
 const querySchema = z.object({

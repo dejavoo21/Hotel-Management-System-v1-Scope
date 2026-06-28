@@ -5,6 +5,7 @@ import { prisma } from '../config/database.js';
 import { NotFoundError } from '../middleware/errorHandler.js';
 import { emitToHotel } from '../socket/index.js';
 import { startOfDay, endOfDay } from '../utils/date.js';
+import { eventBus } from '../platform/event-bus/eventBus.service.js';
 
 export async function getRoomsByStatus(
   req: AuthenticatedRequest,
@@ -131,6 +132,19 @@ export async function updateRoomStatus(
       roomId,
       status,
       roomNumber: room.number,
+    });
+    await eventBus.publish({
+      eventType: 'housekeeping.status_updated',
+      hotelId,
+      source: 'housekeeping',
+      userId,
+      payload: {
+        roomId,
+        location: `Room ${room.number}`,
+        status,
+        department: 'HOUSEKEEPING',
+        summary: `Room ${room.number} housekeeping changed to ${String(status).replace(/_/g, ' ')}`,
+      },
     });
 
     res.json({ success: true, data: updated, message: 'Status updated' });

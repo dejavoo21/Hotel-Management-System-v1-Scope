@@ -19,6 +19,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import * as notificationService from './notification.service.js';
+import { eventBus } from '../platform/event-bus/eventBus.service.js';
 
 // ============================================
 // Configuration & Constants
@@ -202,6 +203,49 @@ export async function ensureTicketForConversation(
   }
 
   return ticket;
+}
+
+function ticketDetails(ticket: Ticket): Record<string, unknown> {
+  return ticket.details && typeof ticket.details === 'object' && !Array.isArray(ticket.details)
+    ? (ticket.details as Record<string, unknown>)
+    : {};
+}
+
+async function handleResolvedWorkflowTask(ticket: Ticket, actorUserId?: string) {
+  const details = ticketDetails(ticket);
+  if (details.workflowId !== 'guest-check-out') return;
+  if (details.linkedEntityType !== 'ROOM') return;
+  const roomId = typeof details.linkedEntityId === 'string' ? details.linkedEntityId : null;
+  if (!roomId) return;
+
+  const room = await prisma.room.findFirst({
+    where: { id: roomId, hotelId: ticket.hotelId },
+    select: { id: true, number: true, housekeepingStatus: true },
+  });
+  if (!room) return;
+
+  const nextStatus = room.housekeepingStatus === 'CLEAN' ? 'CLEAN' : 'INSPECTION';
+  if (room.housekeepingStatus !== nextStatus) {
+    await prisma.room.update({
+      where: { id: room.id },
+      data: { housekeepingStatus: nextStatus },
+    });
+  }
+
+  await eventBus.publish({
+    eventType: 'housekeeping.task_completed',
+    hotelId: ticket.hotelId,
+    source: 'housekeeping',
+    userId: actorUserId,
+    payload: {
+      taskId: ticket.id,
+      roomId: room.id,
+      location: `Room ${room.number}`,
+      status: nextStatus,
+      department: ticket.department,
+      summary: `Housekeeping task completed for Room ${room.number}`,
+    },
+  });
 }
 
 /**
@@ -694,6 +738,10 @@ export async function updateTicket(
         details: data,
       },
     });
+  }
+
+  if (data.status === 'RESOLVED') {
+    await handleResolvedWorkflowTask(ticket, actorUserId);
   }
 
   return ticket;

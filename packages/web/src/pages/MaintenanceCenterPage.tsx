@@ -12,6 +12,7 @@ import maintenanceCenterService, {
   type MaintenanceWorkOrder,
   type PreventiveMaintenanceSchedule,
 } from '@/services/maintenanceCenter';
+import type { SmartBuildingWorkflowTask } from '@/services/smartBuilding';
 
 type TabId = 'overview' | 'work-orders' | 'faults' | 'repairs' | 'preventive-maintenance' | 'assets';
 type Tone = 'emerald' | 'sky' | 'amber' | 'rose' | 'slate';
@@ -84,6 +85,9 @@ const ActivityList = ({ activities }: { activities: MaintenanceActivity[] }) => 
             <div>
               <div className="text-sm font-bold text-slate-900">{activity.title}</div>
               <div className="mt-1 text-sm text-slate-600">{activity.detail || formatStatus(activity.type)}</div>
+              {activity.sourceModule ? (
+                <div className="mt-1 text-xs font-semibold text-sky-700">Source: {formatStatus(activity.sourceModule)}</div>
+              ) : null}
               <div className="mt-1 text-xs text-slate-500">{formatDateTime(activity.occurredAt)}</div>
             </div>
             <span className={`rounded-full px-2 py-1 text-xs font-semibold ${toneClasses[toneForStatus(activity.status)].pill}`}>
@@ -95,6 +99,34 @@ const ActivityList = ({ activities }: { activities: MaintenanceActivity[] }) => 
     </div>
   );
 };
+
+const SmartBuildingTaskCard = ({ task }: { task: SmartBuildingWorkflowTask }) => (
+  <RecordCard
+    title={task.title}
+    detail={task.sourceSummary || task.description || task.sourceSignal || 'Smart Building workflow task'}
+    status={task.status}
+    meta={[
+      task.location ? `Location: ${task.location}` : null,
+      task.deviceExternalId ? `Device: ${task.deviceExternalId}` : null,
+      task.dueAt ? `Due ${formatDateTime(task.dueAt)}` : null,
+    ].filter(Boolean).join(' / ')}
+    sourceModule={task.sourceModule}
+  />
+);
+
+const GeneratedTasksPanel = ({ tasks, emptyLabel }: { tasks: SmartBuildingWorkflowTask[]; emptyLabel: string }) => (
+  <div className="space-y-3">
+    <div>
+      <div className="text-sm font-bold text-slate-900">Smart Building generated work</div>
+      <p className="mt-1 text-sm text-slate-500">Auto-created by water leak, HVAC, and sensor workflow events.</p>
+    </div>
+    {tasks.length === 0 ? (
+      <EmptyState label={emptyLabel} />
+    ) : (
+      tasks.map((task) => <SmartBuildingTaskCard key={task.id} task={task} />)
+    )}
+  </div>
+);
 
 const CreateForm = ({
   label,
@@ -139,14 +171,17 @@ const CreateForm = ({
 
 const WorkOrdersPanel = ({
   workOrders,
+  smartBuildingTasks,
   onCreate,
   isCreating,
 }: {
   workOrders: MaintenanceWorkOrder[];
+  smartBuildingTasks: SmartBuildingWorkflowTask[];
   onCreate: (payload: CreateWorkOrderPayload) => void;
   isCreating: boolean;
 }) => (
   <div className="space-y-4">
+    <GeneratedTasksPanel tasks={smartBuildingTasks} emptyLabel="No Smart Building maintenance tasks yet." />
     <CreateForm label="Create work order" placeholder="Work order title" disabled={isCreating} onSubmit={(title) => onCreate({ title, priority: 'MEDIUM', status: 'OPEN' })} />
     {workOrders.length === 0 ? (
       <EmptyState label="No work orders recorded." />
@@ -214,12 +249,25 @@ const AssetsPanel = ({ assets }: { assets: AssetMaintenanceRecord[] }) => (
   )
 );
 
-const RecordCard = ({ title, detail, status, meta }: { title: string; detail?: string | null; status: string; meta?: string }) => (
+const RecordCard = ({
+  title,
+  detail,
+  status,
+  meta,
+  sourceModule,
+}: {
+  title: string;
+  detail?: string | null;
+  status: string;
+  meta?: string;
+  sourceModule?: string | null;
+}) => (
   <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <div className="text-sm font-bold text-slate-900">{title}</div>
         {detail ? <div className="mt-1 text-sm text-slate-600">{detail}</div> : null}
+        {sourceModule ? <div className="mt-1 text-xs font-semibold text-sky-700">Source: {formatStatus(sourceModule)}</div> : null}
         {meta ? <div className="mt-1 text-xs text-slate-500">{meta}</div> : null}
       </div>
       <span className={`rounded-full px-2 py-1 text-xs font-semibold ${toneClasses[toneForStatus(status)].pill}`}>
@@ -241,6 +289,7 @@ export default function MaintenanceCenterPage() {
   const repairsQuery = useQuery({ queryKey: ['maintenance-center', 'repairs'], queryFn: maintenanceCenterService.listRepairs, ...realtimeQueryOptions });
   const preventiveQuery = useQuery({ queryKey: ['maintenance-center', 'preventive-maintenance'], queryFn: maintenanceCenterService.listPreventiveMaintenance, ...realtimeQueryOptions });
   const assetsQuery = useQuery({ queryKey: ['maintenance-center', 'assets'], queryFn: maintenanceCenterService.listAssets, ...realtimeQueryOptions });
+  const smartBuildingTasksQuery = useQuery({ queryKey: ['maintenance-center', 'smart-building-tasks'], queryFn: maintenanceCenterService.listSmartBuildingTasks, ...realtimeQueryOptions });
 
   const invalidateMaintenanceCenter = () => queryClient.invalidateQueries({ queryKey: ['maintenance-center'] });
   const createWorkOrderMutation = useMutation({ mutationFn: maintenanceCenterService.createWorkOrder, onSuccess: invalidateMaintenanceCenter });
@@ -248,7 +297,8 @@ export default function MaintenanceCenterPage() {
   const createRepairMutation = useMutation({ mutationFn: maintenanceCenterService.createRepair, onSuccess: invalidateMaintenanceCenter });
 
   const overview = overviewQuery.data;
-  const hasError = overviewQuery.isError || workOrdersQuery.isError || faultsQuery.isError || repairsQuery.isError || preventiveQuery.isError || assetsQuery.isError;
+  const smartBuildingTasks = smartBuildingTasksQuery.data || [];
+  const hasError = overviewQuery.isError || workOrdersQuery.isError || faultsQuery.isError || repairsQuery.isError || preventiveQuery.isError || assetsQuery.isError || smartBuildingTasksQuery.isError;
 
   const metrics = useMemo(
     () => [
@@ -258,6 +308,7 @@ export default function MaintenanceCenterPage() {
       { label: 'Overdue maintenance', value: overview ? String(overview.preventiveMaintenance.overdue) : 'No data', detail: 'Past due schedules', tone: overview && overview.preventiveMaintenance.overdue > 0 ? 'rose' : 'emerald' },
       { label: 'Assets due inspection', value: overview ? String(overview.assets.dueInspection) : 'No data', detail: 'Due or needs repair', tone: overview && overview.assets.dueInspection > 0 ? 'amber' : 'emerald' },
       { label: 'Completed today', value: overview ? String(overview.completed.today) : 'No data', detail: 'Work completed', tone: 'emerald' },
+      { label: 'Smart Building tasks', value: overview ? String(overview.smartBuildingTasks?.maintenance || 0) : 'No data', detail: 'Generated by IoT alerts', tone: overview && (overview.smartBuildingTasks?.maintenance || 0) > 0 ? 'amber' : 'emerald' },
     ] as const,
     [overview]
   );
@@ -310,7 +361,7 @@ export default function MaintenanceCenterPage() {
       </nav>
 
       {validTab === 'overview' ? <ActivityList activities={overview?.recentActivity || []} /> : null}
-      {validTab === 'work-orders' ? <WorkOrdersPanel workOrders={workOrdersQuery.data || []} onCreate={(payload) => createWorkOrderMutation.mutate(payload)} isCreating={createWorkOrderMutation.isPending} /> : null}
+      {validTab === 'work-orders' ? <WorkOrdersPanel workOrders={workOrdersQuery.data || []} smartBuildingTasks={smartBuildingTasks} onCreate={(payload) => createWorkOrderMutation.mutate(payload)} isCreating={createWorkOrderMutation.isPending} /> : null}
       {validTab === 'faults' ? <FaultsPanel faults={faultsQuery.data || []} onCreate={(payload) => createFaultMutation.mutate(payload)} isCreating={createFaultMutation.isPending} /> : null}
       {validTab === 'repairs' ? <RepairsPanel repairs={repairsQuery.data || []} onCreate={(payload) => createRepairMutation.mutate(payload)} isCreating={createRepairMutation.isPending} /> : null}
       {validTab === 'preventive-maintenance' ? <PreventivePanel schedules={preventiveQuery.data || []} /> : null}

@@ -1,4 +1,5 @@
 import api from './api';
+import axios from 'axios';
 
 export type AssistantMode = 'general' | 'operations' | 'pricing' | 'weather' | 'tasks';
 
@@ -50,15 +51,29 @@ export const assistantService = {
     );
   },
   async opsChat(args: OpsChatArgs): Promise<OpsChatResponse> {
-    const response = await api.post('/assistant/ops/chat', args, { timeout: ASSISTANT_CHAT_TIMEOUT_MS });
-    return (
-      response.data?.data ?? {
-        reply: '',
-        mode: args.mode ?? 'operations',
-        conversationId: args.conversationId ?? '',
-        generatedAtUtc: new Date().toISOString(),
+    try {
+      const response = await api.post('/assistant/ops/chat', args, { timeout: ASSISTANT_CHAT_TIMEOUT_MS });
+      return (
+        response.data?.data ?? {
+          reply: '',
+          mode: args.mode ?? 'operations',
+          conversationId: args.conversationId ?? '',
+          generatedAtUtc: new Date().toISOString(),
+        }
+      );
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error('[opsChat] failed', {
+          code: error.code,
+          message: error.message,
+          status: error.response?.status,
+          data: error.response?.data,
+        });
+      } else {
+        console.error('[opsChat] failed', { error });
       }
-    );
+      throw error;
+    }
   },
   async status(): Promise<AssistantStatusResponse> {
     const response = await api.get('/assistant/status');

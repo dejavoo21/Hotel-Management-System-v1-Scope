@@ -28,7 +28,7 @@ export interface CreateBookingData {
   numberOfAdults: number;
   numberOfChildren?: number;
   source?: string;
-  paymentMethod?: 'CASH' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'BANK_TRANSFER' | 'STRIPE' | 'CHECK' | 'OTHER';
+  paymentMethod?: 'CASH' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'BANK_TRANSFER' | 'STRIPE' | 'PAYPAL' | 'CHECK' | 'OTHER';
   specialRequests?: string;
   internalNotes?: string;
   roomRate: number;
@@ -44,7 +44,7 @@ export interface UpdateBookingData {
   specialRequests?: string;
   internalNotes?: string;
   roomRate?: number;
-  paymentMethod?: 'CASH' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'BANK_TRANSFER' | 'STRIPE' | 'CHECK' | 'OTHER';
+  paymentMethod?: 'CASH' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'BANK_TRANSFER' | 'STRIPE' | 'PAYPAL' | 'CHECK' | 'OTHER';
 }
 
 export interface CheckInData {
