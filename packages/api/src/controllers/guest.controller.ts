@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest, ApiResponse } from '../types/index.js';
 import { prisma } from '../config/database.js';
 import { NotFoundError } from '../middleware/errorHandler.js';
+import { getGuestJourneyTimeline } from '../services/guestJourney.service.js';
 
 export async function getAllGuests(
   req: AuthenticatedRequest,
@@ -137,6 +138,29 @@ export async function getGuestHistory(
     });
 
     res.json({ success: true, data: bookings });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getGuestJourney(
+  req: AuthenticatedRequest,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const hotelId = req.user!.hotelId;
+    const { id } = req.params;
+    const { bookingId } = req.query;
+
+    const guest = await prisma.guest.findFirst({
+      where: { id, hotelId, isDeleted: false },
+      select: { id: true },
+    });
+    if (!guest) throw new NotFoundError('Guest');
+
+    const journey = await getGuestJourneyTimeline(hotelId, id, typeof bookingId === 'string' ? bookingId : undefined);
+    res.json({ success: true, data: journey });
   } catch (error) {
     next(error);
   }

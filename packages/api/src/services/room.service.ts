@@ -2,6 +2,7 @@ import { prisma } from '../config/database.js';
 import { logger } from '../config/logger.js';
 import { NotFoundError, ConflictError, ValidationError } from '../middleware/errorHandler.js';
 import { RoomStatus, HousekeepingStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay, getDateRange } from '../utils/date.js';
 
 interface RoomFilters {
@@ -291,7 +292,7 @@ export async function updateRoom(hotelId: string, roomId: string, userId: string
       action: 'ROOM_UPDATED',
       entity: 'room',
       entityId: roomId,
-      details: data,
+      details: data as unknown as Prisma.InputJsonValue,
     },
   });
 

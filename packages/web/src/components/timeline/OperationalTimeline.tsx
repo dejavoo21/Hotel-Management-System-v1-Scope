@@ -14,6 +14,8 @@ import {
   Sparkles,
   Wrench,
 } from 'lucide-react';
+import EmptyState from '@/components/ui/EmptyState';
+import LoadingState from '@/components/ui/LoadingState';
 import { timelineService } from '@/services';
 import type { TimelineEvent, TimelineFilters, TimelineSeverity } from '@/services/timeline';
 
@@ -179,14 +181,28 @@ export default function OperationalTimeline() {
 
       <div className="max-h-[520px] overflow-y-auto">
         {query.isLoading ? (
-          <div className="px-4 py-8 text-sm text-slate-500">Loading recent activity...</div>
+          <div className="p-4">
+            <LoadingState label="Loading recent activity" rows={4} />
+          </div>
         ) : query.isError ? (
-          <div className="px-4 py-8 text-sm text-rose-600">Unable to load recent activity.</div>
+          <div className="p-4">
+            <EmptyState
+              compact
+              title="Recent activity is unavailable"
+              description="The platform timeline could not be loaded. Try refreshing, or check the API connection."
+              icon={<Activity className="h-5 w-5 text-rose-500" aria-hidden="true" />}
+            />
+          </div>
         ) : events.length ? (
           events.map((event) => <TimelineRow key={event.id} event={event} />)
         ) : (
-          <div className="px-4 py-8 text-sm text-slate-500">
-            No operational events have been published yet. New Event Bus activity will appear here in real time.
+          <div className="p-4">
+            <EmptyState
+              compact
+              title="No operational events yet"
+              description="New Event Bus activity will appear here in real time as departments, tasks, incidents, and messages publish updates."
+              icon={<Activity className="h-5 w-5" aria-hidden="true" />}
+            />
           </div>
         )}
       </div>

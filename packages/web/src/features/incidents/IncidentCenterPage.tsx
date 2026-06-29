@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import incidentService, { type Incident, type IncidentView } from '@/services/incidents';
 
@@ -140,7 +141,9 @@ function IncidentRow({
 }
 
 export default function IncidentCenterPage() {
-  const [view, setView] = useState<IncidentView>('active');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedView = searchParams.get('view') as IncidentView | null;
+  const view = views.some((item) => item.id === requestedView) ? requestedView! : 'active';
   const queryClient = useQueryClient();
 
   const overviewQuery = useQuery({
@@ -223,7 +226,7 @@ export default function IncidentCenterPage() {
             <button
               key={item.id}
               type="button"
-              onClick={() => setView(item.id)}
+              onClick={() => setSearchParams(item.id === 'active' ? {} : { view: item.id })}
               className={`rounded-xl border px-3 py-2 text-sm font-semibold transition-colors ${
                 view === item.id
                   ? 'border-slate-900 bg-slate-900 text-white'

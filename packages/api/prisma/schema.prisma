@@ -120,6 +120,8 @@ model Hotel {
   inventoryItems    InventoryItem[]
   calendarEvents    CalendarEvent[]
   reviews           Review[]
+  guestJourneys     GuestJourney[]
+  guestJourneyEvents GuestJourneyEvent[]
   conciergeRequests ConciergeRequest[]
   purchaseOrders    PurchaseOrder[]
   floors            Floor[]
@@ -613,6 +615,8 @@ model Guest {
   totalSpent        Decimal            @default(0) @db.Decimal(10, 2)
   bookings          Booking[]
   reviews           Review[]
+  guestJourneys     GuestJourney[]
+  guestJourneyEvents GuestJourneyEvent[]
   conciergeRequests ConciergeRequest[]
   conversations     Conversation[]
   messages          Message[]          @relation("MessageGuest")
@@ -655,6 +659,8 @@ model Booking {
   charges           Charge[]
   payments          Payment[]
   invoices          Invoice[]
+  guestJourneys     GuestJourney[]
+  guestJourneyEvents GuestJourneyEvent[]
   activityLogs      ActivityLog[]
   calendarEvents    CalendarEvent[]
   reviews           Review[]
@@ -689,6 +695,87 @@ enum BookingSource {
   PHONE
   CORPORATE
   WEBSITE
+}
+
+// ===========================================
+// Guest Journey Automation
+// ===========================================
+
+model GuestJourney {
+  id             String             @id @default(cuid())
+  hotelId        String
+  hotel          Hotel              @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  guestId        String
+  guest          Guest              @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  bookingId      String?
+  booking        Booking?           @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  currentStage   GuestJourneyStage  @default(RESERVATION_CREATED)
+  status         GuestJourneyStatus @default(ACTIVE)
+  startedAt      DateTime           @default(now())
+  completedAt    DateTime?
+  lastEventAt    DateTime           @default(now())
+  aiContextJson  Json?
+  events         GuestJourneyEvent[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@unique([hotelId, guestId, bookingId])
+  @@index([hotelId])
+  @@index([guestId])
+  @@index([bookingId])
+  @@index([currentStage])
+  @@index([status])
+  @@index([lastEventAt])
+}
+
+model GuestJourneyEvent {
+  id               String             @id @default(cuid())
+  journeyId        String
+  journey          GuestJourney       @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  hotelId          String
+  hotel            Hotel              @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  guestId          String
+  guest            Guest              @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  bookingId        String?
+  booking          Booking?           @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  stage            GuestJourneyStage
+  status           GuestJourneyStatus @default(COMPLETED)
+  eventType        String
+  summary          String
+  sourceModule     String
+  linkedEntityType String?
+  linkedEntityId   String?
+  metadata         Json?
+  createdAt        DateTime           @default(now())
+
+  @@unique([journeyId, eventType, linkedEntityType, linkedEntityId])
+  @@index([hotelId])
+  @@index([guestId])
+  @@index([bookingId])
+  @@index([stage])
+  @@index([sourceModule])
+  @@index([createdAt])
+}
+
+enum GuestJourneyStage {
+  RESERVATION_CREATED
+  PAYMENT_CONFIRMED
+  PRE_ARRIVAL
+  CHECK_IN
+  IN_STAY
+  SERVICE_REQUESTS
+  MAINTENANCE
+  CHECKOUT
+  INVOICE
+  REVIEW
+  LOYALTY
+}
+
+enum GuestJourneyStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  BLOCKED
 }
 
 // ===========================================

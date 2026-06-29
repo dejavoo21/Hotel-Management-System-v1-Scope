@@ -2,6 +2,7 @@ import { prisma } from '../config/database.js';
 import { Prisma } from '@prisma/client';
 import { AppError, ValidationError, NotFoundError } from '../middleware/errorHandler.js';
 import { ensureTicketForConversation } from './ticket.service.js';
+import { onPaymentConfirmed, onReservationCreated } from './guestJourney.service.js';
 
 interface BookingFilters {
   status?: string;
@@ -38,7 +39,7 @@ export async function getAllBookings(hotelId: string, filters: BookingFilters) {
 
   const where: Prisma.BookingWhereInput = {
     hotelId,
-    ...(status && { status }),
+    ...(status && { status: status as any }),
     ...(guestId && { guestId }),
     ...(roomId && { roomId }),
     ...(startDate && { checkInDate: { gte: new Date(startDate) } }),
@@ -256,6 +257,12 @@ export async function createBooking(hotelId: string, userId: string, data: any) 
   } catch (ticketError) {
     console.error('Ticket creation error for booking conversation:', ticketError);
   }
+
+  await onReservationCreated({
+    hotelId,
+    booking,
+    actor: { userId },
+  });
 
   return booking;
 }
@@ -529,11 +536,20 @@ export async function addPayment(hotelId: string, bookingId: string, userId: str
     },
   });
 
+  if (shouldConfirm && !booking.paymentConfirmed) {
+    await onPaymentConfirmed({
+      hotelId,
+      booking,
+      paymentId: payment.id,
+      actor: { userId },
+    });
+  }
+
   return payment;
 }
 
 export async function confirmPayment(hotelId: string, bookingId: string, userId: string, paymentMethod?: string) {
-  await getBookingById(hotelId, bookingId);
+  const booking = await getBookingById(hotelId, bookingId);
 
   const updated = await prisma.booking.update({
     where: { id: bookingId },
@@ -551,6 +567,12 @@ export async function confirmPayment(hotelId: string, bookingId: string, userId:
       entity: 'booking',
       entityId: bookingId,
     },
+  });
+
+  await onPaymentConfirmed({
+    hotelId,
+    booking: { ...booking, paymentConfirmed: true, paymentMethod: updated.paymentMethod },
+    actor: { userId },
   });
 
   return updated;

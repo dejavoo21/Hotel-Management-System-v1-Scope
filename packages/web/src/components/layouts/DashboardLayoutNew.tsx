@@ -15,6 +15,7 @@ import {
   ackAccessRequest,
 } from '@/utils/accessRequestAck';
 import AppChatbot from '@/components/support/AppChatbot';
+import CommandPalette from '@/components/command/CommandPalette';
 import { PresenceDot } from '@/components/presence';
 import { useSocketPresence } from '@/hooks/useSocketPresence';
 import type { PresenceStatus } from '@/types';
@@ -58,6 +59,41 @@ const scoreTarget = (query: string, target: GlobalSearchTarget) => {
   return 50;
 };
 
+const rankSearchTargets = (query: string, targets: GlobalSearchTarget[], limit = 8) => {
+  const q = query.trim();
+  if (!q) return targets.slice(0, limit);
+
+  return targets
+    .map((target) => ({ target, score: scoreTarget(q, target) }))
+    .filter((item) => item.score >= 0)
+    .sort((a, b) => b.score - a.score || a.target.name.localeCompare(b.target.name))
+    .slice(0, limit)
+    .map((item) => item.target);
+};
+
+const isEditableTarget = (target: EventTarget | null) => {
+  if (!(target instanceof HTMLElement)) return false;
+  const tagName = target.tagName.toLowerCase();
+  return target.isContentEditable || tagName === 'input' || tagName === 'textarea' || tagName === 'select';
+};
+
+const getWorkspaceLabel = (role?: string) => {
+  switch (role) {
+    case 'ADMIN':
+      return 'Admin Workspace';
+    case 'MANAGER':
+      return 'Manager Workspace';
+    case 'FRONT_DESK':
+      return 'Front Desk Workspace';
+    case 'HOUSEKEEPING':
+      return 'Housekeeping Workspace';
+    case 'MAINTENANCE':
+      return 'Maintenance Workspace';
+    default:
+      return 'Hotel Workspace';
+  }
+};
+
 export default function DashboardLayout() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -65,6 +101,9 @@ export default function DashboardLayout() {
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [globalSearchActiveIndex, setGlobalSearchActiveIndex] = useState(0);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [commandSearchQuery, setCommandSearchQuery] = useState('');
+  const [commandActiveIndex, setCommandActiveIndex] = useState(0);
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   
   const { user, logout } = useAuthStore();
@@ -140,6 +179,7 @@ export default function DashboardLayout() {
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const globalSearchRef = useRef<HTMLDivElement | null>(null);
+  const notificationsRef = useRef<HTMLDivElement | null>(null);
   const [accessRequestAck, setAccessRequestAck] = useState(() => loadAccessRequestAckMap());
 
   const avatarStorageKey = `laflo-profile-avatar:${user?.id || 'guest'}`;
@@ -310,6 +350,47 @@ export default function DashboardLayout() {
   }, [showGlobalSearch]);
 
   useEffect(() => {
+    if (!showNotifications) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (notificationsRef.current?.contains(target)) return;
+      setShowNotifications(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowNotifications(false);
+    };
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [showNotifications]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      if ((event.ctrlKey || event.metaKey) && key === 'k') {
+        event.preventDefault();
+        setShowGlobalSearch(false);
+        setShowCommandPalette((open) => !open);
+        return;
+      }
+
+      if (event.key === '/' && !isEditableTarget(event.target)) {
+        event.preventDefault();
+        setShowCommandPalette(false);
+        setShowGlobalSearch(true);
+        window.requestAnimationFrame(() => document.getElementById('global-search')?.focus());
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  useEffect(() => {
     if (!user) return;
     const ping = () => {
       messageService.heartbeatSupportPresence().catch(() => {});
@@ -353,15 +434,16 @@ export default function DashboardLayout() {
   }, [hasAccess, user?.role]);
 
   const globalSearchResults = useMemo(() => {
-    const q = globalSearchQuery.trim();
-    if (!q) return [];
-    return globalSearchTargets
-      .map((t) => ({ target: t, score: scoreTarget(q, t) }))
-      .filter((x) => x.score >= 0)
-      .sort((a, b) => b.score - a.score || a.target.name.localeCompare(b.target.name))
-      .slice(0, 8)
-      .map((x) => x.target);
+    if (!globalSearchQuery.trim()) return [];
+    return rankSearchTargets(globalSearchQuery, globalSearchTargets, 8);
   }, [globalSearchQuery, globalSearchTargets]);
+
+  const commandPaletteResults = useMemo(
+    () => rankSearchTargets(commandSearchQuery, globalSearchTargets, commandSearchQuery.trim() ? 10 : 12),
+    [commandSearchQuery, globalSearchTargets]
+  );
+
+  const workspaceLabel = getWorkspaceLabel(user?.role);
 
   // Close flyout when navigating
   useEffect(() => {
@@ -563,6 +645,11 @@ export default function DashboardLayout() {
                       setGlobalSearchActiveIndex(0);
                     }}
                     onFocus={() => setShowGlobalSearch(true)}
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-expanded={showGlobalSearch && globalSearchQuery.trim().length > 0}
+                    aria-controls="global-search-results"
+                    aria-keyshortcuts="/ Control+K Meta+K"
                     onKeyDown={(e) => {
                       if (e.key === 'Escape') {
                         setShowGlobalSearch(false);
@@ -591,17 +678,36 @@ export default function DashboardLayout() {
                         navigate(pick.href);
                       }
                     }}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm placeholder-slate-400 focus:bg-white focus:border-slate-400 focus:ring-1 focus:ring-slate-400 transition-all"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-20 text-sm placeholder-slate-400 transition-all focus:border-slate-400 focus:bg-white focus:ring-1 focus:ring-slate-400"
                   />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowGlobalSearch(false);
+                      setShowCommandPalette(true);
+                    }}
+                    className="absolute right-2 top-1/2 hidden -translate-y-1/2 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-500 shadow-sm hover:text-slate-800 sm:block"
+                    aria-label="Open command palette"
+                    aria-keyshortcuts="Control+K Meta+K"
+                  >
+                    Ctrl K
+                  </button>
 
                   {showGlobalSearch && globalSearchQuery.trim().length > 0 && (
-                    <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+                    <div
+                      id="global-search-results"
+                      className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+                      role="listbox"
+                      aria-label="Search results"
+                    >
                       {globalSearchResults.length > 0 ? (
                         <div className="py-2">
                           {globalSearchResults.map((item, idx) => (
                             <button
                               key={item.id}
                               type="button"
+                              role="option"
+                              aria-selected={idx === globalSearchActiveIndex}
                               onMouseDown={(ev) => ev.preventDefault()}
                               onClick={() => {
                                 setShowGlobalSearch(false);
@@ -629,7 +735,7 @@ export default function DashboardLayout() {
                         <div className="px-4 py-4 text-sm text-slate-500">No matches found.</div>
                       )}
                       <div className="border-t border-slate-100 px-4 py-2 text-[11px] text-slate-500">
-                        Tip: use ↑ ↓ then Enter to jump
+                        Tip: use Up/Down then Enter to jump
                       </div>
                     </div>
                   )}
@@ -650,7 +756,7 @@ export default function DashboardLayout() {
                 >
                   <div className="hidden sm:block text-right">
                     <p className="text-sm font-medium text-slate-900">{user?.firstName} {user?.lastName}</p>
-                    <p className="text-xs text-slate-500">{getPresenceLabel(userPresenceStatus)} • {user?.role}</p>
+                    <p className="text-xs text-slate-500">{workspaceLabel} / {getPresenceLabel(userPresenceStatus)}</p>
                   </div>
                   <div className="relative">
                     <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden">
@@ -818,11 +924,13 @@ export default function DashboardLayout() {
 
               <div className="flex items-center gap-1 pl-1">
                 {/* Notifications */}
-                <div className="relative">
+                <div ref={notificationsRef} className="relative">
                   <button
                     onClick={() => setShowNotifications((prev) => !prev)}
                     className="relative rounded-xl p-2 text-slate-600 hover:bg-slate-100 transition-colors"
                     aria-label="Notifications"
+                    aria-haspopup="dialog"
+                    aria-expanded={showNotifications}
                   >
                     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -835,7 +943,11 @@ export default function DashboardLayout() {
                   </button>
 
                   {showNotifications && (
-                    <div className="absolute right-0 mt-2 w-96 rounded-xl border border-slate-200 bg-white shadow-lg z-50">
+                    <div
+                      className="absolute right-0 mt-2 w-[min(24rem,calc(100vw-1.5rem))] rounded-xl border border-slate-200 bg-white shadow-lg z-50"
+                      role="dialog"
+                      aria-label="Notification center"
+                    >
                       <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                         <div>
                           <p className="text-sm font-semibold text-slate-900">Notifications</p>
@@ -952,6 +1064,22 @@ export default function DashboardLayout() {
           <Outlet />
         </main>
       </div>
+      <CommandPalette
+        open={showCommandPalette}
+        query={commandSearchQuery}
+        items={commandPaletteResults}
+        activeIndex={commandActiveIndex}
+        workspaceLabel={workspaceLabel}
+        onQueryChange={setCommandSearchQuery}
+        onActiveIndexChange={setCommandActiveIndex}
+        onClose={() => setShowCommandPalette(false)}
+        onSelect={(item) => {
+          setShowCommandPalette(false);
+          setCommandSearchQuery('');
+          setCommandActiveIndex(0);
+          navigate(item.href);
+        }}
+      />
       {!location.pathname.startsWith('/calls') && !location.pathname.startsWith('/operations') ? <AppChatbot /> : null}
     </div>
   );

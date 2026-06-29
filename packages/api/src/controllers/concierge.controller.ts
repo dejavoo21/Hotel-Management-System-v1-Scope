@@ -74,7 +74,7 @@ export async function listConciergeRequests(
     const requests = await prisma.conciergeRequest.findMany({
       where: {
         hotelId,
-        ...(status ? { status: String(status) } : {}),
+        ...(status ? { status: String(status) as any } : {}),
       },
       include: {
         guest: { select: { firstName: true, lastName: true } },

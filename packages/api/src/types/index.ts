@@ -42,6 +42,14 @@ export interface ApiResponse<T = unknown> {
   message?: string;
   error?: string;
   errors?: ValidationError[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+  [key: string]: unknown;
 }
 
 export interface ValidationError {

@@ -1,4 +1,5 @@
 import { prisma } from '../config/database.js';
+import { Prisma } from '@prisma/client';
 import { generatePricingForecastSnapshot } from './pricingForecast.service.js';
 
 const MAX_AGE_MINUTES = 90;
@@ -57,8 +58,8 @@ export async function runPricingSnapshotJob(params?: {
           windowStartUtc: new Date(forecast.windowStartUtc),
           windowEndUtc: new Date(forecast.windowEndUtc),
           generatedAtUtc: new Date(forecast.generatedAtUtc),
-          calendar: forecast.calendar,
-          summary: forecast.summary,
+          calendar: forecast.calendar as unknown as Prisma.InputJsonValue,
+          summary: forecast.summary as unknown as Prisma.InputJsonValue,
           source: forecast.source,
           version: forecast.version,
         },

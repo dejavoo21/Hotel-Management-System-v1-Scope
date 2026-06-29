@@ -41,7 +41,6 @@ type TransactionRow = {
   date: string; // ISO date
   status: TransactionStatus;
   purchaseOrderId?: string;
-  isMock?: boolean;
 };
 
 type EarningsPoint = { month: string; income: number; expense: number };
@@ -91,55 +90,6 @@ function statusFromOrderStatus(value: string | undefined): TransactionStatus {
   if (s.includes('FAIL')) return 'Failed';
   if (s.includes('PEND') || s.includes('DRAFT')) return 'Pending';
   return 'Completed';
-}
-
-function stableRand(seed: number) {
-  const x = Math.sin(seed) * 10000;
-  return x - Math.floor(x);
-}
-
-function buildMockTransactions(startISO: string, count: number): TransactionRow[] {
-  const start = new Date(startISO);
-  const categories: ExpenseCategory[] = [
-    'Salaries and Wages',
-    'Utilities',
-    'Maintenance and Repairs',
-    'Supplies',
-    'Marketing and Advertising',
-    'Miscellaneous',
-  ];
-  const expenseNamesByCategory: Record<ExpenseCategory, string[]> = {
-    'Salaries and Wages': ['Staff payroll', 'Overtime payroll'],
-    Utilities: ['Electricity bill', 'Water bill', 'Internet subscription'],
-    'Maintenance and Repairs': ['AC repairs', 'Maintenance callout', 'Plumbing service'],
-    Supplies: ['Housekeeping supplies', 'Laundry supplies', 'Guest amenities'],
-    'Marketing and Advertising': ['Google ads', 'Social media ads'],
-    Miscellaneous: ['Misc operational', 'Office supplies'],
-  };
-
-  const rows: TransactionRow[] = [];
-  for (let i = 0; i < count; i++) {
-    const dayOffset = i % 18;
-    const d = new Date(start);
-    d.setDate(d.getDate() + dayOffset);
-    const category = categories[i % categories.length];
-    const names = expenseNamesByCategory[category];
-    const expense = names[Math.floor(stableRand(i + 13) * names.length)];
-    const quantity = Math.max(1, Math.round(stableRand(i + 7) * 10));
-    const unit = 50 + Math.round(stableRand(i + 31) * 250);
-    const amount = quantity * unit;
-    rows.push({
-      id: `mock-${i}`,
-      expense,
-      category,
-      quantity,
-      amount,
-      date: toISODate(d),
-      status: 'Completed',
-      isMock: true,
-    });
-  }
-  return rows;
 }
 
 function statusPillClass(status: TransactionStatus) {
@@ -201,7 +151,7 @@ function escapeHtml(value: string) {
     .replaceAll("'", '&#039;');
 }
 
-function buildMockReceiptHtml(row: TransactionRow, currency: string) {
+function buildTransactionReceiptHtml(row: TransactionRow, currency: string) {
   const amount = formatCurrency(row.amount, currency);
   const date = new Date(row.date).toLocaleDateString();
   const title = 'Expense Receipt';
@@ -372,8 +322,8 @@ function buildMockReceiptHtml(row: TransactionRow, currency: string) {
 </html>`;
 }
 
-function downloadMockTransaction(row: TransactionRow, currency: string) {
-  return new Blob([buildMockReceiptHtml(row, currency)], { type: 'text/html;charset=utf-8' });
+function downloadTransactionReceipt(row: TransactionRow, currency: string) {
+  return new Blob([buildTransactionReceiptHtml(row, currency)], { type: 'text/html;charset=utf-8' });
 }
 
 function triggerBlobDownload(blob: Blob, filename: string) {
@@ -459,14 +409,7 @@ export default function ExpensesPage() {
     return rows.sort((a, b) => b.date.localeCompare(a.date));
   }, [orders]);
 
-  const minRows = 14;
-  const mockCount = Math.max(0, minRows - transactionsReal.length);
-  const transactionsMock = useMemo(
-    () => buildMockTransactions(transactionsDateRange.startDate, mockCount),
-    [transactionsDateRange.startDate, mockCount],
-  );
-
-  const transactions = useMemo(() => [...transactionsReal, ...transactionsMock].slice(0, 40), [transactionsReal, transactionsMock]);
+  const transactions = useMemo(() => transactionsReal.slice(0, 40), [transactionsReal]);
 
   const inDateRange = (iso: string, range: Range) => {
     const d = new Date(iso);
@@ -497,19 +440,15 @@ export default function ExpensesPage() {
     [transactions, transactionsDateRange],
   );
 
-  const mockTotalsWhenEmpty = useMemo(() => ({ balance: 15650, income: 45650, expenses: 30000 }), []);
-
   const totals = useMemo(() => {
-    const hasReal = transactionsReal.length > 0 || (revenueSeries?.length ?? 0) > 0;
     const expenseTotal = transactionsForHeader.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     const incomeTotal = (revenueSeries ?? []).reduce((sum, p) => sum + (Number(p.revenue) || 0), 0);
-    if (!hasReal) return mockTotalsWhenEmpty;
     return {
       balance: incomeTotal - expenseTotal,
       income: incomeTotal,
       expenses: expenseTotal,
     };
-  }, [transactionsForHeader, transactionsReal.length, revenueSeries, mockTotalsWhenEmpty]);
+  }, [transactionsForHeader, revenueSeries]);
 
   const weeklyTrend = useMemo(() => {
     const end = new Date(headerDateRange.endDate);
@@ -540,18 +479,6 @@ export default function ExpensesPage() {
   }, [headerDateRange.endDate, revenueSeries, transactionsForHeader]);
 
   const earningsSeries = useMemo((): EarningsPoint[] => {
-    const fallbackSeries = () => {
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const income = [22000, 18500, 14000, 20000, 23500, 26000, 21500, 15500, 21000, 25500, 24000, 27500];
-      const expense = [16500, 19000, 14000, 17500, 21000, 25500, 15600, 9000, 16500, 23000, 18500, 15500];
-      return months.map((m, i) => ({ month: m, income: income[i], expense: -expense[i] }));
-    };
-
-    const hasReal = (revenueSeries?.length ?? 0) > 0 || transactionsReal.length > 0;
-    if (!hasReal) {
-      return fallbackSeries();
-    }
-
     const byMonthIncome = new Map<string, number>();
     for (const p of revenueSeries ?? []) {
       const d = new Date(p.date);
@@ -573,8 +500,6 @@ export default function ExpensesPage() {
     for (const k of byMonthExpense.keys()) keys.add(k);
     const sorted = [...keys].sort((a, b) => a.localeCompare(b));
     const last12 = sorted.slice(Math.max(0, sorted.length - 12));
-
-    if (last12.length < 6) return fallbackSeries();
 
     return last12.map((key) => ({
       month: monthLabelFromKey(key),
@@ -600,16 +525,6 @@ export default function ExpensesPage() {
       { name: 'Miscellaneous', share: 0.0333 },
     ];
 
-    if (transactionsReal.length === 0) {
-      const base = mockTotalsWhenEmpty.expenses;
-      const amounts = [15000, 5000, 4000, 3000, 2000, 1000];
-      return categories.map((c, idx) => ({
-        name: c.name,
-        value: amounts[idx],
-        pct: Math.round((amounts[idx] / base) * 100),
-      }));
-    }
-
     const byCategory = new Map<ExpenseCategory, number>();
     for (const t of transactionsForHeader) {
       byCategory.set(t.category, (byCategory.get(t.category) ?? 0) + (Number(t.amount) || 0));
@@ -617,13 +532,13 @@ export default function ExpensesPage() {
 
     const rows = categories.map((c) => ({
       name: c.name,
-      value: Math.round((byCategory.get(c.name) ?? 0) || (totals.expenses * c.share * 0.25)),
+      value: Math.round(byCategory.get(c.name) ?? 0),
     }));
     const sum = rows.reduce((s, r) => s + r.value, 0) || 1;
     return rows
       .map((r) => ({ ...r, pct: Math.round((r.value / sum) * 100) }))
       .sort((a, b) => b.value - a.value);
-  }, [mockTotalsWhenEmpty.expenses, totals.expenses, transactionsForHeader, transactionsReal.length]);
+  }, [transactionsForHeader]);
 
   const incomeBreakdown = useMemo(() => {
     const breakdown = (sourcesRaw as any)?.breakdown;
@@ -637,31 +552,19 @@ export default function ExpensesPage() {
       .sort((a, b) => b.value - a.value)
       .slice(0, 6);
 
-    // Fallback so the Income tab never looks broken (until we wire real income sources).
-    if (!rows.length) {
-      const total = Math.max(0, Math.round((totals.income || mockTotalsWhenEmpty.income) * getRangeFactor(headerRange)));
-      const fallback = [
-        { name: 'Direct Booking', pct: 52 },
-        { name: 'Booking.com', pct: 18 },
-        { name: 'Agoda', pct: 12 },
-        { name: 'Airbnb', pct: 10 },
-        { name: 'Hotels.com', pct: 6 },
-        { name: 'Other', pct: 2 },
-      ];
-      return fallback.map((r) => ({ name: r.name, pct: r.pct, value: Math.round((total * r.pct) / 100) }));
-    }
+    if (!rows.length) return [];
 
     const factor = getRangeFactor(headerRange);
     const scaled = rows.map((r) => ({ ...r, value: Math.max(1, Math.round(r.value * factor)) }));
     const sum = scaled.reduce((s, r) => s + r.value, 0) || 1;
     return scaled.map((r) => ({ ...r, pct: Math.round((r.value / sum) * 100) }));
-  }, [sourcesRaw, totals.income, mockTotalsWhenEmpty.income, headerRange]);
+  }, [sourcesRaw, headerRange]);
 
   const donutRows = donutTab === 'expense' ? expenseBreakdown : incomeBreakdown;
   const donutTotal = useMemo(() => {
-    if (donutTab === 'expense') return totals.expenses || mockTotalsWhenEmpty.expenses;
+    if (donutTab === 'expense') return totals.expenses;
     return donutRows.reduce((s: number, r: any) => s + (Number(r.value) || 0), 0);
-  }, [donutRows, donutTab, mockTotalsWhenEmpty.expenses, totals.expenses]);
+  }, [donutRows, donutTab, totals.expenses]);
 
   const renderEarningsTooltip = ({ active, payload, label }: any) => {
     if (!active || !Array.isArray(payload) || payload.length === 0) return null;
@@ -686,9 +589,9 @@ export default function ExpensesPage() {
   };
 
   const trendDisplay = {
-    balance: weeklyTrend.balance ?? 3.56,
-    income: weeklyTrend.income ?? -1.25,
-    expenses: weeklyTrend.expenses ?? 4.79,
+    balance: weeklyTrend.balance ?? 0,
+    income: weeklyTrend.income ?? 0,
+    expenses: weeklyTrend.expenses ?? 0,
   };
 
   const transactionsRangeLabel = useMemo(() => {
@@ -1078,7 +981,7 @@ export default function ExpensesPage() {
                             triggerBlobDownload(blob, `laflo-purchase-order-${row.purchaseOrderId}.pdf`);
                             return;
                           }
-                          const blob = downloadMockTransaction(row, currency);
+                          const blob = downloadTransactionReceipt(row, currency);
                           triggerBlobDownload(blob, `laflo-expense-${row.id}.html`);
                         }}
                       >
@@ -1178,7 +1081,7 @@ export default function ExpensesPage() {
                       const blob = await downloadPurchaseOrderPdf(row.purchaseOrderId);
                       triggerBlobDownload(blob, `laflo-purchase-order-${row.purchaseOrderId}.pdf`);
                     } else {
-                      const blob = downloadMockTransaction(row, currency);
+                      const blob = downloadTransactionReceipt(row, currency);
                       triggerBlobDownload(blob, `laflo-expense-${row.id}.html`);
                     }
                   }}

@@ -113,9 +113,15 @@ export async function runTool(name: string, args: ToolArgs): Promise<unknown> {
       const result = await syncWeatherSignalsForHotel(hotelId);
       return {
         hotelId,
-        syncedAtUtc: result.syncedAtUtc.toISOString(),
+        syncedAtUtc: new Date(result.fetchedAtUtc).toISOString(),
         daysStored: result.daysStored,
-        location: result.location,
+        location: {
+          city: result.city,
+          country: result.country,
+          timezone: result.timezone,
+          lat: result.lat,
+          lon: result.lon,
+        },
       };
     }
 

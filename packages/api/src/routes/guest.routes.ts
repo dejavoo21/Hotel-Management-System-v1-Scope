@@ -53,8 +53,9 @@ router.use(requireModuleAccess('guests'));
 // Routes
 router.get('/', validate(querySchema, 'query'), guestController.getAllGuests);
 router.get('/search', guestController.searchGuests);
-router.get('/:id', guestController.getGuestById);
+router.get('/:id/journey', guestController.getGuestJourney);
 router.get('/:id/history', guestController.getGuestHistory);
+router.get('/:id', guestController.getGuestById);
 router.post('/', requireReceptionist, validate(createGuestSchema), guestController.createGuest);
 router.patch('/:id', requireReceptionist, validate(updateGuestSchema), guestController.updateGuest);
 router.delete('/:id', requireManager, guestController.deleteGuest);

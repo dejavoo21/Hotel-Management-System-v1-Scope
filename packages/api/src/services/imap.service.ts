@@ -3,7 +3,6 @@ import { simpleParser } from 'mailparser';
 import { prisma } from '../config/database.js';
 import { config } from '../config/index.js';
 import { logger } from '../config/logger.js';
-import { mockAccessRequests, mockAccessRequestReplies, saveDemoStore, broadcastAccessRequests } from '../demo/demoRoutes.js';
 
 const REQUEST_ID_REGEX = /AR-([a-z0-9]+)/i;
 
@@ -11,6 +10,16 @@ type ImapMessage = {
   uid: number;
   source: Buffer;
 };
+
+async function loadDemoAccessRequestStore() {
+  const demoRoutesPath = '../demo/demoRoutes.js';
+  return import(demoRoutesPath) as Promise<{
+    mockAccessRequests: any[];
+    mockAccessRequestReplies: any[];
+    saveDemoStore: () => void;
+    broadcastAccessRequests: () => void;
+  }>;
+}
 
 function extractRequestId(subject?: string | null, bodyText?: string | null, bodyHtml?: string | null) {
   const sources = [subject, bodyText, bodyHtml].filter(Boolean).join(' ');
@@ -47,6 +56,13 @@ async function processMessage(message: ImapMessage): Promise<boolean> {
   
   // DEMO MODE: Use mock data
   if (config.demoMode) {
+    const {
+      mockAccessRequests,
+      mockAccessRequestReplies,
+      saveDemoStore,
+      broadcastAccessRequests,
+    } = await loadDemoAccessRequestStore();
+
     let accessRequest: any = null;
     
     // First try to match by request ID
@@ -181,17 +197,18 @@ async function fetchNewMessages(client: ImapFlow): Promise<number> {
   let processed = 0;
 
   try {
-    const unseen = await client.search({ unseen: true });
+    const unseen = (await client.search({ unseen: true } as any)) as number[];
     if (!unseen.length) {
       return 0;
     }
 
     for (const uid of unseen) {
-      const fetched = await client.fetchOne(uid, { source: true });
-      if (!fetched?.source) {
+      const fetched = (await client.fetchOne(uid, { source: true })) as { source?: Buffer } | false;
+      const source = fetched && 'source' in fetched ? fetched.source : undefined;
+      if (!source) {
         continue;
       }
-      const didProcess = await processMessage({ uid, source: fetched.source });
+      const didProcess = await processMessage({ uid, source });
       if (didProcess) {
         processed += 1;
       }

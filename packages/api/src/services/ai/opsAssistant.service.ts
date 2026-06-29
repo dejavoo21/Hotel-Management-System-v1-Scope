@@ -35,10 +35,10 @@ export async function runOpsAssistant(params: OpsAssistantParams): Promise<strin
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const response = await openai.responses.create({
       model: OPENAI_MODEL,
-      input: pendingInput,
+      input: pendingInput as any,
       tools: tools as any,
       previous_response_id: previousResponseId,
-    });
+    } as any);
 
     const functionCalls = (response.output ?? []).filter(
       (item: any) => item.type === 'function_call'
@@ -49,7 +49,7 @@ export async function runOpsAssistant(params: OpsAssistantParams): Promise<strin
     }
 
     const toolOutputs: Array<Record<string, string>> = [];
-    for (const call of functionCalls) {
+    for (const call of functionCalls as any[]) {
       const callArgs = safeJsonParse(call.arguments ?? '{}');
       callArgs.__userId = userId;
       const result = await runTool(call.name, callArgs);

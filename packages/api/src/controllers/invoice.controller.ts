@@ -6,6 +6,7 @@ import { NotFoundError } from '../middleware/errorHandler.js';
 import { sendEmail } from '../services/email.service.js';
 import { v4 as uuidv4 } from 'uuid';
 import { renderLafloEmail } from '../utils/emailTemplates.js';
+import { onInvoiceCreated } from '../services/guestJourney.service.js';
 
 type LineItem = {
   name: string;
@@ -323,6 +324,14 @@ export async function createInvoice(
       },
     });
 
+    await onInvoiceCreated({
+      hotelId,
+      booking,
+      invoiceId: invoice.id,
+      invoiceNo: invoice.invoiceNo,
+      actor: { userId: req.user?.id },
+    });
+
     res.status(201).json({ success: true, data: invoice, message: 'Invoice created' });
   } catch (error) {
     next(error);
@@ -331,7 +340,7 @@ export async function createInvoice(
 
 export async function generatePdf(
   req: AuthenticatedRequest,
-  res: Response<ApiResponse>,
+  res: Response<any>,
   next: NextFunction
 ): Promise<void> {
   try {

@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest, ApiResponse } from '../types/index.js';
 import { prisma } from '../config/database.js';
+import { onReviewCreated } from '../services/guestJourney.service.js';
 
 export async function listReviews(
   req: AuthenticatedRequest,
@@ -14,7 +15,7 @@ export async function listReviews(
     const reviews = await prisma.review.findMany({
       where: {
         hotelId,
-        ...(source ? { source: String(source) } : {}),
+        ...(source ? { source: String(source) as any } : {}),
         ...(rating ? { rating: Number(rating) } : {}),
       },
       include: {
@@ -47,6 +48,17 @@ export async function createReview(
         comment: req.body.comment || null,
       },
     });
+
+    if (review.guestId) {
+      await onReviewCreated({
+        hotelId,
+        guestId: review.guestId,
+        bookingId: review.bookingId,
+        reviewId: review.id,
+        rating: review.rating,
+        actor: { userId: req.user?.id },
+      });
+    }
 
     res.status(201).json({ success: true, data: review });
   } catch (error) {

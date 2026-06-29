@@ -33,7 +33,6 @@ import CalendarPage from '@/pages/CalendarPage';
 import MessagesPage from '@/pages/MessagesPageRedesigned';
 import CallsPage from '@/pages/CallsPage';
 import OperationsCenterPage from '@/pages/OperationsCenterPage';
-import OperationsPlaceholderPage from '@/pages/OperationsPlaceholderPage';
 import SecurityCenterPage from '@/pages/SecurityCenterPage';
 import MaintenanceCenterPage from '@/pages/MaintenanceCenterPage';
 import SmartBuildingPage from '@/pages/SmartBuildingPage';
@@ -204,9 +203,11 @@ export default function App() {
       >
         <Route path="force-password-change" element={<ForcePasswordChangePage />} />
         <Route index element={<ModuleRoute requiredModule="dashboard"><DashboardPage /></ModuleRoute>} />
+        <Route path="dashboard" element={<Navigate to="/" replace />} />
         <Route path="enterprise-command-center" element={<ModuleRoute requiredModule="dashboard"><EnterpriseCommandCenterPage /></ModuleRoute>} />
         <Route path="rooms" element={<ModuleRoute requiredModule="rooms"><RoomsPage /></ModuleRoute>} />
         <Route path="bookings" element={<ModuleRoute requiredModule="bookings"><BookingsPage /></ModuleRoute>} />
+        <Route path="reservations" element={<Navigate to="/bookings" replace />} />
         <Route path="bookings/:id" element={<ModuleRoute requiredModule="bookings"><BookingDetailPage /></ModuleRoute>} />
         <Route path="inventory" element={<ModuleRoute requiredModule="inventory"><InventoryPage /></ModuleRoute>} />
         <Route path="messages" element={<ModuleRoute requiredModule="messages"><MessagesPage /></ModuleRoute>} />
@@ -231,11 +232,12 @@ export default function App() {
         <Route path="operations/security/visitors" element={<Navigate to="/security-center/visitors" replace />} />
         <Route path="operations/security/alerts" element={<Navigate to="/security-center/alerts" replace />} />
         <Route path="operations/smart-building" element={<ModuleRoute requiredModule="smart_building"><SmartBuildingPage /></ModuleRoute>} />
-        <Route path="operations/smart-building/doors" element={<ModuleRoute requiredModule="smart_building"><OperationsPlaceholderPage section="Smart Building" title="Doors" /></ModuleRoute>} />
-        <Route path="operations/smart-building/sensors" element={<ModuleRoute requiredModule="smart_building"><OperationsPlaceholderPage section="Smart Building" title="Sensors" /></ModuleRoute>} />
-        <Route path="operations/smart-building/energy" element={<ModuleRoute requiredModule="smart_building"><OperationsPlaceholderPage section="Smart Building" title="Energy" /></ModuleRoute>} />
-        <Route path="operations/smart-building/hvac" element={<ModuleRoute requiredModule="smart_building"><OperationsPlaceholderPage section="Smart Building" title="HVAC" /></ModuleRoute>} />
-        <Route path="operations/smart-building/assets" element={<ModuleRoute requiredModule="smart_building"><OperationsPlaceholderPage section="Smart Building" title="Assets" /></ModuleRoute>} />
+        <Route path="smart-building" element={<Navigate to="/operations/smart-building" replace />} />
+        <Route path="operations/smart-building/doors" element={<ModuleRoute requiredModule="smart_building"><SmartBuildingPage /></ModuleRoute>} />
+        <Route path="operations/smart-building/sensors" element={<ModuleRoute requiredModule="smart_building"><SmartBuildingPage /></ModuleRoute>} />
+        <Route path="operations/smart-building/energy" element={<ModuleRoute requiredModule="smart_building"><SmartBuildingPage /></ModuleRoute>} />
+        <Route path="operations/smart-building/hvac" element={<ModuleRoute requiredModule="smart_building"><SmartBuildingPage /></ModuleRoute>} />
+        <Route path="operations/smart-building/assets" element={<ModuleRoute requiredModule="smart_building"><SmartBuildingPage /></ModuleRoute>} />
         <Route path="maintenance-center" element={<ModuleRoute requiredModule="maintenance_center"><MaintenanceCenterPage /></ModuleRoute>} />
         <Route path="maintenance-center/:tab" element={<ModuleRoute requiredModule="maintenance_center"><MaintenanceCenterPage /></ModuleRoute>} />
         <Route path="operations/maintenance/work-orders" element={<Navigate to="/maintenance-center/work-orders" replace />} />
@@ -245,6 +247,7 @@ export default function App() {
         <Route path="guests" element={<ModuleRoute requiredModule="guests"><GuestsPage /></ModuleRoute>} />
         <Route path="housekeeping" element={<ModuleRoute requiredModule="housekeeping"><HousekeepingPage /></ModuleRoute>} />
         <Route path="reports" element={<ModuleRoute requiredModule="financials"><ReportsPage /></ModuleRoute>} />
+        <Route path="financials" element={<Navigate to="/reports" replace />} />
         <Route path="invoices" element={<ModuleRoute requiredModule="financials"><InvoicesPage /></ModuleRoute>} />
         <Route path="expenses" element={<ModuleRoute requiredModule="financials"><ExpensesPage /></ModuleRoute>} />
         <Route path="reviews" element={<ModuleRoute requiredModule="reviews"><ReviewsPage /></ModuleRoute>} />

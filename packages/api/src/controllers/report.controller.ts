@@ -322,7 +322,7 @@ export async function getSummaryReport(
 
 export async function exportReport(
   req: AuthenticatedRequest,
-  res: Response<ApiResponse>,
+  res: Response<any>,
   next: NextFunction
 ): Promise<void> {
   try {

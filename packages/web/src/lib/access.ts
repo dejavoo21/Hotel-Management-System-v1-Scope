@@ -35,6 +35,9 @@ export const ROUTE_MODULES: Record<string, PermissionId> = Object.entries(MODULE
 
 // Operations Center is temporarily mapped to bookings until a dedicated operations module exists.
 ROUTE_MODULES['/operations'] = 'bookings';
+ROUTE_MODULES['/dashboard'] = 'dashboard';
+ROUTE_MODULES['/reservations'] = 'bookings';
+ROUTE_MODULES['/financials'] = 'financials';
 ROUTE_MODULES['/operations/ai'] = 'bookings';
 ROUTE_MODULES['/operations/revenue'] = 'financials';
 ROUTE_MODULES['/operations/weather'] = 'bookings';
@@ -51,6 +54,7 @@ ROUTE_MODULES['/operations/security/access-logs'] = 'security_center';
 ROUTE_MODULES['/operations/security/visitors'] = 'security_center';
 ROUTE_MODULES['/operations/security/alerts'] = 'security_center';
 ROUTE_MODULES['/operations/smart-building'] = 'smart_building';
+ROUTE_MODULES['/smart-building'] = 'smart_building';
 ROUTE_MODULES['/operations/smart-building/doors'] = 'smart_building';
 ROUTE_MODULES['/operations/smart-building/sensors'] = 'smart_building';
 ROUTE_MODULES['/operations/smart-building/energy'] = 'smart_building';

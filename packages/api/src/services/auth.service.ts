@@ -25,6 +25,7 @@ interface LoginResult {
       id: string;
       name: string;
     };
+    modulePermissions?: string[];
   };
   accessToken?: string;
   refreshToken?: string;
@@ -486,7 +487,18 @@ export async function requestPasswordResetOtp(token: string) {
       usedAt: null,
       expiresAt: { gte: new Date() },
     },
-    include: { user: true },
+    include: {
+      user: {
+        include: {
+          hotel: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      },
+    },
   });
 
   if (!stored) {
@@ -643,7 +655,7 @@ export async function loginWithEmailOtp(
       lastName: otp.user.lastName,
       role: otp.user.role,
       hotelId: otp.user.hotelId,
-      hotel: otp.user.hotel as any,
+      hotel: (otp.user as any).hotel,
       modulePermissions: otp.user.modulePermissions || [],
     },
     accessToken,
@@ -858,7 +870,7 @@ export async function changePassword(
  */
 function generateAccessToken(payload: TokenPayload): string {
   return jwt.sign(payload, config.jwt.secret, {
-    expiresIn: config.jwt.expiresIn,
+    expiresIn: config.jwt.expiresIn as any,
   });
 }
 
@@ -876,7 +888,7 @@ async function generateRefreshToken(userId: string): Promise<string> {
   const token = jwt.sign(
     { userId, tokenId } as RefreshTokenPayload,
     config.jwt.refreshSecret,
-    { expiresIn }
+    { expiresIn: expiresIn as any }
   );
 
   // Store in database

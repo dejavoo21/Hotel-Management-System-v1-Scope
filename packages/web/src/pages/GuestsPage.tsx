@@ -2,12 +2,27 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { bookingService, guestService, roomService } from '@/services';
 import type { Booking, Guest } from '@/types';
+import type { GuestJourney, GuestJourneyStageId } from '@/services/guests';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { appendAuditLog } from '@/utils/auditLog';
 import { PAGE_TITLE_CLASS } from '@/styles/typography';
 import { getGuestImage, getRoomImage, setGuestImage } from '@/utils/mediaPrefs';
+
+const guestJourneyStageTone = (status?: string) => {
+  if (status === 'COMPLETED') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+  if (status === 'ACTIVE') return 'border-primary-200 bg-primary-50 text-primary-700';
+  if (status === 'BLOCKED') return 'border-rose-200 bg-rose-50 text-rose-700';
+  return 'border-slate-200 bg-white text-slate-400';
+};
+
+const formatJourneySource = (source: string) =>
+  source
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 
 export default function GuestsPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,6 +82,12 @@ export default function GuestsPage() {
         page: 1,
         limit: 20,
       }),
+  });
+
+  const { data: guestJourneyData, isLoading: guestJourneyLoading } = useQuery({
+    queryKey: ['guestJourney', selectedGuest?.id],
+    enabled: !!selectedGuest?.id,
+    queryFn: () => guestService.getGuestJourney(selectedGuest!.id),
   });
 
   const createGuestMutation = useMutation({
@@ -167,6 +188,22 @@ export default function GuestsPage() {
     () => latestBookingWithRoom || bookingHistory[0] || null,
     [latestBookingWithRoom, bookingHistory]
   );
+
+  const activeJourney = useMemo<GuestJourney | null>(() => {
+    const journeys = guestJourneyData?.journeys || [];
+    if (primaryBooking) {
+      return journeys.find((journey) => journey.bookingId === primaryBooking.id) || journeys[0] || null;
+    }
+    return journeys[0] || null;
+  }, [guestJourneyData, primaryBooking]);
+
+  const journeyEventByStage = useMemo(() => {
+    const entries = new Map<GuestJourneyStageId, NonNullable<GuestJourney['events']>[number]>();
+    for (const event of activeJourney?.events || []) {
+      entries.set(event.stage, event);
+    }
+    return entries;
+  }, [activeJourney]);
 
   const formatDateTime = (value?: string) => {
     if (!value) return '-';
@@ -762,6 +799,79 @@ export default function GuestsPage() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div className="card mt-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">Guest Journey</h3>
+                  <p className="text-xs text-slate-500">
+                    Lifecycle status across reservation, stay, checkout, invoice, review, and loyalty.
+                  </p>
+                </div>
+                {activeJourney?.booking ? (
+                  <span className="inline-flex rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600">
+                    {activeJourney.booking.bookingRef}
+                  </span>
+                ) : null}
+              </div>
+
+              {guestJourneyLoading ? (
+                <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                  Loading guest journey...
+                </div>
+              ) : !activeJourney ? (
+                <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
+                  Journey automation will appear here once this guest has reservation or stay activity.
+                </div>
+              ) : (
+                <>
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+                    {(guestJourneyData?.stages || []).map((stage) => {
+                      const event = journeyEventByStage.get(stage.id);
+                      const isCurrent = activeJourney.currentStage === stage.id;
+                      const status = event?.status || (isCurrent ? 'ACTIVE' : 'PENDING');
+                      return (
+                        <div
+                          key={stage.id}
+                          className={`rounded-xl border px-3 py-2 text-xs font-semibold ${guestJourneyStageTone(status)}`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span>{stage.label}</span>
+                            <span className="h-2 w-2 shrink-0 rounded-full bg-current" />
+                          </div>
+                          <p className="mt-1 truncate text-[11px] font-medium opacity-80">
+                            {event ? formatDateTime(event.createdAt) : isCurrent ? 'Active' : 'Pending'}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    {activeJourney.events.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
+                        No journey events have been recorded yet.
+                      </div>
+                    ) : (
+                      activeJourney.events.map((event) => (
+                        <div key={event.id} className="flex gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                          <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-primary-500" />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                              <p className="truncate text-sm font-semibold text-slate-900">{event.summary}</p>
+                              <span className="text-xs text-slate-500">{formatDateTime(event.createdAt)}</span>
+                            </div>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {formatJourneySource(event.sourceModule)} / {event.eventType}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="card mt-4">

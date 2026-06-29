@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:routes": "vitest run src/__tests__/route-smoke.test.tsx",
     "test:watch": "vitest",
     "test:unit": "vitest run --reporter=json --outputFile=../../tests/unit/results/web-unit.json",
     "test:e2e": "playwright test",

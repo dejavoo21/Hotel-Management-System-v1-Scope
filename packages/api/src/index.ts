@@ -9,6 +9,7 @@ import { startImapPolling } from './services/imap.service.js';
 import { startTimelineEngine } from './platform/timeline/timelineEngine.service.js';
 import { startWorkflowRunner } from './platform/workflows/workflowRunner.js';
 import { startIncidentSubscriptions } from './modules/incidents/incident.service.js';
+import { startGuestJourneyAutomation } from './services/guestJourney.service.js';
 
 // Module-level io reference for getIo() export
 let ioInstance: SocketIOServer | null = null;
@@ -46,6 +47,7 @@ async function startServer(): Promise<void> {
     startTimelineEngine(io);
     startWorkflowRunner();
     startIncidentSubscriptions();
+    startGuestJourneyAutomation();
     logger.info('Socket.IO initialized');
 
     // Store io instance for getIo() export

@@ -1,4 +1,5 @@
 import { prisma } from '../config/database.js';
+import { Prisma } from '@prisma/client';
 import type { WeatherContext } from './weatherContext.provider.js';
 import { getWeatherContextForHotel } from './weatherContext.provider.js';
 import { generatePricingForecastSnapshot } from './pricingForecast.service.js';
@@ -81,8 +82,8 @@ async function resolvePricingForecast(hotelId: string) {
       windowStartUtc: new Date(computed.windowStartUtc),
       windowEndUtc: new Date(computed.windowEndUtc),
       generatedAtUtc: new Date(computed.generatedAtUtc),
-      calendar: computed.calendar,
-      summary: computed.summary,
+      calendar: computed.calendar as unknown as Prisma.InputJsonValue,
+      summary: computed.summary as unknown as Prisma.InputJsonValue,
       source: computed.source,
       version: computed.version,
     },
@@ -432,7 +433,9 @@ export async function getOperationsContext(hotelId: string) {
       marketCoveragePct: pricingSummary.marketCoveragePct ?? 0,
       marketSamplesTotal: pricingSummary.marketSamplesTotal ?? 0,
       nightsWithMarket: pricingSummary.nightsWithMarket ?? 0,
-      nightsTotal: pricingSummary.nightsTotal ?? pricingForecast.calendar.length,
+      nightsTotal:
+        pricingSummary.nightsTotal ??
+        (Array.isArray(pricingForecast.calendar) ? pricingForecast.calendar.length : 0),
       note:
         pricingSignalDemandTrend === 'up'
           ? `Demand strengthening - consider +${pricingSignalOpportunityPct}% pricing adjustment.`

@@ -82,9 +82,9 @@ export const navSections: NavSection[] = [
         icon: 'admin',
         items: [
           { id: 'incident-active', label: 'Active Incidents', href: '/incidents', permission: 'incident_management', icon: 'admin' },
-          { id: 'incident-critical', label: 'Critical', href: '/incidents', permission: 'incident_management', icon: 'admin' },
-          { id: 'incident-assigned', label: 'Assigned to Me', href: '/incidents', permission: 'incident_management', icon: 'users' },
-          { id: 'incident-resolved', label: 'Resolved', href: '/incidents', permission: 'incident_management', icon: 'calendar-check' },
+          { id: 'incident-critical', label: 'Critical', href: '/incidents?view=critical', permission: 'incident_management', icon: 'admin' },
+          { id: 'incident-assigned', label: 'Assigned to Me', href: '/incidents?view=assigned_to_me', permission: 'incident_management', icon: 'users' },
+          { id: 'incident-resolved', label: 'Resolved', href: '/incidents?view=resolved', permission: 'incident_management', icon: 'calendar-check' },
         ],
       },
       {

@@ -8,6 +8,7 @@ import { sendEmail } from '../services/email.service.js';
 import { logger } from '../config/logger.js';
 import Stripe from 'stripe';
 import { renderLafloEmail } from '../utils/emailTemplates.js';
+import { onPaymentConfirmed } from '../services/guestJourney.service.js';
 
 const stripe = config.stripe.secretKey ? new Stripe(config.stripe.secretKey) : null;
 
@@ -349,7 +350,10 @@ export async function recordPayment(
     const userId = req.user!.id;
     const { bookingId, amount, method, reference, notes } = req.body;
 
-    const booking = await prisma.booking.findFirst({ where: { id: bookingId, hotelId } });
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId, hotelId },
+      include: { guest: true, room: { select: { id: true, number: true } } },
+    });
     if (!booking) throw new NotFoundError('Booking');
 
     const payment = await prisma.payment.create({
@@ -381,6 +385,13 @@ export async function recordPayment(
         entityId: payment.id,
         details: { amount, method },
       },
+    });
+
+    await onPaymentConfirmed({
+      hotelId,
+      booking,
+      paymentId: payment.id,
+      actor: { userId },
     });
 
     res.status(201).json({ success: true, data: payment, message: 'Payment recorded' });
@@ -517,11 +528,20 @@ export async function confirmPayment(
         },
       });
 
-      await prisma.booking.update({
+      const booking = await prisma.booking.update({
         where: { id: bookingId },
         data: {
           paidAmount: { increment: amount },
+          paymentConfirmed: true,
         },
+        include: { guest: true, room: { select: { id: true, number: true } } },
+      });
+
+      await onPaymentConfirmed({
+        hotelId: booking.hotelId,
+        booking,
+        paymentId: payment.id,
+        actor: { userId: req.user?.id },
       });
 
       res.json({ success: true, data: payment, message: 'Payment confirmed' });

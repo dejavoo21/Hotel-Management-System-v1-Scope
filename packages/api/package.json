@@ -6,7 +6,8 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "echo 'Using tsx for runtime compilation'",
+    "build": "npm run typecheck",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "tsx src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
