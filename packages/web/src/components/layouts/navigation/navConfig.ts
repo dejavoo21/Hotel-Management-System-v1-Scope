@@ -38,6 +38,7 @@ export const navSections: NavSection[] = [
     icon: 'dashboard',
     items: [
       { id: 'dashboard-home', label: 'Overview', href: '/', permission: 'dashboard', icon: 'dashboard' },
+      { id: 'enterprise-command-center', label: 'Command Center', href: '/enterprise-command-center', permission: 'dashboard', icon: 'gauge' },
     ],
   },
   {
@@ -71,6 +72,19 @@ export const navSections: NavSection[] = [
           { id: 'security-access-logs', label: 'Access Logs', href: '/security-center/access-logs', permission: 'security_center', icon: 'receipt' },
           { id: 'security-visitors', label: 'Visitors', href: '/security-center/visitors', permission: 'security_center', icon: 'users' },
           { id: 'security-alerts', label: 'Alerts', href: '/security-center/alerts', permission: 'security_center', icon: 'admin' },
+        ],
+      },
+      {
+        id: 'incident-center',
+        label: 'Incident Center',
+        href: '/incidents',
+        permission: 'incident_management',
+        icon: 'admin',
+        items: [
+          { id: 'incident-active', label: 'Active Incidents', href: '/incidents', permission: 'incident_management', icon: 'admin' },
+          { id: 'incident-critical', label: 'Critical', href: '/incidents', permission: 'incident_management', icon: 'admin' },
+          { id: 'incident-assigned', label: 'Assigned to Me', href: '/incidents', permission: 'incident_management', icon: 'users' },
+          { id: 'incident-resolved', label: 'Resolved', href: '/incidents', permission: 'incident_management', icon: 'calendar-check' },
         ],
       },
       {

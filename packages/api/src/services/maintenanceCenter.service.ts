@@ -100,7 +100,12 @@ export async function getMaintenanceCenterOverview(hotelId: string) {
       id: `smart-building-task:${item.id}`,
       type: 'SMART_BUILDING_TASK',
       title: item.title,
-      detail: item.location || item.deviceExternalId || item.sourceSignal || item.sourceModule,
+      detail: [
+        item.incidentNumber ? `Incident ${item.incidentNumber}` : null,
+        item.location || item.deviceExternalId || item.sourceSignal || item.sourceModule,
+      ]
+        .filter(Boolean)
+        .join(' / '),
       status: item.status,
       occurredAt: item.updatedAt,
       sourceModule: item.sourceModule,

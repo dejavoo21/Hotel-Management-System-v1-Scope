@@ -20,6 +20,7 @@ export const MODULE_ROUTES: Record<PermissionId, string> = {
   reviews: '/reviews',
   concierge: '/concierge',
   security_center: '/security-center',
+  incident_management: '/incidents',
   maintenance_center: '/maintenance-center',
   smart_building: '/operations/smart-building',
   users: '/users',
@@ -44,6 +45,7 @@ ROUTE_MODULES['/security-center/cctv'] = 'security_center';
 ROUTE_MODULES['/security-center/access-logs'] = 'security_center';
 ROUTE_MODULES['/security-center/visitors'] = 'security_center';
 ROUTE_MODULES['/security-center/alerts'] = 'security_center';
+ROUTE_MODULES['/incidents'] = 'incident_management';
 ROUTE_MODULES['/operations/security/cctv'] = 'security_center';
 ROUTE_MODULES['/operations/security/access-logs'] = 'security_center';
 ROUTE_MODULES['/operations/security/visitors'] = 'security_center';
@@ -90,6 +92,7 @@ const MODULE_PRIORITY: PermissionId[] = [
   'reviews',
   'concierge',
   'security_center',
+  'incident_management',
   'maintenance_center',
   'smart_building',
   'users',

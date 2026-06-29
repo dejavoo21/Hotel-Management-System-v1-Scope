@@ -100,6 +100,11 @@ const SecurityTaskCard = ({ task }: { task: SmartBuildingWorkflowTask }) => (
         <div className="text-sm font-bold text-slate-900">{task.title}</div>
         <div className="mt-1 text-sm text-slate-600">{task.sourceSummary || task.description || task.sourceSignal || 'Smart Building security task'}</div>
         <div className="mt-1 text-xs font-semibold text-sky-700">Source: {formatStatus(task.sourceModule)}</div>
+        {task.incidentNumber ? (
+          <div className="mt-1 text-xs font-semibold text-rose-700">
+            Incident: {task.incidentNumber} / {formatStatus(task.incidentStatus)}
+          </div>
+        ) : null}
         <div className="mt-1 text-xs text-slate-500">
           {[
             task.location ? `Location: ${task.location}` : null,
@@ -109,6 +114,11 @@ const SecurityTaskCard = ({ task }: { task: SmartBuildingWorkflowTask }) => (
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
+        {task.incidentSeverity ? (
+          <span className={`rounded-full px-2 py-1 text-xs font-semibold ${toneClasses[toneForStatus(task.incidentSeverity)].pill}`}>
+            {formatStatus(task.incidentSeverity)}
+          </span>
+        ) : null}
         <span className={`rounded-full px-2 py-1 text-xs font-semibold ${toneClasses[toneForStatus(task.priority)].pill}`}>
           {formatStatus(task.priority)}
         </span>

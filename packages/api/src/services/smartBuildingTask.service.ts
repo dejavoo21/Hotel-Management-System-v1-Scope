@@ -25,10 +25,6 @@ function smartBuildingTaskWhere(hotelId: string, scope: SmartBuildingTaskScope):
 
   if (scope === 'security') {
     where.department = Department.MANAGEMENT;
-    where.details = {
-      path: ['workflowId'],
-      in: ['smart-building-door-forced-open', 'smart-building-camera-offline', 'smart-building-panic-button'],
-    } as Prisma.JsonFilter<'Ticket'>;
   }
 
   return where;
@@ -38,6 +34,7 @@ function mapSmartBuildingTask(ticket: Awaited<ReturnType<typeof fetchSmartBuildi
   const details = asRecord(ticket.details);
   const sourcePayload = asRecord(details.sourcePayload);
   const firstMessage = ticket.conversation.messages[0];
+  const incidentLink = ticket.incidentTasks[0]?.incident;
 
   return {
     id: ticket.id,
@@ -56,6 +53,11 @@ function mapSmartBuildingTask(ticket: Awaited<ReturnType<typeof fetchSmartBuildi
     deviceExternalId: stringValue(sourcePayload.deviceExternalId) || stringValue(sourcePayload.externalId) || null,
     location: stringValue(sourcePayload.location) || null,
     sourceSummary: stringValue(sourcePayload.summary) || null,
+    incidentId: incidentLink?.id || stringValue(details.incidentId) || null,
+    incidentNumber: incidentLink?.incidentNumber || null,
+    incidentStatus: incidentLink?.status || null,
+    incidentSeverity: incidentLink?.severity || null,
+    incidentCategory: incidentLink?.category || null,
     dueAt: ticket.resolutionDueAtUtc,
     createdAt: ticket.createdAtUtc,
     updatedAt: ticket.updatedAtUtc,
@@ -75,6 +77,20 @@ async function fetchSmartBuildingTasks(hotelId: string, scope: SmartBuildingTask
             take: 1,
           },
         },
+      },
+      incidentTasks: {
+        include: {
+          incident: {
+            select: {
+              id: true,
+              incidentNumber: true,
+              status: true,
+              severity: true,
+              category: true,
+            },
+          },
+        },
+        take: 1,
       },
     },
     orderBy: [{ status: 'asc' }, { priority: 'desc' }, { createdAtUtc: 'desc' }],

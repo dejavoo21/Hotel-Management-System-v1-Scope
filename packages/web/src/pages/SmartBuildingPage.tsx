@@ -306,6 +306,11 @@ const AlertWorkflowPanel = ({ alerts, tasks }: { alerts: SecurityAlert[]; tasks:
                   >
                     {task ? `Task linked: ${formatStatus(task.status)}` : 'No linked task yet'}
                   </span>
+                  {task?.incidentNumber ? (
+                    <span className="rounded-full bg-rose-100 px-2 py-1 text-xs font-semibold text-rose-800">
+                      Incident {task.incidentNumber}: {formatStatus(task.incidentStatus)}
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -325,6 +330,11 @@ const AlertWorkflowPanel = ({ alerts, tasks }: { alerts: SecurityAlert[]; tasks:
               <span className={`rounded-full px-2 py-1 text-xs font-semibold ${toneClasses[toneForStatus(task.status)].pill}`}>
                 {formatStatus(task.status)}
               </span>
+              {task.incidentNumber ? (
+                <span className="rounded-full bg-rose-100 px-2 py-1 text-xs font-semibold text-rose-800">
+                  Incident {task.incidentNumber}: {formatStatus(task.incidentStatus)}
+                </span>
+              ) : null}
             </div>
           </div>
         ))}

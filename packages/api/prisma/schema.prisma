@@ -52,6 +52,10 @@ model User {
   notifications             Notification[]
   acknowledgedAlerts        SecurityAlert[]       @relation("SecurityAlertAcknowledgedBy")
   resolvedAlerts            SecurityAlert[]       @relation("SecurityAlertResolvedBy")
+  incidentsCreated          Incident[]            @relation("IncidentCreatedBy")
+  incidentsAssigned         Incident[]            @relation("IncidentAssignedManager")
+  incidentComments          IncidentComment[]
+  incidentAttachments       IncidentAttachment[]
 
   @@index([hotelId])
   @@index([email])
@@ -138,6 +142,9 @@ model Hotel {
   maintenanceRepairs MaintenanceRepair[]
   preventiveMaintenanceSchedules PreventiveMaintenanceSchedule[]
   assetMaintenanceRecords AssetMaintenanceRecord[]
+  incidents         Incident[]
+  incidentComments  IncidentComment[]
+  incidentAttachments IncidentAttachment[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 }
@@ -1131,6 +1138,7 @@ model Ticket {
   lastEscalationAtUtc DateTime? @map("last_escalation_at_utc")
   sourceKey           String?   @unique @map("source_key")
   details             Json?     @map("details")
+  incidentTasks       IncidentTask[]
 
   createdAtUtc DateTime @default(now()) @map("created_at_utc")
   updatedAtUtc DateTime @updatedAt @map("updated_at_utc")
@@ -1142,6 +1150,120 @@ model Ticket {
   @@index([responseDueAtUtc])
   @@index([resolutionDueAtUtc])
   @@map("tickets")
+}
+
+// ===========================================
+// Incident Management
+// ===========================================
+
+model Incident {
+  id                String           @id @default(cuid())
+  hotelId           String
+  hotel             Hotel            @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  incidentNumber    String
+  title             String
+  description       String?
+  category          IncidentCategory
+  severity          IncidentSeverity @default(MEDIUM)
+  status            IncidentStatus   @default(NEW)
+  sourceModule      String
+  linkedEntityType  String?
+  linkedEntityId    String?
+  createdById       String?
+  createdBy         User?            @relation("IncidentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  assignedManagerId String?
+  assignedManager   User?            @relation("IncidentAssignedManager", fields: [assignedManagerId], references: [id], onDelete: SetNull)
+  startedAt         DateTime         @default(now())
+  resolvedAt        DateTime?
+  closedAt          DateTime?
+  metadata          Json?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  tasks             IncidentTask[]
+  comments          IncidentComment[]
+  attachments       IncidentAttachment[]
+
+  @@unique([hotelId, incidentNumber])
+  @@index([hotelId])
+  @@index([status])
+  @@index([severity])
+  @@index([category])
+  @@index([sourceModule])
+  @@index([linkedEntityType, linkedEntityId])
+  @@index([startedAt])
+}
+
+model IncidentTask {
+  id         String   @id @default(cuid())
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([incidentId, ticketId])
+  @@index([ticketId])
+}
+
+model IncidentComment {
+  id         String   @id @default(cuid())
+  incidentId String
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  hotelId    String
+  hotel      Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  authorId   String?
+  author     User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  body       String
+  createdAt  DateTime @default(now())
+
+  @@index([incidentId])
+  @@index([hotelId])
+  @@index([createdAt])
+}
+
+model IncidentAttachment {
+  id           String   @id @default(cuid())
+  incidentId   String
+  incident     Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  hotelId      String
+  hotel        Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  uploadedById String?
+  uploadedBy   User?    @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  filename     String
+  url          String
+  contentType  String?
+  sizeBytes    Int?
+  createdAt    DateTime @default(now())
+
+  @@index([incidentId])
+  @@index([hotelId])
+}
+
+enum IncidentCategory {
+  SECURITY
+  MAINTENANCE
+  SMART_BUILDING
+  OPERATIONS
+  WEATHER
+  HOUSEKEEPING
+  IT
+  GUEST
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentStatus {
+  NEW
+  ACKNOWLEDGED
+  INVESTIGATING
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
 }
 
 model SLAPolicy {

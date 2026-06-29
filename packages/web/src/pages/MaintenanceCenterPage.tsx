@@ -106,6 +106,7 @@ const SmartBuildingTaskCard = ({ task }: { task: SmartBuildingWorkflowTask }) =>
     detail={task.sourceSummary || task.description || task.sourceSignal || 'Smart Building workflow task'}
     status={task.status}
     meta={[
+      task.incidentNumber ? `Incident: ${task.incidentNumber} (${formatStatus(task.incidentStatus)})` : null,
       task.location ? `Location: ${task.location}` : null,
       task.deviceExternalId ? `Device: ${task.deviceExternalId}` : null,
       task.dueAt ? `Due ${formatDateTime(task.dueAt)}` : null,

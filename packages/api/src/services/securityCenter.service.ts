@@ -85,7 +85,12 @@ export async function getSecurityCenterOverview(hotelId: string) {
       id: `smart-building-task:${task.id}`,
       type: 'SMART_BUILDING_TASK',
       title: task.title,
-      detail: task.location || task.deviceExternalId || task.sourceSignal || task.sourceModule,
+      detail: [
+        task.incidentNumber ? `Incident ${task.incidentNumber}` : null,
+        task.location || task.deviceExternalId || task.sourceSignal || task.sourceModule,
+      ]
+        .filter(Boolean)
+        .join(' / '),
       status: task.status,
       occurredAt: task.updatedAt,
       sourceModule: task.sourceModule,

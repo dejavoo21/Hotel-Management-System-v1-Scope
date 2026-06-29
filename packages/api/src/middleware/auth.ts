@@ -22,6 +22,7 @@ export type ModulePermission =
   | 'security_center'
   | 'maintenance_center'
   | 'smart_building'
+  | 'incident_management'
   | 'users'
   | 'settings';
 

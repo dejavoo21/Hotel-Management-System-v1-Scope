@@ -15,6 +15,7 @@ import RequestAccessPage from '@/pages/auth/RequestAccessPage';
 
 // Dashboard Pages
 import DashboardPage from '@/pages/DashboardPage';
+import EnterpriseCommandCenterPage from '@/pages/EnterpriseCommandCenterPage';
 import RoomsPage from '@/pages/RoomsPage';
 import BookingsPage from '@/pages/BookingsPage';
 import BookingDetailPage from '@/pages/BookingDetailPage';
@@ -36,6 +37,7 @@ import OperationsPlaceholderPage from '@/pages/OperationsPlaceholderPage';
 import SecurityCenterPage from '@/pages/SecurityCenterPage';
 import MaintenanceCenterPage from '@/pages/MaintenanceCenterPage';
 import SmartBuildingPage from '@/pages/SmartBuildingPage';
+import IncidentCenterPage from '@/features/incidents/IncidentCenterPage';
 import ForcePasswordChangePage from '@/pages/auth/ForcePasswordChangePage';
 import NotAuthorizedPage from '@/pages/NotAuthorizedPage';
 
@@ -74,6 +76,7 @@ const MODULE_ROUTE_PRIORITY: { module: PermissionId; path: string }[] = [
   { module: 'calendar', path: '/calendar' },
   { module: 'inventory', path: '/inventory' },
   { module: 'security_center', path: '/security-center' },
+  { module: 'incident_management', path: '/incidents' },
   { module: 'maintenance_center', path: '/maintenance-center' },
   { module: 'smart_building', path: '/operations/smart-building' },
 ];
@@ -201,6 +204,7 @@ export default function App() {
       >
         <Route path="force-password-change" element={<ForcePasswordChangePage />} />
         <Route index element={<ModuleRoute requiredModule="dashboard"><DashboardPage /></ModuleRoute>} />
+        <Route path="enterprise-command-center" element={<ModuleRoute requiredModule="dashboard"><EnterpriseCommandCenterPage /></ModuleRoute>} />
         <Route path="rooms" element={<ModuleRoute requiredModule="rooms"><RoomsPage /></ModuleRoute>} />
         <Route path="bookings" element={<ModuleRoute requiredModule="bookings"><BookingsPage /></ModuleRoute>} />
         <Route path="bookings/:id" element={<ModuleRoute requiredModule="bookings"><BookingDetailPage /></ModuleRoute>} />
@@ -219,6 +223,7 @@ export default function App() {
         <Route path="operations-center/weather" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
         <Route path="operations-center/tasks" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
         <Route path="operations-center/market-intelligence" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="incidents" element={<ModuleRoute requiredModule="incident_management"><IncidentCenterPage /></ModuleRoute>} />
         <Route path="security-center" element={<ModuleRoute requiredModule="security_center"><SecurityCenterPage /></ModuleRoute>} />
         <Route path="security-center/:tab" element={<ModuleRoute requiredModule="security_center"><SecurityCenterPage /></ModuleRoute>} />
         <Route path="operations/security/cctv" element={<Navigate to="/security-center/cctv" replace />} />

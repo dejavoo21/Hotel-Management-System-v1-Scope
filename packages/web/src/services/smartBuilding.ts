@@ -93,6 +93,11 @@ export type SmartBuildingWorkflowTask = {
   deviceExternalId?: string | null;
   location?: string | null;
   sourceSummary?: string | null;
+  incidentId?: string | null;
+  incidentNumber?: string | null;
+  incidentStatus?: string | null;
+  incidentSeverity?: string | null;
+  incidentCategory?: string | null;
   dueAt?: string | null;
   createdAt: string;
   updatedAt: string;
