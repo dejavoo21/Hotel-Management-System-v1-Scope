@@ -13,6 +13,7 @@ import { TicketMetaBar } from '@/components/support/TicketMetaBar';
 import { SupportLayout } from '@/components/support/SupportLayout';
 import { SupportRightPanel } from '@/components/support/SupportRightPanel';
 import SupportVideoPanel from '@/components/calls/SupportVideoPanel';
+import DepartmentIntelligenceCard from '@/components/operations/DepartmentIntelligenceCard';
 import type {
   ConversationMessage,
   MessageThreadDetail,
@@ -569,6 +570,10 @@ export default function MessagesPageRedesigned() {
             </button>
           </div>
         </header>
+
+        <div className="shrink-0 border-b border-slate-200 bg-slate-50/60 px-6 py-4">
+          <DepartmentIntelligenceCard department="guest-experience" compact />
+        </div>
 
         {/* Ticket Meta Bar */}
         <TicketMetaBar

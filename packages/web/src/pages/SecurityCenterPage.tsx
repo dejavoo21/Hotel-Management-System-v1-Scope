@@ -7,6 +7,7 @@ import securityCenterService, {
   type Visitor,
 } from '@/services/securityCenter';
 import type { CameraFeed, DoorAccessEvent, SecurityAlert, SmartBuildingWorkflowTask } from '@/services/smartBuilding';
+import DepartmentIntelligenceCard from '@/components/operations/DepartmentIntelligenceCard';
 
 type TabId = 'overview' | 'cctv' | 'access-logs' | 'visitors' | 'alerts';
 type Tone = 'emerald' | 'sky' | 'amber' | 'rose' | 'slate';
@@ -410,6 +411,8 @@ export default function SecurityCenterPage() {
           <MetricCard key={metric.label} label={metric.label} value={metric.value} detail={metric.detail} tone={metric.tone} />
         ))}
       </section>
+
+      <DepartmentIntelligenceCard department="security" />
 
       <nav className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" aria-label="Security Center tabs">
         {tabs.map((tab) => (

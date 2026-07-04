@@ -38,6 +38,8 @@ import notificationRoutes from './routes/notification.routes.js';
 import aiHooksRoutes from './routes/aiHooks.routes.js';
 import aiContextRoutes from './routes/aiContext.routes.js';
 import aiBriefingRoutes from './routes/aiBriefing.routes.js';
+import aiDepartmentIntelligenceRoutes from './routes/aiDepartmentIntelligence.routes.js';
+import aiRecommendationGovernanceRoutes from './routes/aiRecommendationGovernance.routes.js';
 import assistantRoutes from './routes/assistant.routes.js';
 import operationsAssistantRoutes from './routes/operationsAssistant.routes.js';
 import operationsAssistantActionsRoutes from './routes/operationsAssistant.actions.routes.js';
@@ -186,6 +188,8 @@ export function createApp(): Application {
           market: '/api/market',
           aiContext: '/api/ai/context/hotel',
           aiDailyBriefing: '/api/ai/briefing/daily',
+          aiDepartmentIntelligence: '/api/ai/department/:department/briefing',
+          aiRecommendations: '/api/ai/recommendations',
           assistant: '/api/assistant',
           conversations: '/api/conversations',
         },
@@ -251,6 +255,8 @@ export function createApp(): Application {
   app.use('/api/ai', aiHooksRoutes);
   app.use('/api/ai', aiContextRoutes);
   app.use('/api/ai', aiBriefingRoutes);
+  app.use('/api/ai', aiDepartmentIntelligenceRoutes);
+  app.use('/api/ai', aiRecommendationGovernanceRoutes);
   app.use('/api/assistant', assistantRoutes);
   app.use('/api/operations/assistant', operationsAssistantRoutes);
   app.use('/api/operations/assistant', operationsAssistantActionsRoutes);
@@ -303,6 +309,8 @@ export function createApp(): Application {
           market: '/api/market',
           aiContext: '/api/ai/context/hotel',
           aiDailyBriefing: '/api/ai/briefing/daily',
+          aiDepartmentIntelligence: '/api/ai/department/:department/briefing',
+          aiRecommendations: '/api/ai/recommendations',
           assistant: '/api/assistant',
           conversations: '/api/conversations',
         },

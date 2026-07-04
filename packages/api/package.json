@@ -32,6 +32,8 @@
     "incident:test-workflow": "tsx scripts/testIncidentWorkflow.ts",
     "ai:context:test": "tsx scripts/testAIContext.ts",
     "ai:briefing:test": "tsx scripts/testDailyBriefing.ts",
+    "ai:department:test": "tsx scripts/testDepartmentIntelligence.ts",
+    "ai:recommendation-governance:test": "tsx scripts/testAIRecommendationGovernance.ts",
     "security-center:seed": "tsx scripts/seedSecurityCenter.ts",
     "maintenance-center:seed": "tsx scripts/seedMaintenanceCenter.ts"
   },

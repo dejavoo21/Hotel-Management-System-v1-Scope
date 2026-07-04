@@ -56,6 +56,7 @@ model User {
   incidentsAssigned         Incident[]            @relation("IncidentAssignedManager")
   incidentComments          IncidentComment[]
   incidentAttachments       IncidentAttachment[]
+  reviewedAIRecommendations AIRecommendation[]    @relation("AIRecommendationReviewedBy")
 
   @@index([hotelId])
   @@index([email])
@@ -147,6 +148,7 @@ model Hotel {
   incidents         Incident[]
   incidentComments  IncidentComment[]
   incidentAttachments IncidentAttachment[]
+  aiRecommendations AIRecommendation[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 }
@@ -1226,6 +1228,7 @@ model Ticket {
   sourceKey           String?   @unique @map("source_key")
   details             Json?     @map("details")
   incidentTasks       IncidentTask[]
+  aiRecommendations   AIRecommendation[] @relation("AIRecommendationCreatedTask")
 
   createdAtUtc DateTime @default(now()) @map("created_at_utc")
   updatedAtUtc DateTime @updatedAt @map("updated_at_utc")
@@ -1237,6 +1240,58 @@ model Ticket {
   @@index([responseDueAtUtc])
   @@index([resolutionDueAtUtc])
   @@map("tickets")
+}
+
+model AIRecommendation {
+  id              String                 @id @default(cuid())
+  hotelId         String
+  hotel           Hotel                  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  sourceType      AIRecommendationSource
+  sourceId        String
+  title           String
+  description     String
+  category        String
+  department      String
+  priority        AIRecommendationPriority @default(MEDIUM)
+  confidence      Float                  @default(0.75)
+  rationale       String
+  status          AIRecommendationStatus @default(PENDING)
+  createdTaskId   String?
+  createdTask     Ticket?                @relation("AIRecommendationCreatedTask", fields: [createdTaskId], references: [id], onDelete: SetNull)
+  reviewedById    String?
+  reviewedBy      User?                  @relation("AIRecommendationReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  @@unique([hotelId, sourceType, sourceId, title])
+  @@index([hotelId])
+  @@index([status])
+  @@index([department])
+  @@index([priority])
+  @@index([sourceType, sourceId])
+  @@index([createdAt])
+}
+
+enum AIRecommendationSource {
+  DAILY_GM_BRIEFING
+  DEPARTMENT_INTELLIGENCE
+}
+
+enum AIRecommendationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  TASK_CREATED
+  EXPIRED
+}
+
+enum AIRecommendationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
 }
 
 // ===========================================

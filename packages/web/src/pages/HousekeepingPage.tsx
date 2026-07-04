@@ -6,6 +6,7 @@ import { getHousekeepingFloors, getHousekeepingRooms } from '@/data/dataSource';
 import type { Room } from '@/types';
 import { formatEnumLabel } from '@/utils';
 import { PAGE_TITLE_CLASS } from '@/styles/typography';
+import DepartmentIntelligenceCard from '@/components/operations/DepartmentIntelligenceCard';
 
 type StatusFilter = 'all' | Room['housekeepingStatus'];
 type PriorityFilter = 'all' | 'HIGH' | 'MEDIUM' | 'LOW';
@@ -121,6 +122,8 @@ export default function HousekeepingPage() {
       <div>
         <h1 className={PAGE_TITLE_CLASS}>Housekeeping</h1>
       </div>
+
+      <DepartmentIntelligenceCard department="housekeeping" />
 
       <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

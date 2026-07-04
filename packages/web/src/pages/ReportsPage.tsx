@@ -17,6 +17,7 @@ import api from '@/services/api';
 import { reportService, bookingService, roomService } from '@/services';
 import type { RevenueBreakdownItem, OccupancyBreakdownItem } from '@/types';
 import { formatEnumLabel } from '@/utils';
+import DepartmentIntelligenceCard from '@/components/operations/DepartmentIntelligenceCard';
 
 type ReportPeriod = '7d' | '30d' | '90d' | '365d';
 
@@ -283,6 +284,8 @@ export default function ReportsPage() {
           ))}
         </div>
       </div>
+
+      <DepartmentIntelligenceCard department="revenue" />
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

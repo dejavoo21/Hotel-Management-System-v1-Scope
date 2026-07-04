@@ -13,6 +13,8 @@ import ArrivalsSignalCard from '@/components/operations/signals/ArrivalsSignalCa
 import DemandSignalCard from '@/components/operations/signals/DemandSignalCard';
 import PricingSignalCard from '@/components/operations/signals/PricingSignalCard';
 import WeatherSignalCard from '@/components/operations/signals/WeatherSignalCard';
+import DepartmentIntelligenceCard from '@/components/operations/DepartmentIntelligenceCard';
+import AIRecommendationGovernancePanel from '@/components/operations/AIRecommendationGovernancePanel';
 import OperationalTimeline from '@/components/timeline/OperationalTimeline';
 import { aiBriefingService, operationsService, weatherSignalsService } from '@/services';
 import type { DailyGMBriefing } from '@/services/aiBriefing';
@@ -60,6 +62,15 @@ const getFocusFromPath = (pathname: string): OperationsFocus => {
   }
   return 'overview';
 };
+
+const operationsDepartments = [
+  'front-desk',
+  'housekeeping',
+  'maintenance',
+  'security',
+  'revenue',
+  'guest-experience',
+] as const;
 
 const severityClass = (severity?: string) => {
   if (severity === 'CRITICAL') return 'border-red-200 bg-red-50 text-red-700';
@@ -376,6 +387,7 @@ export default function OperationsCenterPage() {
     if (focus === 'revenue') {
       return (
         <div className="space-y-6">
+          <DepartmentIntelligenceCard department="revenue" />
           {revenueSignalsPanel}
           {revenuePanel}
         </div>
@@ -396,7 +408,12 @@ export default function OperationsCenterPage() {
     }
 
     if (focus === 'ai') {
-      return <div className="max-w-5xl">{aiPanel}</div>;
+      return (
+        <div className="max-w-5xl space-y-6">
+          <AIRecommendationGovernancePanel />
+          {aiPanel}
+        </div>
+      );
     }
 
     return (
@@ -409,6 +426,12 @@ export default function OperationsCenterPage() {
             isFetching={briefingQuery.isFetching}
             onRefresh={() => briefingQuery.refetch()}
           />
+          <AIRecommendationGovernancePanel compact />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {operationsDepartments.map((department) => (
+              <DepartmentIntelligenceCard key={department} department={department} compact />
+            ))}
+          </div>
           {weatherPanel}
           {revenuePanel}
           {tasksPanel}

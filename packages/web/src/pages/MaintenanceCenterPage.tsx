@@ -13,6 +13,7 @@ import maintenanceCenterService, {
   type PreventiveMaintenanceSchedule,
 } from '@/services/maintenanceCenter';
 import type { SmartBuildingWorkflowTask } from '@/services/smartBuilding';
+import DepartmentIntelligenceCard from '@/components/operations/DepartmentIntelligenceCard';
 
 type TabId = 'overview' | 'work-orders' | 'faults' | 'repairs' | 'preventive-maintenance' | 'assets';
 type Tone = 'emerald' | 'sky' | 'amber' | 'rose' | 'slate';
@@ -342,6 +343,8 @@ export default function MaintenanceCenterPage() {
           <MetricCard key={metric.label} label={metric.label} value={metric.value} detail={metric.detail} tone={metric.tone} />
         ))}
       </section>
+
+      <DepartmentIntelligenceCard department="maintenance" />
 
       <nav className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" aria-label="Maintenance Center tabs">
         {tabs.map((tab) => (

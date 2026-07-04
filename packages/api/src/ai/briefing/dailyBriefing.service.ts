@@ -1,5 +1,6 @@
 import { buildHotelContext, type AIHotelContext } from '../context/index.js';
 import { generateAIRecommendation } from '../ai.service.js';
+import { persistAIRecommendations, type AIRecommendationSeed } from '../recommendations/index.js';
 import { recordAuditEvent } from '../../platform/audit/auditEngine.service.js';
 import type {
   DailyBriefingItem,
@@ -342,6 +343,29 @@ function mergeAiBriefing(ai: Record<string, unknown>, fallback: DailyGMBriefing,
   };
 }
 
+function departmentFromOwner(owner: string): string {
+  const normalized = owner.toLowerCase();
+  if (normalized.includes('housekeeping')) return 'Housekeeping';
+  if (normalized.includes('maintenance')) return 'Maintenance';
+  if (normalized.includes('security')) return 'Security';
+  if (normalized.includes('revenue') || normalized.includes('finance')) return 'Revenue';
+  if (normalized.includes('front') || normalized.includes('reception')) return 'Front Desk';
+  if (normalized.includes('guest') || normalized.includes('concierge')) return 'Guest Experience';
+  return 'Operations';
+}
+
+function dailyActionsToRecommendations(briefing: DailyGMBriefing): AIRecommendationSeed[] {
+  return briefing.recommendedActions.slice(0, 10).map((action) => ({
+    title: action.title,
+    description: `${action.owner}: ${action.rationale}`,
+    category: 'Daily GM Briefing',
+    department: departmentFromOwner(action.owner),
+    priority: action.priority,
+    confidence: briefing.source === 'AI' ? 0.82 : 0.7,
+    rationale: action.rationale,
+  }));
+}
+
 async function generateAiBriefing(context: AIHotelContext, fallback: DailyGMBriefing): Promise<DailyGMBriefing> {
   const result = await generateAIRecommendation({
     hotelId: context.metadata.hotelId,
@@ -402,6 +426,14 @@ export async function generateDailyGMBriefing(hotelId: string, options: DailyBri
       sectionsIncluded: context.metadata.sectionsIncluded,
     },
     idempotencyKey: `ai-daily-briefing:${hotelId}:${options.actor?.userId || 'system'}:${new Date().toISOString().slice(0, 10)}`,
+  });
+
+  await persistAIRecommendations({
+    hotelId,
+    sourceType: 'DAILY_GM_BRIEFING',
+    sourceId: new Date(briefing.generatedAt).toISOString().slice(0, 10),
+    recommendations: dailyActionsToRecommendations(briefing),
+    actor: options.actor,
   });
 
   return briefing;
