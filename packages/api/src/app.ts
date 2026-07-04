@@ -36,6 +36,8 @@ import marketRoutes from './routes/market.routes.js';
 import ticketRoutes from './routes/ticket.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import aiHooksRoutes from './routes/aiHooks.routes.js';
+import aiContextRoutes from './routes/aiContext.routes.js';
+import aiBriefingRoutes from './routes/aiBriefing.routes.js';
 import assistantRoutes from './routes/assistant.routes.js';
 import operationsAssistantRoutes from './routes/operationsAssistant.routes.js';
 import operationsAssistantActionsRoutes from './routes/operationsAssistant.actions.routes.js';
@@ -182,6 +184,8 @@ export function createApp(): Application {
           timeline: '/api/timeline',
           incidents: '/api/incidents',
           market: '/api/market',
+          aiContext: '/api/ai/context/hotel',
+          aiDailyBriefing: '/api/ai/briefing/daily',
           assistant: '/api/assistant',
           conversations: '/api/conversations',
         },
@@ -245,6 +249,8 @@ export function createApp(): Application {
   app.use('/api/tickets', ticketRoutes);
   app.use('/api/notifications', notificationRoutes);
   app.use('/api/ai', aiHooksRoutes);
+  app.use('/api/ai', aiContextRoutes);
+  app.use('/api/ai', aiBriefingRoutes);
   app.use('/api/assistant', assistantRoutes);
   app.use('/api/operations/assistant', operationsAssistantRoutes);
   app.use('/api/operations/assistant', operationsAssistantActionsRoutes);
@@ -295,6 +301,8 @@ export function createApp(): Application {
           smartBuilding: '/api/smart-building',
           incidents: '/api/incidents',
           market: '/api/market',
+          aiContext: '/api/ai/context/hotel',
+          aiDailyBriefing: '/api/ai/briefing/daily',
           assistant: '/api/assistant',
           conversations: '/api/conversations',
         },

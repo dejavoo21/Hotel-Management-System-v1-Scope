@@ -1,5 +1,5 @@
 import { prisma } from '../../config/database.js';
-import { getOperationsContext } from '../operationsContext.service.js';
+import { buildHotelContext } from '../../ai/context/index.js';
 import { syncWeatherSignalsForHotel } from '../weatherSignal.service.js';
 import { runPricingSnapshotJob } from '../pricingSnapshot.job.js';
 import { Department, TicketPriority } from '@prisma/client';
@@ -104,7 +104,7 @@ export async function runTool(name: string, args: ToolArgs): Promise<unknown> {
     case 'get_operations_context': {
       const hotelId = String(args.hotelId ?? '');
       if (!hotelId) throw new Error('hotelId is required');
-      return getOperationsContext(hotelId);
+      return buildHotelContext(hotelId);
     }
 
     case 'refresh_weather': {

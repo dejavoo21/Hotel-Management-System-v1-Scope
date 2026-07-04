@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { RefreshCcw, Sparkles } from 'lucide-react';
+import { AlertTriangle, Brain, RefreshCcw, Sparkles } from 'lucide-react';
 import OpsAdvisories from '@/components/operations/advisories/OpsAdvisories';
 import AssistantDock from '@/components/operations/assistant/AssistantDock';
 import PricingCalendarCard from '@/components/operations/pricing/PricingCalendarCard';
@@ -14,7 +14,8 @@ import DemandSignalCard from '@/components/operations/signals/DemandSignalCard';
 import PricingSignalCard from '@/components/operations/signals/PricingSignalCard';
 import WeatherSignalCard from '@/components/operations/signals/WeatherSignalCard';
 import OperationalTimeline from '@/components/timeline/OperationalTimeline';
-import { operationsService, weatherSignalsService } from '@/services';
+import { aiBriefingService, operationsService, weatherSignalsService } from '@/services';
+import type { DailyGMBriefing } from '@/services/aiBriefing';
 import { useAuthStore } from '@/stores/authStore';
 
 type OperationsFocus = 'overview' | 'ai' | 'revenue' | 'weather' | 'tasks' | 'market-intelligence';
@@ -60,6 +61,166 @@ const getFocusFromPath = (pathname: string): OperationsFocus => {
   return 'overview';
 };
 
+const severityClass = (severity?: string) => {
+  if (severity === 'CRITICAL') return 'border-red-200 bg-red-50 text-red-700';
+  if (severity === 'HIGH') return 'border-amber-200 bg-amber-50 text-amber-700';
+  if (severity === 'MEDIUM') return 'border-sky-200 bg-sky-50 text-sky-700';
+  return 'border-slate-200 bg-slate-50 text-slate-600';
+};
+
+function DailyBriefingPanel({
+  briefing,
+  isLoading,
+  isError,
+  isFetching,
+  onRefresh,
+}: {
+  briefing?: DailyGMBriefing;
+  isLoading: boolean;
+  isError: boolean;
+  isFetching: boolean;
+  onRefresh: () => void;
+}) {
+  const risks = [
+    ...(briefing?.operationalRisks || []),
+    ...(briefing?.guestExperienceRisks || []),
+    ...(briefing?.maintenanceConcerns || []),
+    ...(briefing?.securityConcerns || []),
+    ...(briefing?.smartBuildingConcerns || []),
+  ].slice(0, 4);
+
+  if (isLoading) {
+    return (
+      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="h-5 w-40 animate-pulse rounded bg-slate-100" />
+        <div className="mt-4 space-y-2">
+          <div className="h-3 w-full animate-pulse rounded bg-slate-100" />
+          <div className="h-3 w-4/5 animate-pulse rounded bg-slate-100" />
+          <div className="h-20 w-full animate-pulse rounded-2xl bg-slate-100" />
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700 shadow-sm">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="mt-0.5 h-5 w-5" />
+          <div>
+            <p className="font-semibold">Daily briefing unavailable</p>
+            <p className="mt-1">The GM briefing could not be generated from hotel context.</p>
+            <button
+              type="button"
+              onClick={onRefresh}
+              className="mt-3 rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100"
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!briefing) {
+    return (
+      <div className="rounded-3xl border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
+        Daily GM Briefing will appear when hotel context is available.
+      </div>
+    );
+  }
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-white">
+            <Brain className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base font-semibold text-slate-900">Daily GM Briefing</h2>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                {briefing.source === 'AI' ? 'AI generated' : 'Rules fallback'}
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-slate-600">{briefing.executiveSummary}</p>
+            <p className="mt-2 text-xs text-slate-400">
+              Generated {new Date(briefing.generatedAt).toLocaleString()} · {briefing.contextVersion}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Health score</div>
+            <div className="text-3xl font-semibold text-slate-900">{briefing.hotelHealthScore}</div>
+          </div>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={isFetching}
+            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+          >
+            <RefreshCcw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            Regenerate Briefing
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Top priorities</h3>
+          <div className="mt-3 space-y-2">
+            {briefing.todayPriorities.slice(0, 3).map((item, index) => (
+              <div key={`${item.title}-${index}`} className="text-sm">
+                <p className="font-medium text-slate-900">{item.title}</p>
+                <p className="mt-0.5 text-xs text-slate-500">{item.detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Top risks</h3>
+          <div className="mt-3 space-y-2">
+            {risks.length ? risks.slice(0, 3).map((item, index) => (
+              <div key={`${item.title}-${index}`} className="flex items-start justify-between gap-2 text-sm">
+                <div>
+                  <p className="font-medium text-slate-900">{item.title}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{item.detail}</p>
+                </div>
+                <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${severityClass(item.severity)}`}>
+                  {item.severity || 'LOW'}
+                </span>
+              </div>
+            )) : (
+              <p className="text-sm text-slate-500">No major risks detected.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recommended actions</h3>
+          <div className="mt-3 space-y-2">
+            {briefing.recommendedActions.slice(0, 3).map((item, index) => (
+              <div key={`${item.title}-${index}`} className="text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-medium text-slate-900">{item.title}</p>
+                  <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${severityClass(item.priority)}`}>
+                    {item.priority}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs text-slate-500">{item.owner} · {item.rationale}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function OperationsCenterPage() {
   const queryClient = useQueryClient();
   const location = useLocation();
@@ -75,6 +236,14 @@ export default function OperationsCenterPage() {
     enabled: Boolean(hotelId),
     staleTime: 0,
     refetchOnWindowFocus: true,
+  });
+
+  const briefingQuery = useQuery({
+    queryKey: ['dailyGMBriefing', hotelId],
+    queryFn: () => aiBriefingService.getDailyBriefing(),
+    enabled: Boolean(hotelId) && isOverview,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const refreshWeatherMutation = useMutation({
@@ -233,6 +402,13 @@ export default function OperationsCenterPage() {
     return (
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
         <div className="space-y-6 xl:col-span-8">
+          <DailyBriefingPanel
+            briefing={briefingQuery.data}
+            isLoading={briefingQuery.isLoading}
+            isError={briefingQuery.isError}
+            isFetching={briefingQuery.isFetching}
+            onRefresh={() => briefingQuery.refetch()}
+          />
           {weatherPanel}
           {revenuePanel}
           {tasksPanel}
@@ -250,6 +426,11 @@ export default function OperationsCenterPage() {
     operationsQuery.isLoading,
     operationsQuery.isError,
     operationsQuery.data,
+    briefingQuery.data,
+    briefingQuery.isError,
+    briefingQuery.isFetching,
+    briefingQuery.isLoading,
+    briefingQuery.refetch,
     refreshWeatherMutation.isPending,
   ]);
 

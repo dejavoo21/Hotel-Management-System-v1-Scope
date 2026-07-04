@@ -1,6 +1,7 @@
 import { ConversationStatus, MessageSender } from '@prisma/client';
 import { prisma } from '../../config/database.js';
 import { runOpsAssistant } from '../ai/opsAssistant.service.js';
+import { buildHotelContext } from '../../ai/context/index.js';
 
 export type UnifiedChatMode = 'general' | 'operations' | 'pricing' | 'weather' | 'tasks';
 
@@ -68,9 +69,13 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
     },
   });
 
+  const structuredContext = context && typeof context === 'object'
+    ? context
+    : await buildHotelContext(hotelId);
+
   const contextBlock =
-    context && typeof context === 'object'
-      ? `\n\nMode: ${mode}\nContext:\n${JSON.stringify(context).slice(0, 6000)}`
+    structuredContext && typeof structuredContext === 'object'
+      ? `\n\nMode: ${mode}\nContext:\n${JSON.stringify(structuredContext).slice(0, 6000)}`
       : `\n\nMode: ${mode}`;
 
   const reply = await runOpsAssistant({
