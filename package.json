@@ -10,7 +10,7 @@
     "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "npm run dev --workspace=@hotelos/api",
     "dev:web": "npm run dev --workspace=@hotelos/web",
-    "build": "npm run build --workspaces",
+    "build": "npm run api:generate && npm run build --workspaces",
     "build:api": "npm run build --workspace=@hotelos/api",
     "build:web": "npm run build --workspace=@hotelos/web",
     "web:build": "npm run build --workspace=@hotelos/web",
