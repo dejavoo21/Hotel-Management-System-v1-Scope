@@ -388,6 +388,7 @@ export default function DashboardLayout() {
       { label: 'Security', href: '/settings?tab=security' },
       { label: 'Notifications', href: '/settings?tab=notifications' },
       { label: 'Appearance', href: '/settings?tab=appearance' },
+      { label: 'Integrations', href: '/settings?tab=integrations' },
       { label: 'Audit Trail', href: '/settings?tab=audit-trail' },
       { label: 'Access Requests', href: '/settings?tab=access-requests' },
     ],

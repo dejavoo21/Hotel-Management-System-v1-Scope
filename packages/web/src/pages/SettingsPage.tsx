@@ -18,6 +18,7 @@ import { formatEnumLabel } from '@/utils';
 import { ackAccessRequest } from '@/utils/accessRequestAck';
 import ThemeSwitcher from '@/components/theme/ThemeSwitcher';
 import { useTheme } from '@/theme/ThemeProvider';
+import IntegrationMarketplacePanel from '@/components/settings/IntegrationMarketplacePanel';
 
 type SettingsTab =
   | 'hotel'
@@ -25,6 +26,7 @@ type SettingsTab =
   | 'security'
   | 'notifications'
   | 'appearance'
+  | 'integrations'
   | 'audit-trail'
   | 'access-requests';
 
@@ -172,6 +174,7 @@ export default function SettingsPage() {
         'security',
         'notifications',
         'appearance',
+        'integrations',
         'audit-trail',
         'access-requests',
       ];
@@ -663,6 +666,20 @@ export default function SettingsPage() {
             strokeLinejoin="round"
             strokeWidth={2}
             d="M12 4a8 8 0 00-8 8 4 4 0 004 4h1v4l4-4h3a8 8 0 000-16z"
+          />
+        </svg>
+      ),
+    },
+    {
+      id: 'integrations',
+      name: 'Integrations',
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M13.5 6.75l3.75 3.75m0 0l-3.75 3.75m3.75-3.75H6.75m3.75-6.75L6.75 7.5m0 0l3.75 3.75M6.75 7.5h10.5M10.5 17.25l-3.75-3.75m0 0l3.75-3.75m-3.75 3.75h10.5"
           />
         </svg>
       ),
@@ -1201,6 +1218,9 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+
+          {/* Integrations */}
+          {activeTab === 'integrations' && <IntegrationMarketplacePanel />}
 
           {/* Audit Trail */}
           {activeTab === 'audit-trail' && (
