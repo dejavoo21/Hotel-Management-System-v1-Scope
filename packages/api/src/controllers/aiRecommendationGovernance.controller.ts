@@ -2,12 +2,12 @@ import { Role } from '@prisma/client';
 import type { Response, NextFunction } from 'express';
 import {
   approveAIRecommendation,
-  createTaskFromAIRecommendation,
   expireAIRecommendation,
   getAIRecommendation,
   listAIRecommendations,
   rejectAIRecommendation,
 } from '../ai/recommendations/index.js';
+import { executeAIRecommendationAction } from '../ai/action-execution/index.js';
 import type { AuthenticatedRequest } from '../types/index.js';
 
 function actorFrom(req: AuthenticatedRequest) {
@@ -94,7 +94,28 @@ export async function rejectRecommendation(req: AuthenticatedRequest, res: Respo
 export async function createRecommendationTask(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     if (!requireGovernanceAccess(req, res)) return;
-    const recommendation = await createTaskFromAIRecommendation(recommendationActionInput(req));
+    const recommendation = await executeAIRecommendationAction({
+      ...recommendationActionInput(req),
+      actionType: 'CREATE_TASK',
+    });
+    res.json({ success: true, data: recommendation });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function executeRecommendationAction(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    if (!requireGovernanceAccess(req, res)) return;
+    const actionType = typeof req.body?.actionType === 'string' ? req.body.actionType : 'CREATE_TASK';
+    if (actionType !== 'CREATE_TASK') {
+      res.status(400).json({ success: false, error: 'Unsupported actionType. Supported actionType: CREATE_TASK' });
+      return;
+    }
+    const recommendation = await executeAIRecommendationAction({
+      ...recommendationActionInput(req),
+      actionType,
+    });
     res.json({ success: true, data: recommendation });
   } catch (error) {
     next(error);

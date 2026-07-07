@@ -1,0 +1,1 @@
+ALTER TYPE "AIRecommendationSource" ADD VALUE IF NOT EXISTS 'AI_COPILOT';

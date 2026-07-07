@@ -26,6 +26,7 @@ export { default as operationsService } from './operations';
 export { default as aiBriefingService } from './aiBriefing';
 export { default as departmentIntelligenceService } from './departmentIntelligence';
 export { default as aiRecommendationsService } from './aiRecommendations';
+export { default as aiCopilotService } from './aiCopilot';
 export { default as securityCenterService } from './securityCenter';
 export { default as maintenanceCenterService } from './maintenanceCenter';
 export { default as smartBuildingService } from './smartBuilding';

@@ -14,6 +14,7 @@ import maintenanceCenterService, {
 } from '@/services/maintenanceCenter';
 import type { SmartBuildingWorkflowTask } from '@/services/smartBuilding';
 import DepartmentIntelligenceCard from '@/components/operations/DepartmentIntelligenceCard';
+import AICopilotPanel from '@/components/ai/AICopilotPanel';
 
 type TabId = 'overview' | 'work-orders' | 'faults' | 'repairs' | 'preventive-maintenance' | 'assets';
 type Tone = 'emerald' | 'sky' | 'amber' | 'rose' | 'slate';
@@ -345,6 +346,10 @@ export default function MaintenanceCenterPage() {
       </section>
 
       <DepartmentIntelligenceCard department="maintenance" />
+      <AICopilotPanel
+        title="Maintenance Copilot"
+        contextScope={['hotelProfile', 'maintenance', 'smartBuilding', 'incidents', 'tasks']}
+      />
 
       <nav className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" aria-label="Maintenance Center tabs">
         {tabs.map((tab) => (

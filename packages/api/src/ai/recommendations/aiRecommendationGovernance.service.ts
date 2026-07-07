@@ -54,9 +54,9 @@ function toTaskCategory(category: string): TicketCategory {
 }
 
 function sourceToEnum(sourceType: PersistAIRecommendationsInput['sourceType']): AIRecommendationSource {
-  return sourceType === 'DAILY_GM_BRIEFING'
-    ? AIRecommendationSource.DAILY_GM_BRIEFING
-    : AIRecommendationSource.DEPARTMENT_INTELLIGENCE;
+  if (sourceType === 'DAILY_GM_BRIEFING') return AIRecommendationSource.DAILY_GM_BRIEFING;
+  if (sourceType === 'AI_COPILOT') return AIRecommendationSource.AI_COPILOT;
+  return AIRecommendationSource.DEPARTMENT_INTELLIGENCE;
 }
 
 export async function persistAIRecommendations(input: PersistAIRecommendationsInput) {
@@ -246,6 +246,34 @@ export async function createTaskFromAIRecommendation(input: RecommendationAction
   const recommendation = await getAIRecommendation(input.hotelId, input.recommendationId);
   if (recommendation.status === AIRecommendationStatus.REJECTED || recommendation.status === AIRecommendationStatus.EXPIRED) {
     throw new Error('Rejected or expired recommendations cannot create tasks');
+  }
+  if (recommendation.status !== AIRecommendationStatus.APPROVED && recommendation.status !== AIRecommendationStatus.TASK_CREATED) {
+    await recordAuditEvent({
+      hotelId: input.hotelId,
+      actor: input.actor,
+      action: 'AI_ACTION_EXECUTION_BLOCKED',
+      entity: 'AI_RECOMMENDATION',
+      entityId: recommendation.id,
+      source: 'hotel-brain',
+      details: {
+        actionType: 'CREATE_TASK',
+        status: recommendation.status,
+        reason: 'Recommendation must be approved before task creation',
+      },
+    });
+    await eventBus.publish({
+      eventType: 'ai.action.execution_blocked',
+      hotelId: input.hotelId,
+      source: 'hotel-brain',
+      userId: input.actor?.userId || undefined,
+      payload: {
+        recommendationId: recommendation.id,
+        actionType: 'CREATE_TASK',
+        status: recommendation.status,
+        reason: 'Recommendation must be approved before task creation',
+      },
+    });
+    throw new Error('Recommendation must be approved before task creation');
   }
   if (recommendation.createdTaskId) {
     return getAIRecommendation(input.hotelId, recommendation.id);

@@ -8,6 +8,7 @@ import securityCenterService, {
 } from '@/services/securityCenter';
 import type { CameraFeed, DoorAccessEvent, SecurityAlert, SmartBuildingWorkflowTask } from '@/services/smartBuilding';
 import DepartmentIntelligenceCard from '@/components/operations/DepartmentIntelligenceCard';
+import AICopilotPanel from '@/components/ai/AICopilotPanel';
 
 type TabId = 'overview' | 'cctv' | 'access-logs' | 'visitors' | 'alerts';
 type Tone = 'emerald' | 'sky' | 'amber' | 'rose' | 'slate';
@@ -413,6 +414,10 @@ export default function SecurityCenterPage() {
       </section>
 
       <DepartmentIntelligenceCard department="security" />
+      <AICopilotPanel
+        title="Security Copilot"
+        contextScope={['hotelProfile', 'security', 'smartBuilding', 'incidents', 'tasks']}
+      />
 
       <nav className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" aria-label="Security Center tabs">
         {tabs.map((tab) => (

@@ -2,7 +2,7 @@ import api from './api';
 
 export type AIRecommendationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'TASK_CREATED' | 'EXPIRED';
 export type AIRecommendationPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type AIRecommendationSource = 'DAILY_GM_BRIEFING' | 'DEPARTMENT_INTELLIGENCE';
+export type AIRecommendationSource = 'DAILY_GM_BRIEFING' | 'DEPARTMENT_INTELLIGENCE' | 'AI_COPILOT';
 
 export type AIRecommendation = {
   id: string;
@@ -60,7 +60,7 @@ const aiRecommendationsService = {
   },
 
   async createTask(id: string): Promise<AIRecommendation> {
-    const response = await api.post(`/ai/recommendations/${id}/create-task`);
+    const response = await api.post(`/ai/recommendations/${id}/execute`, { actionType: 'CREATE_TASK' });
     return response.data.data as AIRecommendation;
   },
 

@@ -40,6 +40,8 @@ import aiContextRoutes from './routes/aiContext.routes.js';
 import aiBriefingRoutes from './routes/aiBriefing.routes.js';
 import aiDepartmentIntelligenceRoutes from './routes/aiDepartmentIntelligence.routes.js';
 import aiRecommendationGovernanceRoutes from './routes/aiRecommendationGovernance.routes.js';
+import aiEvaluationRoutes from './routes/aiEvaluation.routes.js';
+import aiCopilotRoutes from './routes/aiCopilot.routes.js';
 import assistantRoutes from './routes/assistant.routes.js';
 import operationsAssistantRoutes from './routes/operationsAssistant.routes.js';
 import operationsAssistantActionsRoutes from './routes/operationsAssistant.actions.routes.js';
@@ -190,6 +192,9 @@ export function createApp(): Application {
           aiDailyBriefing: '/api/ai/briefing/daily',
           aiDepartmentIntelligence: '/api/ai/department/:department/briefing',
           aiRecommendations: '/api/ai/recommendations',
+          aiActionExecution: '/api/ai/recommendations/:id/execute',
+          aiEvaluation: '/api/ai/evaluation/cases',
+          aiCopilot: '/api/ai/copilot/ask',
           assistant: '/api/assistant',
           conversations: '/api/conversations',
         },
@@ -257,6 +262,8 @@ export function createApp(): Application {
   app.use('/api/ai', aiBriefingRoutes);
   app.use('/api/ai', aiDepartmentIntelligenceRoutes);
   app.use('/api/ai', aiRecommendationGovernanceRoutes);
+  app.use('/api/ai', aiEvaluationRoutes);
+  app.use('/api/ai', aiCopilotRoutes);
   app.use('/api/assistant', assistantRoutes);
   app.use('/api/operations/assistant', operationsAssistantRoutes);
   app.use('/api/operations/assistant', operationsAssistantActionsRoutes);
@@ -311,6 +318,9 @@ export function createApp(): Application {
           aiDailyBriefing: '/api/ai/briefing/daily',
           aiDepartmentIntelligence: '/api/ai/department/:department/briefing',
           aiRecommendations: '/api/ai/recommendations',
+          aiActionExecution: '/api/ai/recommendations/:id/execute',
+          aiEvaluation: '/api/ai/evaluation/cases',
+          aiCopilot: '/api/ai/copilot/ask',
           assistant: '/api/assistant',
           conversations: '/api/conversations',
         },

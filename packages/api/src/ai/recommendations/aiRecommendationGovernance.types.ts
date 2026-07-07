@@ -12,7 +12,7 @@ export type AIRecommendationSeed = {
 
 export type PersistAIRecommendationsInput = {
   hotelId: string;
-  sourceType: 'DAILY_GM_BRIEFING' | 'DEPARTMENT_INTELLIGENCE';
+  sourceType: 'DAILY_GM_BRIEFING' | 'DEPARTMENT_INTELLIGENCE' | 'AI_COPILOT';
   sourceId: string;
   recommendations: AIRecommendationSeed[];
   actor?: AuditActor;

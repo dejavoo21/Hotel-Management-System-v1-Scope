@@ -34,6 +34,9 @@
     "ai:briefing:test": "tsx scripts/testDailyBriefing.ts",
     "ai:department:test": "tsx scripts/testDepartmentIntelligence.ts",
     "ai:recommendation-governance:test": "tsx scripts/testAIRecommendationGovernance.ts",
+    "ai:evaluation:test": "tsx scripts/testAIEvaluation.ts",
+    "ai:copilot:test": "tsx scripts/testAICopilot.ts",
+    "ai:action-execution:test": "tsx scripts/testAIActionExecution.ts",
     "security-center:seed": "tsx scripts/seedSecurityCenter.ts",
     "maintenance-center:seed": "tsx scripts/seedMaintenanceCenter.ts"
   },

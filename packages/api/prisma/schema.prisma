@@ -1277,6 +1277,7 @@ model AIRecommendation {
 enum AIRecommendationSource {
   DAILY_GM_BRIEFING
   DEPARTMENT_INTELLIGENCE
+  AI_COPILOT
 }
 
 enum AIRecommendationStatus {

@@ -15,6 +15,7 @@ import PricingSignalCard from '@/components/operations/signals/PricingSignalCard
 import WeatherSignalCard from '@/components/operations/signals/WeatherSignalCard';
 import DepartmentIntelligenceCard from '@/components/operations/DepartmentIntelligenceCard';
 import AIRecommendationGovernancePanel from '@/components/operations/AIRecommendationGovernancePanel';
+import AICopilotPanel from '@/components/ai/AICopilotPanel';
 import OperationalTimeline from '@/components/timeline/OperationalTimeline';
 import { aiBriefingService, operationsService, weatherSignalsService } from '@/services';
 import type { DailyGMBriefing } from '@/services/aiBriefing';
@@ -379,6 +380,26 @@ export default function OperationsCenterPage() {
     const tasksPanel = <OpsAdvisories context={context} />;
     const marketPanel = <MarketIntelligenceCard />;
     const aiPanel = <AssistantDock context={context} />;
+    const copilotPanel = (
+      <AICopilotPanel
+        title="Operations Copilot"
+        contextScope={[
+          'hotelProfile',
+          'occupancy',
+          'weather',
+          'bookings',
+          'guests',
+          'housekeeping',
+          'maintenance',
+          'security',
+          'smartBuilding',
+          'incidents',
+          'tasks',
+          'messages',
+          'financialSummary',
+        ]}
+      />
+    );
 
     if (focus === 'weather') {
       return weatherOnlyPanel;
@@ -410,6 +431,7 @@ export default function OperationsCenterPage() {
     if (focus === 'ai') {
       return (
         <div className="max-w-5xl space-y-6">
+          {copilotPanel}
           <AIRecommendationGovernancePanel />
           {aiPanel}
         </div>
@@ -439,6 +461,7 @@ export default function OperationsCenterPage() {
         </div>
 
         <div className="space-y-6 xl:col-span-4">
+          {copilotPanel}
           {marketPanel}
           {aiPanel}
         </div>
