@@ -361,13 +361,22 @@ export default function OperationsCenterPage() {
         isRefreshingWeather={refreshWeatherMutation.isPending}
       />
     );
+    const tasksPanel = <OpsAdvisories context={context} />;
     const weatherOnlyPanel = (
-      <div className="max-w-3xl">
-        <WeatherSignalCard
-          context={context}
-          onRefresh={refreshWeather}
-          isRefreshing={refreshWeatherMutation.isPending}
-        />
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+        <div className="space-y-6 xl:col-span-8">
+          {weatherPanel}
+          {tasksPanel}
+        </div>
+        <div className="space-y-6 xl:col-span-4">
+          <WeatherSignalCard
+            context={context}
+            onRefresh={refreshWeather}
+            isRefreshing={refreshWeatherMutation.isPending}
+          />
+          <DepartmentIntelligenceCard department="front-desk" compact />
+          <DepartmentIntelligenceCard department="housekeeping" compact />
+        </div>
       </div>
     );
     const revenueSignalsPanel = (
@@ -377,7 +386,6 @@ export default function OperationsCenterPage() {
       </div>
     );
     const arrivalsPanel = <ArrivalsSignalCard context={context} />;
-    const tasksPanel = <OpsAdvisories context={context} />;
     const marketPanel = <MarketIntelligenceCard />;
     const aiPanel = <AssistantDock context={context} />;
     const copilotPanel = (
@@ -416,24 +424,48 @@ export default function OperationsCenterPage() {
     }
 
     if (focus === 'market-intelligence') {
-      return <div className="max-w-4xl">{marketPanel}</div>;
+      return (
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+          <div className="space-y-6 xl:col-span-7">
+            {marketPanel}
+            {revenueSignalsPanel}
+          </div>
+          <div className="space-y-6 xl:col-span-5">
+            <DepartmentIntelligenceCard department="revenue" compact />
+            {revenuePanel}
+          </div>
+        </div>
+      );
     }
 
     if (focus === 'tasks') {
       return (
-        <div className="space-y-6">
-          <div className="max-w-3xl">{arrivalsPanel}</div>
-          {tasksPanel}
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+          <div className="space-y-6 xl:col-span-8">
+            {tasksPanel}
+            <OperationalTimeline />
+          </div>
+          <div className="space-y-6 xl:col-span-4">
+            {arrivalsPanel}
+            <DepartmentIntelligenceCard department="front-desk" compact />
+            <DepartmentIntelligenceCard department="housekeeping" compact />
+          </div>
         </div>
       );
     }
 
     if (focus === 'ai') {
       return (
-        <div className="max-w-5xl space-y-6">
-          {copilotPanel}
-          <AIRecommendationGovernancePanel />
-          {aiPanel}
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+          <div className="space-y-6 xl:col-span-7">
+            {copilotPanel}
+            <AIRecommendationGovernancePanel />
+          </div>
+          <div className="space-y-6 xl:col-span-5">
+            {aiPanel}
+            <DepartmentIntelligenceCard department="front-desk" compact />
+            <DepartmentIntelligenceCard department="guest-experience" compact />
+          </div>
         </div>
       );
     }

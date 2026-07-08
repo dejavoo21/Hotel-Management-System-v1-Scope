@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { messageService } from '@/services';
 import { useSocketPresence } from '@/hooks/useSocketPresence';
+import CollaborationToolbar from '@/components/collaboration/CollaborationToolbar';
 
 type VideoState = 'IDLE' | 'CONNECTING' | 'IN_CALL' | 'ERROR';
 
@@ -23,16 +25,19 @@ export default function SupportVideoPanel({
   onInvitePeople,
   onHangup,
 }: Props) {
+  const navigate = useNavigate();
   const { emitPresenceSet } = useSocketPresence();
   const [state, setState] = useState<VideoState>('IDLE');
   const [error, setError] = useState('');
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
+  const [screenSharing, setScreenSharing] = useState(false);
   const [remoteCount, setRemoteCount] = useState(0);
   const localVideoRef = useRef<HTMLDivElement | null>(null);
   const remoteVideoRef = useRef<HTMLDivElement | null>(null);
   const roomRef = useRef<any>(null);
   const localTracksRef = useRef<any[]>([]);
+  const screenTrackRef = useRef<any>(null);
   const endedRef = useRef(false);
 
   const safeRoomName = useMemo(
@@ -93,8 +98,18 @@ export default function SupportVideoPanel({
   const endVideoCall = () => {
     if (endedRef.current) return;
     endedRef.current = true;
+    const activeRoom = roomRef.current;
     try {
-      roomRef.current?.disconnect?.();
+      if (screenTrackRef.current) {
+        activeRoom?.localParticipant?.unpublishTrack?.(screenTrackRef.current);
+        screenTrackRef.current.stop?.();
+      }
+    } catch {
+      // ignore
+    }
+    screenTrackRef.current = null;
+    try {
+      activeRoom?.disconnect?.();
     } catch {
       // ignore
     }
@@ -110,6 +125,7 @@ export default function SupportVideoPanel({
     localTracksRef.current = [];
     setMuted(false);
     setCameraOff(false);
+    setScreenSharing(false);
     setRemoteCount(0);
     resetContainers();
     setState('IDLE');
@@ -221,6 +237,53 @@ export default function SupportVideoPanel({
     } catch (err: any) {
       setError(err?.message || 'Failed to enable camera.');
       setCameraOff(true);
+    }
+  };
+
+  const toggleScreenShare = async () => {
+    if (screenSharing) {
+      try {
+        if (screenTrackRef.current) {
+          roomRef.current?.localParticipant?.unpublishTrack?.(screenTrackRef.current);
+          screenTrackRef.current.stop?.();
+        }
+      } catch {
+        // ignore
+      }
+      screenTrackRef.current = null;
+      setScreenSharing(false);
+      return;
+    }
+
+    try {
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        setError('Screen sharing is not supported in this browser.');
+        return;
+      }
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      const [mediaTrack] = stream.getVideoTracks();
+      if (!mediaTrack) return;
+
+      const videoSdk: any = await import('twilio-video');
+      const localVideoTrack = new videoSdk.LocalVideoTrack(mediaTrack, { name: 'screen-share' });
+      await roomRef.current?.localParticipant?.publishTrack?.(localVideoTrack);
+      screenTrackRef.current = localVideoTrack;
+      setScreenSharing(true);
+      mediaTrack.addEventListener('ended', () => {
+        try {
+          roomRef.current?.localParticipant?.unpublishTrack?.(localVideoTrack);
+          localVideoTrack.stop?.();
+        } catch {
+          // ignore
+        }
+        if (screenTrackRef.current === localVideoTrack) screenTrackRef.current = null;
+        setScreenSharing(false);
+      });
+    } catch (err: any) {
+      if (err?.name !== 'NotAllowedError') {
+        setError(err?.message || 'Failed to start screen sharing.');
+      }
+      setScreenSharing(false);
     }
   };
 
@@ -358,55 +421,40 @@ export default function SupportVideoPanel({
         </div>
       </div>
 
-      <div className="absolute bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-full border border-white/10 bg-black/40 px-4 py-3 backdrop-blur">
+      <div className="absolute bottom-5 left-4 right-4 z-30">
         {state !== 'IN_CALL' ? (
-          <button
-            type="button"
-            onClick={() => void startVideoCall()}
-            disabled={state === 'CONNECTING'}
-            className="rounded-full bg-violet-500/80 px-6 py-2 text-sm font-semibold hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {state === 'CONNECTING' ? 'Joining...' : 'Join'}
-          </button>
+          <div className="mx-auto flex w-full max-w-xl items-center justify-center rounded-3xl border border-white/10 bg-black/45 p-3 backdrop-blur">
+            <button
+              type="button"
+              onClick={() => void startVideoCall()}
+              disabled={state === 'CONNECTING'}
+              className="min-h-11 rounded-2xl bg-violet-500/85 px-6 py-2 text-sm font-semibold text-white hover:bg-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-300 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {state === 'CONNECTING' ? 'Joining...' : 'Join call'}
+            </button>
+          </div>
         ) : (
-          <>
-            <button
-              type="button"
-              onClick={toggleMute}
-              className={`h-11 w-11 rounded-full border border-white/10 ${
-                muted ? 'bg-amber-500/40' : 'bg-white/10 hover:bg-white/15'
-              }`}
-              title={muted ? 'Unmute' : 'Mute'}
-            >
-              <span className="text-sm font-semibold">{muted ? 'M' : 'Mic'}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => void toggleCamera()}
-              className={`h-11 w-11 rounded-full border border-white/10 ${
-                cameraOff ? 'bg-amber-500/40' : 'bg-white/10 hover:bg-white/15'
-              }`}
-              title={cameraOff ? 'Turn camera on' : 'Turn camera off'}
-            >
-              <span className="text-sm font-semibold">{cameraOff ? 'C' : 'Cam'}</span>
-            </button>
-            <button
-              type="button"
-              onClick={onInvitePeople}
-              className="h-11 rounded-full border border-white/10 bg-white/10 px-5 font-semibold hover:bg-white/15"
-              title="Add people"
-            >
-              Add
-            </button>
+          <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-3 lg:flex-row lg:items-end">
+            <CollaborationToolbar
+              className="min-w-0 flex-1"
+              cameraOn={!cameraOff}
+              microphoneOn={!muted}
+              screenSharing={screenSharing}
+              onToggleCamera={() => void toggleCamera()}
+              onToggleMicrophone={toggleMute}
+              onToggleScreenShare={() => void toggleScreenShare()}
+              onOpenParticipants={onInvitePeople}
+              onSummarizeConversation={() => navigate('/operations-center/ai')}
+            />
             <button
               type="button"
               onClick={endVideoCall}
-              className="h-11 rounded-full bg-rose-500/80 px-6 font-semibold hover:bg-rose-500"
+              className="min-h-11 shrink-0 rounded-2xl bg-rose-500/85 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:bg-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-300"
               title="Hang up"
             >
               Hang up
             </button>
-          </>
+          </div>
         )}
       </div>
 

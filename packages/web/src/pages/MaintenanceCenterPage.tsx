@@ -15,6 +15,7 @@ import maintenanceCenterService, {
 import type { SmartBuildingWorkflowTask } from '@/services/smartBuilding';
 import DepartmentIntelligenceCard from '@/components/operations/DepartmentIntelligenceCard';
 import AICopilotPanel from '@/components/ai/AICopilotPanel';
+import CollaborationHeader from '@/components/collaboration/CollaborationHeader';
 
 type TabId = 'overview' | 'work-orders' | 'faults' | 'repairs' | 'preventive-maintenance' | 'assets';
 type Tone = 'emerald' | 'sky' | 'amber' | 'rose' | 'slate';
@@ -318,26 +319,20 @@ export default function MaintenanceCenterPage() {
 
   return (
     <div className="space-y-6">
-      <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Operations / Maintenance Center</p>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Maintenance Center</h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-600">
-              Work orders, faults, repairs, preventive maintenance, and asset inspection records.
-            </p>
-          </div>
-          <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-200">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            Maintenance workspace
-          </span>
+      <CollaborationHeader
+        workspace="maintenance"
+        eyebrow="Operations / Maintenance Center"
+        title="Maintenance Center"
+        subtitle="Work orders, faults, repairs, preventive maintenance, and asset inspection records."
+        statusLabel="Maintenance workspace"
+        statusTone={overview && (overview.faults.urgent > 0 || overview.preventiveMaintenance.overdue > 0) ? 'warning' : 'live'}
+      />
+
+      {hasError ? (
+        <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">
+          Maintenance Center data could not be loaded.
         </div>
-        {hasError ? (
-          <div className="mt-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">
-            Maintenance Center data could not be loaded.
-          </div>
-        ) : null}
-      </header>
+      ) : null}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-6" aria-label="Maintenance Center summary">
         {metrics.map((metric) => (

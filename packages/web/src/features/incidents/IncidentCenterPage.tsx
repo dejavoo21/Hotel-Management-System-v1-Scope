@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import incidentService, { type Incident, type IncidentView } from '@/services/incidents';
+import CollaborationHeader from '@/components/collaboration/CollaborationHeader';
 
 const views: { id: IncidentView; label: string }[] = [
   { id: 'active', label: 'Active Incidents' },
@@ -193,24 +194,25 @@ export default function IncidentCenterPage() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Operations response</p>
-            <h1 className="mt-1 text-2xl font-semibold text-slate-950">Incident Center</h1>
-            <p className="mt-2 max-w-3xl text-sm text-slate-600">
-              Central response layer for operational, security, maintenance, and Smart Building incidents.
-            </p>
-          </div>
+      <CollaborationHeader
+        workspace="incidents"
+        eyebrow="Operations response"
+        title="Incident Center"
+        subtitle="Central response layer for operational, security, maintenance, and Smart Building incidents."
+        statusLabel={overview && overview.critical > 0 ? 'Critical incidents active' : 'Incident workspace'}
+        statusTone={overview && overview.critical > 0 ? 'critical' : overview && overview.active > 0 ? 'warning' : 'live'}
+        actions={
           <button
             type="button"
             onClick={refresh}
-            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+            className="min-h-10 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-primary-400"
           >
             Refresh
           </button>
-        </div>
+        }
+      />
 
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <Card label="Active Incidents" value={overview?.active ?? '-'} />
           <Card label="Critical Incidents" value={overview?.critical ?? '-'} />
