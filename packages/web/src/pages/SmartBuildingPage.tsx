@@ -8,6 +8,8 @@ import smartBuildingService, {
   type SmartBuildingWorkflowTask,
   type SmartBuildingOverview,
 } from '@/services/smartBuilding';
+import HardwareIntegrationPanel from '@/components/hardware/HardwareIntegrationPanel';
+import { useAuthStore } from '@/stores/authStore';
 
 type BuildingMetric = {
   label: string;
@@ -387,6 +389,7 @@ const sectionList = ({
 }));
 
 export default function SmartBuildingPage() {
+  const { user } = useAuthStore();
   const overviewQuery = useQuery({
     queryKey: ['smart-building', 'overview'],
     queryFn: smartBuildingService.getOverview,
@@ -460,6 +463,7 @@ export default function SmartBuildingPage() {
   const activeAlerts = overviewQuery.data?.health.activeAlerts || 0;
   const onlineDevices = overviewQuery.data?.health.onlineDevices || 0;
   const totalDevices = overviewQuery.data?.health.totalDevices || 0;
+  const canManageHardware = user?.role === 'ADMIN' || user?.role === 'MANAGER' || (user?.modulePermissions || []).includes('smart_building');
 
   return (
     <div className="space-y-6">
@@ -508,6 +512,8 @@ export default function SmartBuildingPage() {
       </section>
 
       <AlertWorkflowPanel alerts={alerts} tasks={linkedTasks} />
+
+      <HardwareIntegrationPanel mode="smart-building" canManage={Boolean(canManageHardware)} />
 
       <section className="grid gap-5 xl:grid-cols-5">
         {sections.map((section) => (

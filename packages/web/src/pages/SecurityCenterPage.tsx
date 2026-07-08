@@ -10,6 +10,8 @@ import type { CameraFeed, DoorAccessEvent, SecurityAlert, SmartBuildingWorkflowT
 import DepartmentIntelligenceCard from '@/components/operations/DepartmentIntelligenceCard';
 import AICopilotPanel from '@/components/ai/AICopilotPanel';
 import CollaborationHeader from '@/components/collaboration/CollaborationHeader';
+import HardwareIntegrationPanel from '@/components/hardware/HardwareIntegrationPanel';
+import { useAuthStore } from '@/stores/authStore';
 
 type TabId = 'overview' | 'cctv' | 'access-logs' | 'visitors' | 'alerts';
 type Tone = 'emerald' | 'sky' | 'amber' | 'rose' | 'slate';
@@ -325,6 +327,7 @@ const AlertsPanel = ({
 export default function SecurityCenterPage() {
   const params = useParams();
   const queryClient = useQueryClient();
+  const { user } = useAuthStore();
   const activeTab = (params.tab || 'overview') as TabId;
   const validTab = tabs.some((tab) => tab.id === activeTab) ? activeTab : 'overview';
 
@@ -347,6 +350,7 @@ export default function SecurityCenterPage() {
   const visitors = visitorsQuery.data || [];
   const alerts = alertsQuery.data || [];
   const tasks = tasksQuery.data || [];
+  const canManageHardware = user?.role === 'ADMIN' || user?.role === 'MANAGER' || (user?.modulePermissions || []).includes('security_center');
   const hasError = overviewQuery.isError || cctvQuery.isError || accessLogsQuery.isError || visitorsQuery.isError || alertsQuery.isError || tasksQuery.isError;
 
   const metrics = useMemo(
@@ -433,7 +437,12 @@ export default function SecurityCenterPage() {
       </nav>
 
       {validTab === 'overview' ? <ActivityList activities={overview?.recentActivity || []} /> : null}
-      {validTab === 'cctv' ? <CctvPanel cameras={cameras} /> : null}
+      {validTab === 'cctv' ? (
+        <div className="space-y-6">
+          <HardwareIntegrationPanel mode="cctv" canManage={Boolean(canManageHardware)} />
+          <CctvPanel cameras={cameras} />
+        </div>
+      ) : null}
       {validTab === 'access-logs' ? <AccessLogsPanel logs={accessLogs} /> : null}
       {validTab === 'visitors' ? (
         <VisitorsPanel

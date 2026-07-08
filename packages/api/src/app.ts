@@ -36,6 +36,7 @@ import marketRoutes from './routes/market.routes.js';
 import ticketRoutes from './routes/ticket.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import integrationMarketplaceRoutes from './routes/integrationMarketplace.routes.js';
+import hardwareIntegrationRoutes from './routes/hardwareIntegration.routes.js';
 import aiHooksRoutes from './routes/aiHooks.routes.js';
 import aiContextRoutes from './routes/aiContext.routes.js';
 import aiBriefingRoutes from './routes/aiBriefing.routes.js';
@@ -190,6 +191,7 @@ export function createApp(): Application {
           incidents: '/api/incidents',
           market: '/api/market',
           integrations: '/api/integrations',
+          hardwareIntegrations: '/api/hardware-integrations',
           aiContext: '/api/ai/context/hotel',
           aiDailyBriefing: '/api/ai/briefing/daily',
           aiDepartmentIntelligence: '/api/ai/department/:department/briefing',
@@ -260,6 +262,7 @@ export function createApp(): Application {
   app.use('/api/tickets', ticketRoutes);
   app.use('/api/notifications', notificationRoutes);
   app.use('/api/integrations', integrationMarketplaceRoutes);
+  app.use('/api/hardware-integrations', hardwareIntegrationRoutes);
   app.use('/api/ai', aiHooksRoutes);
   app.use('/api/ai', aiContextRoutes);
   app.use('/api/ai', aiBriefingRoutes);
@@ -318,6 +321,7 @@ export function createApp(): Application {
           incidents: '/api/incidents',
           market: '/api/market',
           integrations: '/api/integrations',
+          hardwareIntegrations: '/api/hardware-integrations',
           aiContext: '/api/ai/context/hotel',
           aiDailyBriefing: '/api/ai/briefing/daily',
           aiDepartmentIntelligence: '/api/ai/department/:department/briefing',

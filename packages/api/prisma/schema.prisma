@@ -135,6 +135,7 @@ model Hotel {
   notifications     Notification[]
   iotDevices        IoTDevice[]
   cameraFeeds       CameraFeed[]
+  hardwareIntegrations HardwareIntegration[]
   doorAccessEvents  DoorAccessEvent[]
   doorStatuses      DoorStatus[]
   sensorReadings    SensorReading[]
@@ -258,6 +259,7 @@ model IoTDevice {
   sensorReadings SensorReading[]
   securityAlerts SecurityAlert[]
   assetMaintenanceRecords AssetMaintenanceRecord[]
+  hardwareIntegrations HardwareIntegration[]
 
   @@unique([hotelId, externalId])
   @@index([hotelId])
@@ -279,12 +281,56 @@ model CameraFeed {
   snapshotUrl String?
   lastSeenAt  DateTime?
   metadata    Json?
+  hardwareIntegrations HardwareIntegration[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
   @@unique([hotelId, externalId])
   @@index([hotelId])
   @@index([status])
+}
+
+model HardwareIntegration {
+  id               String                    @id @default(cuid())
+  hotelId          String
+  hotel            Hotel                     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  integrationType  HardwareIntegrationType
+  name             String
+  location         String?
+  floor            Int?
+  roomArea         String?
+  provider         HardwareProvider
+  protocol         HardwareProtocol
+  host             String?
+  port             Int?
+  channelNumber    Int?
+  username         String?
+  secretCiphertext String?
+  secretMasked     String?
+  streamPath       String?
+  gatewayId        String?
+  deviceIdentifier String?
+  topicPathChannel String?
+  status           HardwareIntegrationStatus @default(DISCONNECTED)
+  healthStatus     HardwareHealthStatus      @default(UNKNOWN)
+  enabled          Boolean                   @default(true)
+  lastTestAt       DateTime?
+  lastTestResult   Json?
+  lastSeenAt       DateTime?
+  metadata         Json?
+  cameraFeedId     String?
+  cameraFeed       CameraFeed?               @relation(fields: [cameraFeedId], references: [id], onDelete: SetNull)
+  iotDeviceId      String?
+  iotDevice        IoTDevice?                @relation(fields: [iotDeviceId], references: [id], onDelete: SetNull)
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  @@index([hotelId])
+  @@index([integrationType])
+  @@index([provider])
+  @@index([protocol])
+  @@index([status])
+  @@index([enabled])
 }
 
 model DoorAccessEvent {
@@ -416,12 +462,14 @@ enum VisitorStatus {
 enum IoTDeviceType {
   CAMERA
   DOOR_LOCK
+  DOOR_SENSOR
   TEMPERATURE_SENSOR
   WATER_LEAK_SENSOR
   MOTION_SENSOR
   PANIC_BUTTON
   ENERGY_METER
   HVAC
+  ELEVATOR
   ASSET
   OTHER
 }
@@ -431,6 +479,60 @@ enum IoTDeviceStatus {
   OFFLINE
   WARNING
   MAINTENANCE
+  UNKNOWN
+}
+
+enum HardwareIntegrationType {
+  CCTV_CAMERA
+  CCTV_NVR
+  SMART_DEVICE
+  SMART_GATEWAY
+}
+
+enum HardwareProvider {
+  HIKVISION
+  DAHUA
+  AXIS
+  ONVIF
+  GENERIC_RTSP
+  GENERIC_HLS
+  GENERIC_MJPEG
+  MQTT
+  BACNET
+  MODBUS
+  REST_API
+  WEBHOOK
+  VENDOR_API
+  TTLOCK
+  SALTO
+  OTHER
+}
+
+enum HardwareProtocol {
+  RTSP
+  HLS
+  MJPEG
+  ONVIF
+  MQTT
+  BACNET
+  MODBUS
+  REST_API
+  WEBHOOK
+  VENDOR_API
+}
+
+enum HardwareIntegrationStatus {
+  CONNECTED
+  DISCONNECTED
+  DEGRADED
+  DISABLED
+  TEST_FAILED
+}
+
+enum HardwareHealthStatus {
+  HEALTHY
+  WARNING
+  CRITICAL
   UNKNOWN
 }
 

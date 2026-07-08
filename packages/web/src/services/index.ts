@@ -24,6 +24,7 @@ export { default as notificationService } from './notifications';
 export { default as presenceService } from './presence';
 export { default as operationsService } from './operations';
 export { default as integrationsService } from './integrations';
+export { default as hardwareIntegrationService } from './hardwareIntegrations';
 export { default as aiBriefingService } from './aiBriefing';
 export { default as departmentIntelligenceService } from './departmentIntelligence';
 export { default as aiRecommendationsService } from './aiRecommendations';

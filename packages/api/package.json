@@ -38,7 +38,10 @@
     "ai:copilot:test": "tsx scripts/testAICopilot.ts",
     "ai:action-execution:test": "tsx scripts/testAIActionExecution.ts",
     "security-center:seed": "tsx scripts/seedSecurityCenter.ts",
-    "maintenance-center:seed": "tsx scripts/seedMaintenanceCenter.ts"
+    "maintenance-center:seed": "tsx scripts/seedMaintenanceCenter.ts",
+    "camera:test-connection": "tsx scripts/testCameraConnection.ts",
+    "smart-building:test-device-connection": "tsx scripts/testSmartBuildingDeviceConnection.ts",
+    "hardware:integration:test": "tsx scripts/testHardwareIntegration.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
