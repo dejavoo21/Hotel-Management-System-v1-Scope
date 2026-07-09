@@ -37,6 +37,7 @@
     "ai:evaluation:test": "tsx scripts/testAIEvaluation.ts",
     "ai:copilot:test": "tsx scripts/testAICopilot.ts",
     "ai:action-execution:test": "tsx scripts/testAIActionExecution.ts",
+    "ai:health:test": "tsx scripts/testAIHealth.ts",
     "security-center:seed": "tsx scripts/seedSecurityCenter.ts",
     "maintenance-center:seed": "tsx scripts/seedMaintenanceCenter.ts",
     "camera:test-connection": "tsx scripts/testCameraConnection.ts",

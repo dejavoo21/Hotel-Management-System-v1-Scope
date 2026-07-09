@@ -184,6 +184,7 @@ export default function AIRecommendationGovernancePanel({ compact = false }: { c
   });
 
   const recommendations = useMemo(() => query.data || [], [query.data]);
+  const queryError = query.isError ? getApiError(query.error) : null;
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -238,8 +239,14 @@ export default function AIRecommendationGovernancePanel({ compact = false }: { c
             Loading AI recommendations...
           </div>
         ) : query.isError ? (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-            {getApiError(query.error).message}
+          <div className={`rounded-2xl border p-4 text-sm ${
+            queryError?.errorCode === 'DATABASE_SCHEMA_MISMATCH'
+              ? 'border-rose-200 bg-rose-50 text-rose-700'
+              : 'border-slate-200 bg-slate-50 text-slate-600'
+          }`}>
+            {queryError?.errorCode === 'DATABASE_SCHEMA_MISMATCH'
+              ? queryError.message
+              : 'No AI recommendation queue is available yet. Generate a Daily GM or Department briefing to populate this queue.'}
           </div>
         ) : recommendations.length ? (
           recommendations.map((recommendation) => (

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Brain, RefreshCcw } from 'lucide-react';
 import { departmentIntelligenceService } from '@/services';
+import { getApiError } from '@/services/api';
 import type {
   DepartmentBriefing,
   DepartmentIntelligenceDepartment,
@@ -13,6 +14,15 @@ const departmentLabels: Record<DepartmentIntelligenceDepartment, string> = {
   security: 'Security',
   revenue: 'Revenue',
   'guest-experience': 'Guest Experience',
+};
+
+const emptyIntelligenceMessage: Record<DepartmentIntelligenceDepartment, string> = {
+  'front-desk': 'No Front Desk intelligence yet. Add arrivals, departures, guest messages, or payment issues to generate recommendations.',
+  housekeeping: 'No housekeeping intelligence yet. Add room status, checkout, or housekeeping task data to generate recommendations.',
+  maintenance: 'No maintenance intelligence yet. Add work orders, faults, repairs, or preventive maintenance data to generate recommendations.',
+  security: 'No security intelligence yet. Connect CCTV, access logs, visitors, or incidents to generate recommendations.',
+  revenue: 'No revenue intelligence yet. Add bookings, room rates, invoices, or market data to generate recommendations.',
+  'guest-experience': 'No guest experience intelligence yet. Add reviews, support conversations, VIP notes, or guest issues to generate recommendations.',
 };
 
 const severityClass = (severity?: string) => {
@@ -68,17 +78,23 @@ export default function DepartmentIntelligenceCard({
   if (query.isError) {
     const status = (query.error as any)?.response?.status;
     if (hideOnForbidden && status === 403) return null;
+    const apiError = getApiError(query.error);
+    const schemaMismatch = apiError.errorCode === 'DATABASE_SCHEMA_MISMATCH';
     return (
-      <section className="rounded-3xl border border-rose-200 bg-rose-50 p-5 shadow-sm">
+      <section className={`rounded-3xl border p-5 shadow-sm ${schemaMismatch ? 'border-rose-200 bg-rose-50' : 'border-slate-200 bg-white'}`}>
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-rose-800">{departmentLabels[department]} Intelligence unavailable</h2>
-            <p className="mt-1 text-sm text-rose-700">The briefing could not be generated from hotel context.</p>
+            <h2 className={`text-sm font-semibold ${schemaMismatch ? 'text-rose-800' : 'text-slate-900'}`}>
+              {schemaMismatch ? `${departmentLabels[department]} Intelligence unavailable` : departmentLabels[department]}
+            </h2>
+            <p className={`mt-1 text-sm ${schemaMismatch ? 'text-rose-700' : 'text-slate-600'}`}>
+              {schemaMismatch ? apiError.message : emptyIntelligenceMessage[department]}
+            </p>
           </div>
           <button
             type="button"
             onClick={() => query.refetch()}
-            className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-rose-700 ring-1 ring-rose-200"
+            className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-slate-700 ring-1 ring-slate-200"
           >
             Retry
           </button>

@@ -76,6 +76,7 @@ api.interceptors.response.use(
 // API error helper
 export interface ApiError {
   message: string;
+  errorCode?: string;
   errors?: { field: string; message: string }[];
 }
 
@@ -84,6 +85,7 @@ export function getApiError(error: unknown): ApiError {
     const data = error.response?.data;
     return {
       message: data?.message || data?.error || 'An error occurred',
+      errorCode: data?.errorCode,
       errors: data?.errors,
     };
   }

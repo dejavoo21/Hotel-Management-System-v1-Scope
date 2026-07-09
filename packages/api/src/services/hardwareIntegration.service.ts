@@ -75,6 +75,20 @@ function safeHealth(input: Pick<HardwareIntegrationInput, 'host' | 'protocol' | 
   };
 }
 
+export function testHardwareConfiguration(input: Pick<HardwareIntegrationInput, 'host' | 'protocol' | 'provider'>) {
+  return safeHealth(input);
+}
+
+export function discoverHardwareIntegrations(input: { subnet?: string; provider?: HardwareProvider }) {
+  return {
+    configured: false,
+    provider: input.provider || HardwareProvider.ONVIF,
+    subnet: input.subnet || null,
+    discovered: [],
+    message: 'Discovery service is not configured. Configure the ONVIF/RTSP discovery worker or media gateway before scanning hotel networks.',
+  };
+}
+
 function publicIntegration(integration: HardwareIntegration) {
   return {
     ...integration,

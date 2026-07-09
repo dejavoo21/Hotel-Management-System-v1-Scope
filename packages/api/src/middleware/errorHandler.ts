@@ -12,17 +12,20 @@ export class AppError extends Error {
   public readonly statusCode: number;
   public readonly isOperational: boolean;
   public readonly errors?: { field: string; message: string }[];
+  public readonly errorCode?: string;
 
   constructor(
     message: string,
     statusCode: number = 500,
     isOperational: boolean = true,
-    errors?: { field: string; message: string }[]
+    errors?: { field: string; message: string }[],
+    errorCode?: string
   ) {
     super(message);
     this.statusCode = statusCode;
     this.isOperational = isOperational;
     this.errors = errors;
+    this.errorCode = errorCode;
 
     Error.captureStackTrace(this, this.constructor);
   }
@@ -51,7 +54,7 @@ export class ValidationError extends AppError {
  */
 export class UnauthorizedError extends AppError {
   constructor(message: string = 'Unauthorized') {
-    super(message, 401);
+    super(message, 401, true, undefined, 'AUTHENTICATION_REQUIRED');
   }
 }
 
@@ -60,7 +63,7 @@ export class UnauthorizedError extends AppError {
  */
 export class ForbiddenError extends AppError {
   constructor(message: string = 'Forbidden') {
-    super(message, 403);
+    super(message, 403, true, undefined, 'PERMISSION_DENIED');
   }
 }
 
@@ -100,6 +103,12 @@ function handlePrismaError(error: Prisma.PrismaClientKnownRequestError): AppErro
       return new ValidationError('Invalid reference - related record not found');
     case 'P2014':
       return new ValidationError('Invalid relation');
+    case 'P2021':
+      logger.error('Database schema mismatch:', { code: error.code, meta: error.meta });
+      return new AppError('Database schema mismatch. A required table is missing.', 500, true, undefined, 'DATABASE_SCHEMA_MISMATCH');
+    case 'P2022':
+      logger.error('Database schema mismatch:', { code: error.code, meta: error.meta });
+      return new AppError('Database schema mismatch. A required column is missing.', 500, true, undefined, 'DATABASE_SCHEMA_MISMATCH');
     default:
       logger.error('Unhandled Prisma error:', { code: error.code, meta: error.meta });
       return new AppError('Database error', 500);
@@ -171,6 +180,10 @@ export function errorHandler(
     success: false,
     error: error.message,
   };
+
+  if (error.errorCode) {
+    response.errorCode = error.errorCode;
+  }
 
   if (error.errors) {
     response.errors = error.errors;

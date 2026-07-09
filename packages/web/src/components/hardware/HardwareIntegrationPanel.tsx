@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Camera, Eye, Pencil, Plus, PowerOff, Router, Save, TestTube2, Wifi } from 'lucide-react';
+import { Camera, Cloud, Eye, Monitor, Pencil, Plus, PowerOff, Router, Save, Search, TestTube2, Video, Wifi } from 'lucide-react';
 import { hardwareIntegrationService, getApiError } from '@/services';
 import type {
   HardwareIntegration,
@@ -12,6 +12,7 @@ import type {
 } from '@/services/hardwareIntegrations';
 
 type HardwareMode = 'cctv' | 'smart-building';
+type CctvMethod = 'USB_LOCAL' | 'DISCOVER_IP' | 'CONNECT_NVR' | 'MANUAL_CAMERA' | 'CLOUD_PROVIDER';
 
 type HardwareIntegrationPanelProps = {
   mode: HardwareMode;
@@ -20,6 +21,9 @@ type HardwareIntegrationPanelProps = {
 
 const cctvProviders: HardwareProvider[] = ['HIKVISION', 'DAHUA', 'AXIS', 'ONVIF', 'GENERIC_RTSP', 'GENERIC_HLS', 'GENERIC_MJPEG'];
 const cctvProtocols: HardwareProtocol[] = ['RTSP', 'HLS', 'MJPEG', 'ONVIF'];
+const nvrProviders: HardwareProvider[] = ['HIKVISION', 'DAHUA', 'AXIS', 'ONVIF'];
+const nvrProtocols: HardwareProtocol[] = ['ONVIF', 'RTSP', 'REST_API'];
+const cctvStreamKinds = ['HLS', 'MJPEG', 'SNAPSHOT', 'RTSP', 'ONVIF'] as const;
 const smartProviders: HardwareProvider[] = ['MQTT', 'BACNET', 'MODBUS', 'REST_API', 'WEBHOOK', 'ONVIF', 'VENDOR_API', 'TTLOCK', 'SALTO', 'OTHER'];
 const smartProtocols: HardwareProtocol[] = ['MQTT', 'BACNET', 'MODBUS', 'REST_API', 'WEBHOOK', 'ONVIF', 'VENDOR_API'];
 const deviceTypes = [
@@ -44,6 +48,14 @@ const statusClass = (status: string) => {
   if (status === 'DEGRADED' || status === 'WARNING') return 'border-amber-200 bg-amber-50 text-amber-700';
   return 'border-slate-200 bg-slate-50 text-slate-600';
 };
+
+const cctvMethods: Array<{ id: CctvMethod; label: string; detail: string; icon: typeof Camera }> = [
+  { id: 'USB_LOCAL', label: 'USB / Local Camera', detail: 'Browser webcam for calls and reception video assistance.', icon: Video },
+  { id: 'DISCOVER_IP', label: 'Discover IP Cameras', detail: 'Prepare ONVIF/IP discovery using a hotel subnet.', icon: Search },
+  { id: 'CONNECT_NVR', label: 'Connect NVR', detail: 'Hikvision, Dahua, Axis, or Generic ONVIF recorders.', icon: Monitor },
+  { id: 'MANUAL_CAMERA', label: 'Add Manual Camera', detail: 'HLS, MJPEG, Snapshot, RTSP, or ONVIF details.', icon: Camera },
+  { id: 'CLOUD_PROVIDER', label: 'Cloud Provider', detail: 'Verkada, Eagle Eye, Rhombus, or other APIs.', icon: Cloud },
+];
 
 function IntegrationCard({
   item,
@@ -140,6 +152,8 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [cctvMethod, setCctvMethod] = useState<CctvMethod>('MANUAL_CAMERA');
+  const [subnet, setSubnet] = useState('192.168.1.0/24');
   const [integrationType, setIntegrationType] = useState<HardwareIntegrationType>(mode === 'cctv' ? 'CCTV_CAMERA' : 'SMART_DEVICE');
   const [deviceType, setDeviceType] = useState('DOOR_LOCK');
   const [form, setForm] = useState({
@@ -155,6 +169,8 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
     username: '',
     secret: '',
     streamPath: '',
+    streamKind: 'ONVIF',
+    cloudProvider: 'VERKADA',
     gatewayId: '',
     deviceIdentifier: '',
     topicPathChannel: '',
@@ -172,6 +188,7 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
   const query = useQuery({
     queryKey: ['hardware-integrations', mode],
     queryFn: async () => {
+      if (mode === 'cctv') return hardwareIntegrationService.listCctv();
       const results = await Promise.all(queryTypes.map((type) => hardwareIntegrationService.list(type as HardwareIntegrationType)));
       return results.flat();
     },
@@ -180,7 +197,9 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['hardware-integrations'] });
   const createMutation = useMutation({
-    mutationFn: (payload: HardwareIntegrationPayload) => hardwareIntegrationService.create(payload),
+    mutationFn: (payload: HardwareIntegrationPayload) => mode === 'cctv'
+      ? hardwareIntegrationService.createCctv(payload)
+      : hardwareIntegrationService.create(payload),
     onSuccess: async () => {
       toast.success('Hardware integration saved');
       setShowForm(false);
@@ -200,7 +219,9 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
     onError: (error) => toast.error(getApiError(error).message),
   });
   const testMutation = useMutation({
-    mutationFn: hardwareIntegrationService.test,
+    mutationFn: (id: string) => mode === 'cctv'
+      ? hardwareIntegrationService.testCctvCamera(id)
+      : hardwareIntegrationService.test(id),
     onSuccess: async () => {
       toast.success('Connection test complete');
       await invalidate();
@@ -216,9 +237,41 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
     onError: (error) => toast.error(getApiError(error).message),
   });
   const viewMutation = useMutation({
-    mutationFn: hardwareIntegrationService.view,
+    mutationFn: (id: string) => mode === 'cctv'
+      ? hardwareIntegrationService.viewCctvPlayback(id)
+      : hardwareIntegrationService.view(id),
     onSuccess: (data) => toast(data.message),
     onError: (error) => toast.error(getApiError(error).message),
+  });
+  const discoverMutation = useMutation({
+    mutationFn: () => hardwareIntegrationService.discoverCctv({ subnet, provider: 'ONVIF' }),
+    onSuccess: (data) => toast(data.message),
+    onError: (error) => toast.error(getApiError(error).message),
+  });
+  const nvrTestMutation = useMutation({
+    mutationFn: () => hardwareIntegrationService.testNvr({
+      provider: form.provider as HardwareProvider,
+      protocol: form.protocol as HardwareProtocol,
+      host: form.host,
+      port: form.port ? Number(form.port) : undefined,
+      username: form.username || undefined,
+      secret: form.secret || undefined,
+      channelCount: form.channelNumber ? Number(form.channelNumber) : undefined,
+    }),
+    onSuccess: (data) => toast(data.message),
+    onError: (error) => toast.error(getApiError(error).message),
+  });
+  const localCameraMutation = useMutation({
+    mutationFn: async () => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('This browser does not support local camera access.');
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      stream.getTracks().forEach((track) => track.stop());
+      return true;
+    },
+    onSuccess: () => toast.success('Local camera access works in this browser. Use this for calls, not CCTV recording.'),
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Local camera test failed'),
   });
 
   const integrations = useMemo(() => query.data || [], [query.data]);
@@ -229,6 +282,7 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
   const canSubmit = canManage && form.name.trim().length > 0;
   const resetForm = () => {
     setEditingId(null);
+    setCctvMethod('MANUAL_CAMERA');
     setIntegrationType(mode === 'cctv' ? 'CCTV_CAMERA' : 'SMART_DEVICE');
     setDeviceType('DOOR_LOCK');
     setForm({
@@ -244,6 +298,8 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
       username: '',
       secret: '',
       streamPath: '',
+      streamKind: 'ONVIF',
+      cloudProvider: 'VERKADA',
       gatewayId: '',
       deviceIdentifier: '',
       topicPathChannel: '',
@@ -252,6 +308,7 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
 
   const startEdit = (item: HardwareIntegration) => {
     setEditingId(item.id);
+    setCctvMethod(item.integrationType === 'CCTV_NVR' ? 'CONNECT_NVR' : 'MANUAL_CAMERA');
     setIntegrationType(item.integrationType);
     setDeviceType(String(item.metadata?.deviceType || 'DOOR_LOCK'));
     setForm({
@@ -267,6 +324,8 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
       username: item.username || '',
       secret: '',
       streamPath: item.streamPath || '',
+      streamKind: String(item.metadata?.streamKind || item.protocol || 'ONVIF'),
+      cloudProvider: String(item.metadata?.cloudProvider || 'VERKADA'),
       gatewayId: item.gatewayId || '',
       deviceIdentifier: item.deviceIdentifier || '',
       topicPathChannel: item.topicPathChannel || '',
@@ -274,14 +333,19 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
     setShowForm(true);
   };
 
-  const buildPayload = (): HardwareIntegrationPayload => ({
+  const buildPayload = (): HardwareIntegrationPayload => {
+    const streamKind = form.streamKind as HardwareIntegrationPayload['streamKind'];
+    const mappedProtocol = mode === 'cctv' && streamKind === 'SNAPSHOT'
+      ? 'REST_API'
+      : (mode === 'cctv' && streamKind ? streamKind : form.protocol) as HardwareProtocol;
+    return {
     integrationType,
     name: form.name.trim(),
     location: form.location.trim() || undefined,
     floor: form.floor ? Number(form.floor) : undefined,
     roomArea: form.roomArea.trim() || undefined,
     provider: form.provider as HardwareProvider,
-    protocol: form.protocol as HardwareProtocol,
+    protocol: mappedProtocol,
     host: form.host.trim() || undefined,
     port: form.port ? Number(form.port) : undefined,
     channelNumber: form.channelNumber ? Number(form.channelNumber) : undefined,
@@ -291,12 +355,20 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
     gatewayId: form.gatewayId.trim() || undefined,
     deviceIdentifier: form.deviceIdentifier.trim() || undefined,
     topicPathChannel: form.topicPathChannel.trim() || undefined,
-    metadata: mode === 'smart-building' ? { deviceType } : undefined,
-  });
+    connectionMethod: mode === 'cctv' && cctvMethod !== 'USB_LOCAL' && cctvMethod !== 'DISCOVER_IP' ? cctvMethod : undefined,
+    streamKind: mode === 'cctv' ? streamKind : undefined,
+    cloudProvider: mode === 'cctv' && cctvMethod === 'CLOUD_PROVIDER' ? form.cloudProvider as HardwareIntegrationPayload['cloudProvider'] : undefined,
+    metadata: mode === 'smart-building'
+      ? { deviceType }
+      : mode === 'cctv'
+        ? { connectionMethod: cctvMethod, streamKind, cloudProvider: form.cloudProvider }
+        : undefined,
+  };
+  };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!canSubmit) return;
+    if (!canSubmit || cctvMethod === 'USB_LOCAL' || cctvMethod === 'DISCOVER_IP' || cctvMethod === 'CLOUD_PROVIDER') return;
     const payload = buildPayload();
     if (editingId) {
       updateMutation.mutate({ id: editingId, payload });
@@ -340,10 +412,122 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
 
       {showForm ? (
         <form onSubmit={submit} className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          {mode === 'cctv' ? (
+            <div className="mb-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Connection method</p>
+              <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+                {cctvMethods.map((method) => {
+                  const Icon = method.icon;
+                  const selected = cctvMethod === method.id;
+                  return (
+                    <button
+                      key={method.id}
+                      type="button"
+                      onClick={() => {
+                        setCctvMethod(method.id);
+                        if (method.id === 'CONNECT_NVR') {
+                          setIntegrationType('CCTV_NVR');
+                          setForm((prev) => ({ ...prev, provider: 'ONVIF', protocol: 'ONVIF', streamKind: 'ONVIF' }));
+                        } else if (method.id === 'MANUAL_CAMERA') {
+                          setIntegrationType('CCTV_CAMERA');
+                          setForm((prev) => ({ ...prev, provider: 'ONVIF', protocol: 'ONVIF', streamKind: 'ONVIF' }));
+                        }
+                      }}
+                      className={`min-h-[96px] rounded-2xl border p-3 text-left transition ${
+                        selected
+                          ? 'border-slate-900 bg-white shadow-sm'
+                          : 'border-slate-200 bg-white/70 hover:border-slate-300 hover:bg-white'
+                      }`}
+                    >
+                      <Icon className={`h-5 w-5 ${selected ? 'text-slate-950' : 'text-slate-500'}`} />
+                      <span className="mt-2 block text-sm font-semibold text-slate-900">{method.label}</span>
+                      <span className="mt-1 block text-xs leading-5 text-slate-500">{method.detail}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {mode === 'cctv' && cctvMethod === 'USB_LOCAL' ? (
+            <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
+              <h3 className="text-sm font-semibold text-sky-950">Local camera check</h3>
+              <p className="mt-1 text-sm text-sky-800">
+                USB and laptop cameras are for staff video calls and reception assistance. They are not saved as CCTV or NVR security cameras.
+              </p>
+              <button
+                type="button"
+                onClick={() => localCameraMutation.mutate()}
+                disabled={!canManage || localCameraMutation.isPending}
+                className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                <Video className="h-4 w-4" />
+                Test browser camera
+              </button>
+            </div>
+          ) : null}
+
+          {mode === 'cctv' && cctvMethod === 'DISCOVER_IP' ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <h3 className="text-sm font-semibold text-amber-950">Discover IP cameras</h3>
+              <p className="mt-1 text-sm text-amber-800">
+                Enter the hotel camera subnet. Until the ONVIF discovery worker is configured, this returns a clear placeholder instead of pretending to scan.
+              </p>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <label className="sr-only" htmlFor="cctv-subnet">Subnet</label>
+                <input
+                  id="cctv-subnet"
+                  value={subnet}
+                  onChange={(event) => setSubnet(event.target.value)}
+                  className="min-h-10 flex-1 rounded-xl border border-amber-200 px-3 py-2 text-sm"
+                  placeholder="192.168.1.0/24"
+                />
+                <button
+                  type="button"
+                  onClick={() => discoverMutation.mutate()}
+                  disabled={!canManage || discoverMutation.isPending}
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  <Search className="h-4 w-4" />
+                  Scan network
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {mode === 'cctv' && cctvMethod === 'CLOUD_PROVIDER' ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <h3 className="text-sm font-semibold text-slate-950">Cloud CCTV provider</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Cloud connectors for Verkada, Eagle Eye, Rhombus, and other providers require vendor API credentials in the Integration Hub. Setup is intentionally disabled until a provider adapter is configured.
+              </p>
+              <label className="mt-3 block text-sm font-medium text-slate-700">
+                Provider
+                <select
+                  value={form.cloudProvider}
+                  onChange={(event) => setForm({ ...form, cloudProvider: event.target.value })}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm sm:max-w-xs"
+                >
+                  <option value="VERKADA">Verkada</option>
+                  <option value="EAGLE_EYE">Eagle Eye</option>
+                  <option value="RHOMBUS">Rhombus</option>
+                  <option value="OTHER">Other API provider</option>
+                </select>
+              </label>
+            </div>
+          ) : null}
+
+          {mode !== 'cctv' || cctvMethod === 'CONNECT_NVR' || cctvMethod === 'MANUAL_CAMERA' ? (
+          <>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <label className="text-sm font-medium text-slate-700">
               Type
-              <select value={integrationType} onChange={(event) => setIntegrationType(event.target.value as HardwareIntegrationType)} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">
+              <select
+                value={integrationType}
+                onChange={(event) => setIntegrationType(event.target.value as HardwareIntegrationType)}
+                disabled={mode === 'cctv'}
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-100"
+              >
                 {types.map((type) => <option key={type} value={type}>{labelize(type)}</option>)}
               </select>
             </label>
@@ -400,17 +584,32 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
             <label className="text-sm font-medium text-slate-700">
               Provider
               <select value={form.provider} onChange={(event) => setForm({ ...form, provider: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">
-                {providers.map((value) => <option key={value} value={value}>{labelize(value)}</option>)}
+                {(mode === 'cctv' && cctvMethod === 'CONNECT_NVR' ? nvrProviders : providers).map((value) => <option key={value} value={value}>{labelize(value)}</option>)}
               </select>
             </label>
             <label className="text-sm font-medium text-slate-700">
-              Protocol
-              <select value={form.protocol} onChange={(event) => setForm({ ...form, protocol: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">
-                {protocols.map((value) => <option key={value} value={value}>{labelize(value)}</option>)}
+              {mode === 'cctv' && cctvMethod === 'MANUAL_CAMERA' ? 'Stream type' : 'Protocol'}
+              <select
+                value={mode === 'cctv' && cctvMethod === 'MANUAL_CAMERA' ? form.streamKind : form.protocol}
+                onChange={(event) => {
+                  if (mode === 'cctv' && cctvMethod === 'MANUAL_CAMERA') {
+                    setForm({ ...form, streamKind: event.target.value, protocol: event.target.value === 'SNAPSHOT' ? 'REST_API' : event.target.value });
+                    return;
+                  }
+                  setForm({ ...form, protocol: event.target.value, streamKind: event.target.value });
+                }}
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+              >
+                {(mode === 'cctv' && cctvMethod === 'MANUAL_CAMERA'
+                  ? cctvStreamKinds
+                  : mode === 'cctv' && cctvMethod === 'CONNECT_NVR'
+                    ? nvrProtocols
+                    : protocols
+                ).map((value) => <option key={value} value={value}>{labelize(value)}</option>)}
               </select>
             </label>
             <label className="text-sm font-medium text-slate-700">
-              Endpoint / host
+              {mode === 'cctv' && cctvMethod === 'MANUAL_CAMERA' ? 'Host / URL' : 'Endpoint / host'}
               <input value={form.host} onChange={(event) => setForm({ ...form, host: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" placeholder="192.168.1.20 or https://vendor.local" />
             </label>
             <label className="text-sm font-medium text-slate-700">
@@ -418,7 +617,7 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
               <input type="number" value={form.port} onChange={(event) => setForm({ ...form, port: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
             </label>
             <label className="text-sm font-medium text-slate-700">
-              Channel
+              {mode === 'cctv' && cctvMethod === 'CONNECT_NVR' ? 'Channel count' : 'Channel'}
               <input type="number" value={form.channelNumber} onChange={(event) => setForm({ ...form, channelNumber: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
             </label>
             <label className="text-sm font-medium text-slate-700">
@@ -443,12 +642,27 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
             </label>
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-slate-500">Secrets are encrypted server-side and never returned to this page.</p>
+            <p className="text-xs text-slate-500">
+              Secrets are encrypted server-side. Raw RTSP URLs, passwords, and API keys are never returned to this page.
+            </p>
+            {mode === 'cctv' && cctvMethod === 'CONNECT_NVR' ? (
+              <button
+                type="button"
+                onClick={() => nvrTestMutation.mutate()}
+                disabled={!canManage || !form.host.trim() || nvrTestMutation.isPending}
+                className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"
+              >
+                <TestTube2 className="h-4 w-4" />
+                Test NVR
+              </button>
+            ) : null}
             <button type="submit" disabled={!canSubmit || createMutation.isPending || updateMutation.isPending} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
               <Save className="h-4 w-4" />
               {editingId ? 'Save changes' : 'Save'}
             </button>
           </div>
+          </>
+          ) : null}
         </form>
       ) : null}
 

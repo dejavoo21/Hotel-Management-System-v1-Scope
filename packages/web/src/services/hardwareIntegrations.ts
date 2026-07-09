@@ -70,6 +70,9 @@ export type HardwareIntegrationPayload = {
   deviceIdentifier?: string;
   topicPathChannel?: string;
   metadata?: Record<string, unknown>;
+  connectionMethod?: 'MANUAL_CAMERA' | 'CONNECT_NVR' | 'CLOUD_PROVIDER';
+  streamKind?: 'HLS' | 'MJPEG' | 'SNAPSHOT' | 'RTSP' | 'ONVIF';
+  cloudProvider?: 'VERKADA' | 'EAGLE_EYE' | 'RHOMBUS' | 'OTHER';
 };
 
 const unwrap = <T>(response: { data: { data: T } }) => response.data.data;
@@ -99,6 +102,30 @@ export const hardwareIntegrationService = {
   },
   async view(id: string): Promise<{ id: string; name: string; status: string; healthStatus: string; message: string }> {
     const response = await api.post(`/hardware-integrations/${id}/view`);
+    return unwrap(response);
+  },
+  async listCctv(): Promise<HardwareIntegration[]> {
+    const response = await api.get('/cctv/cameras');
+    return unwrap(response);
+  },
+  async createCctv(payload: HardwareIntegrationPayload): Promise<HardwareIntegration> {
+    const response = await api.post('/cctv/cameras', payload);
+    return unwrap(response);
+  },
+  async discoverCctv(payload: { subnet: string; provider?: HardwareProvider }): Promise<{ configured: boolean; message: string; discovered: unknown[] }> {
+    const response = await api.post('/cctv/discover', payload);
+    return unwrap(response);
+  },
+  async testNvr(payload: { provider: HardwareProvider; protocol: HardwareProtocol; host: string; port?: number; username?: string; secret?: string; channelCount?: number }): Promise<{ success: boolean; message: string; status: string; healthStatus: string }> {
+    const response = await api.post('/cctv/nvr/test', payload);
+    return unwrap(response);
+  },
+  async testCctvCamera(id: string): Promise<HardwareIntegration> {
+    const response = await api.post(`/cctv/cameras/${id}/test`);
+    return unwrap(response);
+  },
+  async viewCctvPlayback(id: string): Promise<{ id: string; name: string; status: string; healthStatus: string; message: string }> {
+    const response = await api.get(`/cctv/cameras/${id}/playback`);
     return unwrap(response);
   },
 };
