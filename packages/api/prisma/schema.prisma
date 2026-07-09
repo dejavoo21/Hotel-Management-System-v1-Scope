@@ -136,6 +136,7 @@ model Hotel {
   iotDevices        IoTDevice[]
   cameraFeeds       CameraFeed[]
   hardwareIntegrations HardwareIntegration[]
+  integrationCredentialReferences IntegrationCredentialReference[]
   doorAccessEvents  DoorAccessEvent[]
   doorStatuses      DoorStatus[]
   sensorReadings    SensorReading[]
@@ -322,6 +323,7 @@ model HardwareIntegration {
   cameraFeed       CameraFeed?               @relation(fields: [cameraFeedId], references: [id], onDelete: SetNull)
   iotDeviceId      String?
   iotDevice        IoTDevice?                @relation(fields: [iotDeviceId], references: [id], onDelete: SetNull)
+  credentialReferences IntegrationCredentialReference[]
   createdAt        DateTime                  @default(now())
   updatedAt        DateTime                  @updatedAt
 
@@ -331,6 +333,29 @@ model HardwareIntegration {
   @@index([protocol])
   @@index([status])
   @@index([enabled])
+}
+
+model IntegrationCredentialReference {
+  id                  String              @id @default(cuid())
+  hotelId             String
+  hotel               Hotel               @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  integrationId       String
+  integration         HardwareIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  providerType        String
+  credentialReference String
+  status              String              @default("ACTIVE")
+  createdById         String?
+  lastUpdatedById     String?
+  lastTestedAt        DateTime?
+  expiresAt           DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@unique([integrationId, providerType])
+  @@index([hotelId])
+  @@index([providerType])
+  @@index([status])
+  @@index([credentialReference])
 }
 
 model DoorAccessEvent {

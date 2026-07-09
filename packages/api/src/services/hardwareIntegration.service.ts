@@ -89,13 +89,51 @@ export function discoverHardwareIntegrations(input: { subnet?: string; provider?
   };
 }
 
+function credentialReferenceFor(integration: Pick<HardwareIntegration, 'id' | 'provider'>) {
+  return `laflo://integration-credentials/${integration.provider.toLowerCase()}/${integration.id}`;
+}
+
 function publicIntegration(integration: HardwareIntegration) {
   return {
     ...integration,
     secretCiphertext: undefined,
     hasSecret: Boolean(integration.secretCiphertext),
     secretMasked: integration.secretMasked || (integration.secretCiphertext ? '****' : null),
+    credentialReference: credentialReferenceFor(integration),
   };
+}
+
+async function upsertCredentialReference(
+  hotelId: string,
+  integration: Pick<HardwareIntegration, 'id' | 'provider' | 'secretCiphertext'>,
+  userId?: string | null,
+  options: { tested?: boolean; disabled?: boolean } = {}
+) {
+  if (!integration.secretCiphertext && !options.tested && !options.disabled) return;
+  await prisma.integrationCredentialReference.upsert({
+    where: {
+      integrationId_providerType: {
+        integrationId: integration.id,
+        providerType: String(integration.provider),
+      },
+    },
+    create: {
+      hotelId,
+      integrationId: integration.id,
+      providerType: String(integration.provider),
+      credentialReference: credentialReferenceFor(integration),
+      status: options.disabled ? 'DISABLED' : integration.secretCiphertext ? 'ACTIVE' : 'REFERENCE_ONLY',
+      createdById: userId || null,
+      lastUpdatedById: userId || null,
+      lastTestedAt: options.tested ? new Date() : null,
+    },
+    update: {
+      credentialReference: credentialReferenceFor(integration),
+      status: options.disabled ? 'DISABLED' : integration.secretCiphertext ? 'ACTIVE' : 'REFERENCE_ONLY',
+      lastUpdatedById: userId || null,
+      ...(options.tested ? { lastTestedAt: new Date() } : {}),
+    },
+  });
 }
 
 async function ensureLinkedEntity(hotelId: string, input: HardwareIntegrationInput) {
@@ -192,7 +230,7 @@ export async function getHardwareIntegration(hotelId: string, id: string) {
   return publicIntegration(integration);
 }
 
-export async function createHardwareIntegration(hotelId: string, input: HardwareIntegrationInput) {
+export async function createHardwareIntegration(hotelId: string, input: HardwareIntegrationInput, actorUserId?: string | null) {
   const linked = await ensureLinkedEntity(hotelId, input);
   const health = safeHealth(input);
   const integration = await prisma.hardwareIntegration.create({
@@ -226,10 +264,11 @@ export async function createHardwareIntegration(hotelId: string, input: Hardware
       },
     },
   });
+  await upsertCredentialReference(hotelId, integration, actorUserId);
   return publicIntegration(integration);
 }
 
-export async function updateHardwareIntegration(hotelId: string, id: string, input: Partial<HardwareIntegrationInput>) {
+export async function updateHardwareIntegration(hotelId: string, id: string, input: Partial<HardwareIntegrationInput>, actorUserId?: string | null) {
   const existing = await prisma.hardwareIntegration.findFirstOrThrow({ where: { id, hotelId } });
   const next: HardwareIntegrationInput = {
     integrationType: input.integrationType || existing.integrationType,
@@ -277,10 +316,11 @@ export async function updateHardwareIntegration(hotelId: string, id: string, inp
       iotDeviceId: linked.iotDeviceId,
     },
   });
+  await upsertCredentialReference(hotelId, integration, actorUserId);
   return publicIntegration(integration);
 }
 
-export async function testHardwareIntegration(hotelId: string, id: string) {
+export async function testHardwareIntegration(hotelId: string, id: string, actorUserId?: string | null) {
   const existing = await prisma.hardwareIntegration.findFirstOrThrow({ where: { id, hotelId } });
   const health = safeHealth(existing);
   const integration = await prisma.hardwareIntegration.update({
@@ -297,6 +337,7 @@ export async function testHardwareIntegration(hotelId: string, id: string) {
       },
     },
   });
+  await upsertCredentialReference(hotelId, integration, actorUserId, { tested: true });
   return publicIntegration(integration);
 }
 
@@ -312,7 +353,7 @@ export async function getHardwareIntegrationHealth(hotelId: string, id: string) 
   };
 }
 
-export async function disableHardwareIntegration(hotelId: string, id: string) {
+export async function disableHardwareIntegration(hotelId: string, id: string, actorUserId?: string | null) {
   await prisma.hardwareIntegration.findFirstOrThrow({ where: { id, hotelId } });
   const integration = await prisma.hardwareIntegration.update({
     where: { id },
@@ -322,6 +363,7 @@ export async function disableHardwareIntegration(hotelId: string, id: string) {
       healthStatus: HardwareHealthStatus.UNKNOWN,
     },
   });
+  await upsertCredentialReference(hotelId, integration, actorUserId, { disabled: true });
   return publicIntegration(integration);
 }
 

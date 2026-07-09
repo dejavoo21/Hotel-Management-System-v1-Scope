@@ -1,34 +1,53 @@
 import { useMemo, useState, type ComponentType } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
   Bot,
   Building2,
+  BarChart3,
   Camera,
   CameraOff,
   ChevronDown,
   ClipboardList,
+  DoorClosed,
   DoorOpen,
+  FileBarChart,
   FileText,
+  Gauge,
+  Hand,
   Home,
   Languages,
+  LayoutDashboard,
   MessageSquare,
   Mic,
   MicOff,
   MonitorUp,
   MoreHorizontal,
   NotebookPen,
+  PhoneOff,
+  PieChart,
+  Receipt,
+  SmilePlus,
   ScreenShareOff,
   ShieldAlert,
   Sparkles,
   ThermometerSun,
+  UsersRound,
+  WalletCards,
   Users,
   Wrench,
+  Zap,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { getUserPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
+import operationsService from '@/services/operations';
+import securityCenterService from '@/services/securityCenter';
+import smartBuildingService from '@/services/smartBuilding';
+import incidentService from '@/services/incidents';
 
 type ToolbarSection = 'communication' | 'hotel' | 'ai' | 'productivity';
+type CollaborationWorkspace = 'support' | 'security' | 'maintenance' | 'incidents' | 'operations' | 'smart-building' | 'management';
 
 type ToolbarAction = {
   id: string;
@@ -43,9 +62,11 @@ type ToolbarAction = {
   active?: boolean;
   disabled?: boolean;
   description?: string;
+  workspaces?: CollaborationWorkspace[];
 };
 
 export type CollaborationToolbarProps = {
+  workspace?: CollaborationWorkspace;
   cameraOn?: boolean;
   microphoneOn?: boolean;
   screenSharing?: boolean;
@@ -55,8 +76,11 @@ export type CollaborationToolbarProps = {
   onOpenParticipants?: () => void;
   onSummarizeConversation?: () => void;
   onTranslate?: () => void;
+  onEndSession?: () => void;
   className?: string;
   variant?: 'light' | 'dark';
+  showStatusStrip?: boolean;
+  extensionActions?: ToolbarAction[];
 };
 
 const sectionLabels: Record<ToolbarSection, string> = {
@@ -83,6 +107,7 @@ function useModuleAccess() {
 }
 
 export default function CollaborationToolbar({
+  workspace = 'support',
   cameraOn = false,
   microphoneOn = true,
   screenSharing = false,
@@ -92,12 +117,55 @@ export default function CollaborationToolbar({
   onOpenParticipants,
   onSummarizeConversation,
   onTranslate,
+  onEndSession,
   className = '',
   variant = 'dark',
+  showStatusStrip = true,
+  extensionActions = [],
 }: CollaborationToolbarProps) {
   const navigate = useNavigate();
   const canShow = useModuleAccess();
+  const { user } = useAuthStore();
   const [showMore, setShowMore] = useState(false);
+  const userPermissions = useMemo(
+    () => getUserPermissions(user?.id, user?.role as UserRole | undefined, user?.modulePermissions as PermissionId[] | undefined),
+    [user?.id, user?.role, user?.modulePermissions]
+  );
+  const isSuperAdmin = isSuperAdminUser(user?.id, user?.role as UserRole | undefined);
+  const canAccess = (permission: PermissionId) => isSuperAdmin || userPermissions.includes(permission);
+
+  const operationsStatusQuery = useQuery({
+    queryKey: ['collaboration-status', 'operations'],
+    queryFn: () => operationsService.getOperationsContext(user?.hotelId || ''),
+    enabled: showStatusStrip && Boolean(user) && canAccess('bookings'),
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    retry: 1,
+  });
+  const securityStatusQuery = useQuery({
+    queryKey: ['collaboration-status', 'security'],
+    queryFn: securityCenterService.getOverview,
+    enabled: showStatusStrip && Boolean(user) && canAccess('security_center'),
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    retry: 1,
+  });
+  const smartBuildingStatusQuery = useQuery({
+    queryKey: ['collaboration-status', 'smart-building'],
+    queryFn: smartBuildingService.getOverview,
+    enabled: showStatusStrip && Boolean(user) && canAccess('smart_building'),
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    retry: 1,
+  });
+  const incidentStatusQuery = useQuery({
+    queryKey: ['collaboration-status', 'incidents'],
+    queryFn: incidentService.overview,
+    enabled: showStatusStrip && Boolean(user) && canAccess('incident_management'),
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    retry: 1,
+  });
 
   const pendingAction = (label: string) => {
     toast(`${label} will connect when that workflow is enabled.`);
@@ -158,12 +226,58 @@ export default function CollaborationToolbar({
         disabled: !onOpenParticipants,
       },
       {
+        id: 'raise-hand',
+        label: 'Raise hand',
+        shortLabel: 'Raise',
+        section: 'communication',
+        icon: Hand,
+        permissionsAny: ['messages', 'bookings', 'security_center', 'maintenance_center', 'smart_building'],
+        onSelect: () => pendingAction('Raise hand'),
+      },
+      {
+        id: 'reactions',
+        label: 'Reactions',
+        shortLabel: 'React',
+        section: 'communication',
+        icon: SmilePlus,
+        permissionsAny: ['messages', 'bookings', 'security_center', 'maintenance_center', 'smart_building'],
+        onSelect: () => pendingAction('Reactions'),
+      },
+      {
+        id: 'view',
+        label: 'View options',
+        shortLabel: 'View',
+        section: 'communication',
+        icon: LayoutDashboard,
+        permissionsAny: ['messages', 'bookings', 'security_center', 'maintenance_center', 'smart_building'],
+        onSelect: () => pendingAction('View options'),
+      },
+      {
+        id: 'session-controls',
+        label: 'Session controls',
+        shortLabel: 'Session',
+        section: 'communication',
+        icon: Gauge,
+        permissionsAny: ['messages', 'bookings', 'security_center', 'maintenance_center', 'smart_building'],
+        onSelect: () => pendingAction('Session controls'),
+      },
+      {
+        id: 'end-session',
+        label: 'End session',
+        shortLabel: 'End',
+        section: 'communication',
+        icon: PhoneOff,
+        permission: 'messages',
+        onSelect: onEndSession || (() => pendingAction('End session')),
+      },
+      {
         id: 'guest-profile',
-        label: 'Guest profile',
+        label: 'Guest',
         section: 'hotel',
         icon: Users,
         permission: 'guests',
         route: '/guests',
+        workspaces: ['support'],
       },
       {
         id: 'reservation',
@@ -172,6 +286,16 @@ export default function CollaborationToolbar({
         icon: ClipboardList,
         permission: 'bookings',
         route: '/bookings',
+        workspaces: ['support'],
+      },
+      {
+        id: 'payment',
+        label: 'Payment',
+        section: 'hotel',
+        icon: WalletCards,
+        permission: 'financials',
+        route: '/reports',
+        workspaces: ['support'],
       },
       {
         id: 'room-controls',
@@ -180,6 +304,7 @@ export default function CollaborationToolbar({
         icon: Home,
         permission: 'rooms',
         route: '/rooms',
+        workspaces: ['support'],
       },
       {
         id: 'housekeeping',
@@ -188,6 +313,7 @@ export default function CollaborationToolbar({
         icon: Building2,
         permission: 'housekeeping',
         route: '/housekeeping',
+        workspaces: ['support'],
       },
       {
         id: 'maintenance',
@@ -196,22 +322,61 @@ export default function CollaborationToolbar({
         icon: Wrench,
         permission: 'maintenance_center',
         route: '/maintenance-center',
+        workspaces: ['support', 'maintenance'],
       },
       {
-        id: 'security-cameras',
-        label: 'Security cameras',
+        id: 'cctv',
+        label: 'CCTV',
         section: 'hotel',
         icon: Camera,
         permission: 'security_center',
         route: '/security-center/cctv',
+        workspaces: ['security'],
+      },
+      {
+        id: 'smart-doors-security',
+        label: 'Smart Doors',
+        section: 'hotel',
+        icon: DoorOpen,
+        permission: 'security_center',
+        route: '/operations/smart-building/doors',
+        workspaces: ['security'],
+      },
+      {
+        id: 'access-logs',
+        label: 'Access Logs',
+        section: 'hotel',
+        icon: Receipt,
+        permission: 'security_center',
+        route: '/security-center/access-logs',
+        workspaces: ['security'],
+      },
+      {
+        id: 'visitors',
+        label: 'Visitors',
+        section: 'hotel',
+        icon: UsersRound,
+        permission: 'security_center',
+        route: '/security-center/visitors',
+        workspaces: ['security'],
+      },
+      {
+        id: 'security-incidents',
+        label: 'Incidents',
+        section: 'hotel',
+        icon: ShieldAlert,
+        permission: 'incident_management',
+        route: '/incidents',
+        workspaces: ['security', 'incidents'],
       },
       {
         id: 'smart-doors',
-        label: 'Smart doors',
+        label: 'Smart Doors',
         section: 'hotel',
-        icon: DoorOpen,
+        icon: DoorClosed,
         permission: 'smart_building',
         route: '/operations/smart-building/doors',
+        workspaces: ['smart-building'],
       },
       {
         id: 'sensors',
@@ -220,6 +385,142 @@ export default function CollaborationToolbar({
         icon: ThermometerSun,
         permission: 'smart_building',
         route: '/operations/smart-building/sensors',
+        workspaces: ['smart-building'],
+      },
+      {
+        id: 'energy',
+        label: 'Energy',
+        section: 'hotel',
+        icon: Zap,
+        permission: 'smart_building',
+        route: '/operations/smart-building/energy',
+        workspaces: ['smart-building'],
+      },
+      {
+        id: 'hvac',
+        label: 'HVAC',
+        section: 'hotel',
+        icon: ThermometerSun,
+        permission: 'smart_building',
+        route: '/operations/smart-building/hvac',
+        workspaces: ['smart-building'],
+      },
+      {
+        id: 'assets',
+        label: 'Assets',
+        section: 'hotel',
+        icon: Building2,
+        permission: 'smart_building',
+        route: '/operations/smart-building/assets',
+        workspaces: ['smart-building'],
+      },
+      {
+        id: 'work-orders',
+        label: 'Work Orders',
+        section: 'hotel',
+        icon: ClipboardList,
+        permission: 'maintenance_center',
+        route: '/maintenance-center/work-orders',
+        workspaces: ['maintenance'],
+      },
+      {
+        id: 'faults',
+        label: 'Faults',
+        section: 'hotel',
+        icon: ShieldAlert,
+        permission: 'maintenance_center',
+        route: '/maintenance-center/faults',
+        workspaces: ['maintenance'],
+      },
+      {
+        id: 'repairs',
+        label: 'Repairs',
+        section: 'hotel',
+        icon: Wrench,
+        permission: 'maintenance_center',
+        route: '/maintenance-center/repairs',
+        workspaces: ['maintenance'],
+      },
+      {
+        id: 'asset-history',
+        label: 'Asset History',
+        section: 'hotel',
+        icon: FileText,
+        permission: 'maintenance_center',
+        route: '/maintenance-center/assets',
+        workspaces: ['maintenance'],
+      },
+      {
+        id: 'ai-concierge',
+        label: 'AI Concierge',
+        section: 'hotel',
+        icon: Bot,
+        permission: 'bookings',
+        route: '/operations-center/ai',
+        workspaces: ['operations'],
+      },
+      {
+        id: 'revenue',
+        label: 'Revenue',
+        section: 'hotel',
+        icon: BarChart3,
+        permission: 'financials',
+        route: '/operations-center/revenue',
+        workspaces: ['operations', 'management'],
+      },
+      {
+        id: 'weather',
+        label: 'Weather',
+        section: 'hotel',
+        icon: ThermometerSun,
+        permission: 'bookings',
+        route: '/operations-center/weather',
+        workspaces: ['operations'],
+      },
+      {
+        id: 'tasks',
+        label: 'Tasks',
+        section: 'hotel',
+        icon: ClipboardList,
+        permission: 'bookings',
+        route: '/operations-center/tasks',
+        workspaces: ['operations'],
+      },
+      {
+        id: 'market-intelligence',
+        label: 'Market Intelligence',
+        section: 'hotel',
+        icon: PieChart,
+        permission: 'bookings',
+        route: '/operations-center/market-intelligence',
+        workspaces: ['operations'],
+      },
+      {
+        id: 'executive-dashboard',
+        label: 'Executive Dashboard',
+        section: 'hotel',
+        icon: LayoutDashboard,
+        permission: 'dashboard',
+        route: '/enterprise-command-center',
+        workspaces: ['operations', 'incidents'],
+      },
+      {
+        id: 'kpis',
+        label: 'KPIs',
+        section: 'hotel',
+        icon: Gauge,
+        permission: 'dashboard',
+        route: '/',
+        workspaces: ['operations', 'incidents'],
+      },
+      {
+        id: 'reports',
+        label: 'Reports',
+        section: 'hotel',
+        icon: FileBarChart,
+        permission: 'financials',
+        route: '/reports',
+        workspaces: ['operations', 'incidents'],
       },
       {
         id: 'summarize',
@@ -284,12 +585,15 @@ export default function CollaborationToolbar({
         icon: MoreHorizontal,
         onSelect: () => pendingAction('More actions'),
       },
+      ...extensionActions,
     ],
     [
       cameraOn,
+      extensionActions,
       microphoneOn,
       navigate,
       onOpenParticipants,
+      onEndSession,
       onSummarizeConversation,
       onToggleCamera,
       onToggleMicrophone,
@@ -299,10 +603,34 @@ export default function CollaborationToolbar({
     ]
   );
 
-  const visibleActions = actions.filter(canShow);
-  const primaryActions = visibleActions.filter((action) => action.section === 'communication');
+  const visibleActions = actions.filter((action) => canShow(action) && (!action.workspaces || action.workspaces.includes(workspace)));
+  const primaryActions = visibleActions.filter((action) => action.section === 'communication').slice(0, 10);
   const secondarySections: ToolbarSection[] = ['hotel', 'ai', 'productivity'];
   const isDark = variant === 'dark';
+  const occupancy = operationsStatusQuery.data?.ops?.inhouseNow ?? null;
+  const criticalAlerts =
+    (incidentStatusQuery.data?.critical || 0) +
+    (securityStatusQuery.data?.alerts.open || 0) +
+    (smartBuildingStatusQuery.data?.health.activeAlerts || 0);
+  const camerasOnline = securityStatusQuery.data?.cctv.online ?? smartBuildingStatusQuery.data?.cameras.online ?? null;
+  const doorsConnected = smartBuildingStatusQuery.data?.doors.locked ?? null;
+  const sensorsHealthy =
+    smartBuildingStatusQuery.data
+      ? smartBuildingStatusQuery.data.temperatureSensors.warning +
+          smartBuildingStatusQuery.data.waterLeakSensors.alerts +
+          smartBuildingStatusQuery.data.motionAlerts.active ===
+        0
+      : null;
+  const aiMonitoring = operationsStatusQuery.data ? 'Active' : canAccess('bookings') ? 'Waiting' : 'Restricted';
+
+  const statusItems = [
+    { label: 'Occupancy', value: occupancy == null ? 'No data' : `${occupancy} in-house`, tone: 'slate' },
+    { label: 'Critical Alerts', value: String(criticalAlerts), tone: criticalAlerts > 0 ? 'rose' : 'emerald' },
+    { label: 'Cameras Online', value: camerasOnline == null ? 'No data' : String(camerasOnline), tone: camerasOnline == null ? 'slate' : 'emerald' },
+    { label: 'Doors Connected', value: doorsConnected == null ? 'No data' : String(doorsConnected), tone: doorsConnected == null ? 'slate' : 'sky' },
+    { label: 'Sensors Healthy', value: sensorsHealthy == null ? 'No data' : sensorsHealthy ? 'Healthy' : 'Needs attention', tone: sensorsHealthy === false ? 'amber' : 'emerald' },
+    { label: 'AI Monitoring', value: aiMonitoring, tone: aiMonitoring === 'Active' ? 'emerald' : 'slate' },
+  ];
 
   const runAction = (action: ToolbarAction) => {
     if (action.disabled) return;
@@ -359,6 +687,33 @@ export default function CollaborationToolbar({
       ].join(' ')}
       aria-label="Collaboration toolbar"
     >
+      {showStatusStrip ? (
+        <div
+          className={`mb-3 grid gap-2 rounded-2xl border p-2 text-xs sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 ${
+            isDark ? 'border-white/10 bg-black/20' : 'border-slate-200 bg-slate-50'
+          }`}
+          aria-label="Hotel status"
+        >
+          {statusItems.map((item) => (
+            <div key={item.label} className={`rounded-xl px-3 py-2 ${isDark ? 'bg-white/10' : 'bg-white'}`}>
+              <div className={isDark ? 'text-white/55' : 'text-slate-500'}>{item.label}</div>
+              <div
+                className={[
+                  'mt-1 font-semibold',
+                  item.tone === 'rose' ? 'text-rose-500' : '',
+                  item.tone === 'amber' ? 'text-amber-600' : '',
+                  item.tone === 'emerald' ? 'text-emerald-600' : '',
+                  item.tone === 'sky' ? 'text-sky-600' : '',
+                  item.tone === 'slate' ? (isDark ? 'text-white' : 'text-slate-900') : '',
+                ].join(' ')}
+              >
+                {item.value}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
         <div className="flex flex-wrap items-center gap-2" aria-label={sectionLabels.communication}>
           {primaryActions.map((action) => renderAction(action))}

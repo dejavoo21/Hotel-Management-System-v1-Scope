@@ -36,6 +36,7 @@ import marketRoutes from './routes/market.routes.js';
 import ticketRoutes from './routes/ticket.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import integrationMarketplaceRoutes from './routes/integrationMarketplace.routes.js';
+import integrationManagerRoutes from './routes/integrationManager.routes.js';
 import hardwareIntegrationRoutes from './routes/hardwareIntegration.routes.js';
 import cctvRoutes from './routes/cctv.routes.js';
 import aiHooksRoutes from './routes/aiHooks.routes.js';
@@ -192,6 +193,7 @@ export function createApp(): Application {
           incidents: '/api/incidents',
           market: '/api/market',
           integrations: '/api/integrations',
+          integrationManager: '/api/integration-manager',
           hardwareIntegrations: '/api/hardware-integrations',
           cctv: '/api/cctv',
           aiContext: '/api/ai/context/hotel',
@@ -264,6 +266,7 @@ export function createApp(): Application {
   app.use('/api/tickets', ticketRoutes);
   app.use('/api/notifications', notificationRoutes);
   app.use('/api/integrations', integrationMarketplaceRoutes);
+  app.use('/api/integration-manager', integrationManagerRoutes);
   app.use('/api/hardware-integrations', hardwareIntegrationRoutes);
   app.use('/api/cctv', cctvRoutes);
   app.use('/api/ai', aiHooksRoutes);

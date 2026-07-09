@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { AlertTriangle, Brain, RefreshCcw, Sparkles } from 'lucide-react';
+import { AlertTriangle, Brain, RefreshCcw } from 'lucide-react';
 import OpsAdvisories from '@/components/operations/advisories/OpsAdvisories';
 import AssistantDock from '@/components/operations/assistant/AssistantDock';
 import PricingCalendarCard from '@/components/operations/pricing/PricingCalendarCard';
@@ -17,6 +17,7 @@ import DepartmentIntelligenceCard from '@/components/operations/DepartmentIntell
 import AIRecommendationGovernancePanel from '@/components/operations/AIRecommendationGovernancePanel';
 import AICopilotPanel from '@/components/ai/AICopilotPanel';
 import OperationalTimeline from '@/components/timeline/OperationalTimeline';
+import CollaborationHeader from '@/components/collaboration/CollaborationHeader';
 import { aiBriefingService, operationsService, weatherSignalsService } from '@/services';
 import type { DailyGMBriefing } from '@/services/aiBriefing';
 import { useAuthStore } from '@/stores/authStore';
@@ -280,31 +281,15 @@ export default function OperationsCenterPage() {
     const updatedAt = ctx?.generatedAtUtc ? new Date(ctx.generatedAtUtc) : null;
 
     return (
-      <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-sky-50 p-6 shadow-sm">
-        <div className="pointer-events-none absolute -top-24 right-[-120px] h-72 w-72 rounded-full bg-sky-200/30 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 left-[-120px] h-72 w-72 rounded-full bg-emerald-200/20 blur-3xl" />
-        <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-900 to-slate-700 text-white shadow-sm ring-1 ring-white/30">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-lg font-semibold text-slate-900">{meta.title}</div>
-                <div className="mt-1 text-sm text-slate-600">
-                  {meta.description}
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-3 text-xs text-slate-500">
-              {updatedAt
-                ? `Updated ${updatedAt.toLocaleString()}`
-                : 'Updated time will appear after first load'}
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
+      <div className="space-y-4">
+        <CollaborationHeader
+          workspace="operations"
+          eyebrow="Operations / Operations Center"
+          title={meta.title}
+          subtitle={`${meta.description} ${updatedAt ? `Updated ${updatedAt.toLocaleString()}.` : ''}`}
+          statusLabel={operationsQuery.isError ? 'Operations context unavailable' : 'Operations workspace'}
+          statusTone={operationsQuery.isError ? 'warning' : 'live'}
+          actions={
             <button
               type="button"
               onClick={() => refreshWeatherMutation.mutate()}
@@ -314,11 +299,11 @@ export default function OperationsCenterPage() {
               <RefreshCcw className={`h-4 w-4 ${refreshWeatherMutation.isPending ? 'animate-spin' : ''}`} />
               Refresh forecast
             </button>
-          </div>
-        </div>
+          }
+        />
 
         {isOverview ? (
-          <div className="relative z-10 mt-6">
+          <div>
             <OpsKpiStrip context={operationsQuery.data} isLoading={operationsQuery.isLoading} />
           </div>
         ) : null}

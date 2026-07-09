@@ -31,6 +31,16 @@ async function auditHardware(req: AuthenticatedRequest, action: string, entityId
   });
 }
 
+async function publishIntegrationLifecycle(req: AuthenticatedRequest, eventType: string, entityId: string, details?: Record<string, unknown>) {
+  await eventBus.publish({
+    eventType,
+    hotelId: req.user!.hotelId,
+    source: 'integration-manager',
+    userId: req.user!.id,
+    payload: { integrationId: entityId, ...details },
+  });
+}
+
 export async function listHardwareIntegrations(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const data = await hardwareIntegrationService.listHardwareIntegrations(req.user!.hotelId, {
@@ -53,11 +63,17 @@ export async function getHardwareIntegration(req: AuthenticatedRequest, res: Res
 
 export async function createHardwareIntegration(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    const data = await hardwareIntegrationService.createHardwareIntegration(req.user!.hotelId, req.body);
+    const data = await hardwareIntegrationService.createHardwareIntegration(req.user!.hotelId, req.body, req.user!.id);
     await auditHardware(req, 'HARDWARE_INTEGRATION_CREATED', data.id, {
       integrationType: data.integrationType,
       provider: data.provider,
       protocol: data.protocol,
+    });
+    await publishIntegrationLifecycle(req, 'integration.created', data.id, {
+      integrationType: data.integrationType,
+      provider: data.provider,
+      protocol: data.protocol,
+      credentialReference: data.credentialReference,
     });
     res.status(201).json({ success: true, data });
   } catch (error) {
@@ -67,11 +83,17 @@ export async function createHardwareIntegration(req: AuthenticatedRequest, res: 
 
 export async function updateHardwareIntegration(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    const data = await hardwareIntegrationService.updateHardwareIntegration(req.user!.hotelId, req.params.id, req.body);
+    const data = await hardwareIntegrationService.updateHardwareIntegration(req.user!.hotelId, req.params.id, req.body, req.user!.id);
     await auditHardware(req, 'HARDWARE_INTEGRATION_UPDATED', data.id, {
       integrationType: data.integrationType,
       provider: data.provider,
       protocol: data.protocol,
+    });
+    await publishIntegrationLifecycle(req, 'integration.updated', data.id, {
+      integrationType: data.integrationType,
+      provider: data.provider,
+      protocol: data.protocol,
+      credentialReference: data.credentialReference,
     });
     res.json({ success: true, data });
   } catch (error) {
@@ -81,12 +103,22 @@ export async function updateHardwareIntegration(req: AuthenticatedRequest, res: 
 
 export async function testHardwareIntegration(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    const data = await hardwareIntegrationService.testHardwareIntegration(req.user!.hotelId, req.params.id);
+    const data = await hardwareIntegrationService.testHardwareIntegration(req.user!.hotelId, req.params.id, req.user!.id);
     await auditHardware(req, 'HARDWARE_INTEGRATION_TESTED', data.id, {
       success: (data.lastTestResult as any)?.success,
       status: data.status,
       healthStatus: data.healthStatus,
     });
+    await publishIntegrationLifecycle(
+      req,
+      (data.lastTestResult as any)?.success ? 'integration.connection.tested' : 'integration.connection.failed',
+      data.id,
+      {
+        status: data.status,
+        healthStatus: data.healthStatus,
+        message: (data.lastTestResult as any)?.message,
+      }
+    );
     if (data.iotDeviceId && (data.lastTestResult as any)?.success) {
       await auditHardware(req, 'DEVICE_STATUS_RECEIVED', data.id, {
         deviceId: data.iotDeviceId,
@@ -112,9 +144,13 @@ export async function getHardwareIntegrationHealth(req: AuthenticatedRequest, re
 
 export async function disableHardwareIntegration(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    const data = await hardwareIntegrationService.disableHardwareIntegration(req.user!.hotelId, req.params.id);
+    const data = await hardwareIntegrationService.disableHardwareIntegration(req.user!.hotelId, req.params.id, req.user!.id);
     await auditHardware(req, 'HARDWARE_INTEGRATION_DISABLED', data.id, {
       status: data.status,
+    });
+    await publishIntegrationLifecycle(req, 'integration.updated', data.id, {
+      status: data.status,
+      enabled: data.enabled,
     });
     res.json({ success: true, data });
   } catch (error) {

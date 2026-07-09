@@ -18,7 +18,7 @@ import { formatEnumLabel } from '@/utils';
 import { ackAccessRequest } from '@/utils/accessRequestAck';
 import ThemeSwitcher from '@/components/theme/ThemeSwitcher';
 import { useTheme } from '@/theme/ThemeProvider';
-import IntegrationMarketplacePanel from '@/components/settings/IntegrationMarketplacePanel';
+import IntegrationManagerPanel from '@/components/settings/IntegrationManagerPanel';
 
 type SettingsTab =
   | 'hotel'
@@ -1220,7 +1220,7 @@ export default function SettingsPage() {
           )}
 
           {/* Integrations */}
-          {activeTab === 'integrations' && <IntegrationMarketplacePanel />}
+          {activeTab === 'integrations' && <IntegrationManagerPanel />}
 
           {/* Audit Trail */}
           {activeTab === 'audit-trail' && (

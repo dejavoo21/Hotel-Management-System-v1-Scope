@@ -34,6 +34,7 @@ export type HardwareIntegration = {
   channelNumber?: number | null;
   username?: string | null;
   secretMasked?: string | null;
+  credentialReference?: string | null;
   hasSecret?: boolean;
   streamPath?: string | null;
   gatewayId?: string | null;

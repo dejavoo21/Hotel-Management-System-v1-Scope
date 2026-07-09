@@ -38,6 +38,16 @@ async function auditCctv(req: AuthenticatedRequest, action: string, entityId: st
   });
 }
 
+async function publishIntegrationLifecycle(req: AuthenticatedRequest, eventType: string, entityId: string, details?: Record<string, unknown>) {
+  await eventBus.publish({
+    eventType,
+    hotelId: req.user!.hotelId,
+    source: 'integration-manager',
+    userId: req.user!.id,
+    payload: { integrationId: entityId, ...details },
+  });
+}
+
 export async function listCctvCameras(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const [cameras, nvrs] = await Promise.all([
@@ -52,21 +62,32 @@ export async function listCctvCameras(req: AuthenticatedRequest, res: Response, 
 
 export async function createCctvCamera(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    const data = await hardwareIntegrationService.createHardwareIntegration(req.user!.hotelId, {
-      ...req.body,
-      integrationType: req.body.integrationType || HardwareIntegrationType.CCTV_CAMERA,
-      metadata: {
-        connectionMethod: req.body.connectionMethod || 'MANUAL_CAMERA',
-        streamKind: req.body.streamKind,
-        cloudProvider: req.body.cloudProvider,
-        ...(req.body.metadata || {}),
+    const data = await hardwareIntegrationService.createHardwareIntegration(
+      req.user!.hotelId,
+      {
+        ...req.body,
+        integrationType: req.body.integrationType || HardwareIntegrationType.CCTV_CAMERA,
+        metadata: {
+          connectionMethod: req.body.connectionMethod || 'MANUAL_CAMERA',
+          streamKind: req.body.streamKind,
+          cloudProvider: req.body.cloudProvider,
+          ...(req.body.metadata || {}),
+        },
       },
-    });
+      req.user!.id
+    );
     await auditCctv(req, 'CCTV_CAMERA_CREATED', data.id, {
       integrationType: data.integrationType,
       provider: data.provider,
       protocol: data.protocol,
       connectionMethod: req.body.connectionMethod || 'MANUAL_CAMERA',
+    });
+    await publishIntegrationLifecycle(req, 'integration.created', data.id, {
+      integrationType: data.integrationType,
+      provider: data.provider,
+      protocol: data.protocol,
+      category: 'CCTV',
+      credentialReference: data.credentialReference,
     });
     res.status(201).json({ success: true, data });
   } catch (error) {
@@ -84,6 +105,12 @@ export async function discoverCctv(req: AuthenticatedRequest, res: Response, nex
       subnet: result.subnet,
       provider: result.provider,
       configured: result.configured,
+    });
+    await publishIntegrationLifecycle(req, 'integration.device.discovered', req.body?.subnet || 'network-scan', {
+      subnet: result.subnet,
+      provider: result.provider,
+      configured: result.configured,
+      discoveredCount: result.discovered.length,
     });
     res.json({ success: true, data: result });
   } catch (error) {
@@ -104,6 +131,17 @@ export async function testNvr(req: AuthenticatedRequest, res: Response, next: Ne
       success: result.success,
       message: result.message,
     });
+    await publishIntegrationLifecycle(
+      req,
+      result.success ? 'integration.connection.tested' : 'integration.connection.failed',
+      req.body?.host || 'nvr-test',
+      {
+        provider: req.body?.provider,
+        protocol: req.body?.protocol,
+        success: result.success,
+        message: result.message,
+      }
+    );
     res.json({ success: true, data: result });
   } catch (error) {
     next(error);
@@ -112,12 +150,17 @@ export async function testNvr(req: AuthenticatedRequest, res: Response, next: Ne
 
 export async function testCamera(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    const data = await hardwareIntegrationService.testHardwareIntegration(req.user!.hotelId, req.params.id);
+    const data = await hardwareIntegrationService.testHardwareIntegration(req.user!.hotelId, req.params.id, req.user!.id);
     const success = data.status === HardwareIntegrationStatus.CONNECTED && data.healthStatus === HardwareHealthStatus.HEALTHY;
     await auditCctv(req, success ? 'CCTV_CAMERA_TESTED' : 'CCTV_CONNECTION_FAILED', data.id, {
       success,
       status: data.status,
       healthStatus: data.healthStatus,
+    });
+    await publishIntegrationLifecycle(req, success ? 'integration.connection.tested' : 'integration.connection.failed', data.id, {
+      status: data.status,
+      healthStatus: data.healthStatus,
+      message: (data.lastTestResult as any)?.message,
     });
     res.json({ success: true, data });
   } catch (error) {

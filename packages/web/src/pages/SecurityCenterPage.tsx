@@ -439,7 +439,7 @@ export default function SecurityCenterPage() {
       {validTab === 'overview' ? <ActivityList activities={overview?.recentActivity || []} /> : null}
       {validTab === 'cctv' ? (
         <div className="space-y-6">
-          <HardwareIntegrationPanel mode="cctv" canManage={Boolean(canManageHardware)} />
+          <HardwareIntegrationPanel mode="cctv" canManage={Boolean(canManageHardware)} surface="module" />
           <CctvPanel cameras={cameras} />
         </div>
       ) : null}

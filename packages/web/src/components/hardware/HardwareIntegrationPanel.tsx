@@ -1,5 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Camera, Cloud, Eye, Monitor, Pencil, Plus, PowerOff, Router, Save, Search, TestTube2, Video, Wifi } from 'lucide-react';
 import { hardwareIntegrationService, getApiError } from '@/services';
@@ -17,6 +18,8 @@ type CctvMethod = 'USB_LOCAL' | 'DISCOVER_IP' | 'CONNECT_NVR' | 'MANUAL_CAMERA' 
 type HardwareIntegrationPanelProps = {
   mode: HardwareMode;
   canManage: boolean;
+  surface?: 'manager' | 'module';
+  selectedCategory?: string;
 };
 
 const cctvProviders: HardwareProvider[] = ['HIKVISION', 'DAHUA', 'AXIS', 'ONVIF', 'GENERIC_RTSP', 'GENERIC_HLS', 'GENERIC_MJPEG'];
@@ -148,8 +151,9 @@ function IntegrationCard({
   );
 }
 
-export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIntegrationPanelProps) {
+export default function HardwareIntegrationPanel({ mode, canManage, surface = 'manager' }: HardwareIntegrationPanelProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [cctvMethod, setCctvMethod] = useState<CctvMethod>('MANUAL_CAMERA');
@@ -181,9 +185,13 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
   const providers = mode === 'cctv' ? cctvProviders : smartProviders;
   const protocols = mode === 'cctv' ? cctvProtocols : smartProtocols;
   const title = mode === 'cctv' ? 'Hardware connections' : 'Device and gateway connections';
-  const description = mode === 'cctv'
-    ? 'Add cameras or NVRs without exposing RTSP URLs, passwords, or API keys to the browser.'
-    : 'Add Smart Building devices or gateways for locks, sensors, HVAC, energy, and access hardware.';
+  const description = surface === 'module'
+    ? mode === 'cctv'
+      ? 'CCTV integrations are configured centrally in Settings / Integrations and consumed here by Security Center.'
+      : 'Smart Building integrations are configured centrally in Settings / Integrations and consumed here by this dashboard.'
+    : mode === 'cctv'
+      ? 'Add cameras or NVRs without exposing RTSP URLs, passwords, or API keys to the browser.'
+      : 'Add Smart Building devices or gateways for locks, sensors, HVAC, energy, and access hardware.';
 
   const query = useQuery({
     queryKey: ['hardware-integrations', mode],
@@ -280,6 +288,7 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
     [integrations]
   );
   const canSubmit = canManage && form.name.trim().length > 0;
+  const canConfigureHere = canManage && surface === 'manager';
   const resetForm = () => {
     setEditingId(null);
     setCctvMethod('MANUAL_CAMERA');
@@ -387,7 +396,9 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
           <div>
             <h2 className="text-base font-semibold text-slate-950">{title}</h2>
             <p className="mt-1 max-w-3xl text-sm text-slate-600">{description}</p>
-            {!canManage ? (
+            {surface === 'module' ? (
+              <p className="mt-2 text-xs font-semibold text-sky-700">Centralized setup: configure credentials, providers, and device imports in Settings / Integrations.</p>
+            ) : !canManage ? (
               <p className="mt-2 text-xs font-semibold text-amber-700">Read-only: Admin, Manager, Security, or Smart Building access is required to manage hardware.</p>
             ) : null}
           </div>
@@ -395,6 +406,10 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
         <button
           type="button"
           onClick={() => {
+            if (surface === 'module') {
+              navigate('/settings?tab=integrations');
+              return;
+            }
             if (showForm) {
               setShowForm(false);
               resetForm();
@@ -402,15 +417,21 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
             }
             setShowForm(true);
           }}
-          disabled={!canManage}
+          disabled={!canManage && surface !== 'module'}
           className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
         >
           <Plus className="h-4 w-4" />
-          {showForm ? 'Cancel setup' : mode === 'cctv' ? 'Add Camera / NVR' : 'Add Device / Gateway'}
+          {surface === 'module'
+            ? 'Open Integration Manager'
+            : showForm
+              ? 'Cancel setup'
+              : mode === 'cctv'
+                ? 'Add Camera / NVR'
+                : 'Add Device / Gateway'}
         </button>
       </div>
 
-      {showForm ? (
+      {showForm && surface === 'manager' ? (
         <form onSubmit={submit} className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
           {mode === 'cctv' ? (
             <div className="mb-4">
@@ -458,7 +479,7 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
               <button
                 type="button"
                 onClick={() => localCameraMutation.mutate()}
-                disabled={!canManage || localCameraMutation.isPending}
+                disabled={!canConfigureHere || localCameraMutation.isPending}
                 className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
               >
                 <Video className="h-4 w-4" />
@@ -485,7 +506,7 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
                 <button
                   type="button"
                   onClick={() => discoverMutation.mutate()}
-                  disabled={!canManage || discoverMutation.isPending}
+                  disabled={!canConfigureHere || discoverMutation.isPending}
                   className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                 >
                   <Search className="h-4 w-4" />
@@ -649,7 +670,7 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
               <button
                 type="button"
                 onClick={() => nvrTestMutation.mutate()}
-                disabled={!canManage || !form.host.trim() || nvrTestMutation.isPending}
+                disabled={!canConfigureHere || !form.host.trim() || nvrTestMutation.isPending}
                 className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"
               >
                 <TestTube2 className="h-4 w-4" />
@@ -673,14 +694,18 @@ export default function HardwareIntegrationPanel({ mode, canManage }: HardwareIn
           <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-8 text-center">
             <Router className="mx-auto h-8 w-8 text-slate-400" />
             <p className="mt-3 text-sm font-semibold text-slate-800">No hardware integrations configured.</p>
-            <p className="mt-1 text-sm text-slate-500">Add hardware to start testing real devices and gateways.</p>
+            <p className="mt-1 text-sm text-slate-500">
+              {surface === 'module'
+                ? 'Use Settings / Integrations to add and map devices before they appear here.'
+                : 'Add hardware to start testing real devices and gateways.'}
+            </p>
           </div>
         ) : (
           integrations.map((item) => (
             <IntegrationCard
               key={item.id}
               item={item}
-              canManage={canManage}
+              canManage={surface === 'manager' && canManage}
               onTest={(id) => testMutation.mutate(id)}
               onEdit={startEdit}
               onDisable={(id) => disableMutation.mutate(id)}

@@ -9,6 +9,7 @@ import smartBuildingService, {
   type SmartBuildingOverview,
 } from '@/services/smartBuilding';
 import HardwareIntegrationPanel from '@/components/hardware/HardwareIntegrationPanel';
+import CollaborationHeader from '@/components/collaboration/CollaborationHeader';
 import { useAuthStore } from '@/stores/authStore';
 
 type BuildingMetric = {
@@ -467,36 +468,28 @@ export default function SmartBuildingPage() {
 
   return (
     <div className="space-y-6">
-      <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Operations / Smart Building</p>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">Smart Building Dashboard</h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-600">
-              Monitor security, access control, environmental sensors, utilities, HVAC, and connected assets from one interface.
-            </p>
-          </div>
-          <div
-            className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold ring-1 ${
-              activeAlerts > 0
-                ? 'bg-rose-50 text-rose-800 ring-rose-100'
-                : 'bg-emerald-50 text-emerald-800 ring-emerald-100'
-            }`}
-          >
-            <span className={`h-2 w-2 rounded-full ${activeAlerts > 0 ? 'bg-rose-500' : 'bg-emerald-500'}`} />
-            {isLoading
-              ? 'Loading systems'
-              : totalDevices > 0
-                ? `${onlineDevices}/${totalDevices} devices online`
-                : 'Waiting for IoT data'}
-          </div>
-        </div>
+      <CollaborationHeader
+        workspace="smart-building"
+        eyebrow="Operations / Smart Building"
+        title="Smart Building Dashboard"
+        subtitle="Monitor security, access control, environmental sensors, utilities, HVAC, and connected assets from one interface."
+        statusLabel={
+          isLoading
+            ? 'Loading systems'
+            : totalDevices > 0
+              ? `${onlineDevices}/${totalDevices} devices online`
+              : 'Waiting for IoT data'
+        }
+        statusTone={activeAlerts > 0 ? 'critical' : 'live'}
+      />
+
+      <div>
         {hasError ? (
           <div className="mt-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800">
             Smart Building data could not be loaded.
           </div>
         ) : null}
-      </header>
+      </div>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Smart building summary">
         {metrics.map((metric) => (
@@ -513,7 +506,7 @@ export default function SmartBuildingPage() {
 
       <AlertWorkflowPanel alerts={alerts} tasks={linkedTasks} />
 
-      <HardwareIntegrationPanel mode="smart-building" canManage={Boolean(canManageHardware)} />
+      <HardwareIntegrationPanel mode="smart-building" canManage={Boolean(canManageHardware)} surface="module" />
 
       <section className="grid gap-5 xl:grid-cols-5">
         {sections.map((section) => (

@@ -4,13 +4,15 @@ import {
   AlertTriangle,
   Headphones,
   ShieldCheck,
+  Building2,
+  BarChart3,
   UsersRound,
   Wrench,
   type LucideIcon,
 } from 'lucide-react';
 import CollaborationToolbar, { type CollaborationToolbarProps } from '@/components/collaboration/CollaborationToolbar';
 
-export type CollaborationWorkspace = 'support' | 'security' | 'maintenance' | 'incidents' | 'operations';
+export type CollaborationWorkspace = 'support' | 'security' | 'maintenance' | 'incidents' | 'operations' | 'smart-building' | 'management';
 
 const workspaceMeta: Record<CollaborationWorkspace, { label: string; icon: LucideIcon; tone: string }> = {
   support: {
@@ -28,6 +30,11 @@ const workspaceMeta: Record<CollaborationWorkspace, { label: string; icon: Lucid
     icon: Wrench,
     tone: 'bg-amber-50 text-amber-700 ring-amber-100',
   },
+  'smart-building': {
+    label: 'Smart Building collaboration',
+    icon: Building2,
+    tone: 'bg-cyan-50 text-cyan-700 ring-cyan-100',
+  },
   incidents: {
     label: 'Incident collaboration',
     icon: AlertTriangle,
@@ -37,6 +44,11 @@ const workspaceMeta: Record<CollaborationWorkspace, { label: string; icon: Lucid
     label: 'Operations collaboration',
     icon: Activity,
     tone: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+  },
+  management: {
+    label: 'Management collaboration',
+    icon: BarChart3,
+    tone: 'bg-indigo-50 text-indigo-700 ring-indigo-100',
   },
 };
 
@@ -101,7 +113,7 @@ export default function CollaborationHeader({
 
       {showToolbar ? (
         <div className="mt-5">
-          <CollaborationToolbar variant="light" {...toolbar} />
+          <CollaborationToolbar workspace={workspace} variant="light" {...toolbar} />
         </div>
       ) : null}
 
