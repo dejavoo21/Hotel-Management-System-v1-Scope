@@ -90,6 +90,16 @@ const sectionLabels: Record<ToolbarSection, string> = {
   productivity: 'Productivity',
 };
 
+const collaborationPermissions: PermissionId[] = [
+  'messages',
+  'bookings',
+  'security_center',
+  'maintenance_center',
+  'smart_building',
+  'incident_management',
+  'dashboard',
+];
+
 function useModuleAccess() {
   const { user } = useAuthStore();
   const permissions = useMemo(
@@ -179,7 +189,7 @@ export default function CollaborationToolbar({
         shortLabel: cameraOn ? 'Camera on' : 'Camera off',
         section: 'communication',
         icon: cameraOn ? Camera : CameraOff,
-        permission: 'messages',
+        permissionsAny: collaborationPermissions,
         onSelect: onToggleCamera,
         active: cameraOn,
         disabled: !onToggleCamera,
@@ -190,7 +200,7 @@ export default function CollaborationToolbar({
         shortLabel: microphoneOn ? 'Mic on' : 'Muted',
         section: 'communication',
         icon: microphoneOn ? Mic : MicOff,
-        permission: 'messages',
+        permissionsAny: collaborationPermissions,
         onSelect: onToggleMicrophone,
         active: microphoneOn,
         disabled: !onToggleMicrophone,
@@ -201,7 +211,7 @@ export default function CollaborationToolbar({
         shortLabel: screenSharing ? 'Sharing' : 'Share',
         section: 'communication',
         icon: screenSharing ? ScreenShareOff : MonitorUp,
-        permission: 'messages',
+        permissionsAny: collaborationPermissions,
         onSelect: onToggleScreenShare,
         active: screenSharing,
         disabled: !onToggleScreenShare,
@@ -221,7 +231,7 @@ export default function CollaborationToolbar({
         shortLabel: 'People',
         section: 'communication',
         icon: Users,
-        permission: 'messages',
+        permissionsAny: collaborationPermissions,
         onSelect: onOpenParticipants,
         disabled: !onOpenParticipants,
       },
@@ -231,7 +241,7 @@ export default function CollaborationToolbar({
         shortLabel: 'Raise',
         section: 'communication',
         icon: Hand,
-        permissionsAny: ['messages', 'bookings', 'security_center', 'maintenance_center', 'smart_building'],
+        permissionsAny: collaborationPermissions,
         onSelect: () => pendingAction('Raise hand'),
       },
       {
@@ -240,7 +250,7 @@ export default function CollaborationToolbar({
         shortLabel: 'React',
         section: 'communication',
         icon: SmilePlus,
-        permissionsAny: ['messages', 'bookings', 'security_center', 'maintenance_center', 'smart_building'],
+        permissionsAny: collaborationPermissions,
         onSelect: () => pendingAction('Reactions'),
       },
       {
@@ -249,7 +259,7 @@ export default function CollaborationToolbar({
         shortLabel: 'View',
         section: 'communication',
         icon: LayoutDashboard,
-        permissionsAny: ['messages', 'bookings', 'security_center', 'maintenance_center', 'smart_building'],
+        permissionsAny: collaborationPermissions,
         onSelect: () => pendingAction('View options'),
       },
       {
@@ -258,7 +268,7 @@ export default function CollaborationToolbar({
         shortLabel: 'Session',
         section: 'communication',
         icon: Gauge,
-        permissionsAny: ['messages', 'bookings', 'security_center', 'maintenance_center', 'smart_building'],
+        permissionsAny: collaborationPermissions,
         onSelect: () => pendingAction('Session controls'),
       },
       {
@@ -267,7 +277,7 @@ export default function CollaborationToolbar({
         shortLabel: 'End',
         section: 'communication',
         icon: PhoneOff,
-        permission: 'messages',
+        permissionsAny: collaborationPermissions,
         onSelect: onEndSession || (() => pendingAction('End session')),
       },
       {
