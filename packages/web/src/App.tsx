@@ -33,6 +33,8 @@ import CalendarPage from '@/pages/CalendarPage';
 import MessagesPage from '@/pages/MessagesPageRedesigned';
 import CallsPage from '@/pages/CallsPage';
 import OperationsCenterPage from '@/pages/OperationsCenterPage';
+import EnterpriseSearchPage from '@/pages/EnterpriseSearchPage';
+import HotelBrainPage from '@/pages/HotelBrainPage';
 import SecurityCenterPage from '@/pages/SecurityCenterPage';
 import MaintenanceCenterPage from '@/pages/MaintenanceCenterPage';
 import SmartBuildingPage from '@/pages/SmartBuildingPage';
@@ -219,7 +221,9 @@ export default function App() {
         <Route path="operations/tasks" element={<Navigate to="/operations-center/tasks" replace />} />
         <Route path="operations/market-intelligence" element={<Navigate to="/operations-center/market-intelligence" replace />} />
         <Route path="operations-center" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="operations-center/search" element={<ModuleRoute requiredModule="bookings"><EnterpriseSearchPage /></ModuleRoute>} />
         <Route path="operations-center/ai" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="ai/hotel-brain" element={<ModuleRoute requiredModule="bookings"><HotelBrainPage /></ModuleRoute>} />
         <Route path="operations-center/revenue" element={<ModuleRoute requiredModule="financials"><OperationsCenterPage /></ModuleRoute>} />
         <Route path="operations-center/weather" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
         <Route path="operations-center/tasks" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />

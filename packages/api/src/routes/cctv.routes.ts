@@ -52,6 +52,7 @@ router.get('/cameras', controller.listCctvCameras);
 router.post('/cameras', validate(cameraSchema), controller.createCctvCamera);
 router.post('/discover', validate(discoverSchema), controller.discoverCctv);
 router.post('/nvr/test', validate(nvrTestSchema), controller.testNvr);
+router.post('/preview/test', validate(nvrTestSchema), controller.testPreview);
 router.post('/cameras/:id/test', controller.testCamera);
 router.get('/cameras/:id/playback', controller.getCameraPlayback);
 

@@ -57,6 +57,8 @@ import securityCenterRoutes from './routes/securityCenter.routes.js';
 import maintenanceCenterRoutes from './routes/maintenanceCenter.routes.js';
 import timelineRoutes from './routes/timeline.routes.js';
 import incidentRoutes from './modules/incidents/incident.routes.js';
+import enterpriseSearchRoutes from './routes/enterpriseSearch.routes.js';
+import { registerEnterpriseSearchEventHandlers } from './search/enterpriseSearch.service.js';
 
 const normalizeOrigin = (value?: string): string | undefined =>
   value ? value.replace(/\/+$/, '') : undefined;
@@ -68,6 +70,7 @@ const normalizedCorsOrigins = new Set(
 );
 
 export function createApp(): Application {
+  registerEnterpriseSearchEventHandlers();
   const app = express();
 
   // Trust proxy for rate limiting behind reverse proxy
@@ -287,6 +290,7 @@ export function createApp(): Application {
   app.use('/api/smart-building', smartBuildingRoutes);
   app.use('/api/timeline', timelineRoutes);
   app.use('/api/incidents', incidentRoutes);
+  app.use('/api/enterprise-search', enterpriseSearchRoutes);
 
   // API documentation endpoint
   app.get('/api', (_req, res) => {

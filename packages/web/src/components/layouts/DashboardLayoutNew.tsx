@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { usePresenceStore, getPresenceLabel } from '@/stores/presenceStore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { accessRequestService, messageService, notificationService } from '@/services';
+import { accessRequestService, enterpriseSearchService, messageService, notificationService } from '@/services';
 import { getNotificationIcon, getNotificationColor, formatNotificationTime } from '@/services/notifications';
 import { getExplicitPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
 import toast from 'react-hot-toast';
@@ -435,8 +435,32 @@ export default function DashboardLayout() {
 
   const globalSearchResults = useMemo(() => {
     if (!globalSearchQuery.trim()) return [];
-    return rankSearchTargets(globalSearchQuery, globalSearchTargets, 8);
+    return rankSearchTargets(globalSearchQuery, globalSearchTargets, 5);
   }, [globalSearchQuery, globalSearchTargets]);
+
+  const enterpriseQuickSearch = useQuery({
+    queryKey: ['enterprise-search', 'global', globalSearchQuery],
+    queryFn: () => enterpriseSearchService.search({ q: globalSearchQuery, limit: 6 }),
+    enabled: globalSearchQuery.trim().length >= 2,
+    staleTime: 15_000,
+  });
+
+  const combinedGlobalSearchResults = useMemo<GlobalSearchTarget[]>(() => {
+    const enterpriseResults = (enterpriseQuickSearch.data?.results || []).map((result) => ({
+      id: `enterprise:${result.searchId}`,
+      name: result.title,
+      href: result.sourceUrl || '/operations-center/search',
+      section: result.category.replace(/_/g, ' '),
+      keywords: [result.sourceModule, result.status, result.priority, result.severity].filter(Boolean) as string[],
+    }));
+    const seen = new Set<string>();
+    return [...enterpriseResults, ...globalSearchResults].filter((item) => {
+      const key = `${item.href}:${item.name}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 10);
+  }, [enterpriseQuickSearch.data?.results, globalSearchResults]);
 
   const commandPaletteResults = useMemo(
     () => rankSearchTargets(commandSearchQuery, globalSearchTargets, commandSearchQuery.trim() ? 10 : 12),
@@ -659,7 +683,7 @@ export default function DashboardLayout() {
                       if (e.key === 'ArrowDown') {
                         e.preventDefault();
                         setGlobalSearchActiveIndex((idx) =>
-                          Math.min(idx + 1, Math.max(0, globalSearchResults.length - 1))
+                          Math.min(idx + 1, Math.max(0, combinedGlobalSearchResults.length - 1))
                         );
                         return;
                       }
@@ -669,7 +693,7 @@ export default function DashboardLayout() {
                         return;
                       }
                       if (e.key === 'Enter') {
-                        const pick = globalSearchResults[globalSearchActiveIndex] || globalSearchResults[0];
+                        const pick = combinedGlobalSearchResults[globalSearchActiveIndex] || combinedGlobalSearchResults[0];
                         if (!pick) return;
                         e.preventDefault();
                         setShowGlobalSearch(false);
@@ -700,9 +724,9 @@ export default function DashboardLayout() {
                       role="listbox"
                       aria-label="Search results"
                     >
-                      {globalSearchResults.length > 0 ? (
+                      {combinedGlobalSearchResults.length > 0 ? (
                         <div className="py-2">
-                          {globalSearchResults.map((item, idx) => (
+                          {combinedGlobalSearchResults.map((item, idx) => (
                             <button
                               key={item.id}
                               type="button"

@@ -55,6 +55,8 @@ export const navSections: NavSection[] = [
         badge: 'NEW',
         items: [
           { id: 'operations-ai', label: 'AI', href: '/operations-center/ai', permission: 'bookings', icon: 'sparkles' },
+          { id: 'enterprise-search', label: 'Enterprise Search', href: '/operations-center/search', permission: 'bookings', icon: 'search' },
+          { id: 'hotel-brain', label: 'Hotel Brain', href: '/ai/hotel-brain', permission: 'bookings', icon: 'sparkles' },
           { id: 'operations-revenue', label: 'Revenue', href: '/operations-center/revenue', permission: 'financials', icon: 'chart' },
           { id: 'operations-weather', label: 'Weather', href: '/operations-center/weather', permission: 'bookings', icon: 'calendar' },
           { id: 'operations-tasks', label: 'Tasks', href: '/operations-center/tasks', permission: 'bookings', icon: 'calendar-check' },

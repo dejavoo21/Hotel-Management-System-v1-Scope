@@ -50,9 +50,11 @@ export async function login(
   twoFactorCode?: string,
   trustedDeviceToken?: string
 ): Promise<LoginResult> {
+  const normalizedEmail = email.toLowerCase().trim();
+
   // Find user by email
   const user = await prisma.user.findUnique({
-    where: { email: email.toLowerCase() },
+    where: { email: normalizedEmail },
     include: {
       hotel: {
         select: {
@@ -64,13 +66,43 @@ export async function login(
   });
 
   if (!user) {
+    const accessRequest = await prisma.accessRequest.findFirst({
+      where: { email: normalizedEmail },
+      orderBy: { updatedAt: 'desc' },
+      select: { status: true },
+    });
+
+    if (
+      accessRequest?.status === 'PENDING' ||
+      accessRequest?.status === 'INFO_RECEIVED' ||
+      accessRequest?.status === 'NEEDS_INFO'
+    ) {
+      throw new ForbiddenError('Your access request is still pending approval.');
+    }
+
+    if (accessRequest?.status === 'REJECTED') {
+      throw new ForbiddenError('Your access request was not approved.');
+    }
+
+    if (accessRequest?.status === 'APPROVED') {
+      throw new ForbiddenError(
+        'Your access was approved, but account setup is incomplete. Please contact an administrator.'
+      );
+    }
+
     logger.warn(`Login attempt with unknown email: ${email}`);
     throw new UnauthorizedError('Invalid email or password');
   }
 
   if (!user.isActive) {
     logger.warn(`Login attempt for inactive user: ${email}`);
-    throw new UnauthorizedError('Account is disabled');
+    throw new ForbiddenError('Your account has been disabled. Contact administrator.');
+  }
+
+  if (user.mustChangePassword) {
+    throw new ForbiddenError(
+      'Account approved but password not set. Please open your setup email or reset your password.'
+    );
   }
 
   // Verify password
@@ -78,62 +110,6 @@ export async function login(
   if (!isValidPassword) {
     logger.warn(`Invalid password attempt for user: ${email}`);
     throw new UnauthorizedError('Invalid email or password');
-  }
-
-  if (user.mustChangePassword) {
-    const accessToken = generateAccessToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      hotelId: user.hotelId,
-    });
-
-    const refreshToken = await generateRefreshToken(user.id);
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
-
-    await prisma.activityLog.createMany({
-      data: [
-        {
-          userId: user.id,
-          action: 'TEMP_PASSWORD_LOGIN',
-          entity: 'user',
-          entityId: user.id,
-          details: { ipAddress, userAgent },
-          ipAddress,
-          userAgent,
-        },
-        {
-          userId: user.id,
-          action: 'PASSWORD_CHANGE_REQUIRED',
-          entity: 'user',
-          entityId: user.id,
-          details: { reason: 'mustChangePassword', ipAddress, userAgent },
-          ipAddress,
-          userAgent,
-        },
-      ],
-    });
-
-    return {
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        hotelId: user.hotelId,
-        hotel: user.hotel,
-        modulePermissions: user.modulePermissions || [],
-      },
-      accessToken,
-      refreshToken,
-      expiresIn: config.jwt.expiresIn,
-      requiresPasswordChange: true,
-    };
   }
 
   if (user.twoFactorEnabled) {

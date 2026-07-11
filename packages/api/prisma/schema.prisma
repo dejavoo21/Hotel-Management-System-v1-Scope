@@ -151,6 +151,7 @@ model Hotel {
   incidentComments  IncidentComment[]
   incidentAttachments IncidentAttachment[]
   aiRecommendations AIRecommendation[]
+  searchIndex       SearchIndex[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 }
@@ -1420,6 +1421,53 @@ enum AIRecommendationPriority {
   MEDIUM
   HIGH
   CRITICAL
+}
+
+// ===========================================
+// Enterprise Search
+// ===========================================
+
+model SearchIndex {
+  id             String   @id @default(cuid())
+  searchId       String   @unique
+  hotelId        String
+  hotel          Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  entityId       String
+  entityType     String
+  sourceModule   String
+  title          String
+  summary        String?
+  searchableText String
+  tags           String[] @default([])
+  status         String?
+  priority       String?
+  severity       String?
+  hotelArea      String?
+  roomNumber     String?
+  guestId        String?
+  reservationId  String?
+  ownerId        String?
+  accessScope    String[] @default([])
+  sourceUrl      String?
+  metadata       Json?
+  sourceCreatedAt DateTime?
+  sourceUpdatedAt DateTime?
+  indexedAt      DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([hotelId, entityType, entityId])
+  @@index([hotelId])
+  @@index([entityType])
+  @@index([sourceModule])
+  @@index([status])
+  @@index([priority])
+  @@index([severity])
+  @@index([roomNumber])
+  @@index([guestId])
+  @@index([reservationId])
+  @@index([ownerId])
+  @@index([indexedAt])
 }
 
 // ===========================================

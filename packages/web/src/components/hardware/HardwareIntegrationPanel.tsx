@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -10,6 +10,9 @@ import type {
   HardwareIntegrationType,
   HardwareProtocol,
   HardwareProvider,
+  CctvDiscoveryResult,
+  CctvNvrChannel,
+  DiscoveredCctvCamera,
 } from '@/services/hardwareIntegrations';
 
 type HardwareMode = 'cctv' | 'smart-building';
@@ -52,13 +55,29 @@ const statusClass = (status: string) => {
   return 'border-slate-200 bg-slate-50 text-slate-600';
 };
 
+const discoveryStateClass = (state: string) => {
+  if (state === 'DEVICES_FOUND') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+  if (state === 'SCAN_FAILED') return 'border-rose-200 bg-rose-50 text-rose-700';
+  if (state === 'SCANNING' || state === 'AUTHENTICATION_REQUIRED') return 'border-amber-200 bg-amber-50 text-amber-700';
+  return 'border-slate-200 bg-slate-50 text-slate-600';
+};
+
+const fieldValue = (value: string) => value.trim() || undefined;
+
 const cctvMethods: Array<{ id: CctvMethod; label: string; detail: string; icon: typeof Camera }> = [
-  { id: 'USB_LOCAL', label: 'USB / Local Camera', detail: 'Browser webcam for calls and reception video assistance.', icon: Video },
+  { id: 'USB_LOCAL', label: 'Local Camera / Staff Device Camera', detail: 'Browser webcam for calls, staff support, and preview testing.', icon: Video },
   { id: 'DISCOVER_IP', label: 'Discover IP Cameras', detail: 'Prepare ONVIF/IP discovery using a hotel subnet.', icon: Search },
   { id: 'CONNECT_NVR', label: 'Connect NVR', detail: 'Hikvision, Dahua, Axis, or Generic ONVIF recorders.', icon: Monitor },
   { id: 'MANUAL_CAMERA', label: 'Add Manual Camera', detail: 'HLS, MJPEG, Snapshot, RTSP, or ONVIF details.', icon: Camera },
   { id: 'CLOUD_PROVIDER', label: 'Cloud Provider', detail: 'Verkada, Eagle Eye, Rhombus, or other APIs.', icon: Cloud },
 ];
+
+const cloudProviders = [
+  { id: 'VERKADA', label: 'Verkada', detail: 'Cloud API / OAuth setup coming soon.' },
+  { id: 'EAGLE_EYE', label: 'Eagle Eye', detail: 'Cloud VMS API setup coming soon.' },
+  { id: 'RHOMBUS', label: 'Rhombus', detail: 'Cloud camera API setup coming soon.' },
+  { id: 'OTHER', label: 'Other Cloud Provider', detail: 'Custom API provider adapter placeholder.' },
+] as const;
 
 function IntegrationCard({
   item,
@@ -154,10 +173,18 @@ function IntegrationCard({
 export default function HardwareIntegrationPanel({ mode, canManage, surface = 'manager' }: HardwareIntegrationPanelProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [cctvMethod, setCctvMethod] = useState<CctvMethod>('MANUAL_CAMERA');
   const [subnet, setSubnet] = useState('192.168.1.0/24');
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [discoveryState, setDiscoveryState] = useState<'NOT_STARTED' | 'SCANNING' | 'DEVICES_FOUND' | 'NO_DEVICES_FOUND' | 'AUTHENTICATION_REQUIRED' | 'SCAN_FAILED'>('NOT_STARTED');
+  const [discoveryResult, setDiscoveryResult] = useState<CctvDiscoveryResult | null>(null);
+  const [selectedDiscoveredIds, setSelectedDiscoveredIds] = useState<string[]>([]);
+  const [nvrChannels, setNvrChannels] = useState<CctvNvrChannel[]>([]);
+  const [selectedChannelNumbers, setSelectedChannelNumbers] = useState<number[]>([]);
+  const [previewMessage, setPreviewMessage] = useState<string | null>(null);
   const [integrationType, setIntegrationType] = useState<HardwareIntegrationType>(mode === 'cctv' ? 'CCTV_CAMERA' : 'SMART_DEVICE');
   const [deviceType, setDeviceType] = useState('DOOR_LOCK');
   const [form, setForm] = useState({
@@ -179,6 +206,16 @@ export default function HardwareIntegrationPanel({ mode, canManage, surface = 'm
     deviceIdentifier: '',
     topicPathChannel: '',
   });
+
+  useEffect(() => {
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+    }
+  }, [localStream]);
+
+  useEffect(() => () => {
+    localStream?.getTracks().forEach((track) => track.stop());
+  }, [localStream]);
 
   const types: HardwareIntegrationType[] = mode === 'cctv' ? ['CCTV_CAMERA', 'CCTV_NVR'] : ['SMART_DEVICE', 'SMART_GATEWAY'];
   const queryTypes = mode === 'cctv' ? ['CCTV_CAMERA', 'CCTV_NVR'] : ['SMART_DEVICE', 'SMART_GATEWAY'];
@@ -253,8 +290,20 @@ export default function HardwareIntegrationPanel({ mode, canManage, surface = 'm
   });
   const discoverMutation = useMutation({
     mutationFn: () => hardwareIntegrationService.discoverCctv({ subnet, provider: 'ONVIF' }),
-    onSuccess: (data) => toast(data.message),
-    onError: (error) => toast.error(getApiError(error).message),
+    onMutate: () => {
+      setDiscoveryState('SCANNING');
+      setDiscoveryResult(null);
+      setSelectedDiscoveredIds([]);
+    },
+    onSuccess: (data) => {
+      setDiscoveryResult(data);
+      setDiscoveryState(data.state);
+      toast(data.message);
+    },
+    onError: (error) => {
+      setDiscoveryState('SCAN_FAILED');
+      toast.error(getApiError(error).message);
+    },
   });
   const nvrTestMutation = useMutation({
     mutationFn: () => hardwareIntegrationService.testNvr({
@@ -266,8 +315,31 @@ export default function HardwareIntegrationPanel({ mode, canManage, surface = 'm
       secret: form.secret || undefined,
       channelCount: form.channelNumber ? Number(form.channelNumber) : undefined,
     }),
-    onSuccess: (data) => toast(data.message),
+    onSuccess: (data) => {
+      setNvrChannels(data.channels || []);
+      setSelectedChannelNumbers((data.channels || []).map((channel) => channel.channelNumber));
+      toast(data.message);
+    },
     onError: (error) => toast.error(getApiError(error).message),
+  });
+  const previewTestMutation = useMutation({
+    mutationFn: () => hardwareIntegrationService.testCctvPreview({
+      provider: form.provider as HardwareProvider,
+      protocol: (form.streamKind === 'SNAPSHOT' ? 'REST_API' : form.streamKind) as HardwareProtocol,
+      host: form.host,
+      port: form.port ? Number(form.port) : undefined,
+      username: form.username || undefined,
+      secret: form.secret || undefined,
+    }),
+    onSuccess: (data) => {
+      setPreviewMessage(data.message);
+      toast(data.message);
+    },
+    onError: (error) => {
+      const message = getApiError(error).message;
+      setPreviewMessage(message);
+      toast.error(message);
+    },
   });
   const localCameraMutation = useMutation({
     mutationFn: async () => {
@@ -275,11 +347,92 @@ export default function HardwareIntegrationPanel({ mode, canManage, surface = 'm
         throw new Error('This browser does not support local camera access.');
       }
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      stream.getTracks().forEach((track) => track.stop());
-      return true;
+      return stream;
     },
-    onSuccess: () => toast.success('Local camera access works in this browser. Use this for calls, not CCTV recording.'),
+    onSuccess: (stream) => {
+      localStream?.getTracks().forEach((track) => track.stop());
+      setLocalStream(stream);
+      toast.success('Local camera preview started. Use this for calls, not CCTV recording.');
+    },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Local camera test failed'),
+  });
+  const importDiscoveredMutation = useMutation({
+    mutationFn: async (cameras: DiscoveredCctvCamera[]) => {
+      const saved = [];
+      for (const camera of cameras) {
+        saved.push(await hardwareIntegrationService.createCctv({
+          integrationType: 'CCTV_CAMERA',
+          name: `${camera.manufacturer} ${camera.model}`,
+          location: 'Unmapped',
+          provider: 'ONVIF',
+          protocol: 'ONVIF',
+          host: camera.ipAddress,
+          deviceIdentifier: camera.id,
+          streamPath: camera.streamReference || undefined,
+          connectionMethod: 'MANUAL_CAMERA',
+          streamKind: 'ONVIF',
+          metadata: {
+            importedFrom: 'discovery',
+            discoverySubnet: discoveryResult?.subnet,
+            manufacturer: camera.manufacturer,
+            model: camera.model,
+            macAddress: camera.macAddress,
+            authenticationStatus: camera.authenticationStatus,
+            onvifSupported: camera.onvifSupported,
+            streamAvailable: camera.streamAvailable,
+            mappingStatus: 'UNMAPPED',
+          },
+        }));
+      }
+      return saved;
+    },
+    onSuccess: async (saved) => {
+      toast.success(`${saved.length} discovered camera${saved.length === 1 ? '' : 's'} imported for mapping`);
+      setSelectedDiscoveredIds([]);
+      await invalidate();
+    },
+    onError: (error) => toast.error(getApiError(error).message),
+  });
+  const importNvrChannelsMutation = useMutation({
+    mutationFn: async (channels: CctvNvrChannel[]) => {
+      const saved = [];
+      for (const channel of channels) {
+        saved.push(await hardwareIntegrationService.createCctv({
+          integrationType: 'CCTV_CAMERA',
+          name: `${fieldValue(form.name) || fieldValue(form.host) || 'NVR'} ${channel.channelName}`,
+          location: fieldValue(form.location) || 'Unmapped',
+          roomArea: fieldValue(form.roomArea),
+          floor: form.floor ? Number(form.floor) : undefined,
+          provider: form.provider as HardwareProvider,
+          protocol: form.protocol as HardwareProtocol,
+          host: fieldValue(form.host),
+          port: form.port ? Number(form.port) : undefined,
+          channelNumber: channel.channelNumber,
+          username: fieldValue(form.username),
+          secret: form.secret || undefined,
+          streamPath: channel.streamReference,
+          deviceIdentifier: `${form.host}:${channel.channelNumber}`,
+          connectionMethod: 'CONNECT_NVR',
+          streamKind: form.protocol === 'RTSP' ? 'RTSP' : 'ONVIF',
+          metadata: {
+            importedFrom: 'nvr-channel',
+            nvrHost: form.host,
+            channelName: channel.channelName,
+            resolution: channel.resolution,
+            fps: channel.fps,
+            streamReference: channel.streamReference,
+            mappingStatus: 'UNMAPPED',
+          },
+        }));
+      }
+      return saved;
+    },
+    onSuccess: async (saved) => {
+      toast.success(`${saved.length} NVR channel${saved.length === 1 ? '' : 's'} imported as camera records`);
+      setSelectedChannelNumbers([]);
+      await invalidate();
+    },
+    onError: (error) => toast.error(getApiError(error).message),
   });
 
   const integrations = useMemo(() => query.data || [], [query.data]);
@@ -287,6 +440,9 @@ export default function HardwareIntegrationPanel({ mode, canManage, surface = 'm
     () => integrations.filter((item) => item.integrationType === 'SMART_GATEWAY'),
     [integrations]
   );
+  const discoveredCameras = discoveryResult?.discovered || [];
+  const selectedDiscoveredCameras = discoveredCameras.filter((camera) => selectedDiscoveredIds.includes(camera.id));
+  const selectedNvrChannels = nvrChannels.filter((channel) => selectedChannelNumbers.includes(channel.channelNumber));
   const canSubmit = canManage && form.name.trim().length > 0;
   const canConfigureHere = canManage && surface === 'manager';
   const resetForm = () => {
@@ -313,6 +469,12 @@ export default function HardwareIntegrationPanel({ mode, canManage, surface = 'm
       deviceIdentifier: '',
       topicPathChannel: '',
     });
+    setDiscoveryState('NOT_STARTED');
+    setDiscoveryResult(null);
+    setSelectedDiscoveredIds([]);
+    setNvrChannels([]);
+    setSelectedChannelNumbers([]);
+    setPreviewMessage(null);
   };
 
   const startEdit = (item: HardwareIntegration) => {
@@ -446,6 +608,12 @@ export default function HardwareIntegrationPanel({ mode, canManage, surface = 'm
                       type="button"
                       onClick={() => {
                         setCctvMethod(method.id);
+                        setDiscoveryState('NOT_STARTED');
+                        setDiscoveryResult(null);
+                        setSelectedDiscoveredIds([]);
+                        setNvrChannels([]);
+                        setSelectedChannelNumbers([]);
+                        setPreviewMessage(null);
                         if (method.id === 'CONNECT_NVR') {
                           setIntegrationType('CCTV_NVR');
                           setForm((prev) => ({ ...prev, provider: 'ONVIF', protocol: 'ONVIF', streamKind: 'ONVIF' }));
@@ -485,6 +653,24 @@ export default function HardwareIntegrationPanel({ mode, canManage, surface = 'm
                 <Video className="h-4 w-4" />
                 Test browser camera
               </button>
+              {localStream ? (
+                <div className="mt-4 overflow-hidden rounded-2xl border border-sky-200 bg-slate-950">
+                  <video ref={localVideoRef} autoPlay muted playsInline className="aspect-video w-full object-cover" aria-label="Local camera preview" />
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-white px-3 py-2 text-xs text-slate-600">
+                    <span>Local preview only. This feed is not saved as CCTV.</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        localStream.getTracks().forEach((track) => track.stop());
+                        setLocalStream(null);
+                      }}
+                      className="rounded-lg border border-slate-200 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      Stop preview
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -513,6 +699,86 @@ export default function HardwareIntegrationPanel({ mode, canManage, surface = 'm
                   Scan network
                 </button>
               </div>
+              <div className="mt-4 rounded-2xl border border-amber-200 bg-white p-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Discovery state</p>
+                    <span className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${discoveryStateClass(discoveryState)}`}>
+                      {labelize(discoveryState)}
+                    </span>
+                  </div>
+                  {discoveryResult ? (
+                    <p className="max-w-2xl text-sm text-slate-600">{discoveryResult.message}</p>
+                  ) : (
+                    <p className="max-w-2xl text-sm text-slate-600">No scan has run in this setup session.</p>
+                  )}
+                </div>
+                {discoveredCameras.length > 0 ? (
+                  <div className="mt-4 overflow-x-auto">
+                    <table className="min-w-full divide-y divide-slate-200 text-sm">
+                      <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                        <tr>
+                          <th className="px-3 py-2">Import</th>
+                          <th className="px-3 py-2">Address</th>
+                          <th className="px-3 py-2">Device</th>
+                          <th className="px-3 py-2">ONVIF</th>
+                          <th className="px-3 py-2">Stream</th>
+                          <th className="px-3 py-2">Auth</th>
+                          <th className="px-3 py-2">Mapping</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {discoveredCameras.map((camera) => (
+                          <tr key={camera.id}>
+                            <td className="px-3 py-2">
+                              <input
+                                type="checkbox"
+                                checked={selectedDiscoveredIds.includes(camera.id)}
+                                onChange={(event) =>
+                                  setSelectedDiscoveredIds((prev) =>
+                                    event.target.checked ? [...prev, camera.id] : prev.filter((id) => id !== camera.id)
+                                  )
+                                }
+                                aria-label={`Select ${camera.manufacturer} ${camera.model}`}
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="font-medium text-slate-900">{camera.ipAddress}</div>
+                              <div className="text-xs text-slate-500">{camera.macAddress || 'MAC unknown'}</div>
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="font-medium text-slate-900">{camera.manufacturer}</div>
+                              <div className="text-xs text-slate-500">{camera.model}</div>
+                            </td>
+                            <td className="px-3 py-2">{camera.onvifSupported ? 'Supported' : 'Unknown'}</td>
+                            <td className="px-3 py-2">{camera.streamAvailable ? 'Available' : 'Gateway required'}</td>
+                            <td className="px-3 py-2">{labelize(camera.authenticationStatus)}</td>
+                            <td className="px-3 py-2">Unmapped</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-xs text-slate-500">Imported cameras are saved as unmapped CCTV records. Assign location and credentials after import.</p>
+                      <button
+                        type="button"
+                        onClick={() => importDiscoveredMutation.mutate(selectedDiscoveredCameras)}
+                        disabled={!canConfigureHere || selectedDiscoveredCameras.length === 0 || importDiscoveredMutation.isPending}
+                        className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                      >
+                        <Save className="h-4 w-4" />
+                        Import selected
+                      </button>
+                    </div>
+                  </div>
+                ) : discoveryResult ? (
+                  <div className="mt-4 rounded-xl border border-dashed border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    {discoveryResult.configured
+                      ? 'No devices were discovered on this subnet.'
+                      : 'Discovery service is not configured. Configure ONVIF discovery/media gateway before expecting real camera results.'}
+                  </div>
+                ) : null}
+              </div>
             </div>
           ) : null}
 
@@ -524,16 +790,27 @@ export default function HardwareIntegrationPanel({ mode, canManage, surface = 'm
               </p>
               <label className="mt-3 block text-sm font-medium text-slate-700">
                 Provider
-                <select
-                  value={form.cloudProvider}
-                  onChange={(event) => setForm({ ...form, cloudProvider: event.target.value })}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm sm:max-w-xs"
-                >
-                  <option value="VERKADA">Verkada</option>
-                  <option value="EAGLE_EYE">Eagle Eye</option>
-                  <option value="RHOMBUS">Rhombus</option>
-                  <option value="OTHER">Other API provider</option>
-                </select>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  {cloudProviders.map((provider) => {
+                    const selected = form.cloudProvider === provider.id;
+                    return (
+                      <button
+                        key={provider.id}
+                        type="button"
+                        onClick={() => setForm({ ...form, cloudProvider: provider.id })}
+                        className={`rounded-2xl border p-3 text-left ${
+                          selected ? 'border-slate-900 bg-slate-50' : 'border-slate-200 bg-white hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="block text-sm font-semibold text-slate-900">{provider.label}</span>
+                        <span className="mt-1 block text-xs leading-5 text-slate-500">{provider.detail}</span>
+                        <span className="mt-2 inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                          Coming soon
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </label>
             </div>
           ) : null}
@@ -677,11 +954,88 @@ export default function HardwareIntegrationPanel({ mode, canManage, surface = 'm
                 Test NVR
               </button>
             ) : null}
+            {mode === 'cctv' && cctvMethod === 'MANUAL_CAMERA' ? (
+              <button
+                type="button"
+                onClick={() => previewTestMutation.mutate()}
+                disabled={!canConfigureHere || !form.host.trim() || previewTestMutation.isPending}
+                className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"
+              >
+                <Eye className="h-4 w-4" />
+                Test stream preview
+              </button>
+            ) : null}
             <button type="submit" disabled={!canSubmit || createMutation.isPending || updateMutation.isPending} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
               <Save className="h-4 w-4" />
               {editingId ? 'Save changes' : 'Save'}
             </button>
           </div>
+          {mode === 'cctv' && cctvMethod === 'MANUAL_CAMERA' && previewMessage ? (
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+              {previewMessage}
+            </div>
+          ) : null}
+          {mode === 'cctv' && cctvMethod === 'CONNECT_NVR' && nvrChannels.length > 0 ? (
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-950">NVR channel import</h3>
+                  <p className="mt-1 text-sm text-slate-600">Channel references are imported as unmapped CCTV camera records. Live stream metadata requires the secure media gateway.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => importNvrChannelsMutation.mutate(selectedNvrChannels)}
+                  disabled={!canConfigureHere || selectedNvrChannels.length === 0 || importNvrChannelsMutation.isPending}
+                  className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  <Save className="h-4 w-4" />
+                  Import selected
+                </button>
+              </div>
+              <div className="mt-3 overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2">Import</th>
+                      <th className="px-3 py-2">Channel</th>
+                      <th className="px-3 py-2">Reference</th>
+                      <th className="px-3 py-2">Status</th>
+                      <th className="px-3 py-2">Metadata</th>
+                      <th className="px-3 py-2">Mapping</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {nvrChannels.map((channel) => (
+                      <tr key={channel.channelNumber}>
+                        <td className="px-3 py-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedChannelNumbers.includes(channel.channelNumber)}
+                            onChange={(event) =>
+                              setSelectedChannelNumbers((prev) =>
+                                event.target.checked
+                                  ? [...prev, channel.channelNumber]
+                                  : prev.filter((value) => value !== channel.channelNumber)
+                              )
+                            }
+                            aria-label={`Select ${channel.channelName}`}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="font-medium text-slate-900">{channel.channelName}</div>
+                          <div className="text-xs text-slate-500">Channel {channel.channelNumber}</div>
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-500">{channel.streamReference}</td>
+                        <td className="px-3 py-2">{labelize(channel.status)}</td>
+                        <td className="px-3 py-2">{channel.resolution || 'Gateway required'}{channel.fps ? ` / ${channel.fps}fps` : ''}</td>
+                        <td className="px-3 py-2">Unmapped</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
           </>
           ) : null}
         </form>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import { authService } from '@/services';
+import { authService, getApiError } from '@/services';
 import toast from 'react-hot-toast';
 
 const passwordRequirements = [
@@ -19,7 +19,20 @@ export default function ResetPasswordPage() {
   const [codeSent, setCodeSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [email, setEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const token = searchParams.get('token') || '';
+
+  const passwordMeetsPolicy =
+    newPassword.length >= 8 &&
+    /[A-Z]/.test(newPassword) &&
+    /[a-z]/.test(newPassword) &&
+    /\d/.test(newPassword);
+  const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
+  const verificationCodeValid = /^\d{6}$/.test(otpCode);
+  const canUpdatePassword = Boolean(
+    token && email && passwordMeetsPolicy && passwordsMatch && verificationCodeValid
+  );
 
   useEffect(() => {
     if (!token) return;
@@ -39,15 +52,25 @@ export default function ResetPasswordPage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const newPassword = form.get('newPassword') as string;
 
     if (!token) {
       toast.error('Open the reset link from your email first');
       return;
     }
+    if (!passwordMeetsPolicy) {
+      toast.error('Password does not meet the requirements');
+      return;
+    }
+    if (!passwordsMatch) {
+      toast.error('Passwords do not match');
+      return;
+    }
     if (!otpCode) {
       toast.error('Enter the verification code');
+      return;
+    }
+    if (!verificationCodeValid) {
+      toast.error('Verification code must be 6 digits');
       return;
     }
 
@@ -56,8 +79,9 @@ export default function ResetPasswordPage() {
       await authService.resetPassword(token, newPassword, otpCode);
       toast.success('Password updated. Please sign in.');
       navigate('/login');
-    } catch {
-      toast.error('Failed to reset password');
+    } catch (error) {
+      const apiError = getApiError(error);
+      toast.error(apiError.message || 'Failed to reset password');
     } finally {
       setIsSubmitting(false);
     }
@@ -75,8 +99,9 @@ export default function ResetPasswordPage() {
       try {
         await authService.requestPasswordReset(normalizedEmail);
         toast.success('Reset link sent. Check your email and open that link to continue.');
-      } catch {
-        toast.error('Failed to send reset link');
+      } catch (error) {
+        const apiError = getApiError(error);
+        toast.error(apiError.message || 'Failed to send reset link');
       } finally {
         setIsSendingCode(false);
       }
@@ -88,12 +113,58 @@ export default function ResetPasswordPage() {
       await authService.requestPasswordResetOtp(token);
       setCodeSent(true);
       toast.success(`Verification code sent to ${email || 'your email'}`);
-    } catch {
-      toast.error('Failed to send verification code');
+    } catch (error) {
+      const apiError = getApiError(error);
+      toast.error(apiError.message || 'Failed to send verification code');
     } finally {
       setIsSendingCode(false);
     }
   };
+
+  if (!token) {
+    return (
+      <div>
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Reset your password</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Enter your registered email and we will send you a secure password reset link.
+          </p>
+        </div>
+
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            handleSendCode();
+          }}
+          className="mt-6 space-y-4"
+        >
+          <div>
+            <label className="label">Email address</label>
+            <input
+              name="email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+              className="input"
+              placeholder="you@company.com"
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              Open the link in your email to set a new password and request a verification code.
+            </p>
+          </div>
+
+          <button type="submit" className="btn-primary w-full" disabled={isSendingCode}>
+            {isSendingCode ? 'Sending...' : 'Send reset link'}
+          </button>
+        </form>
+
+        <p className="mt-6 text-sm text-slate-600">
+          Remembered your password? <Link to="/login" className="text-primary-600">Sign in</Link>
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -118,9 +189,7 @@ export default function ResetPasswordPage() {
             placeholder={isLoadingContext ? 'Loading...' : 'you@company.com'}
           />
           <p className="mt-1 text-xs text-slate-500">
-            {token
-              ? 'Verification code will be sent to this email.'
-              : 'Enter your registered email to receive a password reset link.'}
+            Verification code will be sent to this email.
           </p>
         </div>
 
@@ -129,6 +198,8 @@ export default function ResetPasswordPage() {
           <input
             name="newPassword"
             type="password"
+            value={newPassword}
+            onChange={(event) => setNewPassword(event.target.value)}
             required
             minLength={8}
             pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
@@ -151,6 +222,22 @@ export default function ResetPasswordPage() {
         </div>
 
         <div>
+          <label className="label">Confirm new password</label>
+          <input
+            name="confirmPassword"
+            type="password"
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            required
+            autoComplete="new-password"
+            className="input"
+          />
+          {confirmPassword && !passwordsMatch && (
+            <p className="mt-1 text-xs text-red-600">Passwords do not match.</p>
+          )}
+        </div>
+
+        <div>
           <label className="label">Verification code</label>
           <input
             name="otpCode"
@@ -158,7 +245,7 @@ export default function ResetPasswordPage() {
             inputMode="numeric"
             maxLength={6}
             value={otpCode}
-            onChange={(event) => setOtpCode(event.target.value)}
+            onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
             required={Boolean(token)}
             className="input"
             placeholder="Enter 6-digit code"
@@ -175,15 +262,13 @@ export default function ResetPasswordPage() {
           >
             {isSendingCode
               ? 'Sending...'
-              : token
-                ? codeSent
-                  ? 'Resend code'
-                  : 'Send code'
-                : 'Send reset link'}
+              : codeSent
+                ? 'Resend verification code'
+                : 'Send verification code'}
           </button>
         </div>
 
-        <button type="submit" disabled={isSubmitting || !token} className="btn-primary w-full">
+        <button type="submit" disabled={isSubmitting || !canUpdatePassword} className="btn-primary w-full">
           {isSubmitting ? 'Saving...' : 'Update password'}
         </button>
       </form>

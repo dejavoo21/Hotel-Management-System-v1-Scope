@@ -33,6 +33,35 @@ export type HardwareIntegrationInput = {
   metadata?: Record<string, unknown>;
 };
 
+export type CctvDiscoveryState =
+  | 'NOT_STARTED'
+  | 'SCANNING'
+  | 'DEVICES_FOUND'
+  | 'NO_DEVICES_FOUND'
+  | 'AUTHENTICATION_REQUIRED'
+  | 'SCAN_FAILED';
+
+export type DiscoveredCctvCamera = {
+  id: string;
+  ipAddress: string;
+  macAddress?: string | null;
+  manufacturer: string;
+  model: string;
+  onvifSupported: boolean;
+  streamAvailable: boolean;
+  authenticationStatus: 'NOT_REQUIRED' | 'REQUIRED' | 'AUTHENTICATED' | 'FAILED';
+  streamReference?: string | null;
+};
+
+export type CctvNvrChannel = {
+  channelNumber: number;
+  channelName: string;
+  streamReference: string;
+  status: 'REFERENCE_ONLY' | 'AVAILABLE' | 'UNAVAILABLE';
+  resolution?: string | null;
+  fps?: number | null;
+};
+
 const DEFAULT_SECRET = 'laflo-local-hardware-secret-key';
 
 function encryptionKey() {
@@ -75,17 +104,58 @@ function safeHealth(input: Pick<HardwareIntegrationInput, 'host' | 'protocol' | 
   };
 }
 
-export function testHardwareConfiguration(input: Pick<HardwareIntegrationInput, 'host' | 'protocol' | 'provider'>) {
-  return safeHealth(input);
+export function testHardwareConfiguration(input: Pick<HardwareIntegrationInput, 'host' | 'protocol' | 'provider'> & { channelCount?: number }) {
+  const health = safeHealth(input);
+  const channelCount = Number((input as { channelCount?: number }).channelCount || 0);
+  const channels: CctvNvrChannel[] =
+    health.success && channelCount > 0
+      ? Array.from({ length: Math.min(channelCount, 32) }, (_, index) => {
+          const channelNumber = index + 1;
+          return {
+            channelNumber,
+            channelName: `NVR Channel ${channelNumber}`,
+            streamReference: `channel://${input.provider.toLowerCase()}/${input.host}/${channelNumber}`,
+            status: 'REFERENCE_ONLY',
+            resolution: null,
+            fps: null,
+          };
+        })
+      : [];
+  return {
+    ...health,
+    channels,
+    message: channels.length
+      ? `${health.message} ${channels.length} channel references prepared for import. Live stream metadata requires the media gateway.`
+      : health.message,
+  };
 }
 
 export function discoverHardwareIntegrations(input: { subnet?: string; provider?: HardwareProvider }) {
+  const simulationEnabled = process.env.CCTV_DISCOVERY_SIMULATION === 'true';
+  const discovered: DiscoveredCctvCamera[] = simulationEnabled
+    ? [
+        {
+          id: `sim-${input.subnet || 'network'}-01`,
+          ipAddress: '192.168.1.21',
+          macAddress: '00:1A:2B:3C:4D:21',
+          manufacturer: 'ONVIF Simulation',
+          model: 'Reference Camera',
+          onvifSupported: true,
+          streamAvailable: false,
+          authenticationStatus: 'REQUIRED',
+          streamReference: 'onvif://simulated/reference/1',
+        },
+      ]
+    : [];
   return {
-    configured: false,
+    configured: simulationEnabled,
     provider: input.provider || HardwareProvider.ONVIF,
     subnet: input.subnet || null,
-    discovered: [],
-    message: 'Discovery service is not configured. Configure the ONVIF/RTSP discovery worker or media gateway before scanning hotel networks.',
+    state: (discovered.length > 0 ? 'DEVICES_FOUND' : 'NO_DEVICES_FOUND') as CctvDiscoveryState,
+    discovered,
+    message: simulationEnabled
+      ? 'CCTV discovery simulation is enabled. Results are labelled as simulation and must be verified against real ONVIF discovery before production use.'
+      : 'Discovery service is not configured. Configure the ONVIF/RTSP discovery worker or media gateway before scanning hotel networks.',
   };
 }
 

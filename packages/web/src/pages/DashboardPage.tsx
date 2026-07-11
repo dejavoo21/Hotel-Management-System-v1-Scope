@@ -845,6 +845,45 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <ClickableCard
+          to="/operations-center/search"
+          ariaLabel="Open Enterprise Search"
+          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Enterprise Search</p>
+          <h2 className="mt-2 text-sm font-semibold text-slate-950">Find records across LaFlo</h2>
+          <p className="mt-1 text-sm text-slate-600">Guests, reservations, incidents, devices, invoices, messages, and audit records.</p>
+        </ClickableCard>
+        <ClickableCard
+          to="/ai/hotel-brain"
+          ariaLabel="Open Hotel Brain"
+          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Hotel Brain</p>
+          <h2 className="mt-2 text-sm font-semibold text-slate-950">Ask operational questions</h2>
+          <p className="mt-1 text-sm text-slate-600">Evidence-backed answers from authorised indexed records and AI context.</p>
+        </ClickableCard>
+        <ClickableCard
+          to="/incidents?view=critical"
+          ariaLabel="Open critical incidents"
+          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Attention</p>
+          <h2 className="mt-2 text-sm font-semibold text-slate-950">Critical unresolved issues</h2>
+          <p className="mt-1 text-sm text-slate-600">Review incidents, alerts, and task queues that need manager attention.</p>
+        </ClickableCard>
+        <ClickableCard
+          to="/settings?tab=integrations"
+          ariaLabel="Open integration health"
+          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Integration Health</p>
+          <h2 className="mt-2 text-sm font-semibold text-slate-950">CCTV and devices</h2>
+          <p className="mt-1 text-sm text-slate-600">Check hardware, CCTV, Smart Building, and provider connection status.</p>
+        </ClickableCard>
+      </div>
+
       <div className="grid items-stretch gap-6 2xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-5">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">

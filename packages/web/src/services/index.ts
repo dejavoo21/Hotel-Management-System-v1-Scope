@@ -36,4 +36,5 @@ export { default as smartBuildingService } from './smartBuilding';
 export { default as marketService } from './market';
 export { default as assistantService } from './assistant';
 export { default as timelineService } from './timeline';
+export { default as enterpriseSearchService } from './enterpriseSearch';
 export { createTicketFromAssistant } from './assistantActions';

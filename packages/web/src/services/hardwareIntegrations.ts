@@ -76,6 +76,52 @@ export type HardwareIntegrationPayload = {
   cloudProvider?: 'VERKADA' | 'EAGLE_EYE' | 'RHOMBUS' | 'OTHER';
 };
 
+export type CctvDiscoveryState =
+  | 'NOT_STARTED'
+  | 'SCANNING'
+  | 'DEVICES_FOUND'
+  | 'NO_DEVICES_FOUND'
+  | 'AUTHENTICATION_REQUIRED'
+  | 'SCAN_FAILED';
+
+export type DiscoveredCctvCamera = {
+  id: string;
+  ipAddress: string;
+  macAddress?: string | null;
+  manufacturer: string;
+  model: string;
+  onvifSupported: boolean;
+  streamAvailable: boolean;
+  authenticationStatus: 'NOT_REQUIRED' | 'REQUIRED' | 'AUTHENTICATED' | 'FAILED';
+  streamReference?: string | null;
+};
+
+export type CctvDiscoveryResult = {
+  configured: boolean;
+  provider: HardwareProvider;
+  subnet: string | null;
+  state: CctvDiscoveryState;
+  discovered: DiscoveredCctvCamera[];
+  message: string;
+};
+
+export type CctvNvrChannel = {
+  channelNumber: number;
+  channelName: string;
+  streamReference: string;
+  status: 'REFERENCE_ONLY' | 'AVAILABLE' | 'UNAVAILABLE';
+  resolution?: string | null;
+  fps?: number | null;
+};
+
+export type CctvNvrTestResult = {
+  success: boolean;
+  message: string;
+  status: string;
+  healthStatus: string;
+  channels: CctvNvrChannel[];
+};
+
 const unwrap = <T>(response: { data: { data: T } }) => response.data.data;
 
 export const hardwareIntegrationService = {
@@ -113,12 +159,16 @@ export const hardwareIntegrationService = {
     const response = await api.post('/cctv/cameras', payload);
     return unwrap(response);
   },
-  async discoverCctv(payload: { subnet: string; provider?: HardwareProvider }): Promise<{ configured: boolean; message: string; discovered: unknown[] }> {
+  async discoverCctv(payload: { subnet: string; provider?: HardwareProvider }): Promise<CctvDiscoveryResult> {
     const response = await api.post('/cctv/discover', payload);
     return unwrap(response);
   },
-  async testNvr(payload: { provider: HardwareProvider; protocol: HardwareProtocol; host: string; port?: number; username?: string; secret?: string; channelCount?: number }): Promise<{ success: boolean; message: string; status: string; healthStatus: string }> {
+  async testNvr(payload: { provider: HardwareProvider; protocol: HardwareProtocol; host: string; port?: number; username?: string; secret?: string; channelCount?: number }): Promise<CctvNvrTestResult> {
     const response = await api.post('/cctv/nvr/test', payload);
+    return unwrap(response);
+  },
+  async testCctvPreview(payload: { provider: HardwareProvider; protocol: HardwareProtocol; host: string; port?: number; username?: string; secret?: string }): Promise<CctvNvrTestResult> {
+    const response = await api.post('/cctv/preview/test', payload);
     return unwrap(response);
   },
   async testCctvCamera(id: string): Promise<HardwareIntegration> {
