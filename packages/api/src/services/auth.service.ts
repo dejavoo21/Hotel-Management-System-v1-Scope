@@ -68,7 +68,7 @@ export async function login(
   if (!user) {
     const accessRequest = await prisma.accessRequest.findFirst({
       where: { email: normalizedEmail },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
       select: { status: true },
     });
 
@@ -499,7 +499,7 @@ export async function requestPasswordSetupCode(email: string) {
   if (!user) {
     const accessRequest = await prisma.accessRequest.findFirst({
       where: { email: normalizedEmail },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
       select: { status: true },
     });
 
