@@ -22,6 +22,7 @@ export default function ResetPasswordPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const token = searchParams.get('token') || '';
+  const emailFromQuery = searchParams.get('email') || '';
 
   const passwordMeetsPolicy =
     newPassword.length >= 8 &&
@@ -31,8 +32,14 @@ export default function ResetPasswordPage() {
   const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
   const verificationCodeValid = /^\d{6}$/.test(otpCode);
   const canUpdatePassword = Boolean(
-    token && email && passwordMeetsPolicy && passwordsMatch && verificationCodeValid
+    email && passwordMeetsPolicy && passwordsMatch && verificationCodeValid
   );
+
+  useEffect(() => {
+    if (!token && emailFromQuery) {
+      setEmail(emailFromQuery);
+    }
+  }, [emailFromQuery, token]);
 
   useEffect(() => {
     if (!token) return;
@@ -53,8 +60,10 @@ export default function ResetPasswordPage() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!token) {
-      toast.error('Open the reset link from your email first');
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      toast.error('Enter your email address first');
       return;
     }
     if (!passwordMeetsPolicy) {
@@ -76,7 +85,11 @@ export default function ResetPasswordPage() {
 
     setIsSubmitting(true);
     try {
-      await authService.resetPassword(token, newPassword, otpCode);
+      if (token) {
+        await authService.resetPassword(token, newPassword, otpCode);
+      } else {
+        await authService.resetPasswordWithEmailCode(normalizedEmail, newPassword, otpCode);
+      }
       toast.success('Password updated. Please sign in.');
       navigate('/login');
     } catch (error) {
@@ -97,11 +110,12 @@ export default function ResetPasswordPage() {
       }
       setIsSendingCode(true);
       try {
-        await authService.requestPasswordReset(normalizedEmail);
-        toast.success('Reset link sent. Check your email and open that link to continue.');
+        await authService.requestPasswordSetupCode(normalizedEmail);
+        setCodeSent(true);
+        toast.success(`Verification code sent to ${normalizedEmail}`);
       } catch (error) {
         const apiError = getApiError(error);
-        toast.error(apiError.message || 'Failed to send reset link');
+        toast.error(apiError.message || 'Failed to send verification code');
       } finally {
         setIsSendingCode(false);
       }
@@ -125,19 +139,13 @@ export default function ResetPasswordPage() {
     return (
       <div>
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Reset your password</h2>
+          <h2 className="text-2xl font-bold text-slate-900">Set your password</h2>
           <p className="mt-2 text-sm text-slate-600">
-            Enter your registered email and we will send you a secure password reset link.
+            Enter your approved email, request a verification code, then create your password.
           </p>
         </div>
 
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            handleSendCode();
-          }}
-          className="mt-6 space-y-4"
-        >
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
             <label className="label">Email address</label>
             <input
@@ -150,12 +158,86 @@ export default function ResetPasswordPage() {
               placeholder="you@company.com"
             />
             <p className="mt-1 text-xs text-slate-500">
-              Open the link in your email to set a new password and request a verification code.
+              Verification code will be sent to this email.
             </p>
           </div>
 
-          <button type="submit" className="btn-primary w-full" disabled={isSendingCode}>
-            {isSendingCode ? 'Sending...' : 'Send reset link'}
+          <div>
+            <label className="label">New password</label>
+            <input
+              name="newPassword"
+              type="password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+              required
+              minLength={8}
+              pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+              title="Use at least 8 characters with one uppercase letter, one lowercase letter, and one number."
+              autoComplete="new-password"
+              className="input"
+              aria-describedby="password-requirements"
+            />
+            <div id="password-requirements" className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <p className="text-xs font-semibold text-slate-700">Password must include:</p>
+              <ul className="mt-1 space-y-1 text-xs text-slate-600">
+                {passwordRequirements.map((requirement) => (
+                  <li key={requirement} className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary-500" aria-hidden="true" />
+                    <span>{requirement}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div>
+            <label className="label">Confirm new password</label>
+            <input
+              name="confirmPassword"
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              required
+              autoComplete="new-password"
+              className="input"
+            />
+            {confirmPassword && !passwordsMatch && (
+              <p className="mt-1 text-xs text-red-600">Passwords do not match.</p>
+            )}
+          </div>
+
+          <div>
+            <label className="label">Verification code</label>
+            <input
+              name="otpCode"
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={otpCode}
+              onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+              required
+              className="input"
+              placeholder="Enter 6-digit code"
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              Send the code after confirming the email above, then enter the 6-digit code here.
+            </p>
+            <button
+              type="button"
+              onClick={handleSendCode}
+              className="btn-outline mt-3 w-full"
+              disabled={isSendingCode}
+            >
+              {isSendingCode
+                ? 'Sending...'
+                : codeSent
+                  ? 'Resend verification code'
+                  : 'Send verification code'}
+            </button>
+          </div>
+
+          <button type="submit" disabled={isSubmitting || !canUpdatePassword} className="btn-primary w-full">
+            {isSubmitting ? 'Saving...' : 'Update password'}
           </button>
         </form>
 
@@ -184,8 +266,8 @@ export default function ResetPasswordPage() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
-            readOnly={Boolean(token)}
-            className={`input ${token ? 'bg-slate-50 text-slate-500' : ''}`}
+            readOnly
+            className="input bg-slate-50 text-slate-500"
             placeholder={isLoadingContext ? 'Loading...' : 'you@company.com'}
           />
           <p className="mt-1 text-xs text-slate-500">
@@ -249,7 +331,6 @@ export default function ResetPasswordPage() {
             required={Boolean(token)}
             className="input"
             placeholder="Enter 6-digit code"
-            disabled={!token}
           />
           <p className="mt-1 text-xs text-slate-500">
             Send the code after confirming the email above, then enter the 6-digit code here.

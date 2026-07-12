@@ -57,8 +57,16 @@ export const authService = {
     await api.post('/auth/password/otp', { token });
   },
 
+  async requestPasswordSetupCode(email: string): Promise<void> {
+    await api.post('/auth/password/setup-code', { email });
+  },
+
   async resetPassword(token: string, newPassword: string, otpCode: string): Promise<void> {
     await api.post('/auth/password/reset', { token, newPassword, otpCode });
+  },
+
+  async resetPasswordWithEmailCode(email: string, newPassword: string, otpCode: string): Promise<void> {
+    await api.post('/auth/password/setup', { email, newPassword, otpCode });
   },
 
   async requestOtp(email: string): Promise<void> {

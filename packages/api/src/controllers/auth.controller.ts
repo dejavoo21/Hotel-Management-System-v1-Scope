@@ -300,6 +300,34 @@ export async function resetPassword(
   }
 }
 
+export async function requestPasswordSetupCode(
+  req: AuthenticatedRequest,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { email } = req.body;
+    await authService.requestPasswordSetupCode(email);
+    res.json({ success: true, message: 'Verification code sent' });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function resetPasswordWithEmailCode(
+  req: AuthenticatedRequest,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { email, newPassword, otpCode } = req.body;
+    await authService.resetPasswordWithEmailCode(email, newPassword, otpCode);
+    res.json({ success: true, message: 'Password updated successfully' });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function requestPasswordResetOtp(
   req: AuthenticatedRequest,
   res: Response<ApiResponse>,

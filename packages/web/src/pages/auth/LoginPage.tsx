@@ -100,6 +100,15 @@ export default function LoginPage() {
       }
     } catch (error) {
       const apiError = getApiError(error);
+      if (
+        apiError.message.includes('password not set') ||
+        apiError.message.includes('Password change required') ||
+        apiError.message.includes('setup email')
+      ) {
+        toast('Account approved. Set your password with a verification code to continue.');
+        navigate(`/reset-password?email=${encodeURIComponent(email.trim().toLowerCase())}`);
+        return;
+      }
       toast.error(apiError.message);
     } finally {
       setIsLoading(false);

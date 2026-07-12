@@ -57,6 +57,22 @@ const requestResetOtpSchema = z.object({
   token: z.string().min(1, 'Reset token is required'),
 });
 
+const requestPasswordSetupCodeSchema = z.object({
+  email: z.string().email('Invalid email format'),
+});
+
+const resetPasswordWithEmailCodeSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  otpCode: z.string().length(6, 'Verification code must be 6 digits'),
+  newPassword: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+      'Password must contain at least one uppercase letter, one lowercase letter, and one number'
+    ),
+});
+
 const resetContextSchema = z.object({
   token: z.string().min(1, 'Reset token is required'),
 });
@@ -96,6 +112,8 @@ router.post('/password/request', validate(requestResetSchema), authController.re
 router.post('/password/context', validate(resetContextSchema), authController.getPasswordResetContext);
 router.post('/password/otp', validate(requestResetOtpSchema), authController.requestPasswordResetOtp);
 router.post('/password/reset', validate(resetPasswordSchema), authController.resetPassword);
+router.post('/password/setup-code', validate(requestPasswordSetupCodeSchema), authController.requestPasswordSetupCode);
+router.post('/password/setup', validate(resetPasswordWithEmailCodeSchema), authController.resetPasswordWithEmailCode);
 
 // 2FA Routes
 router.post('/2fa/setup', authenticate, authController.setup2FA);

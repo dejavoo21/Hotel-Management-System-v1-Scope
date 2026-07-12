@@ -484,6 +484,47 @@ export async function requestPasswordResetOtp(token: string) {
   await requestEmailOtp(stored.user.email, 'PASSWORD_RESET', 'EMAIL');
 }
 
+export async function requestPasswordSetupCode(email: string) {
+  const normalizedEmail = email.toLowerCase().trim();
+  const user = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+    select: {
+      id: true,
+      email: true,
+      isActive: true,
+      mustChangePassword: true,
+    },
+  });
+
+  if (!user) {
+    const accessRequest = await prisma.accessRequest.findFirst({
+      where: { email: normalizedEmail },
+      orderBy: { updatedAt: 'desc' },
+      select: { status: true },
+    });
+
+    if (
+      accessRequest?.status === 'PENDING' ||
+      accessRequest?.status === 'INFO_RECEIVED' ||
+      accessRequest?.status === 'NEEDS_INFO'
+    ) {
+      throw new ForbiddenError('Your access request is still pending approval.');
+    }
+
+    if (accessRequest?.status === 'REJECTED') {
+      throw new ForbiddenError('Your access request was not approved.');
+    }
+
+    throw new UnauthorizedError('User record not found');
+  }
+
+  if (!user.isActive) {
+    throw new ForbiddenError('Your account has been disabled. Contact administrator.');
+  }
+
+  await requestEmailOtp(user.email, 'PASSWORD_RESET', 'EMAIL');
+}
+
 export async function getPasswordResetContext(token: string) {
   const tokenHash = hashToken(token);
   const stored = await prisma.passwordResetToken.findFirst({
@@ -500,6 +541,57 @@ export async function getPasswordResetContext(token: string) {
   }
 
   return { email: stored.user.email };
+}
+
+export async function resetPasswordWithEmailCode(email: string, newPassword: string, otpCode: string) {
+  const normalizedEmail = email.toLowerCase().trim();
+
+  const user = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+  });
+
+  if (!user) {
+    throw new UnauthorizedError('User record not found');
+  }
+
+  if (!user.isActive) {
+    throw new ForbiddenError('Your account has been disabled. Contact administrator.');
+  }
+
+  const otp = await prisma.emailOtp.findFirst({
+    where: {
+      email: normalizedEmail,
+      purpose: 'PASSWORD_RESET',
+      usedAt: null,
+      expiresAt: { gte: new Date() },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (!otp) {
+    throw new ForbiddenError('Verification code is invalid or expired');
+  }
+
+  const isValidOtp = await bcrypt.compare(otpCode, otp.codeHash);
+  if (!isValidOtp) {
+    throw new ForbiddenError('Verification code is invalid or expired');
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash, mustChangePassword: false },
+    }),
+    prisma.emailOtp.update({
+      where: { id: otp.id },
+      data: { usedAt: new Date() },
+    }),
+    prisma.refreshToken.deleteMany({ where: { userId: user.id } }),
+  ]);
+
+  logger.info(`Password setup/reset completed with verification code for user: ${user.email}`);
 }
 
 export async function resetPassword(token: string, newPassword: string, otpCode: string) {
