@@ -31,15 +31,21 @@ api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const requestUrl = String(originalRequest?.url || '');
+    const isPublicAuthRequest =
+      requestUrl.includes('/auth/login') ||
+      requestUrl.includes('/auth/otp/') ||
+      requestUrl.includes('/auth/password/') ||
+      requestUrl.includes('/auth/2fa/verify-backup');
 
     // If 401 and not already retrying
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry && !isPublicAuthRequest) {
       originalRequest._retry = true;
 
       try {
         const { refreshToken } = useAuthStore.getState();
         if (!refreshToken) {
-          throw new Error('No refresh token');
+          return Promise.reject(error);
         }
 
         // Try to refresh the token
