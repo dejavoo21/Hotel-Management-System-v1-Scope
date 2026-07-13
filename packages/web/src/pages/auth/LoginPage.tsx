@@ -3,6 +3,13 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { authService, getApiError } from '@/services';
 import toast from 'react-hot-toast';
+import {
+  CheckIcon,
+  EnvelopeIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  LockClosedIcon,
+} from '@heroicons/react/24/outline';
 
 export default function LoginPage() {
   const [searchParams] = useSearchParams();
@@ -24,9 +31,10 @@ export default function LoginPage() {
   const [otpPhone, setOtpPhone] = useState('');
   const [rememberMe, setRememberMe] = useState(() => {
     try {
-      return localStorage.getItem('laflo:remember-me') === 'true';
+      const stored = localStorage.getItem('laflo:remember-me');
+      return stored === null ? true : stored === 'true';
     } catch {
-      return false;
+      return true;
     }
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -155,38 +163,44 @@ export default function LoginPage() {
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Welcome back</h1>
-        <p className="mt-2 text-sm text-slate-600">
+        <h1 className="text-[2.45rem] font-extrabold leading-tight tracking-[-0.04em] text-[#07132b]">
+          Welcome back
+        </h1>
+        <p className="mt-3 text-[1.35rem] font-medium leading-8 text-[#3d4c73]">
           Sign in to your account to continue
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-8 space-y-6" noValidate>
+      <form onSubmit={handleSubmit} className="mt-12 space-y-9" noValidate>
         <div>
-          <label htmlFor="email" className="label">
+          <label htmlFor="email" className="mb-3 block text-[1.12rem] font-bold text-[#111a35]">
             Email address <span className="text-red-500">*</span>
           </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            aria-required="true"
-            aria-describedby="email-error"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="input"
-            placeholder="you@hotel.com"
-          />
+          <div className="relative">
+            <EnvelopeIcon className="pointer-events-none absolute left-5 top-1/2 h-7 w-7 -translate-y-1/2 text-[#66769d]" aria-hidden="true" />
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              aria-required="true"
+              aria-describedby="email-error"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="h-[68px] w-full rounded-xl border border-[#c6cfdf] bg-white pl-16 pr-5 text-[1.08rem] font-medium text-[#39476f] shadow-sm outline-none transition placeholder:text-[#5b688c] focus:border-[#0a9f8c] focus:ring-4 focus:ring-[#0a9f8c]/10"
+              placeholder="you@hotel.com"
+            />
+          </div>
         </div>
 
         {!otpMode ? (
           <div>
-            <label htmlFor="password" className="label">
+            <label htmlFor="password" className="mb-3 block text-[1.12rem] font-bold text-[#111a35]">
               Password <span className="text-red-500">*</span>
             </label>
             <div className="relative">
+              <LockClosedIcon className="pointer-events-none absolute left-5 top-1/2 h-7 w-7 -translate-y-1/2 text-black" aria-hidden="true" />
               <input
                 id="password"
                 name="password"
@@ -198,7 +212,7 @@ export default function LoginPage() {
                 aria-label={`Password${showPassword ? ' (visible)' : ' (hidden)'}`}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="input pr-10"
+                className="h-[68px] w-full rounded-xl border border-[#c6cfdf] bg-white pl-16 pr-16 text-[1.08rem] font-medium text-[#111a35] shadow-sm outline-none transition placeholder:text-[#5b688c] focus:border-[#0a9f8c] focus:ring-4 focus:ring-[#0a9f8c]/10"
                 placeholder="Enter your password"
               />
               <button
@@ -206,39 +220,19 @@ export default function LoginPage() {
                 onClick={() => setShowPassword(!showPassword)}
                 aria-pressed={showPassword}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded p-1"
+                className="absolute right-5 top-1/2 -translate-y-1/2 rounded p-1 text-[#65749a] transition hover:text-[#273252] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c]"
               >
                 {showPassword ? (
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-                    />
-                  </svg>
+                  <EyeSlashIcon className="h-7 w-7" aria-hidden="true" />
                 ) : (
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                    />
-                  </svg>
+                  <EyeIcon className="h-7 w-7" aria-hidden="true" />
                 )}
               </button>
             </div>
           </div>
         ) : (
           <div>
-            <label htmlFor="otp-code" className="label">
+            <label htmlFor="otp-code" className="mb-3 block text-[1.12rem] font-bold text-[#111a35]">
               Verification code <span className="text-red-500">*</span>
             </label>
             <div className="mb-2 grid grid-cols-2 gap-2">
@@ -274,7 +268,7 @@ export default function LoginPage() {
                 aria-required="true"
                 aria-describedby="otp-error"
                 maxLength={6}
-                className="input"
+                className="h-[58px] w-full rounded-xl border border-[#c6cfdf] bg-white px-5 text-[1.08rem] font-medium text-[#111a35] shadow-sm outline-none transition placeholder:text-[#5b688c] focus:border-[#0a9f8c] focus:ring-4 focus:ring-[#0a9f8c]/10"
                 placeholder="Enter 6-digit code"
                 type="text"
                 inputMode="numeric"
@@ -292,22 +286,25 @@ export default function LoginPage() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <label htmlFor="remember-me" className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <label htmlFor="remember-me" className="flex items-center gap-3">
             <input
               id="remember-me"
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+              className="peer sr-only"
             />
-            <span className="text-sm text-slate-600">
+            <span className="flex h-6 w-6 items-center justify-center rounded-md border border-[#cbd5e1] bg-white text-white shadow-sm peer-checked:border-[#0aa391] peer-checked:bg-[#0aa391]">
+              <CheckIcon className="h-5 w-5 stroke-[3]" aria-hidden="true" />
+            </span>
+            <span className="text-[1.08rem] font-medium text-[#334163]">
               Remember me
               {otpMode && otpPurpose === 'ACCESS_REVALIDATION' ? ' (includes device trust for 30 days)' : ''}
             </span>
           </label>
-          <div className="flex items-center gap-3 text-sm">
-            <Link to="/reset-password" className="font-medium text-primary-600 hover:text-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded px-1">
+          <div className="flex items-center gap-8 text-[1.05rem]">
+            <Link to="/reset-password" className="rounded px-1 font-semibold text-[#07811d] hover:text-[#045f16] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c]">
               Forgot password?
             </Link>
             <button
@@ -319,7 +316,7 @@ export default function LoginPage() {
                 setOtpCode('');
                 setOtpSent(false);
               }}
-              className="font-medium text-slate-500 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded px-1"
+              className="rounded px-1 font-medium text-[#334163] hover:text-[#0f1a35] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c]"
               aria-label={otpMode ? 'Switch to password login' : 'Switch to email code login'}
             >
               {otpMode ? 'Use password' : 'Use verification code'}
@@ -330,7 +327,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={isLoading}
-          className="btn-primary w-full py-2.5"
+          className="mt-3 flex h-[68px] w-full items-center justify-center rounded-xl bg-[#009b8f] text-[1.3rem] font-bold text-white shadow-[0_10px_24px_rgba(0,155,143,0.22)] transition hover:bg-[#00897d] focus:outline-none focus:ring-4 focus:ring-[#009b8f]/20 disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isLoading ? (
             <>
@@ -361,9 +358,9 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
+      <div className="mt-11 flex flex-wrap items-center justify-between gap-3 text-[1.05rem] font-medium text-[#334163]">
         <span>Need access to LaFlo?</span>
-        <Link to="/request-access" className="font-medium text-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded px-1">
+        <Link to="/request-access" className="rounded px-1 font-bold text-[#07811d] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c]">
           Request access
         </Link>
       </div>
