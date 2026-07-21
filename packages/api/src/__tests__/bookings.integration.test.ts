@@ -49,6 +49,7 @@ describe('Bookings API Integration', () => {
         hotelId: testHotelId,
         isActive: true,
         lastLoginAt: new Date(),
+        modulePermissions: ['bookings'],
       },
     });
     testUserId = user.id;
