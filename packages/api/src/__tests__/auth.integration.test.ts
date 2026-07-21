@@ -24,6 +24,7 @@ describe('Authentication API Integration', () => {
     const hotel = await prisma.hotel.create({
       data: {
         name: 'Auth Test Hotel',
+        city: 'Test City',
         address: '123 Auth Street',
         phone: '+1234567890',
         email: 'auth@testhotel.com',

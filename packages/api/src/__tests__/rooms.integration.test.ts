@@ -24,6 +24,7 @@ describe('Rooms API Integration', () => {
     const hotel = await prisma.hotel.create({
       data: {
         name: 'Rooms Test Hotel',
+        city: 'Test City',
         address: '123 Room Street',
         phone: '+1234567890',
         email: 'rooms@testhotel.com',

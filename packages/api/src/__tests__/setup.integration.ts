@@ -22,6 +22,7 @@ beforeAll(async () => {
   const hotel = await prisma.hotel.create({
     data: {
       name: 'Test Hotel',
+      city: 'Test City',
       address: '123 Test Street',
       phone: '+1234567890',
       email: 'test@testhotel.com',
