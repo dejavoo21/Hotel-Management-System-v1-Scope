@@ -27,6 +27,7 @@ describe('Bookings API Integration', () => {
       data: {
         name: 'Booking Test Hotel',
         city: 'Test City',
+        country: 'United Kingdom',
         address: '123 Booking Street',
         phone: '+1234567890',
         email: 'booking@testhotel.com',

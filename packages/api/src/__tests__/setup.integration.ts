@@ -23,6 +23,7 @@ beforeAll(async () => {
     data: {
       name: 'Test Hotel',
       city: 'Test City',
+      country: 'United Kingdom',
       address: '123 Test Street',
       phone: '+1234567890',
       email: 'test@testhotel.com',

@@ -25,6 +25,7 @@ describe('Authentication API Integration', () => {
       data: {
         name: 'Auth Test Hotel',
         city: 'Test City',
+        country: 'United Kingdom',
         address: '123 Auth Street',
         phone: '+1234567890',
         email: 'auth@testhotel.com',

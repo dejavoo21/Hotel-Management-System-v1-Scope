@@ -25,6 +25,7 @@ describe('Rooms API Integration', () => {
       data: {
         name: 'Rooms Test Hotel',
         city: 'Test City',
+        country: 'United Kingdom',
         address: '123 Room Street',
         phone: '+1234567890',
         email: 'rooms@testhotel.com',
