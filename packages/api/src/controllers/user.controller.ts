@@ -301,8 +301,7 @@ export async function updateUserPermissions(
     });
 
     // Emit socket event to notify the user of permission changes
-    const { getIo } = await import('../index.js');
-    const io = getIo();
+    const io = req.app.get('io');
     if (io) {
       // Emit to user-specific room
       io.to(`user:${id}`).emit('permissions:update', {

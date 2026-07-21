@@ -11,17 +11,6 @@ import { startWorkflowRunner } from './platform/workflows/workflowRunner.js';
 import { startIncidentSubscriptions } from './modules/incidents/incident.service.js';
 import { startGuestJourneyAutomation } from './services/guestJourney.service.js';
 
-// Module-level io reference for getIo() export
-let ioInstance: SocketIOServer | null = null;
-
-/**
- * Get the Socket.IO server instance
- * Used by controllers to broadcast events
- */
-export function getIo(): SocketIOServer | null {
-  return ioInstance;
-}
-
 async function startServer(): Promise<void> {
   try {
     const dbHealthy = await checkDatabaseHealth();
@@ -50,8 +39,6 @@ async function startServer(): Promise<void> {
     startGuestJourneyAutomation();
     logger.info('Socket.IO initialized');
 
-    // Store io instance for getIo() export
-    ioInstance = io;
     app.set('io', io);
 
     httpServer.listen(config.port, () => {

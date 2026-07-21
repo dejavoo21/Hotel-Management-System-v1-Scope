@@ -3,9 +3,18 @@
  * Tests the Express application configuration
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../app.js';
+
+vi.mock('../config/database.js', () => ({
+  prisma: {
+    user: { findUnique: vi.fn().mockResolvedValue(null) },
+    accessRequest: { findFirst: vi.fn().mockResolvedValue(null) },
+  },
+  checkDatabaseHealth: vi.fn().mockResolvedValue(true),
+  disconnectDatabase: vi.fn().mockResolvedValue(undefined),
+}));
 
 describe('App', () => {
   const app = createApp();
@@ -63,7 +72,7 @@ describe('App', () => {
     it('should handle preflight OPTIONS requests', async () => {
       const response = await request(app)
         .options('/api/auth/login')
-        .set('Origin', 'http://localhost:5173')
+        .set('Origin', 'http://localhost:4212')
         .set('Access-Control-Request-Method', 'POST');
 
       expect(response.status).toBe(204);
@@ -102,6 +111,37 @@ describe('App', () => {
 
       // Express returns 400 or 500 for JSON parse errors depending on error handler
       expect([400, 500]).toContain(response.status);
+      expect(response.body.success).toBe(false);
+    });
+  });
+
+  describe('Protected API Router Registration', () => {
+    const protectedEndpoints = [
+      '/api/auth/me',
+      '/api/access-requests',
+      '/api/users',
+      '/api/rooms',
+      '/api/guests',
+      '/api/bookings',
+      '/api/housekeeping/summary',
+      '/api/maintenance-center/overview',
+      '/api/incidents/overview',
+      '/api/inventory',
+      '/api/reviews',
+      '/api/messages',
+      '/api/calls',
+      '/api/notifications',
+      '/api/hotels/me',
+      '/api/integration-manager/overview',
+      '/api/cctv/cameras',
+      '/api/smart-building/overview',
+      '/api/enterprise-search',
+      '/api/ai/context/hotel',
+    ];
+
+    it.each(protectedEndpoints)('registers and protects %s', async (endpoint) => {
+      const response = await request(app).get(endpoint);
+      expect(response.status).toBe(401);
       expect(response.body.success).toBe(false);
     });
   });
