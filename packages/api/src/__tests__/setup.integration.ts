@@ -22,6 +22,8 @@ beforeAll(async () => {
   const hotel = await prisma.hotel.create({
     data: {
       name: 'Test Hotel',
+      city: 'Test City',
+      country: 'United Kingdom',
       address: '123 Test Street',
       phone: '+1234567890',
       email: 'test@testhotel.com',
@@ -41,6 +43,7 @@ beforeAll(async () => {
       role: 'ADMIN',
       hotelId: hotel.id,
       isActive: true,
+      lastLoginAt: new Date(),
     },
   });
   testAdminId = admin.id;
@@ -55,6 +58,7 @@ beforeAll(async () => {
       role: 'RECEPTIONIST',
       hotelId: hotel.id,
       isActive: true,
+      lastLoginAt: new Date(),
     },
   });
   testUserId = user.id;

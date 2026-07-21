@@ -26,6 +26,8 @@ describe('Bookings API Integration', () => {
     const hotel = await prisma.hotel.create({
       data: {
         name: 'Booking Test Hotel',
+        city: 'Test City',
+        country: 'United Kingdom',
         address: '123 Booking Street',
         phone: '+1234567890',
         email: 'booking@testhotel.com',
@@ -46,6 +48,8 @@ describe('Bookings API Integration', () => {
         role: 'RECEPTIONIST',
         hotelId: testHotelId,
         isActive: true,
+        lastLoginAt: new Date(),
+        modulePermissions: ['bookings'],
       },
     });
     testUserId = user.id;
