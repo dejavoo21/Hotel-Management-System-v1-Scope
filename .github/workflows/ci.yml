@@ -28,6 +28,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate Prisma client
+        run: npm run db:generate --workspace=@hotelos/api
+
       - name: Run linter (API)
         run: npm run lint --workspace=@hotelos/api
         continue-on-error: true
@@ -59,6 +62,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate --workspace=@hotelos/api
 
       - name: Run API unit tests
         run: npm run test:unit --workspace=@hotelos/api
@@ -110,8 +116,8 @@ jobs:
       - name: Generate Prisma client
         run: npm run db:generate --workspace=@hotelos/api
 
-      - name: Run database migrations
-        run: npx prisma migrate deploy --schema=packages/api/prisma/schema.prisma
+      - name: Prepare ephemeral test database
+        run: npx prisma db push --skip-generate --schema=packages/api/prisma/schema.prisma
         env:
           DATABASE_URL: postgresql://testuser:testpass@localhost:5432/hotelos_test
 
@@ -174,8 +180,8 @@ jobs:
       - name: Generate Prisma client
         run: npm run db:generate --workspace=@hotelos/api
 
-      - name: Run database migrations
-        run: npx prisma migrate deploy --schema=packages/api/prisma/schema.prisma
+      - name: Prepare ephemeral test database
+        run: npx prisma db push --skip-generate --schema=packages/api/prisma/schema.prisma
         env:
           DATABASE_URL: postgresql://testuser:testpass@localhost:5432/hotelos_e2e
 
