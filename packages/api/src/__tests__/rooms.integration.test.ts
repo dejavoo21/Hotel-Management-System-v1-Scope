@@ -46,6 +46,7 @@ describe('Rooms API Integration', () => {
         role: 'ADMIN',
         hotelId: testHotelId,
         isActive: true,
+        lastLoginAt: new Date(),
       },
     });
     testUserId = user.id;

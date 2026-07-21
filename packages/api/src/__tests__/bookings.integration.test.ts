@@ -48,6 +48,7 @@ describe('Bookings API Integration', () => {
         role: 'RECEPTIONIST',
         hotelId: testHotelId,
         isActive: true,
+        lastLoginAt: new Date(),
       },
     });
     testUserId = user.id;
