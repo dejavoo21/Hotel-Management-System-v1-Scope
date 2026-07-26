@@ -11,7 +11,6 @@ export default defineConfig({
       reporter: ['text', 'json', 'html'],
       reportsDirectory: '../../tests/coverage/api-integration',
     },
-    setupFiles: ['./src/__tests__/setup.integration.ts'],
     testTimeout: 60000,
     pool: 'forks',
     poolOptions: {

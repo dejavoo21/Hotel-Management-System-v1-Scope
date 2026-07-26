@@ -39,7 +39,6 @@ import SecurityCenterPage from '@/pages/SecurityCenterPage';
 import MaintenanceCenterPage from '@/pages/MaintenanceCenterPage';
 import SmartBuildingPage from '@/pages/SmartBuildingPage';
 import IncidentCenterPage from '@/features/incidents/IncidentCenterPage';
-import ForcePasswordChangePage from '@/pages/auth/ForcePasswordChangePage';
 import NotAuthorizedPage from '@/pages/NotAuthorizedPage';
 
 // Protected Route wrapper
@@ -59,8 +58,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (user?.mustChangePassword && location.pathname !== '/force-password-change') {
-    return <Navigate to="/force-password-change" replace />;
+  if (user?.mustChangePassword && location.pathname !== '/reset-password') {
+    return <Navigate to={`/reset-password?email=${encodeURIComponent(user.email || '')}`} replace />;
   }
 
   return <>{children}</>;
@@ -144,7 +143,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
   if (isAuthenticated) {
     if (user?.mustChangePassword) {
-      return <Navigate to="/force-password-change" replace />;
+      return <Navigate to={`/reset-password?email=${encodeURIComponent(user.email || '')}`} replace />;
     }
     // Redirect to first allowed page based on permissions
     const firstAllowed = getFirstAllowedPath(user);
@@ -179,11 +178,7 @@ export default function App() {
         />
         <Route
           path="/reset-password"
-          element={
-            <PublicRoute>
-              <ResetPasswordPage />
-            </PublicRoute>
-          }
+          element={<ResetPasswordPage />}
         />
         <Route
           path="/request-access"
@@ -203,7 +198,7 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route path="force-password-change" element={<ForcePasswordChangePage />} />
+        <Route path="force-password-change" element={<Navigate to="/reset-password" replace />} />
         <Route index element={<ModuleRoute requiredModule="dashboard"><DashboardPage /></ModuleRoute>} />
         <Route path="dashboard" element={<Navigate to="/" replace />} />
         <Route path="enterprise-command-center" element={<ModuleRoute requiredModule="dashboard"><EnterpriseCommandCenterPage /></ModuleRoute>} />

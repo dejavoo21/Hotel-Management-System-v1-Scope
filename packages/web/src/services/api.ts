@@ -89,13 +89,35 @@ export interface ApiError {
 export function getApiError(error: unknown): ApiError {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data;
+    const rawMessage = String(data?.message || data?.error || '').trim();
+    const normalized = rawMessage.toLowerCase();
+    let message = rawMessage || 'We could not complete that request. Please try again.';
+
+    if (normalized.includes('pending approval')) {
+      message = 'Your access request is pending approval.';
+    } else if (normalized.includes('password not set') || normalized.includes('setup is incomplete')) {
+      message = 'Your account is approved, but your password has not been set.';
+    } else if (normalized.includes('not approved') || normalized.includes('rejected')) {
+      message = 'Your access request was rejected.';
+    } else if (normalized.includes('disabled') || normalized.includes('inactive')) {
+      message = 'Your account is disabled. Contact an administrator.';
+    } else if (normalized.includes('invalid email or password') || normalized.includes('invalid credentials')) {
+      message = 'Invalid email or password.';
+    } else if (normalized.includes('verification code') && normalized.includes('expired')) {
+      message = 'Verification code expired. Request a new code.';
+    } else if (normalized.includes('password') && normalized.includes('do not match')) {
+      message = 'Passwords do not match.';
+    }
     return {
-      message: data?.message || data?.error || 'An error occurred',
+      message,
       errorCode: data?.errorCode,
       errors: data?.errors,
     };
   }
-  return { message: 'An unexpected error occurred' };
+  if (error instanceof Error && error.message) {
+    return { message: error.message };
+  }
+  return { message: 'We could not complete that request. Please try again.' };
 }
 
 export default api;

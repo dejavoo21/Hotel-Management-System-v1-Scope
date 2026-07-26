@@ -88,8 +88,8 @@ export default function LoginPage() {
         const response = await login({ email, password });
 
         if (response.requiresPasswordChange) {
-          toast('Password change required before you can access the app.');
-          navigate('/force-password-change');
+          toast('Account approved. Set your password with a verification code to continue.');
+          navigate(`/reset-password?email=${encodeURIComponent(email.trim().toLowerCase())}`);
           return;
         }
 
@@ -110,6 +110,7 @@ export default function LoginPage() {
       const apiError = getApiError(error);
       if (
         apiError.message.includes('password not set') ||
+        apiError.message.includes('password has not been set') ||
         apiError.message.includes('Password change required') ||
         apiError.message.includes('setup email')
       ) {
@@ -156,10 +157,9 @@ export default function LoginPage() {
       <div className="mb-8 flex items-center gap-3 lg:hidden">
         <img
           src="/laflo-logo.png"
-          alt="LaFlo - Hotel Management System"
-          className="h-10 w-10 rounded-xl bg-primary-600/10 p-1.5 object-contain"
+          alt="LaFlo"
+          className="h-12 w-auto max-w-[170px] object-contain object-left"
         />
-        <span className="text-2xl font-bold text-slate-900">LaFlo</span>
       </div>
 
       <div>
@@ -286,7 +286,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="grid items-center gap-4 sm:grid-cols-[1fr_auto_1fr]">
           <label htmlFor="remember-me" className="flex items-center gap-3">
             <input
               id="remember-me"
@@ -303,11 +303,10 @@ export default function LoginPage() {
               {otpMode && otpPurpose === 'ACCESS_REVALIDATION' ? ' (includes device trust for 30 days)' : ''}
             </span>
           </label>
-          <div className="flex items-center gap-8 text-[1.05rem]">
-            <Link to="/reset-password" className="rounded px-1 font-semibold text-[#07811d] hover:text-[#045f16] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c]">
-              Forgot password?
-            </Link>
-            <button
+          <Link to={`/reset-password${email ? `?email=${encodeURIComponent(email.trim().toLowerCase())}` : ''}`} className="justify-self-start rounded px-1 text-center text-[1.05rem] font-semibold text-[#087b70] hover:text-[#056158] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c] sm:justify-self-center">
+            Forgot password?
+          </Link>
+          <button
               type="button"
               onClick={() => {
                 const next = !otpMode;
@@ -316,12 +315,11 @@ export default function LoginPage() {
                 setOtpCode('');
                 setOtpSent(false);
               }}
-              className="rounded px-1 font-medium text-[#334163] hover:text-[#0f1a35] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c]"
+              className="justify-self-start rounded px-1 text-[1.05rem] font-medium text-[#334163] hover:text-[#0f1a35] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c] sm:justify-self-end"
               aria-label={otpMode ? 'Switch to password login' : 'Switch to email code login'}
             >
               {otpMode ? 'Use password' : 'Use verification code'}
-            </button>
-          </div>
+          </button>
         </div>
 
         <button

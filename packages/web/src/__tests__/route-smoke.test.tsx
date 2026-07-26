@@ -31,7 +31,18 @@ const smokeRoutes = [
   '/guests',
   '/rooms',
   '/reservations',
+  '/housekeeping',
+  '/inventory',
+  '/calendar',
   '/financials',
+  '/reviews',
+  '/concierge',
+  '/users',
+  '/settings',
+  '/operations/smart-building',
+  '/enterprise-command-center',
+  '/operations-center/search',
+  '/ai/hotel-brain',
 ] as const;
 
 const user: User = {

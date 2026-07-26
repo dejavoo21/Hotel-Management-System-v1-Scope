@@ -24,6 +24,8 @@ describe('Authentication API Integration', () => {
     const hotel = await prisma.hotel.create({
       data: {
         name: 'Auth Test Hotel',
+        city: 'Test City',
+        country: 'United Kingdom',
         address: '123 Auth Street',
         phone: '+1234567890',
         email: 'auth@testhotel.com',
@@ -44,6 +46,7 @@ describe('Authentication API Integration', () => {
         role: 'RECEPTIONIST',
         hotelId: testHotelId,
         isActive: true,
+        lastLoginAt: new Date(),
       },
     });
     testUserId = user.id;

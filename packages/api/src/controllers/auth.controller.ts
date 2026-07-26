@@ -4,7 +4,7 @@ import * as authService from '../services/auth.service.js';
 import * as presenceService from '../services/presence.service.js';
 import type { PresenceStatus } from '../services/presence.service.js';
 import { logger } from '../config/logger.js';
-import { getIo } from '../index.js';
+import type { Server as SocketIOServer } from 'socket.io';
 
 /**
  * Login user and return tokens
@@ -431,7 +431,7 @@ export async function updatePresence(
 
     // Broadcast to hotel room via socket
     try {
-      const io = getIo();
+      const io = req.app.get('io') as SocketIOServer | undefined;
       if (io) {
         io.to(`hotel:${req.user.hotelId}`).emit('presence:update', update);
         logger.debug(`Presence broadcast via REST: ${req.user.email} -> ${presenceStatus}`);
