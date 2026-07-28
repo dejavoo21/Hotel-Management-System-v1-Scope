@@ -14,7 +14,6 @@ import { SupportLayout } from '@/components/support/SupportLayout';
 import { SupportRightPanel } from '@/components/support/SupportRightPanel';
 import SupportVideoPanel from '@/components/calls/SupportVideoPanel';
 import DepartmentIntelligenceCard from '@/components/operations/DepartmentIntelligenceCard';
-import CollaborationHeader from '@/components/collaboration/CollaborationHeader';
 import type {
   ConversationMessage,
   MessageThreadDetail,
@@ -460,19 +459,6 @@ export default function MessagesPageRedesigned() {
       }
     >
       <div className="flex flex-col h-full">
-        <div className="shrink-0 border-b border-slate-200 bg-slate-50 p-4">
-          <CollaborationHeader
-            workspace="support"
-            title="Support"
-            subtitle={`${threads.length} conversations / ${ticketsByConversationId.size} tickets. Coordinate guest conversations, calls, tasks, and operational follow-up from one workspace.`}
-            statusLabel={`${onlineAgentsCount} agents online`}
-            toolbar={{
-              onOpenParticipants: () => setShowAgentsPopover((prev) => !prev),
-              onSummarizeConversation: () => navigate('/operations-center/ai'),
-            }}
-          />
-        </div>
-
         {/* Page Header */}
         <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white shrink-0">
           <div>

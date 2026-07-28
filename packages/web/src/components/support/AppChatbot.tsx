@@ -185,9 +185,9 @@ export default function AppChatbot() {
   const showPrompts = useMemo(() => messages.length <= 2, [messages.length]);
 
   return (
-    <div className="fixed bottom-5 right-5 z-50">
+    <div className="fixed bottom-3 right-3 z-40 sm:bottom-5 sm:right-5">
       {open ? (
-        <div className="w-[330px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <div className="max-h-[calc(100vh-1.5rem)] w-[min(330px,calc(100vw-1.5rem))] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl sm:max-h-[calc(100vh-2.5rem)]">
           <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-3">
             <p className="text-sm font-semibold text-slate-900">LaFlo Assistant</p>
             <button

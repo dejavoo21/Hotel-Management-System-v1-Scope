@@ -134,7 +134,8 @@ export const navSections: NavSection[] = [
     label: 'Back Office',
     icon: 'backoffice',
     items: [
-      { id: 'financials', label: 'Financials', href: '/reports', permission: 'financials', icon: 'chart' },
+      { id: 'financials', label: 'Financials', href: '/financials', permission: 'financials', icon: 'chart' },
+      { id: 'reports', label: 'Reports', href: '/reports', permission: 'financials', icon: 'chart' },
       { id: 'invoicing', label: 'Invoicing', href: '/invoices', permission: 'financials', icon: 'receipt' },
       { id: 'expenses', label: 'Expenses', href: '/expenses', permission: 'financials', icon: 'wallet' },
     ],

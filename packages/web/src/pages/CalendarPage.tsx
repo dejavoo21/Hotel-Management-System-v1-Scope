@@ -4,7 +4,8 @@ import { calendarService } from '@/services';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/stores/authStore';
 import { appendAuditLog } from '@/utils/auditLog';
-import { PAGE_TITLE_CLASS } from '@/styles/typography';
+import { CalendarCheck, CalendarDays, Hammer, SprayCan } from 'lucide-react';
+import { ModuleFilterPanel, ModuleMetricGrid, ModulePageHeader } from '@/components/core/ModuleLandingUi';
 
 type CalendarType = 'BOOKING' | 'HOUSEKEEPING' | 'MAINTENANCE' | 'EVENT' | 'OTHER';
 
@@ -245,12 +246,22 @@ export default function CalendarPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className={PAGE_TITLE_CLASS}>Calendar</h1>
-          <p className="mt-1 text-sm text-slate-500">Bookings, housekeeping, and events in one place.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <ModulePageHeader
+        eyebrow="Operational planning"
+        title="Calendar"
+        description="Plan bookings, room turns, maintenance work, events, and operational schedules."
+        action={<button type="button" className="btn-primary" onClick={() => setShowCreateModal(true)}>Add schedule</button>}
+      />
+
+      <ModuleMetricGrid metrics={[
+        { label: 'Events in view', value: filteredEvents.length, detail: viewMode === 'month' ? monthLabel : `${viewMode[0].toUpperCase()}${viewMode.slice(1)} schedule`, icon: <CalendarDays className="h-4 w-4" /> },
+        { label: 'Bookings', value: filteredEvents.filter((event) => event.type === 'BOOKING').length, detail: 'Guest and reservation activity', icon: <CalendarCheck className="h-4 w-4" />, tone: 'blue' },
+        { label: 'Housekeeping', value: filteredEvents.filter((event) => event.type === 'HOUSEKEEPING').length, detail: 'Room readiness work', icon: <SprayCan className="h-4 w-4" /> },
+        { label: 'Maintenance', value: filteredEvents.filter((event) => event.type === 'MAINTENANCE').length, detail: 'Scheduled engineering work', icon: <Hammer className="h-4 w-4" />, tone: 'amber' },
+      ]} />
+
+      <ModuleFilterPanel>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="inline-flex rounded-full border border-slate-200 bg-white p-1 text-sm">
               {['Day', 'Week', 'Month'].map((label) => {
               const isActive = viewMode === label.toLowerCase();
@@ -272,11 +283,8 @@ export default function CalendarPage() {
             placeholder="Search schedule..."
             className="input w-full sm:w-60"
           />
-          <button type="button" className="btn-primary" onClick={() => setShowCreateModal(true)}>
-            Add Schedule
-          </button>
         </div>
-      </div>
+      </ModuleFilterPanel>
 
       <div className="grid gap-4 xl:grid-cols-[280px_1fr]">
         <div className="space-y-4">

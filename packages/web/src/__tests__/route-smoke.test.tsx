@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, waitFor, cleanup } from '@testing-library/react';
+import { render, waitFor, cleanup, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import App from '@/App';
@@ -43,6 +43,28 @@ const smokeRoutes = [
   '/enterprise-command-center',
   '/operations-center/search',
   '/ai/hotel-brain',
+] as const;
+
+const routesWithoutSessionControls = [
+  '/dashboard',
+  '/reservations',
+  '/guests',
+  '/rooms',
+  '/housekeeping',
+  '/inventory',
+  '/calendar',
+  '/financials',
+  '/reviews',
+  '/concierge',
+  '/users',
+  '/operations-center',
+  '/maintenance-center',
+  '/incidents',
+  '/settings',
+  '/smart-building',
+  '/security-center',
+  '/ai/hotel-brain',
+  '/operations-center/search',
 ] as const;
 
 const user: User = {
@@ -124,6 +146,47 @@ describe('route smoke tests', () => {
 
     await waitFor(() => {
       expect(container.firstChild).toBeTruthy();
+    });
+  });
+
+  it.each(routesWithoutSessionControls)('does not render session controls on %s', async (route) => {
+    renderRoute(route);
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Collaboration toolbar')).not.toBeInTheDocument();
+    });
+  });
+
+  it.each(routesWithoutSessionControls)('keeps the global shell available on %s', async (route) => {
+    renderRoute(route);
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('banner').length).toBeGreaterThan(0);
+      expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument();
+    });
+  });
+
+  it.each(['/messages', '/calls'])('does not render the floating assistant over %s', async (route) => {
+    renderRoute(route);
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Open assistant' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('renders the dashboard command-centre sections and fallback state', async () => {
+    renderRoute('/dashboard');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('dashboard-smart-actions')).toBeInTheDocument();
+      expect(screen.getByTestId('dashboard-kpi-row')).toBeInTheDocument();
+      expect(screen.getByTestId('room-readiness-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('revenue-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('guest-experience-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('booking-platform-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('booking-list-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('dashboard-right-rail')).toBeInTheDocument();
+      expect(screen.queryByLabelText('Collaboration toolbar')).not.toBeInTheDocument();
     });
   });
 });

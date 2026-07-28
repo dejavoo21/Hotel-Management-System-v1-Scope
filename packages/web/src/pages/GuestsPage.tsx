@@ -7,8 +7,9 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { appendAuditLog } from '@/utils/auditLog';
-import { PAGE_TITLE_CLASS } from '@/styles/typography';
 import { getGuestImage, getRoomImage, setGuestImage } from '@/utils/mediaPrefs';
+import { BadgeCheck, CircleDollarSign, ContactRound, Star } from 'lucide-react';
+import { ModuleFilterPanel, ModuleMetricGrid, ModulePageHeader } from '@/components/core/ModuleLandingUi';
 
 const guestJourneyStageTone = (status?: string) => {
   if (status === 'COMPLETED') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
@@ -170,6 +171,34 @@ export default function GuestsPage() {
       currency: user?.hotel?.currency || 'USD',
     }).format(amount);
   };
+  const guestMetrics = [
+    {
+      label: 'Guest profiles',
+      value: pagination?.total ?? guests.length,
+      detail: 'Searchable guest records',
+      icon: <ContactRound className="h-4 w-4" />,
+    },
+    {
+      label: 'VIP guests',
+      value: guests.filter((guest) => guest.vipStatus).length,
+      detail: 'Priority profiles in this view',
+      icon: <Star className="h-4 w-4" />,
+      tone: 'amber' as const,
+    },
+    {
+      label: 'Returning guests',
+      value: guests.filter((guest) => guest.totalStays > 1).length,
+      detail: 'More than one recorded stay',
+      icon: <BadgeCheck className="h-4 w-4" />,
+      tone: 'blue' as const,
+    },
+    {
+      label: 'Lifetime value',
+      value: formatCurrency(guests.reduce((sum, guest) => sum + guest.totalSpent, 0)),
+      detail: 'Spend represented in this view',
+      icon: <CircleDollarSign className="h-4 w-4" />,
+    },
+  ];
 
   const bookingHistory = useMemo(() => {
     const bookings = (guestBookingsData?.data || []) as Booking[];
@@ -235,22 +264,21 @@ export default function GuestsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className={PAGE_TITLE_CLASS}>Guests</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Manage your guest directory
-          </p>
-        </div>
-        <button onClick={openAddGuestModal} className="btn-primary">
+      <ModulePageHeader
+        eyebrow="Guest experience"
+        title="Guest directory"
+        description="Find guest profiles, review stay history, and maintain preferences and contact details."
+        action={<button onClick={openAddGuestModal} className="btn-primary">
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
           Add Guest
-        </button>
-      </div>
+        </button>}
+      />
 
-      <div className="card">
+      <ModuleMetricGrid metrics={guestMetrics} />
+
+      <ModuleFilterPanel>
         <div className="relative">
           <svg
             className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
@@ -273,7 +301,7 @@ export default function GuestsPage() {
             className="input pl-10"
           />
         </div>
-      </div>
+      </ModuleFilterPanel>
 
       <div className="table-container">
         {isLoading ? (

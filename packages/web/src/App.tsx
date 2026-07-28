@@ -22,6 +22,7 @@ import BookingDetailPage from '@/pages/BookingDetailPage';
 import GuestsPage from '@/pages/GuestsPage';
 import HousekeepingPage from '@/pages/HousekeepingPage';
 import ReportsPage from '@/pages/ReportsPage';
+import FinancialsPage from '@/pages/FinancialsPage';
 import InvoicesPage from '@/pages/InvoicesPage';
 import ExpensesPage from '@/pages/ExpensesPage';
 import SettingsPage from '@/pages/SettingsPage';
@@ -246,7 +247,7 @@ export default function App() {
         <Route path="guests" element={<ModuleRoute requiredModule="guests"><GuestsPage /></ModuleRoute>} />
         <Route path="housekeeping" element={<ModuleRoute requiredModule="housekeeping"><HousekeepingPage /></ModuleRoute>} />
         <Route path="reports" element={<ModuleRoute requiredModule="financials"><ReportsPage /></ModuleRoute>} />
-        <Route path="financials" element={<Navigate to="/reports" replace />} />
+        <Route path="financials" element={<ModuleRoute requiredModule="financials"><FinancialsPage /></ModuleRoute>} />
         <Route path="invoices" element={<ModuleRoute requiredModule="financials"><InvoicesPage /></ModuleRoute>} />
         <Route path="expenses" element={<ModuleRoute requiredModule="financials"><ExpensesPage /></ModuleRoute>} />
         <Route path="reviews" element={<ModuleRoute requiredModule="reviews"><ReviewsPage /></ModuleRoute>} />

@@ -650,7 +650,7 @@ export default function DashboardLayout() {
             </div>
 
             {/* Search */}
-            <div className="flex justify-center">
+            <div className="hidden justify-center sm:flex">
               <div className="w-full max-w-xl">
                 <div ref={globalSearchRef} className="relative">
                   <label htmlFor="global-search" className="sr-only">Search</label>
@@ -769,6 +769,17 @@ export default function DashboardLayout() {
 
             {/* Right side */}
             <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCommandPalette(true)}
+                className="rounded-xl p-2 text-slate-600 transition-colors hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-400 sm:hidden"
+                aria-label="Open global search"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </button>
+
               {/* User avatar */}
               <div ref={userMenuRef} className="relative flex items-center">
                 <button
@@ -1104,7 +1115,9 @@ export default function DashboardLayout() {
           navigate(item.href);
         }}
       />
-      {!location.pathname.startsWith('/calls') && !location.pathname.startsWith('/operations') ? <AppChatbot /> : null}
+      {!location.pathname.startsWith('/calls') &&
+      !location.pathname.startsWith('/messages') &&
+      !location.pathname.startsWith('/operations') ? <AppChatbot /> : null}
     </div>
   );
 }

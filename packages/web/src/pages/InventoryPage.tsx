@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inventoryService, purchaseOrderService } from '@/services';
 import type { InventoryItem } from '@/types';
 import toast from 'react-hot-toast';
-import { PAGE_TITLE_CLASS } from '@/styles/typography';
+import { AlertTriangle, Boxes, CircleX, PackageCheck } from 'lucide-react';
+import { ModuleFilterPanel, ModuleMetricGrid, ModulePageHeader } from '@/components/core/ModuleLandingUi';
 
 const inventoryImageByName: Record<string, string> = {
   towels: 'https://images.unsplash.com/photo-1600369672770-985fd300a37f?auto=format&fit=crop&w=240&q=80',
@@ -27,6 +28,8 @@ function getInventoryImage(name: string) {
 
 export default function InventoryPage() {
   const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [stockFilter, setStockFilter] = useState<'all' | 'healthy' | 'low' | 'out'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showPoModal, setShowPoModal] = useState(false);
   const [selectedItems, setSelectedItems] = useState<InventoryItem[]>([]);
@@ -76,6 +79,7 @@ export default function InventoryPage() {
     return {
       totalItems,
       lowStock,
+      outOfStock: list.filter((item) => item.quantityOnHand <= 0),
       categories: categories.size,
       totalValue,
     };
@@ -90,7 +94,23 @@ export default function InventoryPage() {
     });
   };
 
-  const visibleItems = items ?? [];
+  const categoryOptions = useMemo(
+    () => Array.from(new Set((items ?? []).map((item) => item.category))).sort(),
+    [items],
+  );
+  const visibleItems = useMemo(
+    () => (items ?? []).filter((item) => {
+      const isLow = item.quantityOnHand <= item.reorderPoint;
+      const matchesCategory = categoryFilter === 'all' || item.category === categoryFilter;
+      const matchesStock =
+        stockFilter === 'all' ||
+        (stockFilter === 'out' && item.quantityOnHand <= 0) ||
+        (stockFilter === 'low' && item.quantityOnHand > 0 && isLow) ||
+        (stockFilter === 'healthy' && !isLow);
+      return matchesCategory && matchesStock;
+    }),
+    [categoryFilter, items, stockFilter],
+  );
   const visibleItemIds = useMemo(() => new Set(visibleItems.map((item) => item.id)), [visibleItems]);
   const selectedVisibleCount = useMemo(
     () => selectedItems.filter((item) => visibleItemIds.has(item.id)).length,
@@ -139,51 +159,35 @@ export default function InventoryPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className={PAGE_TITLE_CLASS}>Inventory</h1>
-          <p className="mt-1 text-sm text-slate-500">Track hotel supplies and reorder points.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <div className="max-w-xs">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search items..."
-              className="input"
-            />
-          </div>
-          <button onClick={() => setShowAddModal(true)} className="btn-outline">
-            New item
-          </button>
-          <button onClick={() => setShowPoModal(true)} className="btn-primary">
-            Create PO
-          </button>
-        </div>
-      </div>
+      <ModulePageHeader
+        eyebrow="Stock control"
+        title="Inventory"
+        description="Track stock levels, reorder exposure, purchase orders, and supplies used across hotel departments."
+        action={<div className="flex gap-2"><button onClick={() => setShowAddModal(true)} className="btn-outline">New item</button><button onClick={() => setShowPoModal(true)} className="btn-primary">Create PO</button></div>}
+      />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="card card-hover">
-          <p className="text-xs font-semibold uppercase text-slate-500">Items tracked</p>
-          <p className="mt-3 text-2xl font-semibold text-slate-900">{stats.totalItems}</p>
-          <p className="mt-1 text-xs text-slate-500">{stats.categories} categories</p>
+      <ModuleMetricGrid metrics={[
+        { label: 'Items tracked', value: stats.totalItems, detail: `${stats.categories} stock categories`, icon: <Boxes className="h-4 w-4" /> },
+        { label: 'Low stock', value: stats.lowStock.length, detail: 'At or below reorder threshold', icon: <AlertTriangle className="h-4 w-4" />, tone: 'amber' },
+        { label: 'Out of stock', value: stats.outOfStock.length, detail: 'Requires immediate action', icon: <CircleX className="h-4 w-4" />, tone: 'rose' },
+        { label: 'Open purchase orders', value: purchaseOrders?.filter((order) => order.status !== 'RECEIVED' && order.status !== 'CANCELLED').length ?? 0, detail: 'Awaiting completion or receipt', icon: <PackageCheck className="h-4 w-4" />, tone: 'blue' },
+      ]} />
+
+      <ModuleFilterPanel>
+        <div className="grid gap-3 md:grid-cols-[1fr_220px_200px]">
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search item name or category..." className="input" />
+          <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="input" aria-label="Inventory category">
+            <option value="all">All categories</option>
+            {categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}
+          </select>
+          <select value={stockFilter} onChange={(event) => setStockFilter(event.target.value as typeof stockFilter)} className="input" aria-label="Stock status">
+            <option value="all">All stock statuses</option>
+            <option value="healthy">Healthy</option>
+            <option value="low">Low stock</option>
+            <option value="out">Out of stock</option>
+          </select>
         </div>
-        <div className="card card-hover">
-          <p className="text-xs font-semibold uppercase text-slate-500">Low stock</p>
-          <p className="mt-3 text-2xl font-semibold text-slate-900">{stats.lowStock.length}</p>
-          <p className="mt-1 text-xs text-slate-500">Needs reorder</p>
-        </div>
-        <div className="card card-hover">
-          <p className="text-xs font-semibold uppercase text-slate-500">Inventory value</p>
-          <p className="mt-3 text-2xl font-semibold text-slate-900">${stats.totalValue.toFixed(0)}</p>
-          <p className="mt-1 text-xs text-slate-500">On-hand value</p>
-        </div>
-        <div className="card card-hover">
-          <p className="text-xs font-semibold uppercase text-slate-500">Active suppliers</p>
-          <p className="mt-3 text-2xl font-semibold text-slate-900">6</p>
-          <p className="mt-1 text-xs text-slate-500">Preferred vendors</p>
-        </div>
-      </div>
+      </ModuleFilterPanel>
 
       <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
         <div className="card">

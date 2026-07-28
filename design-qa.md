@@ -1,55 +1,52 @@
 **Source visual truth path**
-- `c:\Users\walea\Downloads\ChatGPT Image Jul 13, 2026, 10_13_50 PM.png`
+- `c:\Users\walea\Downloads\ChatGPT Image Jul 26, 2026, 03_51_22 PM.png`
 
 **Implementation screenshot path**
-- `C:\tmp\laflo-login-redesign-2.png`
+- Unavailable: the in-app Browser and connected Chrome surfaces are not available in this session.
 
 **Viewport**
-- 1792 × 1024
+- Intended comparison viewport: 1680 × 945 desktop.
+- Implementation pixel dimensions, CSS size, and density normalization could not be recorded without an approved browser capture.
 
 **State**
-- `/login`, unauthenticated, password mode, Remember me checked.
+- Authenticated Dashboard command-centre state with demo fallback where live API responses are unavailable.
 
 **Full-view comparison evidence**
-- Source mockup and implementation screenshot were opened and compared at the same viewport and login state.
-- The implementation now uses the supplied mockup image as the left-side hero crop, matching the large LaFlo branding, hotel illustration, reception scene, and translucent dashboard cards.
-- The right-side form matches the target structure: large "Welcome back" heading, subtitle, icon inputs, checked Remember me control, Forgot password / Use verification code links, teal sign-in CTA, and Request access row.
+- Blocked. The source image is available, but a browser-rendered implementation screenshot could not be captured.
 
 **Focused region comparison evidence**
-- A separate focused crop was not needed because the full-view screenshot clearly shows the important fidelity surfaces: hero imagery, form placement, input icons, checkbox state, button style, and page split.
+- Blocked for the same reason. Required focus regions are the smart-action row, KPI row, room readiness/revenue/reviews row, booking platform panel, booking table, and right rail.
 
 **Findings**
-- No actionable P0/P1/P2 findings remain.
+- Automated structure and route tests pass.
+- TypeScript and the production Vite build pass.
+- Visual fidelity, overflow, responsive breakpoints, and browser console output remain unverified.
 
 **Required fidelity surface review**
-- Fonts and typography: Login heading, labels, body text, links, and button text use heavier weights and larger sizing to match the mockup hierarchy. The exact font may differ from the image-generated reference, but hierarchy and density are aligned.
-- Spacing and layout rhythm: The page split, top-aligned form, 600px form width, field spacing, CTA spacing, and lower access row now match the visual target closely.
-- Colors and visual tokens: The login button, checkbox, green link color, dark navy headings, muted body copy, and input border colors are aligned to the mockup.
-- Image quality and asset fidelity: The supplied reference image is used directly for the left hero panel, preserving the exact logo, illustration, and dashboard artwork.
-- Copy and content: Login copy and control labels match the target while preserving the app's existing placeholders and authentication behavior.
+- Fonts and typography: blocked pending browser capture.
+- Spacing and layout rhythm: blocked pending browser capture.
+- Colors and visual tokens: source-aligned in code, but blocked pending browser capture.
+- Image quality and asset fidelity: no dashboard raster imagery is required by the reference; icons use the existing Heroicons system.
+- Copy and content: implemented from the approved dashboard brief and source reference.
 
 **Comparison history**
-- Initial render placed the right-side form too low and left Remember me unchecked by default.
-- Fixes made:
-  - Moved the auth form upward with desktop top alignment.
-  - Changed Remember me to default checked when no stored preference exists.
-- Post-fix evidence: `C:\tmp\laflo-login-redesign-2.png`.
+- No valid browser-rendered comparison iteration could be completed.
 
 **Implementation Checklist**
-- [x] Replace left auth panel with target LaFlo visual.
-- [x] Match login form typography, icon inputs, checkbox, links, CTA, and spacing.
-- [x] Preserve existing login, OTP, forgot-password, and request-access behavior.
-- [x] Build successfully.
-- [x] Browser-rendered local screenshot captured.
-
-**Follow-up Polish**
-- P3: If desired, replace the cropped full mockup image with separate production-grade brand/hero assets later so the left panel is not dependent on a screenshot-style composite.
+- [x] Dashboard command-centre structure implemented.
+- [x] Live API sources retained.
+- [x] Demo data isolated and labelled.
+- [x] Role/permission-aware content preserved.
+- [x] Focused route tests pass.
+- [x] Production build passes.
+- [ ] Browser-rendered implementation screenshot.
+- [ ] Same-viewport source/implementation visual comparison.
+- [ ] Responsive and console verification in an approved browser.
 
 **Primary interactions tested**
-- Page renders at `/login`.
-- Existing form controls remain present and interactive in the DOM.
+- Booking search, property/status filters, pagination, navigation CTAs, and role/permission rendering are covered structurally; browser interaction verification is blocked.
 
 **Console errors checked**
-- No blocking render errors were observed during local Playwright capture.
+- Browser console verification is blocked. Automated jsdom route tests pass; unavailable API endpoints log expected network failures in the test environment.
 
-**final result: passed**
+**final result: blocked**
