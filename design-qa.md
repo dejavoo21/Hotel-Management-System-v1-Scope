@@ -1,48 +1,47 @@
-# LaFlo login viewport correction — design QA
+# LaFlo dashboard workspace correction — design QA
 
 **Source visual truth**
-- User-provided production screenshot showing the 1,906 × 912 desktop login state.
-- Reported defects: clipped left-panel content/footer and missing blue accent in the official LaFlo logo.
+- User-provided production dashboard screenshot at 1,906 × 912.
+- Reported defect: unused space beside the dashboard made the platform command centre feel constrained and unfinished.
 
 **Implementation screenshot**
-- `C:\Users\walea\playwright-agents\Hotel Management System v1 scope\laflo-login-fix-local-1906x912.png`
+- `C:\Users\walea\playwright-agents\Hotel Management System v1 scope\laflo-dashboard-fluid-local-css-1906x912.png`
 
 **Comparison viewport**
 - 1,906 × 912 CSS pixels.
-- Desktop login, password mode, unauthenticated state.
+- Authenticated administrator dashboard using the clearly labelled demo fallback state where local APIs were intentionally unavailable.
 
 ## Full-view comparison
 
-- The full split-screen layout fits inside the 912-pixel viewport.
-- All eight operations cards and both footer items are visible without clipping.
-- The login form remains aligned and unchanged in function.
-- The left panel retains the approved green/teal visual direction.
+- The command centre now fills the available application workspace from the content boundary to the right edge.
+- Smart actions and KPI cards expand evenly across the wider content surface.
+- The operational content column and right rail remain visually distinct without leaving an unused outer gutter.
+- Header, sidebar, cards, chart, task rail, and assistant control remain aligned without overlap.
 
 ## Focused comparison
 
-### Logo
-- The `brightness-0 invert` filter was removed.
-- `public/laflo-logo.png` is rendered directly, preserving its official black wordmark and blue accent.
-- A compact white brand plate provides sufficient contrast against the teal panel.
+### Workspace width
+- Removed the duplicate dashboard-level padding because the shared application shell already owns page padding.
+- Replaced the restrictive 1,720-pixel content cap with a fluid full-width container and a 2,200-pixel readability ceiling for ultra-wide displays.
 
-### Viewport and overflow
-- The layout now uses dynamic viewport height.
-- The left panel allows vertical overflow on shorter desktop screens.
-- Vertical spacing, card padding, logo height, and heading spacing were reduced so the complete panel fits at the reported viewport.
-- The right authentication panel uses dynamic viewport height and retains safe bottom padding.
+### Primary operational grid
+- The desktop command-centre grid now uses a responsive 300–340 pixel right rail.
+- Room readiness, Revenue, and Guest experience use guarded minimum widths so charts, metrics, and labels remain readable.
+- The wider Tasks panel provides stronger hierarchy and less cramped task metadata.
 
 ### Responsive behavior
-- The existing mobile behavior remains unchanged: the left operations panel is hidden below the desktop breakpoint and the official logo remains visible above the form.
-- At desktop sizes, the 55/45 split remains intact.
+- The side rail remains stacked below the primary content until the 1,536-pixel breakpoint, preventing horizontal overflow on smaller desktops.
+- Existing tablet and mobile column behavior is preserved.
+- Dashboard charts retain non-zero responsive container dimensions.
 
 ## Validation
 
 - [x] Source screenshot inspected.
-- [x] Implementation screenshot captured at the matching viewport.
-- [x] Official logo asset inspected at original resolution.
-- [x] Blue logo accent visible.
-- [x] Left-panel footer visible.
-- [x] No dashboard or unrelated module changes.
-- [x] Frontend TypeScript and Vite production build pass.
+- [x] Implementation captured at the matching 1,906 × 912 viewport.
+- [x] Previous right-side void removed.
+- [x] Tasks and Recent Activities rail widened.
+- [x] Smart actions and KPI cards fill available width.
+- [x] No route, data-service, RBAC, or interaction logic changed.
+- [x] Local API failures were deliberately mocked for the visual fallback state and are not render/runtime failures.
 
 **final result: passed**

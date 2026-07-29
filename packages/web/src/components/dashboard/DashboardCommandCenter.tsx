@@ -203,8 +203,8 @@ export default function DashboardCommandCenter() {
   const bookingRows = filteredBookings.slice((bookingPage - 1) * pageSize, bookingPage * pageSize);
 
   return (
-    <div data-dashboard-view={roleView} className="min-h-full bg-[#f8faf9] p-3 sm:p-4">
-      <div className="mx-auto max-w-[1720px] space-y-3">
+    <div data-dashboard-view={roleView} className="min-h-full bg-[#f8faf9]">
+      <div className="mx-auto w-full max-w-[2200px] space-y-3">
         <header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2"><h1 className="text-xl font-extrabold tracking-tight text-slate-950">Good morning, {user?.firstName || 'team'}</h1><DataBadge state={dataState} /><span className="text-[10px] font-semibold text-slate-400">{roleView}</span></div>
@@ -235,9 +235,9 @@ export default function DashboardCommandCenter() {
           <KpiCard label="ADR" value={new Intl.NumberFormat(undefined, { style: 'currency', currency: user?.hotel?.currency || 'USD', maximumFractionDigits: 0 }).format(adr)} trend="Average daily rate" tone="teal" icon={ChartBarIcon} onClick={() => navigate('/reports')} />
         </div>
 
-        <div className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_270px]">
+        <div className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_clamp(300px,18vw,340px)] 2xl:gap-4">
           <div className="min-w-0 space-y-3">
-            <div className="grid gap-3 xl:grid-cols-[1.05fr_1.2fr_.9fr]">
+            <div className="grid gap-3 xl:grid-cols-[minmax(340px,1.05fr)_minmax(420px,1.25fr)_minmax(320px,.95fr)]">
               <Surface testId="room-readiness-panel">
                 <PanelHeader title="Room readiness" subtitle="Live room availability and operational blockers" action="Open housekeeping" onAction={() => navigate('/housekeeping')} />
                 <div className="px-4 pb-4">
