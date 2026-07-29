@@ -27,9 +27,11 @@ export default function AuthLayout() {
         <div className="absolute -left-24 top-[26%] h-80 w-80 rounded-full bg-emerald-300/10 blur-3xl" aria-hidden="true" />
         <div className="absolute -right-20 -top-20 h-96 w-96 rounded-full bg-cyan-200/10 blur-3xl" aria-hidden="true" />
         <div className="relative z-10 flex min-h-dvh flex-col px-10 py-6 xl:px-14 xl:py-8">
-          <div className="w-fit rounded-2xl bg-white px-4 py-2.5 shadow-[0_16px_36px_rgba(0,35,32,0.18)]">
-            <img src="/laflo-logo.png" alt="LaFlo" className="h-14 w-auto max-w-[180px] object-contain object-left xl:h-16 xl:max-w-[200px]" />
-          </div>
+          <img
+            src="/laflo-logo.png"
+            alt="LaFlo"
+            className="h-14 w-auto max-w-[180px] object-contain object-left invert hue-rotate-180 xl:h-16 xl:max-w-[200px]"
+          />
           <h1 className="mt-6 max-w-xl text-4xl font-bold leading-[1.06] tracking-[-0.035em] text-white xl:text-[3.15rem]">Modern Hotel Management, Simplified.</h1>
           <div className="relative mt-6 grid grid-cols-2 gap-3 xl:gap-4" aria-label="Hotel operations preview">
             {operationCards.map(({ label, value, detail, icon: Icon, tone }) => (
