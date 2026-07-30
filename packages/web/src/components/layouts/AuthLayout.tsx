@@ -13,25 +13,14 @@ import { useTheme } from '@/theme/ThemeProvider';
 
 export type AuthLanguage = 'en-GB' | 'fr-FR';
 
-export type AuthLayoutContext = {
-  language: AuthLanguage;
-  isDark: boolean;
-};
-
 export default function AuthLayout() {
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
-  const [language, setLanguage] = useState<AuthLanguage>(() => {
-    try {
-      return localStorage.getItem('laflo:language') === 'fr-FR' ? 'fr-FR' : 'en-GB';
-    } catch {
-      return 'en-GB';
-    }
-  });
+  const [language, setLanguage] = useState<AuthLanguage>('en-GB');
   const { theme, setTheme } = useTheme();
   const languageSelectorRef = useRef<HTMLDivElement>(null);
   const isDark = theme === 'dark';
 
-  const languageLabel = language === 'en-GB' ? 'English (UK)' : 'Français';
+  const languageLabel = language === 'en-GB' ? 'English' : 'French';
 
   useEffect(() => {
     if (!languageMenuOpen) return undefined;
@@ -54,15 +43,6 @@ export default function AuthLayout() {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [languageMenuOpen]);
-
-  useEffect(() => {
-    document.documentElement.lang = language;
-    try {
-      localStorage.setItem('laflo:language', language);
-    } catch {
-      // The selected language remains active for this session.
-    }
-  }, [language]);
 
   return (
     <div
@@ -110,7 +90,7 @@ export default function AuthLayout() {
           <div className="absolute bottom-[68px] left-[34%] w-[64%] max-w-[500px] xl:left-[44%] xl:w-[52%]">
             <AuthInsightsCarousel />
           </div>
-          <div className="absolute bottom-8 left-4 text-[0.7rem] font-medium text-[#294b58]/80 xl:left-5">
+          <div className="absolute bottom-8 left-12 z-20 text-[0.7rem] font-medium text-[#294b58]/80">
             <p>© {new Date().getFullYear()} LaFlo. All rights reserved.</p>
           </div>
         </div>
@@ -177,7 +157,7 @@ export default function AuthLayout() {
                     }`}
                   >
                     <GlobeAltIcon className="h-5 w-5" aria-hidden="true" />
-                    <span className="flex-1">English (UK)</span>
+                    <span className="flex-1">English</span>
                     {language === 'en-GB' && <CheckIcon className="h-5 w-5" aria-hidden="true" />}
                   </button>
                   <button
@@ -193,7 +173,7 @@ export default function AuthLayout() {
                     }`}
                   >
                     <span className="flex h-5 w-5 items-center justify-center rounded bg-[#eef2ff] text-[0.58rem] font-extrabold text-[#294b8d]">FR</span>
-                    <span className="flex-1">Français</span>
+                    <span className="flex-1">French</span>
                     {language === 'fr-FR' && <CheckIcon className="h-5 w-5" aria-hidden="true" />}
                   </button>
                 </div>
@@ -202,7 +182,7 @@ export default function AuthLayout() {
             <button
               type="button"
               onClick={() => setTheme(isDark ? 'laflo' : 'dark')}
-              aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
               aria-pressed={isDark}
               className={`flex h-11 w-11 items-center justify-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-[#079887] ${
                 isDark ? 'bg-[#152c37] text-amber-300 hover:bg-[#1c3743]' : 'text-[#25385f] hover:bg-slate-100'
@@ -221,7 +201,7 @@ export default function AuthLayout() {
               languageMenuOpen ? 'mt-[132px]' : 'mt-24'
             }`}
           >
-            <Outlet context={{ language, isDark } satisfies AuthLayoutContext} />
+            <Outlet />
           </div>
         </div>
       </section>
