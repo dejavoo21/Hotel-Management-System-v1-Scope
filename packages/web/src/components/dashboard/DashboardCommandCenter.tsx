@@ -43,6 +43,7 @@ import { dashboardDemoData as demo } from './dashboardDemoData';
 type Tone = 'teal' | 'blue' | 'amber' | 'rose' | 'slate';
 type BookingRow = {
   id: string;
+  recordId?: string;
   guest: string;
   room: string;
   roomType: string;
@@ -52,6 +53,12 @@ type BookingRow = {
   total: number;
   status: string;
   source: string;
+};
+type AttentionItem = {
+  title: string;
+  detail: string;
+  severity: string;
+  route: string;
 };
 
 const toneStyles: Record<Tone, { icon: string; value: string; trend: string }> = {
@@ -141,6 +148,8 @@ export default function DashboardCommandCenter() {
   const arrivalsQuery = useQuery({ queryKey: ['dashboard', 'arrivals'], queryFn: dashboardService.getArrivals, enabled: can('bookings'), retry: false });
   const departuresQuery = useQuery({ queryKey: ['dashboard', 'departures'], queryFn: dashboardService.getDepartures, enabled: can('bookings'), retry: false });
   const alertsQuery = useQuery({ queryKey: ['dashboard', 'alerts'], queryFn: dashboardService.getAlerts, retry: false });
+  const revenueTrendQuery = useQuery({ queryKey: ['dashboard', 'revenue-trend'], queryFn: dashboardService.getRevenueTrend, enabled: can('financials'), retry: false });
+  const bookingMixQuery = useQuery({ queryKey: ['dashboard', 'booking-mix'], queryFn: dashboardService.getBookingMix, enabled: can('bookings'), retry: false });
   const housekeepingQuery = useQuery({ queryKey: ['dashboard', 'housekeeping'], queryFn: dashboardService.getHousekeepingSummary, enabled: can('housekeeping') || can('rooms'), retry: false });
   const maintenanceQuery = useQuery({ queryKey: ['dashboard', 'maintenance'], queryFn: maintenanceCenterService.getOverview, enabled: can('maintenance_center'), retry: false });
   const incidentQuery = useQuery({ queryKey: ['dashboard', 'incidents'], queryFn: incidentService.overview, enabled: can('incident_management'), retry: false });
@@ -157,30 +166,55 @@ export default function DashboardCommandCenter() {
   const incidents = incidentQuery.data ?? demo.incidents;
   const security = securityQuery.data ?? demo.security;
   const smart = smartQuery.data ?? demo.smart;
+  const canViewBookings = can('bookings');
+  const canViewRooms = can('rooms');
+  const canViewHousekeeping = can('housekeeping');
+  const canViewMaintenance = can('maintenance_center');
+  const canViewIncidents = can('incident_management');
+  const canViewSecurity = can('security_center');
+  const canViewSmartBuilding = can('smart_building');
+  const canViewReviews = can('reviews');
+  const canViewSettings = can('settings');
+  const canViewFinancials = can('financials');
   const dataState: 'live' | 'loading' | 'demo' = summaryQuery.data ? 'live' : summaryQuery.isLoading ? 'loading' : 'demo';
   const totalReadiness = housekeeping.clean + housekeeping.dirty + housekeeping.inspection + housekeeping.outOfService;
-  const roomsNotReady = housekeeping.dirty + housekeeping.inspection + housekeeping.outOfService;
-  const reservedRooms = Math.max(0, summary.todayArrivals - Math.floor(summary.todayArrivals * 0.25));
   const inCleaning = Math.max(0, housekeeping.dirty - Math.ceil(housekeeping.dirty * 0.35));
   const buildingScore = smart.health.totalDevices ? Math.round((smart.health.onlineDevices / smart.health.totalDevices) * 100) : 0;
   const categories = integrationQuery.data?.categories ?? [];
   const failedIntegrations = categories.filter((item) => ['Sync Failed', 'Requires Attention', 'Credentials Expired'].includes(item.connectionStatus)).length;
   const reviews = reviewsQuery.data ?? [];
-  const averageRating = reviews.length ? reviews.reduce((total, review) => total + review.rating, 0) / reviews.length : 4.6;
-  const positive = reviews.length ? reviews.filter((review) => review.rating >= 4).length : 2180;
-  const neutral = reviews.length ? reviews.filter((review) => review.rating === 3).length : 256;
-  const negative = reviews.length ? reviews.filter((review) => review.rating < 3).length : 110;
-  const attentionItems = brainQuery.data?.todayPriorities?.slice(0, 4) ?? alertsQuery.data?.slice(0, 4).map((alert) => ({ title: alert.title, detail: alert.description, severity: alert.level.toUpperCase() })) ?? [];
+  const averageRating = reviews.length ? reviews.reduce((total, review) => total + review.rating, 0) / reviews.length : 0;
+  const positive = reviews.filter((review) => review.rating >= 4).length;
+  const neutral = reviews.filter((review) => review.rating === 3).length;
+  const negative = reviews.filter((review) => review.rating < 3).length;
+  const ratingBreakdown = [5, 4, 3, 2, 1].map((rating) => {
+    const count = reviews.filter((review) => review.rating === rating).length;
+    return { rating, count, percentage: reviews.length ? Math.round((count / reviews.length) * 100) : 0 };
+  });
+  const operationalAttention: AttentionItem[] = [];
+  if (canViewIncidents && incidents.critical > 0) operationalAttention.push({ title: `${incidents.critical} critical incident${incidents.critical === 1 ? '' : 's'}`, detail: 'Immediate incident review is required.', severity: 'CRITICAL', route: '/incidents' });
+  if (canViewSecurity && security.cctv.offline > 0) operationalAttention.push({ title: `${security.cctv.offline} camera${security.cctv.offline === 1 ? '' : 's'} offline`, detail: 'Review CCTV connectivity and provider status.', severity: 'HIGH', route: '/security-center/cctv' });
+  const offlineDevices = Math.max(0, smart.health.totalDevices - smart.health.onlineDevices);
+  if (canViewSmartBuilding && offlineDevices > 0) operationalAttention.push({ title: `${offlineDevices} smart device${offlineDevices === 1 ? '' : 's'} offline`, detail: 'Review Smart Building device health.', severity: 'HIGH', route: '/operations/smart-building' });
+  if (canViewSecurity && smart.doors.open > 0) operationalAttention.push({ title: `${smart.doors.open} door alert${smart.doors.open === 1 ? '' : 's'}`, detail: 'Confirm open-door state with Security.', severity: 'HIGH', route: '/security-center/alerts' });
+  if (canViewMaintenance && maintenance.faults.urgent > 0) operationalAttention.push({ title: `${maintenance.faults.urgent} urgent maintenance alert${maintenance.faults.urgent === 1 ? '' : 's'}`, detail: 'Engineering attention is required.', severity: 'HIGH', route: '/maintenance-center' });
+  if (canViewSettings && failedIntegrations > 0) operationalAttention.push({ title: `${failedIntegrations} integration issue${failedIntegrations === 1 ? '' : 's'}`, detail: 'Review provider connection health.', severity: 'MEDIUM', route: '/settings?tab=integration-manager' });
+  const sourceAttention: AttentionItem[] = brainQuery.data?.todayPriorities?.map((item) => ({ title: item.title, detail: item.detail, severity: item.severity ?? 'LOW', route: '/ai/hotel-brain' }))
+    ?? alertsQuery.data?.map((alert) => ({ title: alert.title, detail: alert.description, severity: alert.level.toUpperCase(), route: '/incidents' }))
+    ?? [];
+  const attentionItems = [...operationalAttention, ...sourceAttention].slice(0, 6);
   const timeline = timelineQuery.data?.events ?? [];
   const dateLabel = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date());
   const role = String(user?.role || '');
   const roleView = role === 'HOUSEKEEPING' ? 'Housekeeping focus' : role === 'MAINTENANCE' ? 'Maintenance focus' : role === 'SECURITY' ? 'Security focus' : role === 'FINANCE' ? 'Finance focus' : role === 'FRONT_DESK' || role === 'RECEPTIONIST' ? 'Front desk focus' : 'Management overview';
-  const adr = summary.todayArrivals ? Math.round(summary.todayRevenue / Math.max(1, summary.todayArrivals)) : 0;
+  const todayRevenue = Number(summary.todayRevenue ?? 0);
+  const adr = summary.todayArrivals ? Math.round(todayRevenue / Math.max(1, summary.todayArrivals)) : 0;
 
   const liveBookingRows = useMemo<BookingRow[]>(() => {
-    if (!arrivalsQuery.data?.length) return [...demo.bookings];
+    if (!arrivalsQuery.data) return [];
     return arrivalsQuery.data.map((arrival) => ({
       id: arrival.bookingRef,
+      recordId: arrival.id,
       guest: arrival.guestName,
       room: arrival.roomNumber || 'TBA',
       roomType: arrival.roomType,
@@ -192,6 +226,15 @@ export default function DashboardCommandCenter() {
       source: 'Property',
     }));
   }, [arrivalsQuery.data]);
+  const bookingSources = useMemo(() => {
+    const palette = ['#2fbf9f', '#75d8ca', '#9db9f5', '#f8cf69', '#f39a96', '#cbd5e1'];
+    return (bookingMixQuery.data ?? []).map((item, index) => ({
+      name: item.source.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase()),
+      value: item.percentage,
+      count: item.count,
+      color: palette[index % palette.length],
+    }));
+  }, [bookingMixQuery.data]);
   const filteredBookings = liveBookingRows.filter((booking) => {
     const query = bookingSearch.trim().toLowerCase();
     const matchesSearch = !query || `${booking.id} ${booking.guest} ${booking.room}`.toLowerCase().includes(query);
@@ -211,47 +254,54 @@ export default function DashboardCommandCenter() {
             <p className="mt-1 text-xs text-slate-500">{user?.hotel?.name || 'Your property'} · {dateLabel}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700"><CalendarDaysIcon className="h-4 w-4" />Today</button>
-            {can('bookings') ? <button type="button" onClick={() => navigate('/bookings')} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#087f72] px-3 text-xs font-bold text-white hover:bg-[#06695f]"><PlusIcon className="h-4 w-4" />New booking</button> : null}
-            {can('guests') ? <button type="button" onClick={() => navigate('/guests')} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50"><PlusIcon className="h-4 w-4" />Add guest</button> : null}
+            <time dateTime={new Date().toISOString().slice(0, 10)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700"><CalendarDaysIcon className="h-4 w-4" />Today</time>
+            {can('bookings') ? <button type="button" onClick={() => navigate('/bookings?action=new')} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#087f72] px-3 text-xs font-bold text-white hover:bg-[#06695f]"><PlusIcon className="h-4 w-4" />New booking</button> : null}
+            {can('guests') ? <button type="button" onClick={() => navigate('/guests?action=add')} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50"><PlusIcon className="h-4 w-4" />Add guest</button> : null}
           </div>
         </header>
 
         {dataState === 'demo' ? <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">Live dashboard data is unavailable. Clearly labelled demo values are shown where a live source has not responded.</div> : null}
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" data-testid="dashboard-smart-actions">
-          <SmartAction icon={MagnifyingGlassIcon} title="Enterprise Search" description="Guests, bookings, rooms, invoices, incidents, devices, messages and audit records." cta="Search everything" tone="teal" onClick={() => navigate('/operations-center/search')} />
-          <SmartAction icon={SparklesIcon} title="Hotel Brain" description="Ask authorised operational questions and generate hotel insights." cta="Ask a question" tone="blue" onClick={() => navigate('/ai/hotel-brain')} />
-          <SmartAction icon={ExclamationTriangleIcon} title="Attention" description={`${attentionItems.length || incidents.active} unresolved operational issues need review.`} cta="View alerts" status={`${incidents.critical} critical`} tone="amber" onClick={() => navigate('/incidents')} />
-          <SmartAction icon={BoltIcon} title="Integration Health" description="CCTV, Smart Building and provider connection health." cta="View integrations" status={failedIntegrations ? `${failedIntegrations} issues` : 'Operational'} tone={failedIntegrations ? 'rose' : 'teal'} onClick={() => navigate('/settings?tab=integration-manager')} />
+        <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]" data-testid="dashboard-smart-actions">
+          {canViewBookings ? <SmartAction icon={MagnifyingGlassIcon} title="Enterprise Search" description="Guests, bookings, rooms, invoices, incidents, devices, messages and audit records." cta="Search everything" tone="teal" onClick={() => navigate('/operations-center/search')} /> : null}
+          {canViewBookings ? <SmartAction icon={SparklesIcon} title="Hotel Brain" description="Ask authorised operational questions and generate hotel insights." cta="Ask a question" tone="blue" onClick={() => navigate('/ai/hotel-brain')} /> : null}
+          {canViewIncidents ? <SmartAction icon={ExclamationTriangleIcon} title="Attention" description={`${attentionItems.length} operational issue${attentionItems.length === 1 ? '' : 's'} need review.`} cta="View alerts" status={`${incidents.critical} critical`} tone={attentionItems.length ? 'amber' : 'teal'} onClick={() => navigate('/incidents')} /> : null}
+          {canViewSettings ? <SmartAction icon={BoltIcon} title="Integration Health" description="CCTV, Smart Building and provider connection health." cta="View integrations" status={failedIntegrations ? `${failedIntegrations} issues` : 'Operational'} tone={failedIntegrations ? 'rose' : 'teal'} onClick={() => navigate('/settings?tab=integration-manager')} /> : null}
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6" data-testid="dashboard-kpi-row">
-          <KpiCard label="New bookings" value={arrivalsQuery.data?.length ?? summary.todayArrivals} trend="▲ Today’s booking plan" tone="teal" icon={CalendarDaysIcon} onClick={() => navigate('/bookings')} />
-          <KpiCard label="Check-ins" value={summary.todayArrivals} trend="▲ Arrivals scheduled" tone="teal" icon={CheckCircleIcon} onClick={() => navigate('/bookings')} />
-          <KpiCard label="Check-outs" value={departuresQuery.data?.length ?? summary.todayDepartures} trend="Departure workload" tone="blue" icon={ArrowRightIcon} onClick={() => navigate('/bookings')} />
-          <KpiCard label="Total revenue" value={new Intl.NumberFormat(undefined, { style: 'currency', currency: user?.hotel?.currency || 'USD', maximumFractionDigits: 0 }).format(summary.todayRevenue)} trend="Today’s posted revenue" tone="teal" icon={CurrencyDollarIcon} onClick={() => navigate('/reports')} />
-          <KpiCard label="Occupancy" value={`${Math.round(summary.currentOccupancy)}%`} trend={`${summary.occupiedRooms} of ${summary.totalRooms} rooms`} tone="teal" icon={HomeModernIcon} onClick={() => navigate('/rooms')} />
-          <KpiCard label="ADR" value={new Intl.NumberFormat(undefined, { style: 'currency', currency: user?.hotel?.currency || 'USD', maximumFractionDigits: 0 }).format(adr)} trend="Average daily rate" tone="teal" icon={ChartBarIcon} onClick={() => navigate('/reports')} />
+        <div className="grid grid-cols-2 gap-2.5 sm:[grid-template-columns:repeat(auto-fit,minmax(170px,1fr))]" data-testid="dashboard-kpi-row">
+          {canViewBookings ? <KpiCard label="New bookings" value={summary.todayBookings} trend="Created today" tone="teal" icon={CalendarDaysIcon} onClick={() => navigate('/bookings')} /> : null}
+          {canViewBookings ? <KpiCard label="Check-ins" value={summary.todayArrivals} trend="▲ Arrivals scheduled" tone="teal" icon={CheckCircleIcon} onClick={() => navigate('/bookings?filter=arrivals')} /> : null}
+          {canViewBookings ? <KpiCard label="Check-outs" value={departuresQuery.data?.length ?? summary.todayDepartures} trend="Departure workload" tone="blue" icon={ArrowRightIcon} onClick={() => navigate('/bookings?filter=departures')} /> : null}
+          {canViewFinancials ? <KpiCard label="Total revenue" value={new Intl.NumberFormat(undefined, { style: 'currency', currency: user?.hotel?.currency || 'USD', maximumFractionDigits: 0 }).format(todayRevenue)} trend="Today’s posted revenue" tone="teal" icon={CurrencyDollarIcon} onClick={() => navigate('/reports')} /> : null}
+          {canViewRooms ? <KpiCard label="Occupancy" value={`${Math.round(summary.currentOccupancy)}%`} trend={`${summary.occupiedRooms} of ${summary.totalRooms} rooms`} tone="teal" icon={HomeModernIcon} onClick={() => navigate('/rooms')} /> : null}
+          {canViewFinancials ? <KpiCard label="ADR" value={new Intl.NumberFormat(undefined, { style: 'currency', currency: user?.hotel?.currency || 'USD', maximumFractionDigits: 0 }).format(adr)} trend="Average daily rate" tone="teal" icon={ChartBarIcon} onClick={() => navigate('/reports')} /> : null}
         </div>
 
         <div className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_clamp(300px,18vw,340px)] 2xl:gap-4">
           <div className="min-w-0 space-y-3">
-            <div className="grid gap-3 xl:grid-cols-[minmax(340px,1.05fr)_minmax(420px,1.25fr)_minmax(320px,.95fr)]">
+            <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))]">
               <Surface testId="room-readiness-panel">
-                <PanelHeader title="Room readiness" subtitle="Live room availability and operational blockers" action="Open housekeeping" onAction={() => navigate('/housekeeping')} />
+                <PanelHeader title="Room readiness" subtitle="Live room availability and operational blockers" action={canViewHousekeeping ? 'Open housekeeping' : undefined} onAction={canViewHousekeeping ? () => navigate('/housekeeping') : undefined} />
                 <div className="px-4 pb-4">
-                  <div className="mb-4 flex h-3 overflow-hidden rounded-full bg-slate-100" aria-label="Room readiness distribution">
-                    <span className="bg-emerald-400" style={{ width: `${totalReadiness ? (summary.occupiedRooms / summary.totalRooms) * 100 : 0}%` }} />
-                    <span className="bg-teal-200" style={{ width: `${totalReadiness ? (reservedRooms / summary.totalRooms) * 100 : 0}%` }} />
-                    <span className="bg-sky-300" style={{ width: `${totalReadiness ? (summary.availableRooms / summary.totalRooms) * 100 : 0}%` }} />
-                    <span className="bg-amber-300" style={{ width: `${totalReadiness ? (roomsNotReady / summary.totalRooms) * 100 : 0}%` }} />
+                  <p className="mb-1 text-[9px] font-semibold uppercase tracking-wide text-slate-400">Availability</p>
+                  <div className="mb-3 flex h-2.5 overflow-hidden rounded-full bg-slate-100" aria-label="Room availability distribution">
+                    <span className="bg-emerald-400" style={{ width: `${summary.totalRooms ? (summary.occupiedRooms / summary.totalRooms) * 100 : 0}%` }} />
+                    <span className="bg-sky-300" style={{ width: `${summary.totalRooms ? (summary.availableRooms / summary.totalRooms) * 100 : 0}%` }} />
+                    <span className="bg-slate-400" style={{ width: `${summary.totalRooms ? (summary.outOfServiceRooms / summary.totalRooms) * 100 : 0}%` }} />
                   </div>
                   <div className="grid grid-cols-4 gap-3">
                     <Metric label="Occupied" value={summary.occupiedRooms} color="#34d399" />
-                    <Metric label="Reserved" value={reservedRooms} color="#99f6e4" />
                     <Metric label="Available" value={summary.availableRooms} color="#7dd3fc" />
-                    <Metric label="Not ready" value={roomsNotReady} color="#fcd34d" />
+                    <Metric label="Out of service" value={summary.outOfServiceRooms} color="#94a3b8" />
+                    <Metric label="Total rooms" value={summary.totalRooms} color="#2dd4bf" />
+                  </div>
+                  <p className="mb-1 mt-4 text-[9px] font-semibold uppercase tracking-wide text-slate-400">Housekeeping readiness</p>
+                  <div className="flex h-2.5 overflow-hidden rounded-full bg-slate-100" aria-label="Housekeeping readiness distribution">
+                    <span className="bg-emerald-400" style={{ width: `${totalReadiness ? (housekeeping.clean / totalReadiness) * 100 : 0}%` }} />
+                    <span className="bg-rose-300" style={{ width: `${totalReadiness ? (housekeeping.dirty / totalReadiness) * 100 : 0}%` }} />
+                    <span className="bg-amber-300" style={{ width: `${totalReadiness ? (housekeeping.inspection / totalReadiness) * 100 : 0}%` }} />
+                    <span className="bg-slate-400" style={{ width: `${totalReadiness ? (housekeeping.outOfService / totalReadiness) * 100 : 0}%` }} />
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-2 text-[10px]">
                     <span className="rounded-lg bg-rose-50 px-2.5 py-2 font-semibold text-rose-700">{housekeeping.dirty} dirty rooms</span>
@@ -260,18 +310,18 @@ export default function DashboardCommandCenter() {
                     <span className="rounded-lg bg-slate-100 px-2.5 py-2 font-semibold text-slate-700">{housekeeping.outOfService} maintenance blocks</span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <span className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[9px] font-semibold text-rose-700">{housekeeping.priorityRooms.length || 3} Priority clean</span>
+                    <span className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[9px] font-semibold text-rose-700">{housekeeping.priorityRooms.length} Priority clean</span>
                     <span className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[9px] font-semibold text-amber-700">{maintenance.faults.urgent} Maintenance alerts</span>
                     <span className="rounded-lg border border-slate-200 px-2 py-1 text-[9px] font-semibold text-slate-600">{summary.todayDepartures} Late check-out risks</span>
                   </div>
                 </div>
               </Surface>
 
-              <Surface testId="revenue-panel">
-                <PanelHeader title="Revenue" subtitle="Six-month revenue trend" action="Financial reports" onAction={() => navigate('/reports')} />
+              {canViewFinancials ? <Surface testId="revenue-panel">
+                <PanelHeader title="Revenue" subtitle={revenueTrendQuery.data ? 'Live six-month completed-payment trend' : 'Revenue trend unavailable'} action="Financial reports" onAction={() => navigate('/reports')} />
                 <div className="h-56 px-2 pb-3">
                   <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                    <AreaChart data={demo.revenue} margin={{ top: 8, right: 10, left: -12, bottom: 0 }}>
+                    <AreaChart data={revenueTrendQuery.data ?? []} margin={{ top: 8, right: 10, left: -12, bottom: 0 }}>
                       <defs><linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#49b63f" stopOpacity={0.24} /><stop offset="100%" stopColor="#49b63f" stopOpacity={0.02} /></linearGradient></defs>
                       <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
                       <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#64748b' }} />
@@ -281,23 +331,23 @@ export default function DashboardCommandCenter() {
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
-              </Surface>
+              </Surface> : null}
 
-              <Surface testId="guest-experience-panel">
-                <PanelHeader title="Guest experience" subtitle={reviews.length ? `${reviews.length} live reviews` : 'Demo review summary'} action="View reviews" onAction={() => navigate('/reviews')} />
+              {canViewReviews ? <Surface testId="guest-experience-panel">
+                <PanelHeader title="Guest experience" subtitle={reviews.length ? `${reviews.length} live reviews` : 'No live review data'} action="View reviews" onAction={() => navigate('/reviews')} />
                 <div className="px-4 pb-4">
-                  <div className="flex items-end gap-3"><span className="rounded-lg bg-lime-200 px-2 py-1 text-2xl font-extrabold text-slate-950">{averageRating.toFixed(1)}</span><div className="pb-1"><p className="text-xs font-bold text-slate-900">Impressive</p><p className="text-[9px] text-slate-500">{reviews.length || 2546} reviews</p></div></div>
+                  {reviews.length ? <><div className="flex items-end gap-3"><span className="rounded-lg bg-lime-200 px-2 py-1 text-2xl font-extrabold text-slate-950">{averageRating.toFixed(1)}</span><div className="pb-1"><p className="text-xs font-bold text-slate-900">{averageRating >= 4 ? 'Impressive' : averageRating >= 3 ? 'Stable' : 'Needs attention'}</p><p className="text-[9px] text-slate-500">{reviews.length} live reviews</p></div></div>
                   <div className="mt-4 space-y-2">
-                    {demo.reviewCategories.map((category) => <div key={category.name} className="grid grid-cols-[70px_1fr_24px] items-center gap-2 text-[9px]"><span className="text-slate-500">{category.name}</span><div className="h-1.5 rounded-full bg-slate-100"><div className="h-full rounded-full bg-lime-300" style={{ width: `${(category.score / 5) * 100}%` }} /></div><strong className="text-right text-slate-700">{category.score}</strong></div>)}
+                    {ratingBreakdown.map((item) => <div key={item.rating} className="grid grid-cols-[70px_1fr_24px] items-center gap-2 text-[9px]"><span className="text-slate-500">{item.rating} star</span><div className="h-1.5 rounded-full bg-slate-100"><div className="h-full rounded-full bg-lime-300" style={{ width: `${item.percentage}%` }} /></div><strong className="text-right text-slate-700">{item.count}</strong></div>)}
                   </div>
                   <div className="mt-4 grid grid-cols-3 gap-1.5 text-center text-[9px]"><div className="rounded-lg bg-emerald-50 p-2 text-emerald-700"><strong className="block text-sm">{positive}</strong>Positive</div><div className="rounded-lg bg-sky-50 p-2 text-sky-700"><strong className="block text-sm">{neutral}</strong>Neutral</div><div className="rounded-lg bg-rose-50 p-2 text-rose-700"><strong className="block text-sm">{negative}</strong>Negative</div></div>
-                  <div className="mt-2 flex justify-between text-[9px] text-slate-500"><span>{negative} complaints</span><span>{attentionItems.length} unresolved requests</span></div>
+                  <div className="mt-2 flex justify-between text-[9px] text-slate-500"><span>{negative} low-rating reviews</span><span>{attentionItems.length} operational issues</span></div></> : <EmptyState label="No live guest reviews are available." />}
                 </div>
-              </Surface>
+              </Surface> : null}
             </div>
 
-            <div className="grid gap-3 xl:grid-cols-[.95fr_1.35fr]">
-              <Surface testId="housekeeping-maintenance-panel">
+            <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr))]">
+              {(canViewHousekeeping || canViewRooms || canViewMaintenance) ? <Surface testId="housekeeping-maintenance-panel">
                 <PanelHeader title="Housekeeping & maintenance" subtitle="Today’s execution and room blockers" />
                 <div className="grid grid-cols-2 gap-2 px-4 pb-4 sm:grid-cols-4">
                   <Metric label="Assigned" value={totalReadiness} color="#38bdf8" />
@@ -306,9 +356,9 @@ export default function DashboardCommandCenter() {
                   <Metric label="Delayed" value={housekeeping.inspection} color="#fb7185" />
                 </div>
                 <div className="grid grid-cols-3 gap-2 border-t border-slate-100 px-4 py-3 text-center text-[9px]"><span><strong className="block text-base text-slate-950">{maintenance.workOrders.open}</strong>Open maintenance</span><span><strong className="block text-base text-rose-700">{maintenance.preventiveMaintenance.overdue}</strong>Overdue</span><span><strong className="block text-base text-amber-700">{maintenance.faults.urgent}</strong>Critical blockers</span></div>
-              </Surface>
+              </Surface> : null}
 
-              <Surface testId="security-building-panel">
+              {(canViewSecurity || canViewSmartBuilding) ? <Surface testId="security-building-panel">
                 <PanelHeader title="Security & Smart Building" subtitle={securityQuery.data || smartQuery.data ? 'Live physical-system health' : 'Demo / simulation data'} action="View systems" onAction={() => navigate(can('security_center') ? '/security-center' : '/operations/smart-building')} />
                 <div className="grid grid-cols-2 gap-2 px-4 pb-4 sm:grid-cols-4 lg:grid-cols-6">
                   <Metric label="CCTV online" value={security.cctv.online} color="#34d399" />
@@ -318,26 +368,26 @@ export default function DashboardCommandCenter() {
                   <Metric label="Sensor alerts" value={smart.temperatureSensors.warning + smart.waterLeakSensors.alerts} color="#38bdf8" />
                   <Metric label="Health score" value={buildingScore} color="#2dd4bf" />
                 </div>
-              </Surface>
+              </Surface> : null}
             </div>
 
-            <div className="grid items-start gap-3 xl:grid-cols-[minmax(320px,.55fr)_minmax(0,1.95fr)]">
+            {canViewBookings ? <div className="grid items-start gap-3 xl:grid-cols-[minmax(320px,.55fr)_minmax(0,1.95fr)]">
               <Surface testId="booking-platform-panel">
-                <PanelHeader title="Booking by platform" subtitle="Distribution and performance" />
-                <div className="grid items-center gap-2 px-3 pb-3 sm:grid-cols-[180px_1fr]">
+                <PanelHeader title="Booking by platform" subtitle={bookingMixQuery.data ? 'Live month-to-date distribution' : 'Channel distribution unavailable'} />
+                {bookingSources.length ? <><div className="grid items-center gap-2 px-3 pb-3 sm:grid-cols-[180px_1fr]">
                   <div className="h-44">
                     <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                      <PieChart><Pie data={demo.bookingSources} dataKey="value" nameKey="name" innerRadius={44} outerRadius={68} paddingAngle={1}>{demo.bookingSources.map((source) => <Cell key={source.name} fill={source.color} />)}</Pie><Tooltip formatter={(value) => `${value}%`} /></PieChart>
+                      <PieChart><Pie data={bookingSources} dataKey="value" nameKey="name" innerRadius={44} outerRadius={68} paddingAngle={1}>{bookingSources.map((source) => <Cell key={source.name} fill={source.color} />)}</Pie><Tooltip formatter={(value) => `${value}%`} /></PieChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="space-y-1.5">{demo.bookingSources.map((source) => <div key={source.name} className="flex items-center justify-between gap-2 text-[9px]"><span className="flex items-center gap-2 text-slate-600"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: source.color }} />{source.name}</span><strong>{source.value}%</strong></div>)}</div>
+                  <div className="space-y-1.5">{bookingSources.map((source) => <div key={source.name} className="flex items-center justify-between gap-2 text-[9px]"><span className="flex items-center gap-2 text-slate-600"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: source.color }} />{source.name}</span><strong>{source.value}%</strong></div>)}</div>
                 </div>
-                <div className="grid grid-cols-3 gap-1.5 border-t border-slate-100 p-3 text-[9px]"><div className="rounded-lg bg-emerald-50 p-2"><span className="text-slate-500">Top channel</span><strong className="mt-1 block text-slate-900">Direct</strong></div><div className="rounded-lg bg-sky-50 p-2"><span className="text-slate-500">Best conversion</span><strong className="mt-1 block text-slate-900">Booking.com</strong></div><div className="rounded-lg bg-amber-50 p-2"><span className="text-slate-500">Highest ADR</span><strong className="mt-1 block text-slate-900">$214</strong></div></div>
+                <div className="grid grid-cols-2 gap-1.5 border-t border-slate-100 p-3 text-[9px]"><div className="rounded-lg bg-emerald-50 p-2"><span className="text-slate-500">Top channel</span><strong className="mt-1 block text-slate-900">{bookingSources[0].name}</strong></div><div className="rounded-lg bg-sky-50 p-2"><span className="text-slate-500">Bookings this month</span><strong className="mt-1 block text-slate-900">{bookingSources.reduce((total, source) => total + source.count, 0)}</strong></div></div></> : <EmptyState label="No month-to-date booking source data is available." />}
               </Surface>
 
               <Surface testId="booking-list-panel" className="min-w-0 overflow-hidden">
                 <div className="grid gap-3 px-4 pb-3 pt-4 lg:grid-cols-[minmax(130px,1fr)_auto] lg:items-center">
-                  <div className="min-w-0"><h2 className="text-sm font-bold text-slate-950">Booking list</h2><p className="text-[10px] text-slate-500">{arrivalsQuery.data ? 'Live arrival records' : 'Demo booking records'}</p></div>
+                  <div className="min-w-0"><h2 className="text-sm font-bold text-slate-950">Booking list</h2><p className="text-[10px] text-slate-500">{arrivalsQuery.data ? 'Live arrival records' : arrivalsQuery.isLoading ? 'Loading arrival records' : 'Arrival records unavailable'}</p></div>
                   <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(160px,1fr)_minmax(120px,auto)_minmax(84px,auto)]">
                     <input value={bookingSearch} onChange={(event) => { setBookingSearch(event.target.value); setBookingPage(1); }} className="h-8 w-full min-w-0 rounded-lg border border-slate-200 px-2.5 text-[10px]" placeholder="Search bookings…" aria-label="Search bookings" />
                     <select className="h-8 min-w-0 rounded-lg border border-slate-200 px-2 text-[10px]" aria-label="Property filter"><option>All properties</option></select>
@@ -360,27 +410,27 @@ export default function DashboardCommandCenter() {
                       <col className="w-[4%]" />
                     </colgroup>
                     <thead className="border-y border-slate-100 bg-slate-50 text-slate-500"><tr>{['Booking ID', 'Guest name', 'Room', 'Room type', 'Check-in', 'Check-out', 'Nights', 'Total', 'Status', 'Source', ''].map((label) => <th key={label} className="truncate px-2 py-2 font-semibold">{label}</th>)}</tr></thead>
-                    <tbody className="divide-y divide-slate-100">{bookingRows.map((booking) => <tr key={booking.id} className="hover:bg-slate-50"><td className="truncate px-2 py-2 font-bold text-slate-800" title={booking.id}>{booking.id}</td><td className="truncate px-2 py-2" title={booking.guest}>{booking.guest}</td><td className="truncate px-2 py-2" title={booking.room}>{booking.room}</td><td className="truncate px-2 py-2" title={booking.roomType}>{booking.roomType}</td><td className="truncate px-2 py-2" title={booking.checkIn}>{booking.checkIn}</td><td className="truncate px-2 py-2" title={booking.checkOut}>{booking.checkOut}</td><td className="truncate px-2 py-2">{booking.nights}</td><td className="truncate px-2 py-2" title={booking.total ? `$${booking.total.toLocaleString()}` : '—'}>{booking.total ? `$${booking.total.toLocaleString()}` : '—'}</td><td className="px-2 py-2"><span className={`block truncate rounded-full px-2 py-1 text-center font-semibold ${statusClass(booking.status)}`} title={booking.status}>{booking.status}</span></td><td className="truncate px-2 py-2" title={booking.source}>{booking.source}</td><td className="px-1 py-2 text-center"><button type="button" onClick={() => navigate(`/bookings/${encodeURIComponent(booking.id)}`)} aria-label={`Open booking ${booking.id}`} className="rounded p-1 text-slate-500 hover:bg-slate-100"><ChevronRightIcon className="h-3.5 w-3.5" /></button></td></tr>)}</tbody>
+                    <tbody className="divide-y divide-slate-100">{bookingRows.map((booking) => <tr key={booking.id} className="hover:bg-slate-50"><td className="truncate px-2 py-2 font-bold text-slate-800" title={booking.id}>{booking.id}</td><td className="truncate px-2 py-2" title={booking.guest}>{booking.guest}</td><td className="truncate px-2 py-2" title={booking.room}>{booking.room}</td><td className="truncate px-2 py-2" title={booking.roomType}>{booking.roomType}</td><td className="truncate px-2 py-2" title={booking.checkIn}>{booking.checkIn}</td><td className="truncate px-2 py-2" title={booking.checkOut}>{booking.checkOut}</td><td className="truncate px-2 py-2">{booking.nights}</td><td className="truncate px-2 py-2" title={booking.total ? `$${booking.total.toLocaleString()}` : '—'}>{booking.total ? `$${booking.total.toLocaleString()}` : '—'}</td><td className="px-2 py-2"><span className={`block truncate rounded-full px-2 py-1 text-center font-semibold ${statusClass(booking.status)}`} title={booking.status}>{booking.status}</span></td><td className="truncate px-2 py-2" title={booking.source}>{booking.source}</td><td className="px-1 py-2 text-center"><button type="button" onClick={() => navigate(`/bookings/${encodeURIComponent(booking.recordId || booking.id)}`)} aria-label={`Open booking ${booking.id}`} className="rounded p-1 text-slate-500 hover:bg-slate-100"><ChevronRightIcon className="h-3.5 w-3.5" /></button></td></tr>)}</tbody>
                   </table>
                   {!bookingRows.length ? <EmptyState label="No bookings match the selected filters." /> : null}
                 </div>
                 <div className="flex items-center justify-between border-t border-slate-100 px-4 py-2 text-[9px] text-slate-500"><span>Showing {bookingRows.length} of {filteredBookings.length}</span><div className="flex items-center gap-1"><button type="button" disabled={bookingPage === 1} onClick={() => setBookingPage((page) => Math.max(1, page - 1))} className="rounded border border-slate-200 px-2 py-1 disabled:opacity-40">Previous</button><span className="px-2">{bookingPage}/{pageCount}</span><button type="button" disabled={bookingPage === pageCount} onClick={() => setBookingPage((page) => Math.min(pageCount, page + 1))} className="rounded border border-slate-200 px-2 py-1 disabled:opacity-40">Next</button></div></div>
               </Surface>
-            </div>
+            </div> : null}
           </div>
 
           <aside className="min-w-0 space-y-3" data-testid="dashboard-right-rail">
-            <Surface>
-              <PanelHeader title="Tasks" subtitle={timeline.length ? 'Operational priorities' : 'Demo task queue'} action="View all" onAction={() => navigate('/operations-center/tasks')} />
+            {canViewBookings ? <Surface>
+              <PanelHeader title="Tasks" subtitle="Demo task queue — task service not connected" action="View all" onAction={() => navigate('/operations-center/tasks')} />
               <div className="divide-y divide-slate-100 px-3">{demo.tasks.map((task) => <div key={task.id} className="py-3"><div className="flex items-start gap-2"><span className="mt-0.5 h-4 w-4 shrink-0 rounded border border-slate-300" aria-hidden="true" /><div className="min-w-0 flex-1"><p className="text-[10px] font-bold leading-4 text-slate-900">{task.title}</p><p className="mt-1 text-[9px] text-slate-500">{task.category} · {task.owner}</p><div className="mt-2 flex items-center justify-between"><span className="text-[9px] text-slate-400">Due {task.due}</span><span className={`rounded-full px-2 py-0.5 text-[8px] font-semibold ${task.priority === 'High' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{task.priority}</span></div></div></div></div>)}</div>
-            </Surface>
+            </Surface> : null}
             <Surface>
               <PanelHeader title="Recent activities" subtitle="Latest operational changes" action="View all" onAction={() => navigate('/settings?tab=audit-trail')} />
               <div className="px-3 pb-2">{timeline.length ? timeline.slice(0, 6).map((event) => <div key={event.id} className="relative border-l border-teal-200 py-2 pl-4"><span className="absolute -left-1 top-3 h-2 w-2 rounded-full bg-teal-500 ring-2 ring-white" /><p className="text-[9px] font-bold text-slate-900">{event.summary}</p><p className="mt-1 text-[8px] text-slate-500">{event.module} · {new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date(event.timestamp))}</p></div>) : <EmptyState label="No live activity is available yet." />}</div>
             </Surface>
             <Surface className="overflow-hidden border-teal-200">
-              <div className="bg-teal-950 px-4 py-3 text-white"><div className="flex items-center gap-2"><SparklesIcon className="h-4 w-4 text-teal-200" /><h2 className="text-xs font-bold">Hotel Brain attention</h2></div><p className="mt-1 text-[9px] text-teal-100/70">Authorised operational priorities</p></div>
-              <div className="divide-y divide-slate-100">{attentionItems.length ? attentionItems.map((item, index) => <button key={`${item.title}-${index}`} type="button" onClick={() => navigate('/ai/hotel-brain')} className="w-full px-4 py-3 text-left hover:bg-slate-50"><p className="text-[10px] font-bold text-slate-900">{item.title}</p><p className="mt-1 line-clamp-2 text-[9px] leading-4 text-slate-500">{item.detail}</p></button>) : <EmptyState label="No Hotel Brain priorities are available." />}</div>
+              <div className="bg-teal-950 px-4 py-3 text-white"><div className="flex items-center gap-2"><SparklesIcon className="h-4 w-4 text-teal-200" /><h2 className="text-xs font-bold">Operational attention</h2></div><p className="mt-1 text-[9px] text-teal-100/70">Authorised live priorities and Hotel Brain guidance</p></div>
+              <div className="divide-y divide-slate-100">{attentionItems.length ? attentionItems.map((item, index) => <button key={`${item.title}-${index}`} type="button" onClick={() => navigate(item.route)} className="w-full px-4 py-3 text-left hover:bg-slate-50"><p className="text-[10px] font-bold text-slate-900">{item.title}</p><p className="mt-1 line-clamp-2 text-[9px] leading-4 text-slate-500">{item.detail}</p></button>) : <EmptyState label="No operational priorities require attention." />}</div>
             </Surface>
           </aside>
         </div>

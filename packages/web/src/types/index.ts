@@ -404,6 +404,7 @@ export interface OccupancyBreakdownItem {
 
 // Dashboard types
 export interface DashboardSummary {
+  todayBookings: number;
   todayArrivals: number;
   todayDepartures: number;
   currentOccupancy: number;
@@ -458,6 +459,17 @@ export interface PriorityAlert {
   title: string;
   description: string;
   actionLabel: string;
+}
+
+export interface DashboardRevenuePoint {
+  period: string;
+  value: number;
+}
+
+export interface DashboardBookingMixItem {
+  source: string;
+  count: number;
+  percentage: number;
 }
 
 // API Response types

@@ -20,7 +20,7 @@ export async function getSummary(
     const fullSummary = await dashboardService.getDashboardSummary(hotelId);
     
     // Filter based on role (strips financial data for non-ADMIN/MANAGER)
-    const filteredSummary = dashboardService.buildDashboardPayload(fullSummary, role);
+    const filteredSummary = dashboardService.buildDashboardPayload(fullSummary, role, req.user!.modulePermissions || []);
     
     logger.debug(`Dashboard summary for role=${role}: financial data ${('todayRevenue' in filteredSummary) ? 'included' : 'excluded'}`);
 
@@ -129,6 +129,27 @@ export async function getOccupancyTrend(
     const hotelId = req.user!.hotelId;
     const days = parseInt(req.query.days as string) || 7;
     const trend = await dashboardService.getOccupancyTrend(hotelId, days);
+
+    res.json({
+      success: true,
+      data: trend,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Get completed payment revenue for the current and previous five months.
+ */
+export async function getRevenueTrend(
+  req: AuthenticatedRequest,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const hotelId = req.user!.hotelId;
+    const trend = await dashboardService.getRevenueTrend(hotelId);
 
     res.json({
       success: true,

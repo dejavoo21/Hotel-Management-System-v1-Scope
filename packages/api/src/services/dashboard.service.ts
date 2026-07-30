@@ -13,10 +13,11 @@ const FINANCIAL_ROLES: Role[] = [Role.ADMIN, Role.MANAGER];
  */
 export function buildDashboardPayload(
   fullSummary: DashboardSummary,
-  role: Role
+  role: Role,
+  modulePermissions: string[] = []
 ): DashboardSummary | Omit<DashboardSummary, 'todayRevenue' | 'monthRevenue'> {
-  // Non-financial roles get stripped data
-  if (!FINANCIAL_ROLES.includes(role)) {
+  const canViewFinancials = FINANCIAL_ROLES.includes(role) || modulePermissions.includes('financials');
+  if (!canViewFinancials) {
     const { todayRevenue, monthRevenue, ...safeData } = fullSummary;
     return safeData;
   }
@@ -44,6 +45,13 @@ export async function getDashboardSummary(hotelId: string): Promise<DashboardSum
   const occupiedRooms = roomCounts.find(r => r.status === 'OCCUPIED')?._count || 0;
   const availableRooms = roomCounts.find(r => r.status === 'AVAILABLE')?._count || 0;
   const outOfServiceRooms = roomCounts.find(r => r.status === 'OUT_OF_SERVICE')?._count || 0;
+
+  const todayBookings = await prisma.booking.count({
+    where: {
+      hotelId,
+      createdAt: { gte: startOfToday, lte: endOfToday },
+    },
+  });
 
   // Get today's arrivals count
   const todayArrivals = await prisma.booking.count({
@@ -96,6 +104,7 @@ export async function getDashboardSummary(hotelId: string): Promise<DashboardSum
   });
 
   return {
+    todayBookings,
     todayArrivals,
     todayDepartures,
     currentOccupancy: totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0,
@@ -340,6 +349,41 @@ export async function getOccupancyTrend(hotelId: string, days: number) {
   }
 
   return trend;
+}
+
+/**
+ * Get completed payment revenue for the current and previous five months.
+ */
+export async function getRevenueTrend(hotelId: string) {
+  const today = new Date();
+  const firstMonth = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+  const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+  const payments = await prisma.payment.findMany({
+    where: {
+      booking: { hotelId },
+      status: 'COMPLETED',
+      processedAt: { gte: firstMonth, lte: endOfCurrentMonth },
+    },
+    select: {
+      amount: true,
+      processedAt: true,
+    },
+  });
+
+  return Array.from({ length: 6 }, (_, index) => {
+    const month = new Date(today.getFullYear(), today.getMonth() - 5 + index, 1);
+    const value = payments.reduce((total, payment) => (
+      payment.processedAt.getFullYear() === month.getFullYear()
+      && payment.processedAt.getMonth() === month.getMonth()
+        ? total + Number(payment.amount)
+        : total
+    ), 0);
+
+    return {
+      period: format(month, 'MMM'),
+      value,
+    };
+  });
 }
 
 /**

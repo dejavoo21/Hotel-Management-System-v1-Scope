@@ -1,5 +1,6 @@
 export const dashboardDemoData = {
   summary: {
+    todayBookings: 12,
     todayArrivals: 18,
     todayDepartures: 11,
     currentOccupancy: 86,
