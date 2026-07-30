@@ -67,8 +67,8 @@ export default function AuthLayout() {
       </aside>
 
       <section className="relative min-h-dvh bg-[#d7ece5] p-0 lg:p-4" aria-label="Authentication">
-        <div className="relative min-h-dvh overflow-y-auto bg-white px-7 pb-10 pt-24 lg:h-[calc(100dvh-2rem)] lg:min-h-0 lg:rounded-[26px] lg:px-10 lg:pb-10 lg:pt-[172px] xl:px-12 xl:pt-[178px]">
-          <div className="absolute right-7 top-6 flex items-start gap-4 text-sm font-semibold text-[#1f3154] lg:right-8 lg:top-8">
+        <div className="relative min-h-dvh overflow-y-auto bg-white px-7 pb-10 pt-6 lg:h-[calc(100dvh-2rem)] lg:min-h-0 lg:rounded-[26px] lg:px-10 lg:pb-10 lg:pt-8 xl:px-12">
+          <div className="relative z-40 flex h-12 w-full items-center justify-end gap-4 text-sm font-semibold text-[#1f3154]">
             <div
               className="relative"
               onBlur={(event) => {
@@ -97,7 +97,7 @@ export default function AuthLayout() {
                 <div
                   role="listbox"
                   aria-label="Language"
-                  className="absolute right-0 top-[calc(100%+10px)] z-30 w-full min-w-[180px] rounded-xl border border-[#d7dfeb] bg-white p-2 shadow-[0_14px_35px_rgba(15,35,67,0.14)]"
+                  className="absolute right-0 top-[calc(100%+8px)] z-50 w-[190px] rounded-xl border border-[#d7dfeb] bg-white p-2 shadow-[0_12px_30px_rgba(15,23,42,0.12)]"
                 >
                   <button
                     type="button"
@@ -133,13 +133,17 @@ export default function AuthLayout() {
             <button
               type="button"
               aria-label="Theme preferences"
-              className="mt-2 rounded-full p-1.5 text-[#25385f] transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-[#079887]"
+              className="rounded-full p-1.5 text-[#25385f] transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-[#079887]"
             >
               <MoonIcon className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
 
-          <div className="mx-auto w-full max-w-[600px]">
+          <div
+            className={`mx-auto w-full max-w-[600px] transition-[margin] duration-200 ${
+              languageMenuOpen ? 'mt-[132px]' : 'mt-24'
+            }`}
+          >
             <Outlet />
           </div>
         </div>
