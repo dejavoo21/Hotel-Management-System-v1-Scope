@@ -4,11 +4,13 @@ import { useAuthStore } from '@/stores/authStore';
 import { authService, getApiError } from '@/services';
 import toast from 'react-hot-toast';
 import {
+  ArrowRightIcon,
   CheckIcon,
   EnvelopeIcon,
   EyeIcon,
   EyeSlashIcon,
   LockClosedIcon,
+  UserGroupIcon,
 } from '@heroicons/react/24/outline';
 
 export default function LoginPage() {
@@ -154,7 +156,7 @@ export default function LoginPage() {
   return (
     <main>
       {/* Mobile logo */}
-      <div className="mb-8 flex items-center gap-3 lg:hidden">
+      <div className="mb-10 flex items-center gap-3 lg:hidden">
         <img
           src="/laflo-logo.png"
           alt="LaFlo"
@@ -163,17 +165,17 @@ export default function LoginPage() {
       </div>
 
       <div>
-        <h1 className="text-[2.45rem] font-extrabold leading-tight tracking-[-0.04em] text-[#07132b]">
+        <h1 className="text-[2.5rem] font-extrabold leading-tight tracking-[-0.04em] text-[#07132b] xl:text-[2.8rem]">
           Welcome back
         </h1>
-        <p className="mt-3 text-[1.35rem] font-medium leading-8 text-[#3d4c73]">
+        <p className="mt-2 text-lg font-medium leading-8 text-[#3d4c73] xl:text-xl">
           Sign in to your account to continue
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-12 space-y-9" noValidate>
+      <form onSubmit={handleSubmit} className="mt-12 space-y-8" noValidate>
         <div>
-          <label htmlFor="email" className="mb-3 block text-[1.12rem] font-bold text-[#111a35]">
+          <label htmlFor="email" className="mb-3 block text-base font-bold text-[#111a35]">
             Email address <span className="text-red-500">*</span>
           </label>
           <div className="relative">
@@ -188,7 +190,7 @@ export default function LoginPage() {
               aria-describedby="email-error"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="h-[68px] w-full rounded-xl border border-[#c6cfdf] bg-white pl-16 pr-5 text-[1.08rem] font-medium text-[#39476f] shadow-sm outline-none transition placeholder:text-[#5b688c] focus:border-[#0a9f8c] focus:ring-4 focus:ring-[#0a9f8c]/10"
+              className="h-16 w-full rounded-xl border border-[#c6cfdf] bg-white pl-16 pr-5 text-base font-medium text-[#39476f] shadow-sm outline-none transition placeholder:text-[#5b688c] focus:border-[#0a9f8c] focus:ring-4 focus:ring-[#0a9f8c]/10"
               placeholder="you@hotel.com"
             />
           </div>
@@ -196,7 +198,7 @@ export default function LoginPage() {
 
         {!otpMode ? (
           <div>
-            <label htmlFor="password" className="mb-3 block text-[1.12rem] font-bold text-[#111a35]">
+            <label htmlFor="password" className="mb-3 block text-base font-bold text-[#111a35]">
               Password <span className="text-red-500">*</span>
             </label>
             <div className="relative">
@@ -212,7 +214,7 @@ export default function LoginPage() {
                 aria-label={`Password${showPassword ? ' (visible)' : ' (hidden)'}`}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="h-[68px] w-full rounded-xl border border-[#c6cfdf] bg-white pl-16 pr-16 text-[1.08rem] font-medium text-[#111a35] shadow-sm outline-none transition placeholder:text-[#5b688c] focus:border-[#0a9f8c] focus:ring-4 focus:ring-[#0a9f8c]/10"
+                className="h-16 w-full rounded-xl border border-[#c6cfdf] bg-white pl-16 pr-16 text-base font-medium text-[#111a35] shadow-sm outline-none transition placeholder:text-[#5b688c] focus:border-[#0a9f8c] focus:ring-4 focus:ring-[#0a9f8c]/10"
                 placeholder="Enter your password"
               />
               <button
@@ -298,12 +300,12 @@ export default function LoginPage() {
             <span className="flex h-6 w-6 items-center justify-center rounded-md border border-[#cbd5e1] bg-white text-white shadow-sm peer-checked:border-[#0aa391] peer-checked:bg-[#0aa391]">
               <CheckIcon className="h-5 w-5 stroke-[3]" aria-hidden="true" />
             </span>
-            <span className="text-[1.08rem] font-medium text-[#334163]">
+            <span className="whitespace-nowrap text-base font-medium text-[#334163]">
               Remember me
               {otpMode && otpPurpose === 'ACCESS_REVALIDATION' ? ' (includes device trust for 30 days)' : ''}
             </span>
           </label>
-          <Link to={`/reset-password${email ? `?email=${encodeURIComponent(email.trim().toLowerCase())}` : ''}`} className="justify-self-start rounded px-1 text-center text-[1.05rem] font-semibold text-[#087b70] hover:text-[#056158] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c] sm:justify-self-center">
+          <Link to={`/reset-password${email ? `?email=${encodeURIComponent(email.trim().toLowerCase())}` : ''}`} className="justify-self-start whitespace-nowrap rounded px-1 text-center text-base font-semibold text-[#087b70] hover:text-[#056158] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c] sm:justify-self-center">
             Forgot password?
           </Link>
           <button
@@ -315,7 +317,7 @@ export default function LoginPage() {
                 setOtpCode('');
                 setOtpSent(false);
               }}
-              className="justify-self-start rounded px-1 text-[1.05rem] font-medium text-[#334163] hover:text-[#0f1a35] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c] sm:justify-self-end"
+              className="justify-self-start whitespace-nowrap rounded px-1 text-base font-medium text-[#087b70] hover:text-[#0f1a35] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c] sm:justify-self-end"
               aria-label={otpMode ? 'Switch to password login' : 'Switch to email code login'}
             >
               {otpMode ? 'Use password' : 'Use verification code'}
@@ -325,7 +327,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={isLoading}
-          className="mt-3 flex h-[68px] w-full items-center justify-center rounded-xl bg-[#009b8f] text-[1.3rem] font-bold text-white shadow-[0_10px_24px_rgba(0,155,143,0.22)] transition hover:bg-[#00897d] focus:outline-none focus:ring-4 focus:ring-[#009b8f]/20 disabled:cursor-not-allowed disabled:opacity-70"
+          className="group relative mt-3 flex h-16 w-full items-center justify-center rounded-xl bg-[#009b8f] text-xl font-bold text-white shadow-[0_10px_24px_rgba(0,155,143,0.22)] transition hover:bg-[#00897d] focus:outline-none focus:ring-4 focus:ring-[#009b8f]/20 disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isLoading ? (
             <>
@@ -351,16 +353,33 @@ export default function LoginPage() {
               Signing in...
             </>
           ) : (
-            'Sign in'
+            <>
+              <span>Sign in</span>
+              <ArrowRightIcon className="absolute right-5 h-6 w-6 transition group-hover:translate-x-1" aria-hidden="true" />
+            </>
           )}
         </button>
       </form>
 
-      <div className="mt-11 flex flex-wrap items-center justify-between gap-3 text-[1.05rem] font-medium text-[#334163]">
-        <span>Need access to LaFlo?</span>
-        <Link to="/request-access" className="rounded px-1 font-bold text-[#07811d] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c]">
-          Request access
-        </Link>
+      <div className="mt-10 rounded-2xl border border-emerald-100/80 bg-gradient-to-r from-[#f1faf7] to-[#e8f6f2] p-5">
+        <div className="flex items-start gap-4">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#dff3ec] text-[#079887]">
+            <UserGroupIcon className="h-7 w-7" aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-bold text-[#064f4a]">Need access to LaFlo?</p>
+            <p className="mt-1 text-sm leading-6 text-[#536482]">
+              Request access and our team will review your request.
+            </p>
+            <Link
+              to="/request-access"
+              className="mt-3 flex items-center justify-end gap-3 rounded px-1 font-bold text-[#078b7c] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c]"
+            >
+              Request access
+              <ArrowRightIcon className="h-5 w-5" aria-hidden="true" />
+            </Link>
+          </div>
+        </div>
       </div>
     </main>
   );
