@@ -372,12 +372,14 @@
 /* Login visual motion stays deliberately slow and isolated from the form. */
 .auth-hotel-visual {
   animation: auth-hotel-drift 18s ease-in-out infinite alternate;
+  animation-delay: -4.5s;
   transform-origin: center;
   will-change: transform;
 }
 
 .auth-hotel-light-sweep {
   animation: auth-soft-light-sweep 18s ease-in-out infinite alternate;
+  animation-delay: -6s;
   background:
     linear-gradient(
       112deg,

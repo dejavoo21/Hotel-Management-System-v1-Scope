@@ -48,8 +48,8 @@ const loginCopy = {
     passwordPlaceholder: 'Saisissez votre mot de passe',
     remember: 'Se souvenir de moi',
     forgotPassword: 'Mot de passe oublié ?',
-    useCode: 'Utiliser un code de vérification',
-    usePassword: 'Utiliser le mot de passe',
+    useCode: 'Connexion par code',
+    usePassword: 'Connexion par mot de passe',
     verificationCode: 'Code de vérification',
     verificationPlaceholder: 'Saisissez le code à 6 chiffres',
     emailChannel: 'E-mail',
@@ -415,7 +415,7 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <div className="auth-access-card mt-10 rounded-2xl border border-emerald-100/80 bg-gradient-to-r from-[#f1faf7] to-[#e8f6f2] p-5">
+      <div className="auth-access-card mt-8 rounded-2xl border border-emerald-100/80 bg-gradient-to-r from-[#f1faf7] to-[#e8f6f2] p-5">
         <div className="flex items-start gap-4">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#dff3ec] text-[#079887]">
             <UserGroupIcon className="h-7 w-7" aria-hidden="true" />
