@@ -7,9 +7,6 @@ import {
   CheckCircleIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  HomeModernIcon,
-  SparklesIcon,
-  UserGroupIcon,
   WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline';
 
@@ -31,6 +28,11 @@ export const authInsights = [
         icon: ArrowRightOnRectangleIcon,
         tone: 'bg-sky-100/90 text-sky-700',
       },
+    ],
+  },
+  {
+    group: 'Departures',
+    cards: [
       {
         label: 'Check-outs',
         value: '8 today',
@@ -38,31 +40,12 @@ export const authInsights = [
         icon: ArrowLeftOnRectangleIcon,
         tone: 'bg-cyan-100/90 text-cyan-700',
       },
-    ],
-  },
-  {
-    group: 'Room Operations',
-    cards: [
-      {
-        label: 'Room occupancy',
-        value: '72%',
-        detail: '129 / 179 rooms',
-        icon: HomeModernIcon,
-        tone: 'bg-teal-100/90 text-teal-700',
-      },
       {
         label: 'Room readiness',
         value: '86%',
         detail: '154 / 179 rooms',
         icon: CheckCircleIcon,
         tone: 'bg-emerald-100/90 text-emerald-700',
-      },
-      {
-        label: 'Housekeeping status',
-        value: '82 clean',
-        detail: '24 in progress · 33 pending',
-        icon: SparklesIcon,
-        tone: 'bg-blue-100/90 text-blue-700',
       },
     ],
   },
@@ -75,13 +58,6 @@ export const authInsights = [
         detail: '↑ 3 vs yesterday',
         icon: ChatBubbleLeftRightIcon,
         tone: 'bg-teal-100/90 text-teal-700',
-      },
-      {
-        label: 'Front desk activity',
-        value: '23 walk-ins',
-        detail: '↑ 5 vs yesterday',
-        icon: UserGroupIcon,
-        tone: 'bg-sky-100/90 text-sky-700',
       },
       {
         label: 'Maintenance alerts',
@@ -120,15 +96,15 @@ export default function AuthInsightsCarousel() {
 
   return (
     <section
-      className="w-full max-w-[850px] rounded-2xl border border-white/50 bg-white/30 p-2.5 shadow-[0_12px_28px_rgba(12,91,72,0.08)] backdrop-blur-xl"
+      className="w-full max-w-[500px] rounded-2xl border border-white/50 bg-white/30 p-2 shadow-[0_10px_24px_rgba(12,91,72,0.07)] backdrop-blur-xl"
       aria-label="Hotel operations insights"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       onFocusCapture={() => setIsPaused(true)}
       onBlurCapture={() => setIsPaused(false)}
     >
-      <div className="mb-2 flex items-center justify-between gap-3 px-1">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#294b58]">
+      <div className="mb-1.5 flex items-center justify-between gap-3 px-1">
+        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[#294b58]">
           {authInsights[activeSlide].group}
         </p>
         <div className="flex items-center gap-1">
@@ -158,22 +134,20 @@ export default function AuthInsightsCarousel() {
         >
           {authInsights.map((slide) => (
             <div key={slide.group} className="w-full shrink-0">
-              <div className="grid grid-cols-2 gap-2 xl:grid-cols-3">
-                {slide.cards.map(({ label, value, detail, icon: Icon, tone }, cardIndex) => (
+              <div className="grid grid-cols-2 gap-2">
+                {slide.cards.map(({ label, value, detail, icon: Icon, tone }) => (
                   <article
                     key={label}
-                    className={`min-w-0 rounded-xl border border-white/55 bg-white/65 p-3 shadow-[0_5px_14px_rgba(15,91,75,0.06)] ${
-                      cardIndex === 2 ? 'hidden xl:block' : ''
-                    }`}
+                    className="h-[68px] min-w-0 rounded-xl border border-white/55 bg-white/65 p-2.5 shadow-[0_4px_12px_rgba(15,91,75,0.05)]"
                   >
-                    <div className="flex items-center gap-3">
-                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tone}`}>
-                        <Icon className="h-5 w-5" aria-hidden="true" />
+                    <div className="flex h-full items-center gap-2.5">
+                      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${tone}`}>
+                        <Icon className="h-4 w-4" aria-hidden="true" />
                       </span>
                       <div className="min-w-0">
-                        <p className="truncate text-xs font-medium text-[#41556f]">{label}</p>
-                        <p className="mt-0.5 truncate text-lg font-bold leading-tight text-[#07132b]">{value}</p>
-                        <p className="truncate text-[0.68rem] text-[#607089]">{detail}</p>
+                        <p className="truncate text-[0.64rem] font-medium text-[#41556f]">{label}</p>
+                        <p className="truncate text-base font-bold leading-tight text-[#07132b]">{value}</p>
+                        <p className="truncate text-[0.62rem] text-[#607089]">{detail}</p>
                       </div>
                     </div>
                   </article>
@@ -184,7 +158,7 @@ export default function AuthInsightsCarousel() {
         </div>
       </div>
 
-      <div className="mt-2 flex items-center justify-center gap-1.5">
+      <div className="mt-1.5 flex items-center justify-center gap-1.5">
         {authInsights.map((slide, index) => (
           <button
             key={slide.group}
