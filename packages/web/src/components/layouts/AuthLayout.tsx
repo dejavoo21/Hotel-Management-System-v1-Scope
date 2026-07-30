@@ -221,7 +221,7 @@ export default function AuthLayout() {
 
           <div
             className={`mx-auto w-full max-w-[600px] transition-[margin] duration-200 ${
-              languageMenuOpen ? 'mt-[132px]' : 'mt-24'
+              languageMenuOpen ? 'mt-[132px]' : 'mt-16'
             }`}
           >
             <Outlet context={{ language } satisfies AuthOutletContext} />
