@@ -380,7 +380,7 @@ export async function getRevenueTrend(hotelId: string) {
     ), 0);
 
     return {
-      period: format(month, 'MMM'),
+      period: new Intl.DateTimeFormat('en', { month: 'short' }).format(month),
       value,
     };
   });

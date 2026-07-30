@@ -202,7 +202,7 @@ export default function DashboardCommandCenter() {
   const sourceAttention: AttentionItem[] = brainQuery.data?.todayPriorities?.map((item) => ({ title: item.title, detail: item.detail, severity: item.severity ?? 'LOW', route: '/ai/hotel-brain' }))
     ?? alertsQuery.data?.map((alert) => ({ title: alert.title, detail: alert.description, severity: alert.level.toUpperCase(), route: '/incidents' }))
     ?? [];
-  const attentionItems = [...operationalAttention, ...sourceAttention].slice(0, 6);
+  const attentionItems = (operationalAttention.length ? operationalAttention : sourceAttention).slice(0, 6);
   const timeline = timelineQuery.data?.events ?? [];
   const dateLabel = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date());
   const role = String(user?.role || '');
