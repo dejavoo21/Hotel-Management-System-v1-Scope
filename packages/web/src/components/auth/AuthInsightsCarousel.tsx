@@ -129,11 +129,16 @@ export default function AuthInsightsCarousel() {
 
       <div className="overflow-hidden">
         <div
-          className="flex transition-transform duration-500 ease-out motion-reduce:transition-none"
-          style={{ transform: `translateX(-${activeSlide * 100}%)` }}
+          className="auth-insights-track flex"
+          style={{ transform: `translate3d(-${activeSlide * 100}%, 0, 0)` }}
         >
-          {authInsights.map((slide) => (
-            <div key={slide.group} className="w-full shrink-0">
+          {authInsights.map((slide, index) => (
+            <div
+              key={slide.group}
+              className={`w-full shrink-0 transition-opacity duration-700 ease-in-out motion-reduce:transition-none ${
+                index === activeSlide ? 'opacity-100' : 'opacity-55'
+              }`}
+            >
               <div className="grid grid-cols-2 gap-2">
                 {slide.cards.map(({ label, value, detail, icon: Icon, tone }) => (
                   <article

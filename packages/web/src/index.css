@@ -369,6 +369,70 @@
   background-size: 200% 100%;
 }
 
+/* Login visual motion stays deliberately slow and isolated from the form. */
+.auth-hotel-visual {
+  animation: auth-hotel-drift 22s ease-in-out infinite alternate;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.auth-hotel-light-sweep {
+  animation: auth-soft-light-sweep 20s ease-in-out infinite alternate;
+  background:
+    linear-gradient(
+      112deg,
+      rgb(255 255 255 / 0.08) 12%,
+      rgb(255 255 255 / 0.32) 44%,
+      rgb(20 184 166 / 0.12) 72%,
+      rgb(255 255 255 / 0.04) 92%
+    );
+  background-position: 0% 50%;
+  background-size: 220% 220%;
+  opacity: 0.2;
+  pointer-events: none;
+  will-change: background-position, opacity;
+}
+
+.auth-insights-track {
+  transition:
+    transform 700ms ease-in-out,
+    opacity 700ms ease-in-out;
+  will-change: transform, opacity;
+}
+
+@keyframes auth-hotel-drift {
+  from {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: scale(1.03) translate3d(-8px, -6px, 0);
+  }
+}
+
+@keyframes auth-soft-light-sweep {
+  from {
+    background-position: 0% 50%;
+    opacity: 0.18;
+  }
+
+  to {
+    background-position: 100% 50%;
+    opacity: 0.26;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-hotel-visual,
+  .auth-hotel-light-sweep {
+    animation: none;
+  }
+
+  .auth-insights-track {
+    transition: none;
+  }
+}
+
 /* Authentication theme surfaces intentionally use a restrained dark treatment. */
 [data-theme='dark'] .auth-panel {
   color-scheme: dark;

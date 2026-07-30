@@ -57,11 +57,11 @@ export default function AuthLayout() {
         <img
           src="/assets/auth/laflo-hotel-login-bg-v3.png"
           alt=""
-          className="absolute inset-0 h-full w-full object-cover object-center"
+          className="auth-hotel-visual absolute inset-0 h-full w-full object-cover object-center"
           aria-hidden="true"
         />
         <div
-          className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-[#5eb6a0]/10"
+          className="auth-hotel-light-sweep absolute inset-0"
           aria-hidden="true"
         />
 
