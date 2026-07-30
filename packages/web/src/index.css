@@ -368,3 +368,68 @@
   );
   background-size: 200% 100%;
 }
+
+/* Authentication theme surfaces intentionally use a restrained dark treatment. */
+[data-theme='dark'] .auth-panel {
+  color-scheme: dark;
+}
+
+[data-theme='dark'] .auth-login-heading,
+[data-theme='dark'] .auth-login-label {
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .auth-login-subtitle,
+[data-theme='dark'] .auth-login-muted {
+  color: #cbd5e1;
+}
+
+[data-theme='dark'] .auth-login-input {
+  border-color: #3b5563;
+  background: #142a35;
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .auth-login-input::placeholder {
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .auth-login-input-icon,
+[data-theme='dark'] .auth-login-password-toggle {
+  color: #a8bdc8;
+}
+
+[data-theme='dark'] .auth-login-password-toggle:hover {
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .auth-login-checkbox {
+  border-color: #526d79;
+  background: #142a35;
+}
+
+[data-theme='dark'] .auth-login-link {
+  color: #5eead4;
+}
+
+[data-theme='dark'] .auth-login-link:hover {
+  color: #99f6e4;
+}
+
+[data-theme='dark'] .auth-access-card {
+  border-color: rgb(45 212 191 / 0.25);
+  background: linear-gradient(90deg, #102b33, #14363b);
+}
+
+[data-theme='dark'] .auth-access-card > div > span {
+  background: #16433f;
+  color: #5eead4;
+}
+
+[data-theme='dark'] .auth-access-title {
+  color: #ccfbf1;
+}
+
+[data-theme='dark'] .auth-access-description {
+  color: #b6c8d1;
+}

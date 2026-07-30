@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useNavigate, Link, useOutletContext, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { authService, getApiError } from '@/services';
+import type { AuthLayoutContext } from '@/components/layouts/AuthLayout';
 import toast from 'react-hot-toast';
 import {
   ArrowRightIcon,
@@ -13,7 +14,70 @@ import {
   UserGroupIcon,
 } from '@heroicons/react/24/outline';
 
+const loginCopy = {
+  'en-GB': {
+    welcomeBack: 'Welcome back',
+    subtitle: 'Sign in to your account to continue',
+    emailAddress: 'Email address',
+    emailPlaceholder: 'you@hotel.com',
+    password: 'Password',
+    passwordPlaceholder: 'Enter your password',
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
+    verificationCode: 'Verification code',
+    email: 'Email',
+    phoneSms: 'Phone (SMS)',
+    otpPlaceholder: 'Enter 6-digit code',
+    sending: 'Sending...',
+    resend: 'Resend',
+    sendCode: 'Send code',
+    rememberMe: 'Remember me',
+    deviceTrust: ' (includes device trust for 30 days)',
+    forgotPassword: 'Forgot password?',
+    usePassword: 'Use password',
+    useVerificationCode: 'Use verification code',
+    switchToPassword: 'Switch to password login',
+    switchToCode: 'Switch to email code login',
+    signingIn: 'Signing in...',
+    signIn: 'Sign in',
+    needAccess: 'Need access to LaFlo?',
+    requestDescription: 'Request access and our team will review your request.',
+    requestAccess: 'Request access',
+  },
+  'fr-FR': {
+    welcomeBack: 'Bon retour',
+    subtitle: 'Connectez-vous à votre compte pour continuer',
+    emailAddress: 'Adresse e-mail',
+    emailPlaceholder: 'vous@hotel.com',
+    password: 'Mot de passe',
+    passwordPlaceholder: 'Saisissez votre mot de passe',
+    showPassword: 'Afficher le mot de passe',
+    hidePassword: 'Masquer le mot de passe',
+    verificationCode: 'Code de vérification',
+    email: 'E-mail',
+    phoneSms: 'Téléphone (SMS)',
+    otpPlaceholder: 'Saisissez le code à 6 chiffres',
+    sending: 'Envoi...',
+    resend: 'Renvoyer',
+    sendCode: 'Envoyer le code',
+    rememberMe: 'Se souvenir de moi',
+    deviceTrust: ' (appareil approuvé pendant 30 jours)',
+    forgotPassword: 'Mot de passe oublié ?',
+    usePassword: 'Utiliser le mot de passe',
+    useVerificationCode: 'Utiliser un code de vérification',
+    switchToPassword: 'Passer à la connexion par mot de passe',
+    switchToCode: 'Passer à la connexion par code e-mail',
+    signingIn: 'Connexion...',
+    signIn: 'Se connecter',
+    needAccess: 'Besoin d’un accès à LaFlo ?',
+    requestDescription: 'Demandez un accès et notre équipe examinera votre demande.',
+    requestAccess: 'Demander un accès',
+  },
+} as const;
+
 export default function LoginPage() {
+  const { language, isDark } = useOutletContext<AuthLayoutContext>();
+  const copy = loginCopy[language];
   const [searchParams] = useSearchParams();
   const [email, setEmail] = useState(() => {
     const fromQuery = searchParams.get('email');
@@ -154,7 +218,7 @@ export default function LoginPage() {
   };
 
   return (
-    <main>
+    <main className={`auth-login ${isDark ? 'auth-login--dark' : ''}`} lang={language}>
       {/* Mobile logo */}
       <div className="mb-10 flex items-center gap-3 lg:hidden">
         <img
@@ -165,21 +229,21 @@ export default function LoginPage() {
       </div>
 
       <div>
-        <h1 className="text-[2.5rem] font-extrabold leading-tight tracking-[-0.04em] text-[#07132b] xl:text-[2.8rem]">
-          Welcome back
+        <h1 className="auth-login-heading text-[2.5rem] font-extrabold leading-tight tracking-[-0.04em] text-[#07132b] xl:text-[2.8rem]">
+          {copy.welcomeBack}
         </h1>
-        <p className="mt-2 text-lg font-medium leading-8 text-[#3d4c73] xl:text-xl">
-          Sign in to your account to continue
+        <p className="auth-login-subtitle mt-2 text-lg font-medium leading-8 text-[#3d4c73] xl:text-xl">
+          {copy.subtitle}
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="mt-12 space-y-8" noValidate>
         <div>
-          <label htmlFor="email" className="mb-3 block text-base font-bold text-[#111a35]">
-            Email address <span className="text-red-500">*</span>
+          <label htmlFor="email" className="auth-login-label mb-3 block text-base font-bold text-[#111a35]">
+            {copy.emailAddress} <span className="text-red-500">*</span>
           </label>
           <div className="relative">
-            <EnvelopeIcon className="pointer-events-none absolute left-5 top-1/2 h-7 w-7 -translate-y-1/2 text-[#66769d]" aria-hidden="true" />
+            <EnvelopeIcon className="auth-login-input-icon pointer-events-none absolute left-5 top-1/2 h-7 w-7 -translate-y-1/2 text-[#66769d]" aria-hidden="true" />
             <input
               id="email"
               name="email"
@@ -190,19 +254,19 @@ export default function LoginPage() {
               aria-describedby="email-error"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="h-16 w-full rounded-xl border border-[#c6cfdf] bg-white pl-16 pr-5 text-base font-medium text-[#39476f] shadow-sm outline-none transition placeholder:text-[#5b688c] focus:border-[#0a9f8c] focus:ring-4 focus:ring-[#0a9f8c]/10"
-              placeholder="you@hotel.com"
+              className="auth-login-input h-16 w-full rounded-xl border border-[#c6cfdf] bg-white pl-16 pr-5 text-base font-medium text-[#39476f] shadow-sm outline-none transition placeholder:text-[#5b688c] focus:border-[#0a9f8c] focus:ring-4 focus:ring-[#0a9f8c]/10"
+              placeholder={copy.emailPlaceholder}
             />
           </div>
         </div>
 
         {!otpMode ? (
           <div>
-            <label htmlFor="password" className="mb-3 block text-base font-bold text-[#111a35]">
-              Password <span className="text-red-500">*</span>
+            <label htmlFor="password" className="auth-login-label mb-3 block text-base font-bold text-[#111a35]">
+              {copy.password} <span className="text-red-500">*</span>
             </label>
             <div className="relative">
-              <LockClosedIcon className="pointer-events-none absolute left-5 top-1/2 h-7 w-7 -translate-y-1/2 text-black" aria-hidden="true" />
+              <LockClosedIcon className="auth-login-input-icon pointer-events-none absolute left-5 top-1/2 h-7 w-7 -translate-y-1/2 text-black" aria-hidden="true" />
               <input
                 id="password"
                 name="password"
@@ -214,15 +278,15 @@ export default function LoginPage() {
                 aria-label={`Password${showPassword ? ' (visible)' : ' (hidden)'}`}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="h-16 w-full rounded-xl border border-[#c6cfdf] bg-white pl-16 pr-16 text-base font-medium text-[#111a35] shadow-sm outline-none transition placeholder:text-[#5b688c] focus:border-[#0a9f8c] focus:ring-4 focus:ring-[#0a9f8c]/10"
-                placeholder="Enter your password"
+                className="auth-login-input h-16 w-full rounded-xl border border-[#c6cfdf] bg-white pl-16 pr-16 text-base font-medium text-[#111a35] shadow-sm outline-none transition placeholder:text-[#5b688c] focus:border-[#0a9f8c] focus:ring-4 focus:ring-[#0a9f8c]/10"
+                placeholder={copy.passwordPlaceholder}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 aria-pressed={showPassword}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-                className="absolute right-5 top-1/2 -translate-y-1/2 rounded p-1 text-[#65749a] transition hover:text-[#273252] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c]"
+                aria-label={showPassword ? copy.hidePassword : copy.showPassword}
+                className="auth-login-password-toggle absolute right-5 top-1/2 -translate-y-1/2 rounded p-1 text-[#65749a] transition hover:text-[#273252] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c]"
               >
                 {showPassword ? (
                   <EyeSlashIcon className="h-7 w-7" aria-hidden="true" />
@@ -234,8 +298,8 @@ export default function LoginPage() {
           </div>
         ) : (
           <div>
-            <label htmlFor="otp-code" className="mb-3 block text-[1.12rem] font-bold text-[#111a35]">
-              Verification code <span className="text-red-500">*</span>
+            <label htmlFor="otp-code" className="auth-login-label mb-3 block text-[1.12rem] font-bold text-[#111a35]">
+              {copy.verificationCode} <span className="text-red-500">*</span>
             </label>
             <div className="mb-2 grid grid-cols-2 gap-2">
               <button
@@ -243,21 +307,21 @@ export default function LoginPage() {
                 onClick={() => setOtpChannel('EMAIL')}
                 className={`rounded-lg border px-3 py-2 text-sm font-medium ${otpChannel === 'EMAIL' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-slate-200 text-slate-600'}`}
               >
-                Email
+                {copy.email}
               </button>
               <button
                 type="button"
                 onClick={() => setOtpChannel('SMS')}
                 className={`rounded-lg border px-3 py-2 text-sm font-medium ${otpChannel === 'SMS' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-slate-200 text-slate-600'}`}
               >
-                Phone (SMS)
+                {copy.phoneSms}
               </button>
             </div>
             {otpChannel === 'SMS' && (
               <input
                 value={otpPhone}
                 onChange={(e) => setOtpPhone(e.target.value)}
-                className="input mb-2"
+                className="auth-login-input input mb-2"
                 placeholder="+1 555 123 4567"
               />
             )}
@@ -270,8 +334,8 @@ export default function LoginPage() {
                 aria-required="true"
                 aria-describedby="otp-error"
                 maxLength={6}
-                className="h-[58px] w-full rounded-xl border border-[#c6cfdf] bg-white px-5 text-[1.08rem] font-medium text-[#111a35] shadow-sm outline-none transition placeholder:text-[#5b688c] focus:border-[#0a9f8c] focus:ring-4 focus:ring-[#0a9f8c]/10"
-                placeholder="Enter 6-digit code"
+                className="auth-login-input h-[58px] w-full rounded-xl border border-[#c6cfdf] bg-white px-5 text-[1.08rem] font-medium text-[#111a35] shadow-sm outline-none transition placeholder:text-[#5b688c] focus:border-[#0a9f8c] focus:ring-4 focus:ring-[#0a9f8c]/10"
+                placeholder={copy.otpPlaceholder}
                 type="text"
                 inputMode="numeric"
               />
@@ -282,7 +346,7 @@ export default function LoginPage() {
                 disabled={isSendingOtp}
                 aria-busy={isSendingOtp}
               >
-                {isSendingOtp ? 'Sending...' : otpSent ? 'Resend' : 'Send code'}
+                {isSendingOtp ? copy.sending : otpSent ? copy.resend : copy.sendCode}
               </button>
             </div>
           </div>
@@ -297,16 +361,16 @@ export default function LoginPage() {
               onChange={(e) => setRememberMe(e.target.checked)}
               className="peer sr-only"
             />
-            <span className="flex h-6 w-6 items-center justify-center rounded-md border border-[#cbd5e1] bg-white text-white shadow-sm peer-checked:border-[#0aa391] peer-checked:bg-[#0aa391]">
+            <span className="auth-login-checkbox flex h-6 w-6 items-center justify-center rounded-md border border-[#cbd5e1] bg-white text-white shadow-sm peer-checked:border-[#0aa391] peer-checked:bg-[#0aa391]">
               <CheckIcon className="h-5 w-5 stroke-[3]" aria-hidden="true" />
             </span>
-            <span className="whitespace-nowrap text-base font-medium text-[#334163]">
-              Remember me
-              {otpMode && otpPurpose === 'ACCESS_REVALIDATION' ? ' (includes device trust for 30 days)' : ''}
+            <span className="auth-login-muted whitespace-nowrap text-base font-medium text-[#334163]">
+              {copy.rememberMe}
+              {otpMode && otpPurpose === 'ACCESS_REVALIDATION' ? copy.deviceTrust : ''}
             </span>
           </label>
-          <Link to={`/reset-password${email ? `?email=${encodeURIComponent(email.trim().toLowerCase())}` : ''}`} className="justify-self-start whitespace-nowrap rounded px-1 text-center text-base font-semibold text-[#087b70] hover:text-[#056158] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c] sm:justify-self-center">
-            Forgot password?
+          <Link to={`/reset-password${email ? `?email=${encodeURIComponent(email.trim().toLowerCase())}` : ''}`} className="auth-login-link justify-self-start whitespace-nowrap rounded px-1 text-center text-base font-semibold text-[#087b70] hover:text-[#056158] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c] sm:justify-self-center">
+            {copy.forgotPassword}
           </Link>
           <button
               type="button"
@@ -317,10 +381,10 @@ export default function LoginPage() {
                 setOtpCode('');
                 setOtpSent(false);
               }}
-              className="justify-self-start whitespace-nowrap rounded px-1 text-base font-medium text-[#087b70] hover:text-[#0f1a35] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c] sm:justify-self-end"
-              aria-label={otpMode ? 'Switch to password login' : 'Switch to email code login'}
+              className="auth-login-link justify-self-start whitespace-nowrap rounded px-1 text-base font-medium text-[#087b70] hover:text-[#0f1a35] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c] sm:justify-self-end"
+              aria-label={otpMode ? copy.switchToPassword : copy.switchToCode}
             >
-              {otpMode ? 'Use password' : 'Use verification code'}
+              {otpMode ? copy.usePassword : copy.useVerificationCode}
           </button>
         </div>
 
@@ -350,32 +414,32 @@ export default function LoginPage() {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 />
               </svg>
-              Signing in...
+              {copy.signingIn}
             </>
           ) : (
             <>
-              <span>Sign in</span>
+              <span>{copy.signIn}</span>
               <ArrowRightIcon className="absolute right-5 h-6 w-6 transition group-hover:translate-x-1" aria-hidden="true" />
             </>
           )}
         </button>
       </form>
 
-      <div className="mt-10 rounded-2xl border border-emerald-100/80 bg-gradient-to-r from-[#f1faf7] to-[#e8f6f2] p-5">
+      <div className="auth-access-card mt-10 rounded-2xl border border-emerald-100/80 bg-gradient-to-r from-[#f1faf7] to-[#e8f6f2] p-5">
         <div className="flex items-start gap-4">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#dff3ec] text-[#079887]">
             <UserGroupIcon className="h-7 w-7" aria-hidden="true" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="font-bold text-[#064f4a]">Need access to LaFlo?</p>
-            <p className="mt-1 text-sm leading-6 text-[#536482]">
-              Request access and our team will review your request.
+            <p className="auth-access-title font-bold text-[#064f4a]">{copy.needAccess}</p>
+            <p className="auth-access-description mt-1 text-sm leading-6 text-[#536482]">
+              {copy.requestDescription}
             </p>
             <Link
               to="/request-access"
               className="mt-3 flex items-center justify-end gap-3 rounded px-1 font-bold text-[#078b7c] focus:outline-none focus:ring-2 focus:ring-[#0a9f8c]"
             >
-              Request access
+              {copy.requestAccess}
               <ArrowRightIcon className="h-5 w-5" aria-hidden="true" />
             </Link>
           </div>
