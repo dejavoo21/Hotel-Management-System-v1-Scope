@@ -1,36 +1,10 @@
 import { Outlet } from 'react-router-dom';
 import {
-  ArrowRightOnRectangleIcon,
-  ChatBubbleLeftRightIcon,
-  CheckCircleIcon,
   ChevronDownIcon,
   GlobeAltIcon,
   MoonIcon,
 } from '@heroicons/react/24/outline';
-
-const operationCards = [
-  {
-    label: 'Room readiness',
-    value: '31',
-    detail: 'Ready for arrival',
-    icon: CheckCircleIcon,
-    tone: 'bg-emerald-100/90 text-emerald-700',
-  },
-  {
-    label: 'Check-ins today',
-    value: '18',
-    detail: '12 completed',
-    icon: ArrowRightOnRectangleIcon,
-    tone: 'bg-sky-100/90 text-sky-700',
-  },
-  {
-    label: 'Guest requests',
-    value: '6',
-    detail: '2 high priority',
-    icon: ChatBubbleLeftRightIcon,
-    tone: 'bg-teal-100/90 text-teal-700',
-  },
-];
+import AuthInsightsCarousel from '@/components/auth/AuthInsightsCarousel';
 
 export default function AuthLayout() {
   return (
@@ -72,24 +46,12 @@ export default function AuthLayout() {
             </p>
           </div>
 
-          <div className="mt-auto grid grid-cols-3 gap-3 pt-8 xl:gap-4" aria-label="Hotel operations preview">
-            {operationCards.map(({ label, value, detail, icon: Icon, tone }) => (
-              <article
-                key={label}
-                className="rounded-2xl border border-white/75 bg-white/70 p-4 shadow-[0_16px_36px_rgba(12,91,72,0.10)] backdrop-blur-md xl:p-5"
-              >
-                <div className="flex items-center gap-3">
-                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tone}`}>
-                    <Icon className="h-5 w-5" aria-hidden="true" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-[#3b4b6d]">{label}</p>
-                    <p className="mt-0.5 text-2xl font-bold leading-none text-[#07132b]">{value}</p>
-                    <p className="mt-1 truncate text-xs text-[#536482]">{detail}</p>
-                  </div>
-                </div>
-              </article>
-            ))}
+          <div className="mt-auto pt-8">
+            <AuthInsightsCarousel />
+            <div className="mt-3 flex items-center justify-between gap-4 px-1 text-[0.7rem] font-medium text-[#294b58]/80">
+              <p>© {new Date().getFullYear()} LaFlo. All rights reserved.</p>
+              <p>Hotel operations preview</p>
+            </div>
           </div>
         </div>
       </aside>
