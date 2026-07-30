@@ -320,7 +320,7 @@ export default function DashboardCommandCenter() {
               {canViewFinancials ? <Surface testId="revenue-panel">
                 <PanelHeader title="Revenue" subtitle={revenueTrendQuery.data ? 'Live six-month completed-payment trend' : 'Revenue trend unavailable'} action="Financial reports" onAction={() => navigate('/reports')} />
                 <div className="h-56 px-2 pb-3">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 500, height: 224 }}>
                     <AreaChart data={revenueTrendQuery.data ?? []} margin={{ top: 8, right: 10, left: -12, bottom: 0 }}>
                       <defs><linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#49b63f" stopOpacity={0.24} /><stop offset="100%" stopColor="#49b63f" stopOpacity={0.02} /></linearGradient></defs>
                       <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
@@ -376,7 +376,7 @@ export default function DashboardCommandCenter() {
                 <PanelHeader title="Booking by platform" subtitle={bookingMixQuery.data ? 'Live month-to-date distribution' : 'Channel distribution unavailable'} />
                 {bookingSources.length ? <><div className="grid items-center gap-2 px-3 pb-3 sm:grid-cols-[180px_1fr]">
                   <div className="h-44">
-                    <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                    <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 180, height: 176 }}>
                       <PieChart><Pie data={bookingSources} dataKey="value" nameKey="name" innerRadius={44} outerRadius={68} paddingAngle={1}>{bookingSources.map((source) => <Cell key={source.name} fill={source.color} />)}</Pie><Tooltip formatter={(value) => `${value}%`} /></PieChart>
                     </ResponsiveContainer>
                   </div>
