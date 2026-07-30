@@ -9,6 +9,7 @@ import {
   ChevronRightIcon,
   WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline';
+import type { AuthLanguage } from '@/components/layouts/AuthLayout';
 
 export const authInsights = [
   {
@@ -70,28 +71,98 @@ export const authInsights = [
   },
 ];
 
+const frenchAuthInsights: typeof authInsights = [
+  {
+    group: "Flux d'aujourd'hui",
+    cards: [
+      {
+        label: 'Réservations',
+        value: "18 aujourd'hui",
+        detail: 'Flux hôtelier prévu',
+        icon: CalendarDaysIcon,
+        tone: 'bg-teal-100/90 text-teal-700',
+      },
+      {
+        label: 'Arrivées',
+        value: "12 aujourd'hui",
+        detail: 'Arrivées programmées',
+        icon: ArrowRightOnRectangleIcon,
+        tone: 'bg-sky-100/90 text-sky-700',
+      },
+    ],
+  },
+  {
+    group: 'Départs',
+    cards: [
+      {
+        label: 'Départs',
+        value: "8 aujourd'hui",
+        detail: 'Départs programmés',
+        icon: ArrowLeftOnRectangleIcon,
+        tone: 'bg-cyan-100/90 text-cyan-700',
+      },
+      {
+        label: 'Chambres prêtes',
+        value: '86 %',
+        detail: '154 / 179 chambres',
+        icon: CheckCircleIcon,
+        tone: 'bg-emerald-100/90 text-emerald-700',
+      },
+    ],
+  },
+  {
+    group: 'Attention requise',
+    cards: [
+      {
+        label: 'Demandes clients',
+        value: '12 ouvertes',
+        detail: '↑ 3 depuis hier',
+        icon: ChatBubbleLeftRightIcon,
+        tone: 'bg-teal-100/90 text-teal-700',
+      },
+      {
+        label: 'Alertes maintenance',
+        value: '7 ouvertes',
+        detail: '↑ 2 depuis hier',
+        icon: WrenchScrewdriverIcon,
+        tone: 'bg-amber-100/90 text-amber-700',
+      },
+    ],
+  },
+];
+
+const authInsightsByLanguage: Record<AuthLanguage, typeof authInsights> = {
+  'en-GB': authInsights,
+  'fr-FR': frenchAuthInsights,
+};
+
 const ROTATION_INTERVAL_MS = 5000;
 
-export default function AuthInsightsCarousel() {
+interface AuthInsightsCarouselProps {
+  language?: AuthLanguage;
+}
+
+export default function AuthInsightsCarousel({ language = 'en-GB' }: AuthInsightsCarouselProps) {
   const [activeSlide, setActiveSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const insights = authInsightsByLanguage[language];
 
   useEffect(() => {
     if (isPaused) return undefined;
 
     const interval = window.setInterval(() => {
-      setActiveSlide((current) => (current + 1) % authInsights.length);
+      setActiveSlide((current) => (current + 1) % insights.length);
     }, ROTATION_INTERVAL_MS);
 
     return () => window.clearInterval(interval);
-  }, [isPaused]);
+  }, [insights.length, isPaused]);
 
   const showPrevious = () => {
-    setActiveSlide((current) => (current - 1 + authInsights.length) % authInsights.length);
+    setActiveSlide((current) => (current - 1 + insights.length) % insights.length);
   };
 
   const showNext = () => {
-    setActiveSlide((current) => (current + 1) % authInsights.length);
+    setActiveSlide((current) => (current + 1) % insights.length);
   };
 
   return (
@@ -105,7 +176,7 @@ export default function AuthInsightsCarousel() {
     >
       <div className="mb-1.5 flex items-center justify-between gap-3 px-1">
         <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[#294b58]">
-          {authInsights[activeSlide].group}
+          {insights[activeSlide].group}
         </p>
         <div className="flex items-center gap-1">
           <button
@@ -132,7 +203,7 @@ export default function AuthInsightsCarousel() {
           className="auth-insights-track flex"
           style={{ transform: `translate3d(-${activeSlide * 100}%, 0, 0)` }}
         >
-          {authInsights.map((slide, index) => (
+          {insights.map((slide, index) => (
             <div
               key={slide.group}
               className={`w-full shrink-0 transition-opacity duration-700 ease-in-out motion-reduce:transition-none ${
@@ -164,7 +235,7 @@ export default function AuthInsightsCarousel() {
       </div>
 
       <div className="mt-1.5 flex items-center justify-center gap-1.5">
-        {authInsights.map((slide, index) => (
+        {insights.map((slide, index) => (
           <button
             key={slide.group}
             type="button"
