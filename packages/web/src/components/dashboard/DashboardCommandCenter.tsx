@@ -311,7 +311,7 @@ export default function DashboardCommandCenter() {
         </div>
 
         <div className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_clamp(300px,18vw,340px)] 2xl:gap-4">
-          <div className="min-w-0 space-y-3">
+          <div className="flex min-w-0 flex-col gap-3">
             <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))]">
               <Surface testId="room-readiness-panel">
                 <PanelHeader title="Room readiness" subtitle="Live room availability and operational blockers" action={canViewHousekeeping ? 'Open housekeeping' : undefined} onAction={canViewHousekeeping ? () => navigate('/housekeeping') : undefined} />
@@ -403,8 +403,8 @@ export default function DashboardCommandCenter() {
               </Surface> : null}
             </div>
 
-            {canViewBookings ? <div className="grid items-start gap-3 xl:grid-cols-[minmax(320px,.55fr)_minmax(0,1.95fr)]">
-              <Surface testId="booking-platform-panel">
+            {canViewBookings ? <div className="grid flex-1 items-stretch gap-3 xl:grid-cols-[minmax(320px,.55fr)_minmax(0,1.95fr)]">
+              <Surface testId="booking-platform-panel" className="flex min-h-[280px] flex-col">
                 <PanelHeader
                   title="Booking by platform"
                   subtitle={hasMonthBookingMix
@@ -415,7 +415,7 @@ export default function DashboardCommandCenter() {
                         ? 'Loading booking distribution'
                         : 'No live booking source data'}
                 />
-                {bookingSources.length ? <><div className="grid items-center gap-2 px-3 pb-3 sm:grid-cols-[180px_1fr]">
+                {bookingSources.length ? <><div className="grid flex-1 items-center gap-2 px-3 pb-3 sm:grid-cols-[180px_1fr]">
                   <div className="h-44">
                     <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 180, height: 176 }}>
                       <PieChart><Pie data={bookingSources} dataKey="value" nameKey="name" innerRadius={44} outerRadius={68} paddingAngle={1}>{bookingSources.map((source) => <Cell key={source.name} fill={source.color} />)}</Pie><Tooltip formatter={(value) => `${value}%`} /></PieChart>
@@ -423,10 +423,10 @@ export default function DashboardCommandCenter() {
                   </div>
                   <div className="space-y-1.5">{bookingSources.map((source) => <div key={source.name} className="flex items-center justify-between gap-2 text-[9px]"><span className="flex items-center gap-2 text-slate-600"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: source.color }} />{source.name}</span><strong>{source.value}%</strong></div>)}</div>
                 </div>
-                <div className="grid grid-cols-2 gap-1.5 border-t border-slate-100 p-3 text-[9px]"><div className="rounded-lg bg-emerald-50 p-2"><span className="text-slate-500">Top channel</span><strong className="mt-1 block text-slate-900">{bookingSources[0].name}</strong></div><div className="rounded-lg bg-sky-50 p-2"><span className="text-slate-500">{hasMonthBookingMix ? 'Bookings this month' : 'Recent bookings'}</span><strong className="mt-1 block text-slate-900">{bookingSources.reduce((total, source) => total + source.count, 0)}</strong></div></div></> : <EmptyState label="No live booking source data is available." />}
+                <div className="grid grid-cols-2 gap-1.5 border-t border-slate-100 p-3 text-[9px]"><div className="rounded-lg bg-emerald-50 p-2"><span className="text-slate-500">Top channel</span><strong className="mt-1 block text-slate-900">{bookingSources[0].name}</strong></div><div className="rounded-lg bg-sky-50 p-2"><span className="text-slate-500">{hasMonthBookingMix ? 'Bookings this month' : 'Recent bookings'}</span><strong className="mt-1 block text-slate-900">{bookingSources.reduce((total, source) => total + source.count, 0)}</strong></div></div></> : <div className="flex flex-1 items-center justify-center"><EmptyState label="No live booking source data is available." /></div>}
               </Surface>
 
-              <Surface testId="booking-list-panel" className="min-w-0 overflow-hidden">
+              <Surface testId="booking-list-panel" className="flex min-h-[280px] min-w-0 flex-col overflow-hidden">
                 <div className="grid gap-3 px-4 pb-3 pt-4 lg:grid-cols-[minmax(130px,1fr)_auto] lg:items-center">
                   <div className="min-w-0"><h2 className="text-sm font-bold text-slate-950">Booking list</h2><p className="text-[10px] text-slate-500">{recentBookingsQuery.data ? 'Live recent booking records' : recentBookingsQuery.isLoading ? 'Loading booking records' : 'Booking records unavailable'}</p></div>
                   <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(160px,1fr)_minmax(120px,auto)_minmax(84px,auto)]">
@@ -435,7 +435,7 @@ export default function DashboardCommandCenter() {
                     <select value={bookingStatus} onChange={(event) => { setBookingStatus(event.target.value); setBookingPage(1); }} className="h-8 min-w-0 rounded-lg border border-slate-200 px-2 text-[10px]" aria-label="Booking status filter"><option>All</option>{Array.from(new Set(liveBookingRows.map((booking) => booking.status))).map((status) => <option key={status}>{status}</option>)}</select>
                   </div>
                 </div>
-                <div className="overflow-hidden" role="region" aria-label="Booking list table">
+                <div className="flex flex-1 flex-col overflow-hidden" role="region" aria-label="Booking list table">
                   <table className="w-full table-fixed text-left text-[9px]">
                     <colgroup>
                       <col className="w-[9%]" />
@@ -453,7 +453,7 @@ export default function DashboardCommandCenter() {
                     <thead className="border-y border-slate-100 bg-slate-50 text-slate-500"><tr>{['Booking ID', 'Guest name', 'Room', 'Room type', 'Check-in', 'Check-out', 'Nights', 'Total', 'Status', 'Source', ''].map((label) => <th key={label} className="truncate px-2 py-2 font-semibold">{label}</th>)}</tr></thead>
                     <tbody className="divide-y divide-slate-100">{bookingRows.map((booking) => <tr key={booking.id} className="hover:bg-slate-50"><td className="truncate px-2 py-2 font-bold text-slate-800" title={booking.id}>{booking.id}</td><td className="truncate px-2 py-2" title={booking.guest}>{booking.guest}</td><td className="truncate px-2 py-2" title={booking.room}>{booking.room}</td><td className="truncate px-2 py-2" title={booking.roomType}>{booking.roomType}</td><td className="truncate px-2 py-2" title={booking.checkIn}>{booking.checkIn}</td><td className="truncate px-2 py-2" title={booking.checkOut}>{booking.checkOut}</td><td className="truncate px-2 py-2">{booking.nights}</td><td className="truncate px-2 py-2" title={booking.total ? `$${booking.total.toLocaleString()}` : '—'}>{booking.total ? `$${booking.total.toLocaleString()}` : '—'}</td><td className="px-2 py-2"><span className={`block truncate rounded-full px-2 py-1 text-center font-semibold ${statusClass(booking.status)}`} title={booking.status}>{booking.status}</span></td><td className="truncate px-2 py-2" title={booking.source}>{booking.source}</td><td className="px-1 py-2 text-center"><button type="button" onClick={() => navigate(`/bookings/${encodeURIComponent(booking.recordId || booking.id)}`)} aria-label={`Open booking ${booking.id}`} className="rounded p-1 text-slate-500 hover:bg-slate-100"><ChevronRightIcon className="h-3.5 w-3.5" /></button></td></tr>)}</tbody>
                   </table>
-                  {!bookingRows.length ? <EmptyState label={recentBookingsQuery.isLoading ? 'Loading booking records…' : recentBookings.length ? 'No bookings match the selected filters.' : 'No live booking records are available.'} /> : null}
+                  {!bookingRows.length ? <div className="flex flex-1 items-center justify-center"><EmptyState label={recentBookingsQuery.isLoading ? 'Loading booking records…' : recentBookings.length ? 'No bookings match the selected filters.' : 'No live booking records are available.'} /></div> : null}
                 </div>
                 <div className="flex items-center justify-between border-t border-slate-100 px-4 py-2 text-[9px] text-slate-500"><span>Showing {bookingRows.length} of {filteredBookings.length}</span><div className="flex items-center gap-1"><button type="button" disabled={bookingPage === 1} onClick={() => setBookingPage((page) => Math.max(1, page - 1))} className="rounded border border-slate-200 px-2 py-1 disabled:opacity-40">Previous</button><span className="px-2">{bookingPage}/{pageCount}</span><button type="button" disabled={bookingPage === pageCount} onClick={() => setBookingPage((page) => Math.min(pageCount, page + 1))} className="rounded border border-slate-200 px-2 py-1 disabled:opacity-40">Next</button></div></div>
               </Surface>
