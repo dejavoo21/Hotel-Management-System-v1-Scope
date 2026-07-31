@@ -30,6 +30,7 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import { getExplicitPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
 import dashboardService from '@/services/dashboard';
+import bookingService from '@/services/bookings';
 import maintenanceCenterService from '@/services/maintenanceCenter';
 import incidentService from '@/services/incidents';
 import securityCenterService from '@/services/securityCenter';
@@ -145,11 +146,16 @@ export default function DashboardCommandCenter() {
   const can = (permission: PermissionId) => admin || permissions.includes(permission);
 
   const summaryQuery = useQuery({ queryKey: ['dashboard', 'summary'], queryFn: dashboardService.getSummary, retry: false });
-  const arrivalsQuery = useQuery({ queryKey: ['dashboard', 'arrivals'], queryFn: dashboardService.getArrivals, enabled: can('bookings'), retry: false });
   const departuresQuery = useQuery({ queryKey: ['dashboard', 'departures'], queryFn: dashboardService.getDepartures, enabled: can('bookings'), retry: false });
   const alertsQuery = useQuery({ queryKey: ['dashboard', 'alerts'], queryFn: dashboardService.getAlerts, retry: false });
   const revenueTrendQuery = useQuery({ queryKey: ['dashboard', 'revenue-trend'], queryFn: dashboardService.getRevenueTrend, enabled: can('financials'), retry: false });
   const bookingMixQuery = useQuery({ queryKey: ['dashboard', 'booking-mix'], queryFn: dashboardService.getBookingMix, enabled: can('bookings'), retry: false });
+  const recentBookingsQuery = useQuery({
+    queryKey: ['dashboard', 'recent-bookings'],
+    queryFn: () => bookingService.getBookings({ page: 1, limit: 50 }),
+    enabled: can('bookings'),
+    retry: false,
+  });
   const housekeepingQuery = useQuery({ queryKey: ['dashboard', 'housekeeping'], queryFn: dashboardService.getHousekeepingSummary, enabled: can('housekeeping') || can('rooms'), retry: false });
   const maintenanceQuery = useQuery({ queryKey: ['dashboard', 'maintenance'], queryFn: maintenanceCenterService.getOverview, enabled: can('maintenance_center'), retry: false });
   const incidentQuery = useQuery({ queryKey: ['dashboard', 'incidents'], queryFn: incidentService.overview, enabled: can('incident_management'), retry: false });
@@ -210,31 +216,57 @@ export default function DashboardCommandCenter() {
   const todayRevenue = Number(summary.todayRevenue ?? 0);
   const adr = summary.todayArrivals ? Math.round(todayRevenue / Math.max(1, summary.todayArrivals)) : 0;
 
-  const liveBookingRows = useMemo<BookingRow[]>(() => {
-    if (!arrivalsQuery.data) return [];
-    return arrivalsQuery.data.map((arrival) => ({
-      id: arrival.bookingRef,
-      recordId: arrival.id,
-      guest: arrival.guestName,
-      room: arrival.roomNumber || 'TBA',
-      roomType: arrival.roomType,
-      checkIn: arrival.time,
-      checkOut: 'See booking',
-      nights: 1,
-      total: 0,
-      status: arrival.status,
-      source: 'Property',
-    }));
-  }, [arrivalsQuery.data]);
+  const recentBookings = useMemo(
+    () => recentBookingsQuery.data?.data ?? [],
+    [recentBookingsQuery.data]
+  );
+  const liveBookingRows = useMemo<BookingRow[]>(() => recentBookings.map((booking) => {
+    const checkIn = new Date(booking.checkInDate);
+    const checkOut = new Date(booking.checkOutDate);
+    const nights = Math.max(1, Math.ceil((checkOut.getTime() - checkIn.getTime()) / 86_400_000));
+    const formatDate = (date: Date) => new Intl.DateTimeFormat(undefined, {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }).format(date);
+    const formatLabel = (value: string) => value
+      .replaceAll('_', ' ')
+      .toLowerCase()
+      .replace(/\b\w/g, (character) => character.toUpperCase());
+
+    return {
+      id: booking.bookingRef,
+      recordId: booking.id,
+      guest: `${booking.guest.firstName} ${booking.guest.lastName}`,
+      room: booking.room?.number || 'TBA',
+      roomType: booking.room?.roomType?.name || 'Not assigned',
+      checkIn: formatDate(checkIn),
+      checkOut: formatDate(checkOut),
+      nights,
+      total: Number(booking.totalAmount),
+      status: formatLabel(booking.status),
+      source: formatLabel(booking.source),
+    };
+  }), [recentBookings]);
+  const hasMonthBookingMix = Boolean(bookingMixQuery.data?.length);
   const bookingSources = useMemo(() => {
     const palette = ['#2fbf9f', '#75d8ca', '#9db9f5', '#f8cf69', '#f39a96', '#cbd5e1'];
-    return (bookingMixQuery.data ?? []).map((item, index) => ({
+    const monthlyMix = bookingMixQuery.data ?? [];
+    const fallbackMix = Array.from(recentBookings.reduce((counts, booking) => {
+      counts.set(booking.source, (counts.get(booking.source) ?? 0) + 1);
+      return counts;
+    }, new Map<string, number>())).map(([source, count]) => ({
+      source,
+      count,
+      percentage: recentBookings.length ? Math.round((count / recentBookings.length) * 100) : 0,
+    }));
+    return (monthlyMix.length ? monthlyMix : fallbackMix).map((item, index) => ({
       name: item.source.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase()),
       value: item.percentage,
       count: item.count,
       color: palette[index % palette.length],
     }));
-  }, [bookingMixQuery.data]);
+  }, [bookingMixQuery.data, recentBookings]);
   const filteredBookings = liveBookingRows.filter((booking) => {
     const query = bookingSearch.trim().toLowerCase();
     const matchesSearch = !query || `${booking.id} ${booking.guest} ${booking.room}`.toLowerCase().includes(query);
@@ -373,7 +405,16 @@ export default function DashboardCommandCenter() {
 
             {canViewBookings ? <div className="grid items-start gap-3 xl:grid-cols-[minmax(320px,.55fr)_minmax(0,1.95fr)]">
               <Surface testId="booking-platform-panel">
-                <PanelHeader title="Booking by platform" subtitle={bookingMixQuery.data ? 'Live month-to-date distribution' : 'Channel distribution unavailable'} />
+                <PanelHeader
+                  title="Booking by platform"
+                  subtitle={hasMonthBookingMix
+                    ? 'Live month-to-date distribution'
+                    : bookingSources.length
+                      ? 'Recent live booking distribution'
+                      : bookingMixQuery.isLoading || recentBookingsQuery.isLoading
+                        ? 'Loading booking distribution'
+                        : 'No live booking source data'}
+                />
                 {bookingSources.length ? <><div className="grid items-center gap-2 px-3 pb-3 sm:grid-cols-[180px_1fr]">
                   <div className="h-44">
                     <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 180, height: 176 }}>
@@ -382,12 +423,12 @@ export default function DashboardCommandCenter() {
                   </div>
                   <div className="space-y-1.5">{bookingSources.map((source) => <div key={source.name} className="flex items-center justify-between gap-2 text-[9px]"><span className="flex items-center gap-2 text-slate-600"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: source.color }} />{source.name}</span><strong>{source.value}%</strong></div>)}</div>
                 </div>
-                <div className="grid grid-cols-2 gap-1.5 border-t border-slate-100 p-3 text-[9px]"><div className="rounded-lg bg-emerald-50 p-2"><span className="text-slate-500">Top channel</span><strong className="mt-1 block text-slate-900">{bookingSources[0].name}</strong></div><div className="rounded-lg bg-sky-50 p-2"><span className="text-slate-500">Bookings this month</span><strong className="mt-1 block text-slate-900">{bookingSources.reduce((total, source) => total + source.count, 0)}</strong></div></div></> : <EmptyState label="No month-to-date booking source data is available." />}
+                <div className="grid grid-cols-2 gap-1.5 border-t border-slate-100 p-3 text-[9px]"><div className="rounded-lg bg-emerald-50 p-2"><span className="text-slate-500">Top channel</span><strong className="mt-1 block text-slate-900">{bookingSources[0].name}</strong></div><div className="rounded-lg bg-sky-50 p-2"><span className="text-slate-500">{hasMonthBookingMix ? 'Bookings this month' : 'Recent bookings'}</span><strong className="mt-1 block text-slate-900">{bookingSources.reduce((total, source) => total + source.count, 0)}</strong></div></div></> : <EmptyState label="No live booking source data is available." />}
               </Surface>
 
               <Surface testId="booking-list-panel" className="min-w-0 overflow-hidden">
                 <div className="grid gap-3 px-4 pb-3 pt-4 lg:grid-cols-[minmax(130px,1fr)_auto] lg:items-center">
-                  <div className="min-w-0"><h2 className="text-sm font-bold text-slate-950">Booking list</h2><p className="text-[10px] text-slate-500">{arrivalsQuery.data ? 'Live arrival records' : arrivalsQuery.isLoading ? 'Loading arrival records' : 'Arrival records unavailable'}</p></div>
+                  <div className="min-w-0"><h2 className="text-sm font-bold text-slate-950">Booking list</h2><p className="text-[10px] text-slate-500">{recentBookingsQuery.data ? 'Live recent booking records' : recentBookingsQuery.isLoading ? 'Loading booking records' : 'Booking records unavailable'}</p></div>
                   <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(160px,1fr)_minmax(120px,auto)_minmax(84px,auto)]">
                     <input value={bookingSearch} onChange={(event) => { setBookingSearch(event.target.value); setBookingPage(1); }} className="h-8 w-full min-w-0 rounded-lg border border-slate-200 px-2.5 text-[10px]" placeholder="Search bookings…" aria-label="Search bookings" />
                     <select className="h-8 min-w-0 rounded-lg border border-slate-200 px-2 text-[10px]" aria-label="Property filter"><option>All properties</option></select>
@@ -412,7 +453,7 @@ export default function DashboardCommandCenter() {
                     <thead className="border-y border-slate-100 bg-slate-50 text-slate-500"><tr>{['Booking ID', 'Guest name', 'Room', 'Room type', 'Check-in', 'Check-out', 'Nights', 'Total', 'Status', 'Source', ''].map((label) => <th key={label} className="truncate px-2 py-2 font-semibold">{label}</th>)}</tr></thead>
                     <tbody className="divide-y divide-slate-100">{bookingRows.map((booking) => <tr key={booking.id} className="hover:bg-slate-50"><td className="truncate px-2 py-2 font-bold text-slate-800" title={booking.id}>{booking.id}</td><td className="truncate px-2 py-2" title={booking.guest}>{booking.guest}</td><td className="truncate px-2 py-2" title={booking.room}>{booking.room}</td><td className="truncate px-2 py-2" title={booking.roomType}>{booking.roomType}</td><td className="truncate px-2 py-2" title={booking.checkIn}>{booking.checkIn}</td><td className="truncate px-2 py-2" title={booking.checkOut}>{booking.checkOut}</td><td className="truncate px-2 py-2">{booking.nights}</td><td className="truncate px-2 py-2" title={booking.total ? `$${booking.total.toLocaleString()}` : '—'}>{booking.total ? `$${booking.total.toLocaleString()}` : '—'}</td><td className="px-2 py-2"><span className={`block truncate rounded-full px-2 py-1 text-center font-semibold ${statusClass(booking.status)}`} title={booking.status}>{booking.status}</span></td><td className="truncate px-2 py-2" title={booking.source}>{booking.source}</td><td className="px-1 py-2 text-center"><button type="button" onClick={() => navigate(`/bookings/${encodeURIComponent(booking.recordId || booking.id)}`)} aria-label={`Open booking ${booking.id}`} className="rounded p-1 text-slate-500 hover:bg-slate-100"><ChevronRightIcon className="h-3.5 w-3.5" /></button></td></tr>)}</tbody>
                   </table>
-                  {!bookingRows.length ? <EmptyState label="No bookings match the selected filters." /> : null}
+                  {!bookingRows.length ? <EmptyState label={recentBookingsQuery.isLoading ? 'Loading booking records…' : recentBookings.length ? 'No bookings match the selected filters.' : 'No live booking records are available.'} /> : null}
                 </div>
                 <div className="flex items-center justify-between border-t border-slate-100 px-4 py-2 text-[9px] text-slate-500"><span>Showing {bookingRows.length} of {filteredBookings.length}</span><div className="flex items-center gap-1"><button type="button" disabled={bookingPage === 1} onClick={() => setBookingPage((page) => Math.max(1, page - 1))} className="rounded border border-slate-200 px-2 py-1 disabled:opacity-40">Previous</button><span className="px-2">{bookingPage}/{pageCount}</span><button type="button" disabled={bookingPage === pageCount} onClick={() => setBookingPage((page) => Math.min(pageCount, page + 1))} className="rounded border border-slate-200 px-2 py-1 disabled:opacity-40">Next</button></div></div>
               </Surface>
