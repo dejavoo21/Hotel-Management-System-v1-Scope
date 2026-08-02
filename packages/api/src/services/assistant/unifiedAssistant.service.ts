@@ -67,13 +67,163 @@ function sanitizeApplicationContext(context: Record<string, unknown> | null) {
   }, {});
 }
 
+type PlatformGuide = {
+  id: string;
+  title: string;
+  permission: string;
+  route: string;
+  steps: string[];
+  notes?: string[];
+};
+
+function platformGuideFor(message: string): PlatformGuide | null {
+  const text = message.toLowerCase();
+  const cameraTopic = /(camera|cctv|nvr|onvif|video surveillance)/.test(text);
+  const setupIntent = /(add|install|connect|configure|configuration|set up|setup|integrate|onboard|discover|import)/.test(text);
+
+  if (cameraTopic && setupIntent) {
+    return {
+      id: 'cctv-setup',
+      title: 'Add a CCTV camera or NVR',
+      permission: 'settings',
+      route: '/settings?tab=integrations',
+      steps: [
+        'Open Settings, then Integrations.',
+        'In Integration Manager, select the CCTV category and open Setup Flow.',
+        'Select Add Camera / NVR.',
+        'Choose Discover IP Cameras, Connect NVR, Add Manual Camera, or a supported Cloud Provider.',
+        'Enter the connection details in the secure setup form, then run the connection test.',
+        'Import or save the camera channels and map each one to the correct hotel area.',
+        'Return to Security Center > CCTV to confirm stream health and operational status.',
+      ],
+      notes: [
+        'Local Camera / Staff Device Camera is only for calls and staff support; it is not saved as CCTV.',
+        'IP discovery requires the ONVIF discovery worker and secure media gateway. Cloud options marked coming soon are not production connections.',
+        'Never paste camera passwords, RTSP URLs, API keys, or device secrets into chat.',
+      ],
+    };
+  }
+
+  if (cameraTopic) {
+    return {
+      id: 'cctv-monitoring',
+      title: 'Review CCTV cameras',
+      permission: 'security_center',
+      route: '/security-center/cctv',
+      steps: [
+        'Open Security Center and select CCTV.',
+        'Review each camera status, location, and last-seen time.',
+        'For an offline camera, review its provider and connection health in Settings > Integrations.',
+      ],
+    };
+  }
+
+  if (/(check.?in|arriving guest)/.test(text) && /(how|process|complete|do i|steps)/.test(text)) {
+    return {
+      id: 'guest-check-in',
+      title: 'Check in a guest',
+      permission: 'bookings',
+      route: '/bookings',
+      steps: [
+        'Open Bookings and find the arriving reservation.',
+        'Open the booking and verify guest, stay, room, and payment details.',
+        'Confirm the assigned room is ready.',
+        'Use the available check-in action and confirm the updated booking status.',
+      ],
+    };
+  }
+
+  if (/(room readiness|room status)/.test(text) && /(update|change|set|how)/.test(text)) {
+    return {
+      id: 'room-readiness',
+      title: 'Update room readiness',
+      permission: 'rooms',
+      route: '/rooms',
+      steps: [
+        'Open Rooms and find the room by number, floor, or status.',
+        'Open the room record and review housekeeping or maintenance blockers.',
+        'Apply the permitted readiness status only after the operational checks are complete.',
+      ],
+    };
+  }
+
+  if (/(user|staff|employee)/.test(text) && /(add|invite|access|permission|approve)/.test(text)) {
+    return {
+      id: 'user-access',
+      title: 'Manage staff access',
+      permission: 'users',
+      route: '/users',
+      steps: [
+        'Open User Management.',
+        'Review the access request or select the relevant user.',
+        'Assign only the required role and module permissions.',
+        'Approve, reject, disable, or update access using the available action.',
+      ],
+    };
+  }
+
+  if (/(integration|provider|hardware|device)/.test(text) && setupIntent) {
+    return {
+      id: 'integration-setup',
+      title: 'Configure an integration',
+      permission: 'settings',
+      route: '/settings?tab=integrations',
+      steps: [
+        'Open Settings, then Integrations.',
+        'Select the relevant Integration Manager category.',
+        'Open Setup Flow and follow the provider or hardware requirements.',
+        'Test the connection, map imported devices, and review Logs for failures.',
+      ],
+      notes: ['Credentials and device secrets must be entered only in the secure integration form.'],
+    };
+  }
+
+  if (/(maintenance|repair|fault|work order)/.test(text) && /(create|add|report|log|raise|how)/.test(text)) {
+    return {
+      id: 'maintenance-work-order',
+      title: 'Create or review maintenance work',
+      permission: 'maintenance_center',
+      route: '/maintenance-center',
+      steps: [
+        'Open Maintenance Center.',
+        'Choose the relevant fault, repair, or work-order view.',
+        'Record the location, asset, priority, details, and permitted assignment.',
+        'Track the item through completion and verify any room blocker is cleared.',
+      ],
+    };
+  }
+
+  return null;
+}
+
+function hasModuleAccess(role: Role, permissions: string[], permission: string) {
+  return role === Role.ADMIN || permissions.includes(permission);
+}
+
 function buildFallbackReply(
   message: string,
   sections: AIContextSection[],
-  applicationContext: Record<string, string> | null
+  applicationContext: Record<string, string> | null,
+  role: Role,
+  modulePermissions: string[],
+  platformGuide: PlatformGuide | null
 ): string {
   const normalized = message.toLowerCase();
   const currentPage = applicationContext?.pageTitle || 'your current page';
+  if (platformGuide) {
+    if (!hasModuleAccess(role, modulePermissions, platformGuide.permission)) {
+      return `Your current role does not include access to ${platformGuide.title}. Ask an administrator if this access is required.`;
+    }
+    return [
+      `${platformGuide.title}:`,
+      ...platformGuide.steps.map((step, index) => `${index + 1}. ${step}`),
+      ...(platformGuide.notes?.length
+        ? ['', 'Important:', ...platformGuide.notes.map((note) => `- ${note}`)]
+        : []),
+      '',
+      'I am using verified LaFlo platform guidance while live operational insights reconnect.',
+    ].join('\n');
+  }
   const guidance: Array<{
     keywords: string[];
     section: AIContextSection;
@@ -222,6 +372,10 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
     access: { role: user.role, allowedContextSections: sections },
     mode,
   };
+  const platformGuide = platformGuideFor(trimmed);
+  structuredContext.platformGuidance = platformGuide
+    ? { ...platformGuide, accessible: hasModuleAccess(user.role, user.modulePermissions || [], platformGuide.permission) }
+    : null;
 
   let usedFallback = false;
   let reply: string;
@@ -234,7 +388,14 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
     });
   } catch (error) {
     usedFallback = true;
-    reply = buildFallbackReply(trimmed, sections, applicationContext);
+    reply = buildFallbackReply(
+      trimmed,
+      sections,
+      applicationContext,
+      user.role,
+      user.modulePermissions || [],
+      platformGuide
+    );
     console.warn('Assistant provider unavailable; built-in guidance returned.', {
       hotelId,
       userId,

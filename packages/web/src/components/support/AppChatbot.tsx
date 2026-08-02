@@ -38,9 +38,11 @@ const NAV_TARGETS: Array<ChatAction & { keywords: string[]; permission?: string 
   { label: 'Open Rooms', path: '/rooms', keywords: ['room', 'occupancy'], permission: 'rooms' },
   { label: 'Open Housekeeping', path: '/housekeeping', keywords: ['housekeeping', 'clean', 'dirty', 'readiness'], permission: 'housekeeping' },
   { label: 'Open Maintenance', path: '/maintenance-center', keywords: ['maintenance', 'repair', 'fault'], permission: 'maintenance_center' },
-  { label: 'Open Security Center', path: '/security-center', keywords: ['security', 'camera', 'cctv'], permission: 'security_center' },
+  { label: 'Open CCTV', path: '/security-center/cctv', keywords: ['camera', 'cctv', 'nvr', 'onvif'], permission: 'security_center' },
+  { label: 'Open Security Center', path: '/security-center', keywords: ['security'], permission: 'security_center' },
   { label: 'Open Financials', path: '/financials', keywords: ['finance', 'financial', 'revenue', 'payment', 'invoice'], permission: 'financials' },
-  { label: 'Open Settings', path: '/settings', keywords: ['setting', 'integration', 'configuration'], permission: 'settings' },
+  { label: 'Open Integration Manager', path: '/settings?tab=integrations', keywords: ['integration manager', 'settings > integrations', 'settings, then integrations', 'setup flow', 'add camera / nvr'], permission: 'settings' },
+  { label: 'Open Settings', path: '/settings', keywords: ['setting', 'configuration'], permission: 'settings' },
   { label: 'Open User Management', path: '/users', keywords: ['user', 'access request', 'permission'], permission: 'users' },
   { label: 'Open Enterprise Search', path: '/operations-center/search', keywords: ['search', 'find'], permission: 'bookings' },
   { label: 'Open Hotel Brain', path: '/ai/hotel-brain', keywords: ['hotel brain', 'insight', 'analyse', 'analyze'], permission: 'bookings' },
@@ -67,10 +69,20 @@ function getPrompts(pathname: string) {
 
 function getNavigationActions(text: string, role?: string, permissions?: string[]) {
   const normalized = text.toLowerCase();
-  return NAV_TARGETS.filter((target) => {
+  const canAccess = (permission?: string) => role === 'ADMIN' || !permission || permissions?.includes(permission);
+  const cameraSetupIntent =
+    /(camera|cctv|nvr|onvif)/.test(normalized) &&
+    /(add|install|connect|configure|set up|setup|integrate|discover|import)/.test(normalized);
+  const preferred: ChatAction[] = cameraSetupIntent && canAccess('settings')
+    ? [{ label: 'Open Integration Manager', path: '/settings?tab=integrations' }]
+    : [];
+  const matched = NAV_TARGETS.filter((target) => {
     const allowed = role === 'ADMIN' || !target.permission || permissions?.includes(target.permission);
     return allowed && target.keywords.some((keyword) => normalized.includes(keyword));
-  }).slice(0, 2).map(({ label, path }) => ({ label, path }));
+  }).map(({ label, path }) => ({ label, path }));
+  return [...preferred, ...matched]
+    .filter((action, index, actions) => actions.findIndex((item) => item.path === action.path) === index)
+    .slice(0, 2);
 }
 
 function describeError(error: unknown) {
