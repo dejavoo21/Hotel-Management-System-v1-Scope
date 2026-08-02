@@ -53,6 +53,7 @@ async function notifySupportOnHandoff(params: {
       subject: `[LaFlo] Chatbot handoff: ${params.title}`,
       html,
       text,
+      mailbox: 'support',
     });
   }
 

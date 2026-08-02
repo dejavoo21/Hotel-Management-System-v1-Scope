@@ -14,7 +14,11 @@ export interface EmailPayload {
   html: string;
   text?: string;
   attachments?: EmailAttachment[];
+  mailbox?: 'onboarding' | 'support';
 }
+
+type MicrosoftToken = { accessToken: string; expiresAt: number };
+let microsoftToken: MicrosoftToken | null = null;
 
 let transporter: nodemailer.Transporter | null = null;
 
@@ -48,6 +52,91 @@ function encodeAttachmentContent(content: Buffer | string): string {
     return content.toString('base64');
   }
   return Buffer.from(content).toString('base64');
+}
+
+function microsoft365Configured(): boolean {
+  const { tenantId, clientId, clientSecret } = config.email.microsoft365;
+  return Boolean(tenantId && clientId && clientSecret);
+}
+
+async function getMicrosoftAccessToken(): Promise<string> {
+  if (microsoftToken && microsoftToken.expiresAt > Date.now() + 60_000) {
+    return microsoftToken.accessToken;
+  }
+
+  const { tenantId, clientId, clientSecret } = config.email.microsoft365;
+  if (!microsoft365Configured()) {
+    throw new Error('Microsoft 365 email configuration is incomplete');
+  }
+
+  const response = await fetch(
+    `https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/token`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        scope: 'https://graph.microsoft.com/.default',
+        grant_type: 'client_credentials',
+      }),
+    }
+  );
+  const result = (await response.json()) as {
+    access_token?: string;
+    expires_in?: number;
+    error_description?: string;
+  };
+  if (!response.ok || !result.access_token) {
+    throw new Error(
+      `Microsoft identity token error: ${response.status} ${result.error_description || 'No access token returned'}`
+    );
+  }
+
+  microsoftToken = {
+    accessToken: result.access_token,
+    expiresAt: Date.now() + (result.expires_in || 3600) * 1000,
+  };
+  return microsoftToken.accessToken;
+}
+
+async function sendViaMicrosoft365(payload: EmailPayload) {
+  const token = await getMicrosoftAccessToken();
+  const mailbox =
+    payload.mailbox === 'support'
+      ? config.email.microsoft365.supportMailbox
+      : config.email.microsoft365.onboardingMailbox;
+  const recipients = payload.to.split(',').map((item) => item.trim()).filter(Boolean);
+  const response = await fetch(
+    `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailbox)}/sendMail`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: {
+          subject: payload.subject,
+          body: { contentType: 'HTML', content: payload.html },
+          toRecipients: recipients.map((address) => ({ emailAddress: { address } })),
+          attachments: payload.attachments?.map((attachment) => ({
+            '@odata.type': '#microsoft.graph.fileAttachment',
+            name: attachment.filename,
+            contentType: attachment.contentType || 'application/octet-stream',
+            contentBytes: encodeAttachmentContent(attachment.content),
+          })),
+        },
+        saveToSentItems: true,
+      }),
+    }
+  );
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Microsoft Graph sendMail error: ${response.status} ${detail.slice(0, 500)}`);
+  }
+  logger.info(`Email sent via Microsoft 365 from ${mailbox} to ${payload.to}`);
+  return { accepted: true, provider: 'microsoft365', mailbox };
 }
 
 async function sendViaResend(payload: EmailPayload) {
@@ -135,14 +224,22 @@ async function sendViaBrevo(payload: EmailPayload) {
 }
 
 export async function sendEmail(payload: EmailPayload) {
+  if (config.email.provider === 'microsoft365') {
+    return sendViaMicrosoft365(payload);
+  }
+
   // Primary (for Railway): use an email API over HTTPS.
-  // Priority: Brevo (supports single Gmail sender verification) -> Resend -> SMTP (last resort)
+  // Automatic fallback remains available until Microsoft 365 is deliberately enabled.
   if (config.email.brevoApiKey) {
     return sendViaBrevo(payload);
   }
 
   if (config.email.resendApiKey) {
     return sendViaResend(payload);
+  }
+
+  if (microsoft365Configured()) {
+    return sendViaMicrosoft365(payload);
   }
 
   const transport = getTransporter();

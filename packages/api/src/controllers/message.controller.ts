@@ -48,6 +48,7 @@ async function notifyLiveSupportMailbox(params: LiveSupportEmailParams) {
     subject: `[LaFlo Support] Live chat requested by ${params.requesterName}`,
     html: rendered.html,
     text: rendered.text,
+    mailbox: 'support',
   });
   return { emailSent: true, recipientCount: recipients.length, threadUrl };
 }

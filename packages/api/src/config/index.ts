@@ -36,10 +36,18 @@ export const config = {
 
   // Email (Resend)
   email: {
+    provider: (process.env.EMAIL_PROVIDER || 'auto').toLowerCase(),
     resendApiKey: process.env.RESEND_API_KEY || '',
     brevoApiKey: process.env.BREVO_API_KEY || '',
     fromName: process.env.EMAIL_FROM_NAME || 'LaFlo',
     fromAddress: process.env.EMAIL_FROM || 'noreply@hotelos.com',
+    microsoft365: {
+      tenantId: process.env.M365_TENANT_ID || '',
+      clientId: process.env.M365_CLIENT_ID || '',
+      clientSecret: process.env.M365_CLIENT_SECRET || '',
+      onboardingMailbox: process.env.M365_ONBOARDING_MAILBOX || 'onboarding@laflogroup.com',
+      supportMailbox: process.env.M365_SUPPORT_MAILBOX || 'support@laflogroup.com',
+    },
   },
   accessRequestNotifyEmails: process.env.ACCESS_REQUEST_NOTIFY_EMAILS
     ? process.env.ACCESS_REQUEST_NOTIFY_EMAILS.split(',').map((email) => email.trim()).filter(Boolean)
