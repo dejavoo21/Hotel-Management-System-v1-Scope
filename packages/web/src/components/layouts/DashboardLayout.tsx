@@ -1250,7 +1250,7 @@ export default function DashboardLayout() {
           <Outlet />
         </main>
       </div>
-      {!location.pathname.startsWith('/calls') && !location.pathname.startsWith('/operations') ? <AppChatbot /> : null}
+      <AppChatbot />
     </div>
   );
 }

@@ -1115,9 +1115,7 @@ export default function DashboardLayout() {
           navigate(item.href);
         }}
       />
-      {!location.pathname.startsWith('/calls') &&
-      !location.pathname.startsWith('/messages') &&
-      !location.pathname.startsWith('/operations') ? <AppChatbot /> : null}
+      <AppChatbot />
     </div>
   );
 }

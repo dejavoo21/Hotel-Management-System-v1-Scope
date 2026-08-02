@@ -1,7 +1,8 @@
-import { ConversationStatus, MessageSender } from '@prisma/client';
+import { ConversationStatus, MessageSender, Role } from '@prisma/client';
 import { prisma } from '../../config/database.js';
 import { runOpsAssistant } from '../ai/opsAssistant.service.js';
-import { buildHotelContext } from '../../ai/context/index.js';
+import { buildHotelContext, type AIContextSection } from '../../ai/context/index.js';
+import { recordAuditEvent } from '../../platform/audit/auditEngine.service.js';
 
 export type UnifiedChatMode = 'general' | 'operations' | 'pricing' | 'weather' | 'tasks';
 
@@ -22,6 +23,50 @@ export type UnifiedChatResult = {
   generatedAtUtc: string;
 };
 
+const ALL_ASSISTANT_SECTIONS: AIContextSection[] = [
+  'hotelProfile', 'occupancy', 'revenue', 'weather', 'bookings', 'guests',
+  'housekeeping', 'maintenance', 'security', 'smartBuilding', 'incidents',
+  'tasks', 'reviews', 'messages', 'financialSummary',
+];
+
+const SECTION_PERMISSIONS: Record<AIContextSection, string[]> = {
+  hotelProfile: ['dashboard', 'settings'],
+  occupancy: ['dashboard', 'bookings', 'rooms'],
+  revenue: ['financials'],
+  weather: ['dashboard', 'bookings'],
+  bookings: ['bookings'],
+  guests: ['guests', 'bookings'],
+  housekeeping: ['housekeeping', 'rooms'],
+  maintenance: ['maintenance_center'],
+  security: ['security_center'],
+  smartBuilding: ['smart_building'],
+  incidents: ['incident_management', 'security_center', 'maintenance_center', 'smart_building'],
+  tasks: ['dashboard', 'bookings', 'housekeeping', 'maintenance_center', 'security_center', 'smart_building', 'messages'],
+  reviews: ['reviews'],
+  messages: ['messages'],
+  financialSummary: ['financials'],
+  guest: ['guests'],
+  room: ['rooms'],
+  incident: ['incident_management'],
+};
+
+function allowedSections(role: Role, modulePermissions: string[]): AIContextSection[] {
+  if (role === Role.ADMIN) return ALL_ASSISTANT_SECTIONS;
+  return ALL_ASSISTANT_SECTIONS.filter((section) =>
+    SECTION_PERMISSIONS[section].some((permission) => modulePermissions.includes(permission))
+  );
+}
+
+function sanitizeApplicationContext(context: Record<string, unknown> | null) {
+  if (!context) return null;
+  const allowedKeys = ['route', 'pageTitle', 'module', 'recordId', 'locale', 'timezone'];
+  return allowedKeys.reduce<Record<string, string>>((result, key) => {
+    const value = context[key];
+    if (typeof value === 'string' && value.trim()) result[key] = value.trim().slice(0, 180);
+    return result;
+  }, {});
+}
+
 export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<UnifiedChatResult> {
   const {
     hotelId,
@@ -38,13 +83,26 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
     throw new Error('message is required');
   }
 
+  const user = await prisma.user.findFirst({
+    where: { id: userId, hotelId, isActive: true },
+    select: { role: true, modulePermissions: true },
+  });
+  if (!user) throw new Error('User not found or inactive');
+  const sections = allowedSections(user.role, user.modulePermissions || []);
+
   let conversationId = incomingConversationId;
   if (conversationId) {
     const existing = await prisma.conversation.findFirst({
       where: { id: conversationId, hotelId },
       select: { id: true },
     });
-    if (!existing) conversationId = null;
+    const userMessage = existing
+      ? await prisma.message.findFirst({
+          where: { conversationId, senderUserId: userId },
+          select: { id: true },
+        })
+      : null;
+    if (!existing || !userMessage) conversationId = null;
   }
 
   if (!conversationId) {
@@ -69,19 +127,22 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
     },
   });
 
-  const structuredContext = context && typeof context === 'object'
-    ? context
-    : await buildHotelContext(hotelId);
-
-  const contextBlock =
-    structuredContext && typeof structuredContext === 'object'
-      ? `\n\nMode: ${mode}\nContext:\n${JSON.stringify(structuredContext).slice(0, 6000)}`
-      : `\n\nMode: ${mode}`;
+  const applicationContext = sanitizeApplicationContext(context);
+  const hotelContext = sections.length
+    ? await buildHotelContext(hotelId, { sections, limit: 12 })
+    : null;
+  const structuredContext: Record<string, unknown> = {
+    application: applicationContext,
+    authorisedHotelContext: hotelContext,
+    access: { role: user.role, allowedContextSections: sections },
+    mode,
+  };
 
   const reply = await runOpsAssistant({
     hotelId,
     userId,
-    message: `${trimmed}${contextBlock}`,
+    message: trimmed,
+    context: structuredContext,
   });
 
   await prisma.message.create({
@@ -95,6 +156,21 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
   await prisma.conversation.update({
     where: { id: conversationId },
     data: { lastMessageAt: new Date() },
+  });
+
+  await recordAuditEvent({
+    hotelId,
+    actor: { userId },
+    action: 'ASSISTANT_RESPONSE_GENERATED',
+    entity: 'ASSISTANT_CONVERSATION',
+    entityId: conversationId,
+    source: 'laflo-assistant',
+    details: {
+      mode,
+      route: applicationContext?.route,
+      allowedContextSections: sections,
+      questionLength: trimmed.length,
+    },
   });
 
   return {
