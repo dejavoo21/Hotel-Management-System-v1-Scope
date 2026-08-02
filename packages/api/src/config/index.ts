@@ -43,10 +43,10 @@ export const config = {
   },
   accessRequestNotifyEmails: process.env.ACCESS_REQUEST_NOTIFY_EMAILS
     ? process.env.ACCESS_REQUEST_NOTIFY_EMAILS.split(',').map((email) => email.trim()).filter(Boolean)
-    : [],
+    : ['onboarding@laflogroup.com'],
   supportNotifyEmails: process.env.SUPPORT_NOTIFY_EMAILS
     ? process.env.SUPPORT_NOTIFY_EMAILS.split(',').map((email) => email.trim()).filter(Boolean)
-    : [],
+    : ['support@laflogroup.com'],
   supportNotifyPhones: process.env.SUPPORT_NOTIFY_PHONES
     ? process.env.SUPPORT_NOTIFY_PHONES.split(',').map((phone) => phone.trim()).filter(Boolean)
     : [],

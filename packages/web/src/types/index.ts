@@ -305,6 +305,12 @@ export interface MessageThreadSummary {
     assignedAt: string;
     assignedById?: string;
   };
+  handoffNotification?: {
+    emailSent: boolean;
+    recipientCount: number;
+    threadUrl: string;
+    deliveryWarning?: string;
+  };
 }
 
 export interface SupportVoiceToken {

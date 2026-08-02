@@ -237,20 +237,28 @@ export default function AppChatbot() {
           'Recent assistant transcript:',
           transcript,
         ].join('\n'),
-        source: 'CHATBOT', notifySupport: true, priority: 'MEDIUM', status: 'PENDING',
+        source: 'APP', notifySupport: false, priority: 'MEDIUM', status: 'PENDING',
       });
-      await messageService.getOrCreateLiveSupportThread(
+      const supportThread = await messageService.getOrCreateLiveSupportThread(
         `[LaFlo Assistant] ${note}`,
         `Live support requested from ${currentPage} by ${user?.firstName || 'User'}`
       );
+      const supportWasNotified = supportThread.handoffNotification?.emailSent === true;
       setMessages((previous) => [...previous, {
         id: `handoff-${Date.now()}`,
         role: 'assistant',
-        text: 'Your request has been sent to the live helpdesk. You can continue in Messages while you wait.',
+        text: supportWasNotified
+          ? 'A support assistant has been notified by email. Your private support conversation is ready in Messages.'
+          : 'Your private support conversation is ready in Messages. The support email notification is pending, so you can still open the thread now.',
+        actions: [{ label: 'Open support conversation', path: `/messages?thread=${supportThread.id}` }],
       }]);
       setHandoffRequested(false);
       setHandoffText('');
-      toast.success('Escalated to the helpdesk');
+      if (supportWasNotified) {
+        toast.success('Support mailbox notified');
+      } else {
+        toast('Support conversation opened; email delivery pending');
+      }
     } catch {
       toast.error('The helpdesk request could not be sent. Please try again.');
     } finally {
