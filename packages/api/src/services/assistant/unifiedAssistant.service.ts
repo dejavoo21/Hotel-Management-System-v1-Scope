@@ -3,6 +3,10 @@ import { prisma } from '../../config/database.js';
 import { runOpsAssistant } from '../ai/opsAssistant.service.js';
 import { buildHotelContext, type AIContextSection } from '../../ai/context/index.js';
 import { recordAuditEvent } from '../../platform/audit/auditEngine.service.js';
+import {
+  findPlatformInterface,
+  getAuthorisedInterfaces,
+} from './platformKnowledge.js';
 
 export type UnifiedChatMode = 'general' | 'operations' | 'pricing' | 'weather' | 'tasks';
 
@@ -21,6 +25,8 @@ export type UnifiedChatResult = {
   mode: UnifiedChatMode;
   conversationId: string;
   generatedAtUtc: string;
+  needsHumanSupport: boolean;
+  supportReason: string | null;
 };
 
 const ALL_ASSISTANT_SECTIONS: AIContextSection[] = [
@@ -200,6 +206,32 @@ function hasModuleAccess(role: Role, permissions: string[], permission: string) 
   return role === Role.ADMIN || permissions.includes(permission);
 }
 
+function catalogueGuideFor(message: string): PlatformGuide | null {
+  const item = findPlatformInterface(message);
+  if (!item) return null;
+  return {
+    id: item.id,
+    title: item.name,
+    permission: item.permission,
+    route: item.route,
+    steps: [`Open ${item.name} at ${item.route}.`, ...item.tasks],
+    notes: [item.purpose],
+  };
+}
+
+const SUPPORT_OFFER =
+  'I do not have enough verified LaFlo guidance to answer that confidently. Would you like me to pass this to the support team?';
+
+function responseNeedsHumanSupport(reply: string, usedFallback: boolean, hasGuide: boolean) {
+  if (usedFallback && !hasGuide) return true;
+  const text = reply.toLowerCase();
+  return [
+    'do not have enough verified',
+    'would you like me to pass this to the support team',
+    'unable to answer confidently',
+  ].some((phrase) => text.includes(phrase));
+}
+
 function buildFallbackReply(
   message: string,
   sections: AIContextSection[],
@@ -294,11 +326,9 @@ function buildFallbackReply(
   }
 
   return [
-    `You can continue from ${currentPage}.`,
-    '- Tell me the module or task you need help with, such as bookings, rooms, housekeeping, CCTV, maintenance, guests, or financials.',
-    '- I can guide you to the correct authorised page and next action.',
+    `I could not match that question to verified guidance for ${currentPage} or another authorised LaFlo interface.`,
     '',
-    'I am using built-in LaFlo guidance while live operational insights reconnect.',
+    SUPPORT_OFFER,
   ].join('\n');
 }
 
@@ -370,9 +400,10 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
     application: applicationContext,
     authorisedHotelContext: hotelContext,
     access: { role: user.role, allowedContextSections: sections },
+    authorisedInterfaces: getAuthorisedInterfaces(user.role, user.modulePermissions || []),
     mode,
   };
-  const platformGuide = platformGuideFor(trimmed);
+  const platformGuide = platformGuideFor(trimmed) || catalogueGuideFor(trimmed);
   structuredContext.platformGuidance = platformGuide
     ? { ...platformGuide, accessible: hasModuleAccess(user.role, user.modulePermissions || [], platformGuide.permission) }
     : null;
@@ -403,6 +434,11 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
     });
   }
 
+  const needsHumanSupport = responseNeedsHumanSupport(reply, usedFallback, Boolean(platformGuide));
+  if (needsHumanSupport && !reply.toLowerCase().includes('would you like me to pass this to the support team')) {
+    reply = `${reply.trim()}\n\n${SUPPORT_OFFER}`;
+  }
+
   await prisma.message.create({
     data: {
       conversationId,
@@ -429,6 +465,7 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
       allowedContextSections: sections,
       questionLength: trimmed.length,
       usedFallback,
+      needsHumanSupport,
     },
   });
 
@@ -437,6 +474,8 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
     mode,
     conversationId,
     generatedAtUtc: new Date().toISOString(),
+    needsHumanSupport,
+    supportReason: needsHumanSupport ? 'No sufficiently verified authorised platform answer was available.' : null,
   };
 }
 

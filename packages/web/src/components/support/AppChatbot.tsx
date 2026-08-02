@@ -8,7 +8,14 @@ import type { AssistantMode } from '@/services/assistant';
 import { useAuthStore } from '@/stores/authStore';
 
 type ChatAction = { label: string; path: string };
-type ChatMessage = { id: string; role: 'assistant' | 'user'; text: string; actions?: ChatAction[] };
+type ChatMessage = {
+  id: string;
+  role: 'assistant' | 'user';
+  text: string;
+  actions?: ChatAction[];
+  supportOffer?: boolean;
+  supportSummary?: string;
+};
 type PersistedState = { conversationId: string | null; messages: ChatMessage[] };
 
 const WELCOME: ChatMessage = {
@@ -25,27 +32,43 @@ const PAGE_NAMES: Record<string, string> = {
   '/': 'Dashboard', '/bookings': 'Bookings', '/guests': 'Guests', '/rooms': 'Rooms',
   '/housekeeping': 'Housekeeping', '/inventory': 'Inventory', '/calendar': 'Calendar',
   '/financials': 'Financials', '/invoices': 'Invoices', '/expenses': 'Expenses',
+  '/reports': 'Reports', '/enterprise-command-center': 'Enterprise Command Center',
   '/reviews': 'Reviews', '/concierge': 'Concierge', '/messages': 'Messages', '/calls': 'Calls',
   '/users': 'User Management', '/settings': 'Settings', '/operations-center': 'Operations Center',
-  '/security-center': 'Security Center', '/smart-building': 'Smart Building',
+  '/security-center': 'Security Center', '/operations/smart-building': 'Smart Building',
   '/maintenance-center': 'Maintenance Center', '/incidents': 'Incident Center',
   '/operations-center/search': 'Enterprise Search', '/ai/hotel-brain': 'Hotel Brain',
+  '/operations-center/weather': 'Weather', '/operations-center/tasks': 'Tasks',
+  '/operations-center/revenue': 'Operations Revenue',
+  '/operations-center/market-intelligence': 'Market Intelligence',
 };
 
 const NAV_TARGETS: Array<ChatAction & { keywords: string[]; permission?: string }> = [
   { label: 'Open Bookings', path: '/bookings', keywords: ['booking', 'reservation', 'arrival', 'departure', 'check-in', 'check in'], permission: 'bookings' },
   { label: 'Open Guests', path: '/guests', keywords: ['guest', 'profile'], permission: 'guests' },
   { label: 'Open Rooms', path: '/rooms', keywords: ['room', 'occupancy'], permission: 'rooms' },
+  { label: 'Open Inventory', path: '/inventory', keywords: ['inventory', 'stock', 'supplies'], permission: 'inventory' },
+  { label: 'Open Calendar', path: '/calendar', keywords: ['calendar', 'schedule', 'event'], permission: 'calendar' },
   { label: 'Open Housekeeping', path: '/housekeeping', keywords: ['housekeeping', 'clean', 'dirty', 'readiness'], permission: 'housekeeping' },
   { label: 'Open Maintenance', path: '/maintenance-center', keywords: ['maintenance', 'repair', 'fault'], permission: 'maintenance_center' },
   { label: 'Open CCTV', path: '/security-center/cctv', keywords: ['camera', 'cctv', 'nvr', 'onvif'], permission: 'security_center' },
   { label: 'Open Security Center', path: '/security-center', keywords: ['security'], permission: 'security_center' },
   { label: 'Open Financials', path: '/financials', keywords: ['finance', 'financial', 'revenue', 'payment', 'invoice'], permission: 'financials' },
+  { label: 'Open Reports', path: '/reports', keywords: ['report', 'reporting', 'export'], permission: 'financials' },
+  { label: 'Open Reviews', path: '/reviews', keywords: ['review', 'rating', 'sentiment'], permission: 'reviews' },
+  { label: 'Open Concierge', path: '/concierge', keywords: ['concierge', 'guest request'], permission: 'concierge' },
+  { label: 'Open Messages', path: '/messages', keywords: ['message', 'chat', 'conversation'], permission: 'messages' },
+  { label: 'Open Calls', path: '/calls', keywords: ['call', 'phone', 'voice'], permission: 'messages' },
+  { label: 'Open Incident Center', path: '/incidents', keywords: ['incident'], permission: 'incident_management' },
+  { label: 'Open Smart Building', path: '/operations/smart-building', keywords: ['smart building', 'sensor', 'hvac', 'energy'], permission: 'smart_building' },
   { label: 'Open Integration Manager', path: '/settings?tab=integrations', keywords: ['integration manager', 'settings > integrations', 'settings, then integrations', 'setup flow', 'add camera / nvr'], permission: 'settings' },
   { label: 'Open Settings', path: '/settings', keywords: ['setting', 'configuration'], permission: 'settings' },
   { label: 'Open User Management', path: '/users', keywords: ['user', 'access request', 'permission'], permission: 'users' },
   { label: 'Open Enterprise Search', path: '/operations-center/search', keywords: ['search', 'find'], permission: 'bookings' },
   { label: 'Open Hotel Brain', path: '/ai/hotel-brain', keywords: ['hotel brain', 'insight', 'analyse', 'analyze'], permission: 'bookings' },
+  { label: 'Open Weather', path: '/operations-center/weather', keywords: ['weather', 'forecast'], permission: 'bookings' },
+  { label: 'Open Tasks', path: '/operations-center/tasks', keywords: ['task', 'assigned work'], permission: 'bookings' },
+  { label: 'Open Command Center', path: '/enterprise-command-center', keywords: ['command center', 'enterprise command'], permission: 'dashboard' },
 ];
 
 function getPageName(pathname: string) {
@@ -201,13 +224,20 @@ export default function AppChatbot() {
         role: 'assistant',
         text: reply,
         actions: getNavigationActions(`${value} ${reply}`, user?.role, user?.modulePermissions),
+        supportOffer: response.needsHumanSupport,
+        supportSummary: value,
       }]);
       setAssistantLive(true);
     } catch (error) {
+      const shouldOfferSupport =
+        !axios.isAxiosError(error) ||
+        ![401, 403].includes(error.response?.status || 0);
       setMessages((previous) => [...previous, {
         id: `assistant-error-${Date.now()}`,
         role: 'assistant',
         text: describeError(error),
+        supportOffer: shouldOfferSupport,
+        supportSummary: value,
       }]);
       if (!axios.isAxiosError(error) || error.response?.status !== 429) {
         setAssistantLive(false);
@@ -217,8 +247,8 @@ export default function AppChatbot() {
     }
   };
 
-  const requestHumanHandoff = async () => {
-    const note = handoffText.trim();
+  const requestHumanHandoff = async (noteOverride?: string) => {
+    const note = (noteOverride ?? handoffText).trim();
     if (!note) {
       toast.error('Please add a short issue summary.');
       return;
@@ -312,6 +342,31 @@ export default function AppChatbot() {
                           {action.label}<ArrowRight className='h-3 w-3' />
                         </button>
                       ))}
+                    </div>
+                  ) : null}
+                  {message.supportOffer ? (
+                    <div className='mt-2 flex flex-wrap gap-2'>
+                      <button
+                        type='button'
+                        onClick={() => {
+                          setMessages((current) => current.map((item) =>
+                            item.id === message.id ? { ...item, supportOffer: false } : item
+                          ));
+                          void requestHumanHandoff(message.supportSummary);
+                        }}
+                        className='rounded-lg bg-teal-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-800'
+                      >
+                        Yes, contact support
+                      </button>
+                      <button
+                        type='button'
+                        onClick={() => setMessages((current) => current.map((item) =>
+                          item.id === message.id ? { ...item, supportOffer: false } : item
+                        ))}
+                        className='rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50'
+                      >
+                        No, thanks
+                      </button>
                     </div>
                   ) : null}
                 </div>
