@@ -77,7 +77,7 @@ function describeError(error: unknown) {
   if (!axios.isAxiosError(error)) return 'The assistant could not respond. Please try again.';
   if (error.response?.status === 401) return 'Your session has expired. Please sign in again.';
   if (error.response?.status === 403) return 'You do not have permission to access the requested information.';
-  if (error.response?.status === 429) return 'The assistant is receiving too many requests. Please wait a moment and try again.';
+  if (error.response?.status === 429) return 'Live insights are busy right now. You can retry shortly or use the navigation guidance and live helpdesk below.';
   if (error.code === 'ECONNABORTED') return 'The assistant took too long to respond. Please try again.';
   const message = error.response?.data?.message || error.response?.data?.error?.message;
   return typeof message === 'string' && message.trim()
@@ -197,7 +197,9 @@ export default function AppChatbot() {
         role: 'assistant',
         text: describeError(error),
       }]);
-      setAssistantLive(false);
+      if (!axios.isAxiosError(error) || error.response?.status !== 429) {
+        setAssistantLive(false);
+      }
     } finally {
       setIsSending(false);
     }

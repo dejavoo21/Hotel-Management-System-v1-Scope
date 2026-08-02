@@ -67,6 +67,91 @@ function sanitizeApplicationContext(context: Record<string, unknown> | null) {
   }, {});
 }
 
+function buildFallbackReply(
+  message: string,
+  sections: AIContextSection[],
+  applicationContext: Record<string, string> | null
+): string {
+  const normalized = message.toLowerCase();
+  const currentPage = applicationContext?.pageTitle || 'your current page';
+  const guidance: Array<{
+    keywords: string[];
+    section: AIContextSection;
+    module: string;
+    steps: string[];
+  }> = [
+    {
+      keywords: ['cctv', 'camera', 'security'],
+      section: 'security',
+      module: 'Security Center',
+      steps: ['Open Security Center from the sidebar.', 'Select CCTV or the relevant camera.', 'Review stream health, alerts, and provider status.'],
+    },
+    {
+      keywords: ['booking', 'reservation', 'check-in', 'check out', 'check-out'],
+      section: 'bookings',
+      module: 'Bookings',
+      steps: ['Open Bookings from the sidebar.', 'Use search or filters to find the reservation.', 'Open the record to review or update its permitted details.'],
+    },
+    {
+      keywords: ['room', 'occupancy', 'readiness'],
+      section: 'occupancy',
+      module: 'Rooms',
+      steps: ['Open Rooms from the sidebar.', 'Filter by floor, status, or readiness.', 'Open a room to review its permitted operational details.'],
+    },
+    {
+      keywords: ['housekeeping', 'clean', 'dirty room'],
+      section: 'housekeeping',
+      module: 'Housekeeping',
+      steps: ['Open Housekeeping from the sidebar.', 'Filter by readiness or assignment.', 'Open the task or room before updating its status.'],
+    },
+    {
+      keywords: ['maintenance', 'repair', 'fault'],
+      section: 'maintenance',
+      module: 'Maintenance Center',
+      steps: ['Open Maintenance Center from the sidebar.', 'Search for the asset, room, or work order.', 'Review priority and assignment before taking action.'],
+    },
+    {
+      keywords: ['guest'],
+      section: 'guests',
+      module: 'Guests',
+      steps: ['Open Guests from the sidebar.', 'Search for the guest using an authorised identifier.', 'Open the profile to review permitted details and activity.'],
+    },
+    {
+      keywords: ['invoice', 'revenue', 'financial', 'payment'],
+      section: 'financialSummary',
+      module: 'Financials',
+      steps: ['Open Financials from the sidebar.', 'Choose the correct property and reporting period.', 'Review the permitted transaction, invoice, or KPI detail.'],
+    },
+    {
+      keywords: ['message', 'chat', 'support'],
+      section: 'messages',
+      module: 'Messages',
+      steps: ['Open Messages from the sidebar.', 'Select the relevant conversation or support thread.', 'Use live helpdesk below if staff assistance is required.'],
+    },
+  ];
+
+  const match = guidance.find((item) => item.keywords.some((keyword) => normalized.includes(keyword)));
+  if (match && !sections.includes(match.section)) {
+    return `Your current role does not include access to ${match.module}. Ask an administrator if this access is required.`;
+  }
+  if (match) {
+    return [
+      `For ${match.module}:`,
+      ...match.steps.map((step) => `- ${step}`),
+      '',
+      'I am using built-in LaFlo guidance while live operational insights reconnect.',
+    ].join('\n');
+  }
+
+  return [
+    `You can continue from ${currentPage}.`,
+    '- Tell me the module or task you need help with, such as bookings, rooms, housekeeping, CCTV, maintenance, guests, or financials.',
+    '- I can guide you to the correct authorised page and next action.',
+    '',
+    'I am using built-in LaFlo guidance while live operational insights reconnect.',
+  ].join('\n');
+}
+
 export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<UnifiedChatResult> {
   const {
     hotelId,
@@ -138,12 +223,24 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
     mode,
   };
 
-  const reply = await runOpsAssistant({
-    hotelId,
-    userId,
-    message: trimmed,
-    context: structuredContext,
-  });
+  let usedFallback = false;
+  let reply: string;
+  try {
+    reply = await runOpsAssistant({
+      hotelId,
+      userId,
+      message: trimmed,
+      context: structuredContext,
+    });
+  } catch (error) {
+    usedFallback = true;
+    reply = buildFallbackReply(trimmed, sections, applicationContext);
+    console.warn('Assistant provider unavailable; built-in guidance returned.', {
+      hotelId,
+      userId,
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+    });
+  }
 
   await prisma.message.create({
     data: {
@@ -170,6 +267,7 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
       route: applicationContext?.route,
       allowedContextSections: sections,
       questionLength: trimmed.length,
+      usedFallback,
     },
   });
 
