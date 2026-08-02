@@ -20,6 +20,7 @@ import {
   ChartBarIcon,
   CheckCircleIcon,
   ChevronRightIcon,
+  CloudIcon,
   CurrencyDollarIcon,
   ExclamationTriangleIcon,
   HomeModernIcon,
@@ -39,6 +40,7 @@ import integrationManagerService from '@/services/integrationManager';
 import timelineService from '@/services/timeline';
 import aiBriefingService from '@/services/aiBriefing';
 import reviewService from '@/services/reviews';
+import { operationsService } from '@/services/operations';
 import { dashboardDemoData as demo } from './dashboardDemoData';
 
 type Tone = 'teal' | 'blue' | 'amber' | 'rose' | 'slate';
@@ -166,6 +168,13 @@ export default function DashboardCommandCenter() {
   const timelineQuery = useQuery({ queryKey: ['dashboard', 'timeline'], queryFn: () => timelineService.list({ time: '24h', limit: 8 }), retry: false });
   const brainQuery = useQuery({ queryKey: ['dashboard', 'attention'], queryFn: aiBriefingService.getDailyBriefing, enabled: can('bookings') || can('settings'), retry: false });
   const reviewsQuery = useQuery({ queryKey: ['dashboard', 'reviews'], queryFn: () => reviewService.list(), enabled: can('reviews'), retry: false });
+  const operationsContextQuery = useQuery({
+    queryKey: ['dashboard', 'operations-context', user?.hotelId],
+    queryFn: () => operationsService.getOperationsContext(user?.hotelId || ''),
+    enabled: Boolean(user?.hotelId) && can('bookings'),
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const summary = summaryQuery.data ?? demo.summary;
   const housekeeping = housekeepingQuery.data ?? demo.housekeeping;
@@ -198,11 +207,27 @@ export default function DashboardCommandCenter() {
   const positive = reviews.filter((review) => review.rating >= 4).length;
   const neutral = reviews.filter((review) => review.rating === 3).length;
   const negative = reviews.filter((review) => review.rating < 3).length;
+  const weather = operationsContextQuery.data?.weather ?? null;
+  const weatherForecast = weather?.next24h ?? null;
+  const weatherRisk = weatherForecast?.rainRisk ?? (weather?.stale ? 'medium' : 'unknown');
+  const weatherSummary = weatherForecast?.summary?.trim()
+    || (operationsContextQuery.isLoading ? 'Loading forecast' : 'Forecast unavailable');
+  const weatherRange = weatherForecast?.lowC != null && weatherForecast?.highC != null
+    ? `${Math.round(weatherForecast.lowC)}–${Math.round(weatherForecast.highC)}°C`
+    : null;
+  const weatherFreshness = weather?.isFresh ? 'Current' : weather ? 'Needs refresh' : 'Unavailable';
   const ratingBreakdown = [5, 4, 3, 2, 1].map((rating) => {
     const count = reviews.filter((review) => review.rating === rating).length;
     return { rating, count, percentage: reviews.length ? Math.round((count / reviews.length) * 100) : 0 };
   });
   const operationalAttention: AttentionItem[] = [];
+  if (canViewBookings && (weatherRisk === 'high' || weather?.stale)) operationalAttention.push({
+    title: weatherRisk === 'high' ? 'High weather disruption risk' : 'Weather forecast needs refresh',
+    detail: [weatherSummary, weatherRange].filter(Boolean).join(' · '),
+    severity: weatherRisk === 'high' ? 'HIGH' : 'MEDIUM',
+    route: '/operations-center/weather',
+    owner: weatherRisk === 'high' ? 'Front desk & operations' : 'Operations',
+  });
   if (canViewIncidents && incidents.critical > 0) operationalAttention.push({ title: `${incidents.critical} critical incident${incidents.critical === 1 ? '' : 's'}`, detail: 'Immediate incident review is required.', severity: 'CRITICAL', route: '/incidents', owner: 'Incident response' });
   if (canViewSecurity && security.cctv.offline > 0) operationalAttention.push({ title: `${security.cctv.offline} camera${security.cctv.offline === 1 ? '' : 's'} offline`, detail: 'Review CCTV connectivity and provider status.', severity: 'HIGH', route: '/security-center/cctv', owner: 'Security' });
   const offlineDevices = Math.max(0, smart.health.totalDevices - smart.health.onlineDevices);
@@ -305,6 +330,18 @@ export default function DashboardCommandCenter() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <time dateTime={new Date().toISOString().slice(0, 10)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700"><CalendarDaysIcon className="h-4 w-4" />Today</time>
+            {canViewBookings ? <button
+              type="button"
+              onClick={() => navigate('/operations-center/weather')}
+              aria-label={`Weather: ${weatherSummary}. ${weatherRange || 'Temperature unavailable'}. ${weatherRisk} risk. ${weatherFreshness}.`}
+              className={`inline-flex h-9 max-w-[250px] items-center gap-2 rounded-lg border bg-white px-3 text-left transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 ${weatherRisk === 'high' ? 'border-rose-200' : weather?.stale ? 'border-amber-200' : 'border-slate-200'}`}
+            >
+              <CloudIcon className={`h-4 w-4 shrink-0 ${weatherRisk === 'high' ? 'text-rose-600' : weather?.stale ? 'text-amber-600' : 'text-sky-600'}`} aria-hidden="true" />
+              <span className="min-w-0">
+                <span className="block truncate text-[10px] font-bold text-slate-800">{weatherSummary}</span>
+                <span className="block truncate text-[9px] text-slate-500">{weatherRange || weatherFreshness} · {weatherRisk === 'unknown' ? 'Risk unavailable' : `${weatherRisk} risk`}</span>
+              </span>
+            </button> : null}
             {can('bookings') ? <button type="button" onClick={() => navigate('/bookings?action=new')} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#087f72] px-3 text-xs font-bold text-white hover:bg-[#06695f]"><PlusIcon className="h-4 w-4" />New booking</button> : null}
             {can('guests') ? <button type="button" onClick={() => navigate('/guests?action=add')} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50"><PlusIcon className="h-4 w-4" />Add guest</button> : null}
           </div>
