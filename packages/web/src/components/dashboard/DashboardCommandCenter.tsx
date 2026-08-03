@@ -218,15 +218,16 @@ export default function DashboardCommandCenter() {
   const neutral = reviews.filter((review) => review.rating === 3).length;
   const negative = reviews.filter((review) => review.rating < 3).length;
   const weather = operationsContextQuery.data?.weather ?? null;
-  const weatherCurrent = weather?.current ?? null;
-  const weatherForecast = weather?.next24h ?? null;
+  const weatherUsable = Boolean(weather?.isFresh);
+  const weatherCurrent = weatherUsable ? weather?.current ?? null : null;
+  const weatherForecast = weatherUsable ? weather?.next24h ?? null : null;
   const weatherRisk = weatherForecast?.rainRisk ?? (weather?.stale ? 'medium' : 'unknown');
   const weatherSummary = weatherCurrent?.summary?.trim() || weatherForecast?.summary?.trim()
-    || (operationsContextQuery.isLoading ? 'Loading forecast' : 'Forecast unavailable');
+    || (operationsContextQuery.isLoading ? 'Refreshing weather' : weather?.stale ? 'Refresh required' : 'Weather unavailable');
   const weatherRange = weatherForecast?.lowC != null && weatherForecast?.highC != null
     ? `${Math.round(weatherForecast.lowC)}–${Math.round(weatherForecast.highC)}°C`
     : null;
-  const weatherFreshness = weather?.isFresh ? 'Current' : weather ? 'Needs refresh' : 'Unavailable';
+  const weatherFreshness = weather?.isFresh ? 'Current' : weather ? 'Stale data hidden' : 'Unavailable';
   const currentTemperature = weatherCurrent?.temperatureC != null
     ? `${Math.round(weatherCurrent.temperatureC)}°C now`
     : null;

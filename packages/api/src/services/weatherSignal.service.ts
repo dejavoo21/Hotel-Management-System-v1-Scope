@@ -63,12 +63,31 @@ const OWM_GEO_URL = 'https://api.openweathermap.org/geo/1.0/direct';
 const OWM_FORECAST_URL = 'https://api.openweathermap.org/data/2.5/forecast';
 const OWM_CURRENT_URL = 'https://api.openweathermap.org/data/2.5/weather';
 
-function normalizeCountryForOpenWeather(country: string): string {
+const OPENWEATHER_COUNTRY_CODES: Record<string, string> = {
+  'SOUTH AFRICA': 'ZA',
+  'UNITED KINGDOM': 'GB',
+  UK: 'GB',
+  'UNITED STATES': 'US',
+  'UNITED STATES OF AMERICA': 'US',
+  USA: 'US',
+};
+
+export function normalizeCountryForOpenWeather(country: string): string {
   const normalized = country.trim().toUpperCase();
-  if (normalized === 'USA' || normalized === 'UNITED STATES' || normalized === 'UNITED STATES OF AMERICA') {
-    return 'US';
-  }
-  return country.trim();
+  return OPENWEATHER_COUNTRY_CODES[normalized] || (normalized.length === 2 ? normalized : country.trim());
+}
+
+function distanceKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+  const dLat = toRadians(b.lat - a.lat);
+  const dLon = toRadians(b.lon - a.lon);
+  const lat1 = toRadians(a.lat);
+  const lat2 = toRadians(b.lat);
+  const haversine =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
 }
 
 function assertOpenWeatherKey(): string {
@@ -143,10 +162,6 @@ export async function geocodeHotelIfMissing(hotelId: string) {
     throw new Error('Hotel city, country, and timezone are required');
   }
 
-  if (hotel.latitude != null && hotel.longitude != null) {
-    return hotel;
-  }
-
   const apiKey = assertOpenWeatherKey();
   const countryHint = normalizeCountryForOpenWeather(hotel.country);
   const geoQueries = [`${hotel.city},${countryHint}`];
@@ -154,18 +169,33 @@ export async function geocodeHotelIfMissing(hotelId: string) {
     geoQueries.push(`${hotel.city},${hotel.country}`);
   }
 
-  let geo: Array<{ lat: number; lon: number }> = [];
+  let geo: Array<{ lat: number; lon: number; country?: string }> = [];
   for (const query of geoQueries) {
     const q = encodeURIComponent(query);
-    geo = await getJson<Array<{ lat: number; lon: number }>>(
+    const candidates = await getJson<Array<{ lat: number; lon: number; country?: string }>>(
       `${OWM_GEO_URL}?q=${q}&limit=1&appid=${encodeURIComponent(apiKey)}`
     );
+    geo = countryHint.length === 2
+      ? candidates.filter((candidate) => candidate.country?.toUpperCase() === countryHint.toUpperCase())
+      : candidates;
     if (geo.length) break;
   }
   if (!geo.length) {
+    if (hotel.latitude != null && hotel.longitude != null) return hotel;
     throw new Error(
       `No geocoding result for ${hotel.city}, ${hotel.country}. Try ISO country code (example: US).`
     );
+  }
+
+  if (
+    hotel.latitude != null &&
+    hotel.longitude != null &&
+    distanceKm(
+      { lat: hotel.latitude, lon: hotel.longitude },
+      { lat: geo[0].lat, lon: geo[0].lon }
+    ) <= 75
+  ) {
+    return hotel;
   }
 
   return prisma.hotel.update({
