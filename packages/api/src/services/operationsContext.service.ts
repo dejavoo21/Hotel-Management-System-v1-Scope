@@ -401,6 +401,8 @@ export async function getOperationsContext(hotelId: string) {
     weather: weather
       ? {
           syncedAtUtc: weather.syncedAtUtc,
+          city: weather.city,
+          country: weather.country,
           timezone: weather.timezone,
           location: weather.location,
           daysAvailable: weather.daysAvailable,

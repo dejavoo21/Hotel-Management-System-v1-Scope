@@ -5,6 +5,8 @@ export type OperationsContext = {
   generatedAtUtc: string;
   weather?: {
     syncedAtUtc: string | null;
+    city?: string | null;
+    country?: string | null;
     timezone?: string | null;
     location?: { lat: number | null; lon: number | null };
     daysAvailable: number;

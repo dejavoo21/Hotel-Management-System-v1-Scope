@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -138,6 +138,16 @@ function statusClass(status: string) {
   return 'bg-sky-50 text-sky-700';
 }
 
+function validTimeZone(timezone?: string | null) {
+  if (!timezone) return 'UTC';
+  try {
+    new Intl.DateTimeFormat('en-GB', { timeZone: timezone }).format();
+    return timezone;
+  } catch {
+    return 'UTC';
+  }
+}
+
 export default function DashboardCommandCenter() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -216,6 +226,19 @@ export default function DashboardCommandCenter() {
     ? `${Math.round(weatherForecast.lowC)}–${Math.round(weatherForecast.highC)}°C`
     : null;
   const weatherFreshness = weather?.isFresh ? 'Current' : weather ? 'Needs refresh' : 'Unavailable';
+  const propertyCity = weather?.city?.trim() || user?.hotel?.city?.trim() || 'Location not set';
+  const propertyTimezone = validTimeZone(weather?.timezone || user?.hotel?.timezone);
+  const [propertyNow, setPropertyNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setPropertyNow(new Date()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const propertyTime = useMemo(() => new Intl.DateTimeFormat(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: propertyTimezone,
+    timeZoneName: 'short',
+  }).format(propertyNow), [propertyNow, propertyTimezone]);
   const ratingBreakdown = [5, 4, 3, 2, 1].map((rating) => {
     const count = reviews.filter((review) => review.rating === rating).length;
     return { rating, count, percentage: reviews.length ? Math.round((count / reviews.length) * 100) : 0 };
@@ -249,7 +272,21 @@ export default function DashboardCommandCenter() {
       return true;
     }).slice(0, 6);
   }, [timeline]);
-  const dateLabel = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date());
+  const dateLabel = new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: propertyTimezone,
+  }).format(propertyNow);
+  const propertyDateTime = new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: propertyTimezone,
+  }).format(propertyNow);
   const role = String(user?.role || '');
   const roleView = role === 'HOUSEKEEPING' ? 'Housekeeping focus' : role === 'MAINTENANCE' ? 'Maintenance focus' : role === 'SECURITY' ? 'Security focus' : role === 'FINANCE' ? 'Finance focus' : role === 'FRONT_DESK' || role === 'RECEPTIONIST' ? 'Front desk focus' : 'Management overview';
   const todayRevenue = Number(summary.todayRevenue ?? 0);
@@ -329,17 +366,18 @@ export default function DashboardCommandCenter() {
             <p className="mt-1 text-xs text-slate-500">{user?.hotel?.name || 'Your property'} · {dateLabel}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <time dateTime={new Date().toISOString().slice(0, 10)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700"><CalendarDaysIcon className="h-4 w-4" />Today</time>
+            <time dateTime={propertyDateTime} title={`${propertyCity} local date and time`} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700"><CalendarDaysIcon className="h-4 w-4" />Today</time>
             {canViewBookings ? <button
               type="button"
               onClick={() => navigate('/operations-center/weather')}
-              aria-label={`Weather: ${weatherSummary}. ${weatherRange || 'Temperature unavailable'}. ${weatherRisk} risk. ${weatherFreshness}.`}
-              className={`inline-flex h-9 max-w-[250px] items-center gap-2 rounded-lg border bg-white px-3 text-left transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 ${weatherRisk === 'high' ? 'border-rose-200' : weather?.stale ? 'border-amber-200' : 'border-slate-200'}`}
+              aria-label={`Weather for ${propertyCity}. Local time ${propertyTime}. ${weatherSummary}. ${weatherRange || 'Temperature unavailable'}. ${weatherRisk} risk. ${weatherFreshness}.`}
+              title={`${propertyCity} · ${propertyTime} · ${weatherSummary}`}
+              className={`inline-flex h-10 max-w-[310px] items-center gap-2 rounded-lg border bg-white px-3 text-left transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 ${weatherRisk === 'high' ? 'border-rose-200' : weather?.stale ? 'border-amber-200' : 'border-slate-200'}`}
             >
               <CloudIcon className={`h-4 w-4 shrink-0 ${weatherRisk === 'high' ? 'text-rose-600' : weather?.stale ? 'text-amber-600' : 'text-sky-600'}`} aria-hidden="true" />
               <span className="min-w-0">
-                <span className="block truncate text-[10px] font-bold text-slate-800">{weatherSummary}</span>
-                <span className="block truncate text-[9px] text-slate-500">{weatherRange || weatherFreshness} · {weatherRisk === 'unknown' ? 'Risk unavailable' : `${weatherRisk} risk`}</span>
+                <span className="block truncate text-[10px] font-bold text-slate-800">{propertyCity} · {propertyTime}</span>
+                <span className="block truncate text-[9px] text-slate-500">{weatherSummary} · {weatherRange || weatherFreshness} · {weatherRisk === 'unknown' ? 'Risk unavailable' : `${weatherRisk} risk`}</span>
               </span>
             </button> : null}
             {can('bookings') ? <button type="button" onClick={() => navigate('/bookings?action=new')} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#087f72] px-3 text-xs font-bold text-white hover:bg-[#06695f]"><PlusIcon className="h-4 w-4" />New booking</button> : null}

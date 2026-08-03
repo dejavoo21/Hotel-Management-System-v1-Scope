@@ -13,6 +13,7 @@ type ChatMessage = {
   role: 'assistant' | 'user';
   text: string;
   actions?: ChatAction[];
+  quickReplies?: string[];
   supportOffer?: boolean;
   supportSummary?: string;
 };
@@ -34,13 +35,51 @@ const PAGE_NAMES: Record<string, string> = {
   '/financials': 'Financials', '/invoices': 'Invoices', '/expenses': 'Expenses',
   '/reports': 'Reports', '/enterprise-command-center': 'Enterprise Command Center',
   '/reviews': 'Reviews', '/concierge': 'Concierge', '/messages': 'Messages', '/calls': 'Calls',
-  '/users': 'User Management', '/settings': 'Settings', '/operations-center': 'Operations Center',
+  '/users': 'User Management', '/settings': 'Settings',
+  '/settings?tab=integrations': 'Integration Manager', '/operations-center': 'Operations Center',
   '/security-center': 'Security Center', '/operations/smart-building': 'Smart Building',
   '/maintenance-center': 'Maintenance Center', '/incidents': 'Incident Center',
   '/operations-center/search': 'Enterprise Search', '/ai/hotel-brain': 'Hotel Brain',
   '/operations-center/weather': 'Weather', '/operations-center/tasks': 'Tasks',
   '/operations-center/revenue': 'Operations Revenue',
   '/operations-center/market-intelligence': 'Market Intelligence',
+};
+
+const PAGE_FOCUS_PROMPTS: Record<string, string> = {
+  '/': 'Show me today’s dashboard priorities',
+  '/enterprise-command-center': 'Which property needs attention first?',
+  '/bookings': 'Show me how to check in a guest',
+  '/guests': 'Explain the guest profile sections',
+  '/rooms': 'How do I update room readiness?',
+  '/housekeeping': 'What should Housekeeping prioritise?',
+  '/inventory': 'Show me how low-stock alerts work',
+  '/calendar': 'What events need attention today?',
+  '/financials': 'Explain the financial KPIs',
+  '/reports': 'Which report should I use?',
+  '/invoices': 'Explain invoice statuses',
+  '/expenses': 'How do I review pending expenses?',
+  '/reviews': 'Which feedback needs follow-up?',
+  '/concierge': 'What concierge requests are urgent?',
+  '/messages': 'How does live support work?',
+  '/calls': 'Explain the active call controls',
+  '/operations-center': 'Which Operations workspace should I use?',
+  '/operations-center/search': 'What can Enterprise Search find?',
+  '/ai/hotel-brain': 'What can I ask Hotel Brain?',
+  '/operations-center/weather': 'What weather actions should we take today?',
+  '/operations-center/tasks': 'What tasks need attention?',
+  '/operations-center/revenue': 'Explain the Operations revenue view',
+  '/operations-center/market-intelligence': 'Explain the market indicators',
+  '/security-center': 'What security issues need attention?',
+  '/security-center/cctv': 'How do I investigate an offline camera?',
+  '/security-center/access-logs': 'What access results need escalation?',
+  '/security-center/visitors': 'What visitor records need attention?',
+  '/security-center/alerts': 'Which alerts are most urgent?',
+  '/incidents': 'What incidents need attention now?',
+  '/operations/smart-building': 'How do non-IoT assets get monitored?',
+  '/maintenance-center': 'What maintenance issues are urgent?',
+  '/users': 'Explain roles and module permissions',
+  '/settings': 'Explain the Settings sections',
+  '/settings?tab=integrations': 'How do I configure and verify an integration?',
 };
 
 const NAV_TARGETS: Array<ChatAction & { keywords: string[]; permission?: string }> = [
@@ -81,12 +120,11 @@ function getPageName(pathname: string) {
 
 function getPrompts(pathname: string) {
   const page = getPageName(pathname);
-  const prompts = [`What can I do on the ${page} page?`, `Explain the ${page} page`];
-  if (pathname.startsWith('/bookings')) prompts.push('Show me how to check in a guest');
-  else if (pathname.startsWith('/rooms')) prompts.push('How do I update room readiness?');
-  else if (pathname.startsWith('/housekeeping')) prompts.push('What should Housekeeping prioritise?');
-  else if (pathname.startsWith('/financials')) prompts.push('Explain the financial KPIs');
-  else prompts.push('What should I prioritise today?');
+  const matchingRoute = Object.keys(PAGE_FOCUS_PROMPTS)
+    .filter((route) => route === pathname || (route !== '/' && pathname.startsWith(`${route}/`)))
+    .sort((a, b) => b.length - a.length)[0];
+  const focusPrompt = PAGE_FOCUS_PROMPTS[matchingRoute || '/'] || 'What should I prioritise today?';
+  const prompts = [`Explain the ${page} page`, `What should I review first here?`, focusPrompt];
   return prompts;
 }
 
@@ -138,8 +176,9 @@ export default function AppChatbot() {
   const launcherRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const currentPage = useMemo(() => getPageName(location.pathname), [location.pathname]);
-  const prompts = useMemo(() => getPrompts(location.pathname), [location.pathname]);
+  const currentRoute = `${location.pathname}${location.search}`;
+  const currentPage = useMemo(() => getPageName(currentRoute), [currentRoute]);
+  const prompts = useMemo(() => getPrompts(currentRoute), [currentRoute]);
   const storageKey = user?.id ? `laflo-assistant:${user.id}` : null;
 
   useEffect(() => {
@@ -209,7 +248,7 @@ export default function AppChatbot() {
         mode,
         conversationId,
         context: {
-          route: location.pathname,
+          route: currentRoute,
           pageTitle: currentPage,
           module: routeParts[0] || 'dashboard',
           recordId: routeParts[1] || '',
@@ -224,6 +263,9 @@ export default function AppChatbot() {
         role: 'assistant',
         text: reply,
         actions: getNavigationActions(`${value} ${reply}`, user?.role, user?.modulePermissions),
+        quickReplies: Array.isArray(response.suggestedPrompts)
+          ? response.suggestedPrompts.filter((prompt) => typeof prompt === 'string' && prompt.trim()).slice(0, 3)
+          : [],
         supportOffer: response.needsHumanSupport,
         supportSummary: value,
       }]);
@@ -340,6 +382,21 @@ export default function AppChatbot() {
                       {message.actions.map((action) => (
                         <button key={action.path} type='button' onClick={() => { navigate(action.path); setOpen(false); }} className='inline-flex items-center gap-1 rounded-lg border border-teal-200 bg-white px-2.5 py-1.5 text-xs font-medium text-teal-800 hover:bg-teal-50'>
                           {action.label}<ArrowRight className='h-3 w-3' />
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                  {message.quickReplies?.length ? (
+                    <div className='mt-2 flex flex-col gap-1.5'>
+                      {message.quickReplies.map((prompt) => (
+                        <button
+                          key={prompt}
+                          type='button'
+                          onClick={() => void sendMessage(prompt)}
+                          disabled={isSending}
+                          className='rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-left text-xs font-medium text-slate-700 hover:border-teal-300 hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50'
+                        >
+                          {prompt}
                         </button>
                       ))}
                     </div>

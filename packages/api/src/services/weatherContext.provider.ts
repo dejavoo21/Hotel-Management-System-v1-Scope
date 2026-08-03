@@ -4,6 +4,8 @@ type RainRisk = 'low' | 'medium' | 'high' | 'unknown';
 
 export interface WeatherContext {
   syncedAtUtc: string | null;
+  city: string;
+  country: string;
   timezone: string | null;
   location: { lat: number | null; lon: number | null };
   daysAvailable: number;
@@ -35,6 +37,8 @@ export async function getWeatherContextForHotel(hotelId: string): Promise<Weathe
     where: { id: hotelId },
     select: {
       id: true,
+      city: true,
+      country: true,
       timezone: true,
       latitude: true,
       longitude: true,
@@ -55,7 +59,20 @@ export async function getWeatherContextForHotel(hotelId: string): Promise<Weathe
     },
   });
 
-  if (!latestSignal) return null;
+  if (!latestSignal) {
+    return {
+      syncedAtUtc: null,
+      city: hotel.city,
+      country: hotel.country,
+      timezone: hotel.timezone || null,
+      location: { lat: hotel.latitude ?? null, lon: hotel.longitude ?? null },
+      daysAvailable: 0,
+      isFresh: false,
+      stale: true,
+      staleHours: null,
+      next24h: null,
+    };
+  }
 
   const forecastRows = await prisma.externalSignal.findMany({
     where: {
@@ -89,6 +106,8 @@ export async function getWeatherContextForHotel(hotelId: string): Promise<Weathe
 
   return {
     syncedAtUtc,
+    city: hotel.city,
+    country: hotel.country,
     timezone: hotel.timezone || null,
     location: {
       lat: hotel.latitude ?? null,

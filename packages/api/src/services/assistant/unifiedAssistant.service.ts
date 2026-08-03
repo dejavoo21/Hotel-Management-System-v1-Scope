@@ -5,6 +5,8 @@ import { buildHotelContext, type AIContextSection } from '../../ai/context/index
 import { recordAuditEvent } from '../../platform/audit/auditEngine.service.js';
 import {
   findPlatformInterface,
+  findPlatformInterfaceByRoute,
+  getPlatformInterfaceGuidance,
   getAuthorisedInterfaces,
 } from './platformKnowledge.js';
 
@@ -27,6 +29,7 @@ export type UnifiedChatResult = {
   generatedAtUtc: string;
   needsHumanSupport: boolean;
   supportReason: string | null;
+  suggestedPrompts: string[];
 };
 
 const ALL_ASSISTANT_SECTIONS: AIContextSection[] = [
@@ -80,6 +83,10 @@ type PlatformGuide = {
   route: string;
   steps: string[];
   notes?: string[];
+  summary?: string;
+  keyAreas?: Array<{ name: string; description: string }>;
+  priorities?: string[];
+  followUpPrompts?: string[];
 };
 
 function platformGuideFor(message: string): PlatformGuide | null {
@@ -206,17 +213,121 @@ function hasModuleAccess(role: Role, permissions: string[], permission: string) 
   return role === Role.ADMIN || permissions.includes(permission);
 }
 
-function catalogueGuideFor(message: string): PlatformGuide | null {
-  const item = findPlatformInterface(message);
+function catalogueGuideFor(message: string, currentRoute?: string): PlatformGuide | null {
+  const item = findPlatformInterface(message) || findPlatformInterfaceByRoute(currentRoute);
   if (!item) return null;
+  const guidance = getPlatformInterfaceGuidance(item);
   return {
     id: item.id,
     title: item.name,
     permission: item.permission,
     route: item.route,
-    steps: [`Open ${item.name} at ${item.route}.`, ...item.tasks],
-    notes: [item.purpose],
+    steps: item.tasks,
+    summary: guidance.summary,
+    keyAreas: guidance.keyAreas,
+    priorities: guidance.priorities,
+    followUpPrompts: guidance.followUpPrompts,
   };
+}
+
+function isInterfaceExplanationRequest(message: string) {
+  return /(explain|overview|what can i do|what is this|what.*page|how.*page.*work|guide me|walk me through|take me through|page tour|help me understand)/i.test(message);
+}
+
+function buildVerifiedGuideReply(guide: PlatformGuide) {
+  if (!guide.summary || !guide.keyAreas?.length) {
+    return [
+      `${guide.title}:`,
+      ...guide.steps.map((step, index) => `${index + 1}. ${step}`),
+      ...(guide.notes?.length ? ['', 'Important:', ...guide.notes.map((note) => `- ${note}`)] : []),
+    ].join('\n');
+  }
+
+  return [
+    `${guide.title}`,
+    guide.summary,
+    '',
+    'What you’ll find here:',
+    ...guide.keyAreas.map((area) => `- ${area.name}: ${area.description}`),
+    '',
+    'What to review first:',
+    ...(guide.priorities || []).map((priority, index) => `${index + 1}. ${priority}`),
+    '',
+    'Common actions:',
+    ...guide.steps.map((step) => `- ${step}`),
+    '',
+    'Your view is role-based, so you will only see records and actions your LaFlo permissions allow.',
+  ].join('\n');
+}
+
+type AssistantWeatherSnapshot = {
+  city?: string | null;
+  country?: string | null;
+  syncedAtUtc?: string | null;
+  isFresh?: boolean;
+  stale?: boolean;
+  next24h?: {
+    summary?: string | null;
+    highC?: number | null;
+    lowC?: number | null;
+    rainRisk?: string | null;
+  } | null;
+};
+
+function isCurrentWeatherQuestion(message: string) {
+  const text = message.toLowerCase();
+  const asksForWeather = /(weather|temperature|forecast|condition|city|location)/.test(text);
+  const asksForCurrentValue = /(current|now|today|what is|what's|tell me|show me)/.test(text);
+  return asksForWeather && asksForCurrentValue;
+}
+
+export function buildDirectWeatherReply(
+  message: string,
+  hotelContext: {
+    hotelProfile?: { city?: string; country?: string };
+    weather?: Record<string, unknown>;
+  } | null
+): string | null {
+  if (!isCurrentWeatherQuestion(message)) return null;
+
+  const weatherSection = hotelContext?.weather as
+    | { currentWeather?: AssistantWeatherSnapshot | null }
+    | undefined;
+  const weather = weatherSection?.currentWeather || null;
+  const city = weather?.city?.trim() || hotelContext?.hotelProfile?.city?.trim() || '';
+  const country = weather?.country?.trim() || hotelContext?.hotelProfile?.country?.trim() || '';
+  const location = [city, country].filter(Boolean).join(', ');
+  const forecast = weather?.next24h || null;
+  const lowC = typeof forecast?.lowC === 'number' ? Math.round(forecast.lowC) : null;
+  const highC = typeof forecast?.highC === 'number' ? Math.round(forecast.highC) : null;
+  const summary = forecast?.summary?.trim() || '';
+  const temperature = lowC != null && highC != null
+    ? `${lowC}–${highC}°C`
+    : highC != null
+      ? `up to ${highC}°C`
+      : lowC != null
+        ? `from ${lowC}°C`
+        : null;
+
+  const lines: string[] = [];
+  if (location && temperature) {
+    lines.push(`The configured property location is ${location}. The latest available forecast temperature is ${temperature}${summary ? ` with ${summary.toLowerCase()}` : ''}.`);
+  } else if (location) {
+    lines.push(`The configured property location is ${location}, but a current temperature is not available because weather data has not synced.`);
+  } else if (temperature) {
+    lines.push(`The latest available forecast temperature is ${temperature}${summary ? ` with ${summary.toLowerCase()}` : ''}, but the property city is not configured.`);
+  } else {
+    lines.push('The property city and current temperature are not available in the authorised weather context.');
+  }
+
+  if (weather?.stale || weather?.isFresh === false) {
+    lines.push('The forecast needs refresh, so it should not be treated as a live point-in-time reading.');
+  } else if (weather?.isFresh) {
+    lines.push('This forecast is current in LaFlo.');
+  }
+
+  lines.push('Open Weather if you would like the detailed forecast and its operational impact.');
+  return lines.join('\n\n');
 }
 
 const SUPPORT_OFFER =
@@ -246,15 +357,7 @@ function buildFallbackReply(
     if (!hasModuleAccess(role, modulePermissions, platformGuide.permission)) {
       return `Your current role does not include access to ${platformGuide.title}. Ask an administrator if this access is required.`;
     }
-    return [
-      `${platformGuide.title}:`,
-      ...platformGuide.steps.map((step, index) => `${index + 1}. ${step}`),
-      ...(platformGuide.notes?.length
-        ? ['', 'Important:', ...platformGuide.notes.map((note) => `- ${note}`)]
-        : []),
-      '',
-      'I am using verified LaFlo platform guidance while live operational insights reconnect.',
-    ].join('\n');
+    return buildVerifiedGuideReply(platformGuide);
   }
   const guidance: Array<{
     keywords: string[];
@@ -403,14 +506,25 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
     authorisedInterfaces: getAuthorisedInterfaces(user.role, user.modulePermissions || []),
     mode,
   };
-  const platformGuide = platformGuideFor(trimmed) || catalogueGuideFor(trimmed);
+  const platformGuide = platformGuideFor(trimmed) || catalogueGuideFor(trimmed, applicationContext?.route);
   structuredContext.platformGuidance = platformGuide
     ? { ...platformGuide, accessible: hasModuleAccess(user.role, user.modulePermissions || [], platformGuide.permission) }
     : null;
 
   let usedFallback = false;
   let reply: string;
-  try {
+  const directWeatherReply = sections.includes('weather')
+    ? buildDirectWeatherReply(trimmed, hotelContext)
+    : null;
+  if (directWeatherReply) {
+    reply = directWeatherReply;
+  } else if (platformGuide && isInterfaceExplanationRequest(trimmed)) {
+    if (!hasModuleAccess(user.role, user.modulePermissions || [], platformGuide.permission)) {
+      reply = `Your current role does not include access to ${platformGuide.title}. Ask an administrator if this access is required.`;
+    } else {
+      reply = buildVerifiedGuideReply(platformGuide);
+    }
+  } else try {
     reply = await runOpsAssistant({
       hotelId,
       userId,
@@ -476,6 +590,12 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
     generatedAtUtc: new Date().toISOString(),
     needsHumanSupport,
     supportReason: needsHumanSupport ? 'No sufficiently verified authorised platform answer was available.' : null,
+    suggestedPrompts: platformGuide && hasModuleAccess(user.role, user.modulePermissions || [], platformGuide.permission)
+      ? (platformGuide.followUpPrompts?.length
+          ? platformGuide.followUpPrompts
+          : [`Explain ${platformGuide.title}`, `What should I review first in ${platformGuide.title}?`]
+        ).slice(0, 3)
+      : [],
   };
 }
 
