@@ -301,7 +301,9 @@ export default function DashboardCommandCenter() {
   const currencyFormatter = new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 0 });
   const adr = todayRevenue > 0 && summary.occupiedRooms > 0 ? Math.round(todayRevenue / summary.occupiedRooms) : null;
   const revenueTrend = revenueTrendQuery.data ?? [];
-  const hasRevenueTrend = revenueTrend.some((point) => Number(point.value) > 0);
+  const hasPostedRevenue = revenueTrend.some((point) => Number(point.postedValue ?? point.value) > 0);
+  const hasBookedValue = revenueTrend.some((point) => Number(point.bookedValue) > 0);
+  const hasRevenueTrend = hasPostedRevenue || hasBookedValue;
 
   const recentBookings = useMemo(
     () => recentBookingsQuery.data?.data ?? [],
@@ -454,17 +456,19 @@ export default function DashboardCommandCenter() {
               </Surface>
 
               {canViewFinancials ? <Surface testId="revenue-panel">
-                <PanelHeader title="Revenue" subtitle={hasRevenueTrend ? `Completed payments · Last 6 months · ${currency}` : 'No posted revenue in the selected six-month period'} action="Financial reports" onAction={() => navigate('/reports')} />
-                {!hasRevenueTrend ? <p className="mx-4 mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] text-slate-600">No completed payments were posted in this period. The zero line is shown below; bookings alone are not counted as received revenue.</p> : null}
+                <PanelHeader title="Revenue" subtitle={`Posted revenue and booked stay value · Last 6 months · ${currency}`} action="Financial reports" onAction={() => navigate('/reports')} />
+                {!hasPostedRevenue && hasBookedValue ? <p className="mx-4 mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] text-amber-800">No completed payments were posted in this period. Booked stay value is shown separately and is not counted as received revenue.</p> : null}
+                {!hasRevenueTrend ? <p className="mx-4 mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] text-slate-600">No completed payments or active booking value are available for this period.</p> : null}
                 <div className={hasRevenueTrend ? 'h-56 px-2 pb-3' : 'h-44 px-2 pb-3'}>
                   <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 500, height: 224 }}>
                     <AreaChart data={revenueTrend} margin={{ top: 8, right: 10, left: -12, bottom: 0 }}>
-                      <defs><linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#49b63f" stopOpacity={0.24} /><stop offset="100%" stopColor="#49b63f" stopOpacity={0.02} /></linearGradient></defs>
+                      <defs><linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#0f9f8f" stopOpacity={0.24} /><stop offset="100%" stopColor="#0f9f8f" stopOpacity={0.02} /></linearGradient><linearGradient id="bookedValueFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3b82f6" stopOpacity={0.18} /><stop offset="100%" stopColor="#3b82f6" stopOpacity={0.01} /></linearGradient></defs>
                       <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
                       <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#64748b' }} />
                       <YAxis domain={hasRevenueTrend ? [0, 'auto'] : [0, 1]} ticks={hasRevenueTrend ? undefined : [0]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={(value) => currencyFormatter.format(Number(value))} />
-                      <Tooltip formatter={(value) => currencyFormatter.format(Number(value))} />
-                      <Area type="monotone" dataKey="value" stroke="#49a942" strokeWidth={2} fill="url(#revenueFill)" />
+                      <Tooltip formatter={(value, name) => [currencyFormatter.format(Number(value)), name === 'bookedValue' ? 'Booked stay value' : 'Posted revenue']} />
+                      <Area type="monotone" dataKey="bookedValue" name="Booked stay value" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 4" fill="url(#bookedValueFill)" />
+                      <Area type="monotone" dataKey="postedValue" name="Posted revenue" stroke="#0f9f8f" strokeWidth={2.5} fill="url(#revenueFill)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>

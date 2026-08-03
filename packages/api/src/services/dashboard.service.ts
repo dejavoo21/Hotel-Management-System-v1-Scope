@@ -358,30 +358,51 @@ export async function getRevenueTrend(hotelId: string) {
   const today = new Date();
   const firstMonth = new Date(today.getFullYear(), today.getMonth() - 5, 1);
   const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
-  const payments = await prisma.payment.findMany({
-    where: {
-      booking: { hotelId },
-      status: 'COMPLETED',
-      processedAt: { gte: firstMonth, lte: endOfCurrentMonth },
-    },
-    select: {
-      amount: true,
-      processedAt: true,
-    },
-  });
+  const [payments, bookings] = await Promise.all([
+    prisma.payment.findMany({
+      where: {
+        booking: { hotelId },
+        status: 'COMPLETED',
+        processedAt: { gte: firstMonth, lte: endOfCurrentMonth },
+      },
+      select: {
+        amount: true,
+        processedAt: true,
+      },
+    }),
+    prisma.booking.findMany({
+      where: {
+        hotelId,
+        status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+        checkInDate: { gte: firstMonth, lte: endOfCurrentMonth },
+      },
+      select: {
+        totalAmount: true,
+        checkInDate: true,
+      },
+    }),
+  ]);
 
   return Array.from({ length: 6 }, (_, index) => {
     const month = new Date(today.getFullYear(), today.getMonth() - 5 + index, 1);
-    const value = payments.reduce((total, payment) => (
+    const postedValue = payments.reduce((total, payment) => (
       payment.processedAt.getFullYear() === month.getFullYear()
       && payment.processedAt.getMonth() === month.getMonth()
         ? total + Number(payment.amount)
         : total
     ), 0);
+    const bookedValue = bookings.reduce((total, booking) => (
+      booking.checkInDate.getFullYear() === month.getFullYear()
+      && booking.checkInDate.getMonth() === month.getMonth()
+        ? total + Number(booking.totalAmount)
+        : total
+    ), 0);
 
     return {
       period: new Intl.DateTimeFormat('en', { month: 'short' }).format(month),
-      value,
+      value: postedValue,
+      postedValue,
+      bookedValue,
     };
   });
 }

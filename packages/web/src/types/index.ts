@@ -470,6 +470,8 @@ export interface PriorityAlert {
 export interface DashboardRevenuePoint {
   period: string;
   value: number;
+  postedValue?: number;
+  bookedValue?: number;
 }
 
 export interface DashboardBookingMixItem {
