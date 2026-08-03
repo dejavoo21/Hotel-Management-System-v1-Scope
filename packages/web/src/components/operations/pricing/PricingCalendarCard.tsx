@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { CalendarDays, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp } from 'lucide-react';
 import { operationsService } from '@/services/operations';
+import { useAuthStore } from '@/stores/authStore';
 
 type Confidence = 'low' | 'medium' | 'high';
 
@@ -68,6 +69,11 @@ export default function PricingCalendarCard({
   title?: string;
   subtitle?: string;
 }) {
+  const currency = useAuthStore((state) => state.user?.hotel?.currency || 'USD');
+  const currencyFormatter = useMemo(
+    () => new Intl.NumberFormat(undefined, { style: 'currency', currency }),
+    [currency]
+  );
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const createTask = useMutation({
     mutationFn: (payload: {
@@ -254,7 +260,7 @@ export default function PricingCalendarCard({
                 {isOpen ? (
                   <div className="mt-3 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
                     <div className="mb-2 text-xs text-slate-600">
-                      Market median: {n.marketMedian == null ? '-' : `$${n.marketMedian.toFixed(2)}`} | Position vs market:{' '}
+                      Market median: {n.marketMedian == null ? '-' : currencyFormatter.format(n.marketMedian)} | Position vs market:{' '}
                       {n.positionVsMarketPct == null
                         ? '-'
                         : `${n.positionVsMarketPct > 0 ? '+' : ''}${n.positionVsMarketPct}%`}

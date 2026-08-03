@@ -10,6 +10,12 @@ export type OperationsContext = {
     timezone?: string | null;
     location?: { lat: number | null; lon: number | null };
     daysAvailable: number;
+    current?: {
+      temperatureC?: number | null;
+      feelsLikeC?: number | null;
+      summary?: string | null;
+      observedAtUtc?: string | null;
+    } | null;
     next24h?: { summary?: string | null; highC?: number | null; lowC?: number | null; rainRisk?: 'low' | 'medium' | 'high' | 'unknown' | null };
     isFresh: boolean;
     stale?: boolean;

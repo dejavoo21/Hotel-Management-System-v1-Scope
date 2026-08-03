@@ -16,7 +16,7 @@ const updateSchema = z.object({
   email: z.string().email().optional(),
   website: z.string().url().optional(),
   timezone: z.string().min(1).optional(),
-  currency: z.string().min(1).optional(),
+  currency: z.string().trim().length(3).transform((value) => value.toUpperCase()).optional(),
   latitude: z.number().finite().optional(),
   longitude: z.number().finite().optional(),
 });

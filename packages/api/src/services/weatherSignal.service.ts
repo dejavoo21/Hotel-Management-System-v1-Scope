@@ -4,6 +4,7 @@ import { config } from '../config/index.js';
 type ForecastEntry = {
   dt: number;
   main?: {
+    temp?: number;
     temp_min?: number;
     temp_max?: number;
     humidity?: number;
@@ -23,6 +24,18 @@ type ForecastResponse = {
   list?: ForecastEntry[];
 };
 
+type CurrentWeatherResponse = {
+  dt?: number;
+  main?: {
+    temp?: number;
+    feels_like?: number;
+  };
+  weather?: Array<{
+    main?: string;
+    description?: string;
+  }>;
+};
+
 type DailyAggregate = {
   dateLocal: string;
   timezone: string;
@@ -34,6 +47,11 @@ type DailyAggregate = {
     precipitationProbMax: number | null;
     weatherMain: string | null;
     weatherDesc: string | null;
+    currentTempC: number | null;
+    currentFeelsLikeC: number | null;
+    currentWeatherMain: string | null;
+    currentWeatherDesc: string | null;
+    currentObservedAtUtc: string | null;
   };
   rawJson: {
     entries: number;
@@ -43,6 +61,7 @@ type DailyAggregate = {
 
 const OWM_GEO_URL = 'https://api.openweathermap.org/geo/1.0/direct';
 const OWM_FORECAST_URL = 'https://api.openweathermap.org/data/2.5/forecast';
+const OWM_CURRENT_URL = 'https://api.openweathermap.org/data/2.5/weather';
 
 function normalizeCountryForOpenWeather(country: string): string {
   const normalized = country.trim().toUpperCase();
@@ -219,6 +238,11 @@ export function aggregateForecastByHotelDate(
         precipitationProbMax: bucket.pop.length ? Number((Math.max(...bucket.pop) * 100).toFixed(2)) : null,
         weatherMain: mostFrequent(bucket.weatherMain),
         weatherDesc: mostFrequent(bucket.weatherDesc),
+        currentTempC: null,
+        currentFeelsLikeC: null,
+        currentWeatherMain: null,
+        currentWeatherDesc: null,
+        currentObservedAtUtc: null,
       },
       rawJson: {
         entries: bucket.utcTimes.length,
@@ -235,10 +259,27 @@ export async function syncWeatherSignalsForHotel(hotelId: string) {
     throw new Error('Hotel location coordinates are missing');
   }
 
-  const forecast = await getJson<ForecastResponse>(
-    `${OWM_FORECAST_URL}?lat=${hotel.latitude}&lon=${hotel.longitude}&units=metric&appid=${encodeURIComponent(apiKey)}`
-  );
+  const [forecast, current] = await Promise.all([
+    getJson<ForecastResponse>(
+      `${OWM_FORECAST_URL}?lat=${hotel.latitude}&lon=${hotel.longitude}&units=metric&appid=${encodeURIComponent(apiKey)}`
+    ),
+    getJson<CurrentWeatherResponse>(
+      `${OWM_CURRENT_URL}?lat=${hotel.latitude}&lon=${hotel.longitude}&units=metric&appid=${encodeURIComponent(apiKey)}`
+    ),
+  ]);
   const aggregates = aggregateForecastByHotelDate(forecast, hotel.timezone);
+  const observedAt = typeof current.dt === 'number' ? new Date(current.dt * 1000) : new Date();
+  const currentDateLocal = formatHotelLocalDate(observedAt, hotel.timezone);
+  const currentDay = aggregates.find((day) => day.dateLocal === currentDateLocal) || aggregates[0];
+  if (currentDay) {
+    currentDay.metricsJson.currentTempC =
+      typeof current.main?.temp === 'number' ? Number(current.main.temp.toFixed(2)) : null;
+    currentDay.metricsJson.currentFeelsLikeC =
+      typeof current.main?.feels_like === 'number' ? Number(current.main.feels_like.toFixed(2)) : null;
+    currentDay.metricsJson.currentWeatherMain = current.weather?.[0]?.main || null;
+    currentDay.metricsJson.currentWeatherDesc = current.weather?.[0]?.description || null;
+    currentDay.metricsJson.currentObservedAtUtc = observedAt.toISOString();
+  }
   const fetchedAtUtc = new Date();
 
   for (const day of aggregates) {

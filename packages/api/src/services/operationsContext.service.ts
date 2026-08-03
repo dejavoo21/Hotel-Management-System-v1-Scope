@@ -409,6 +409,7 @@ export async function getOperationsContext(hotelId: string) {
           isFresh: weather.isFresh,
           stale: weather.stale,
           staleHours: weather.staleHours,
+          current: weather.current,
           next24h: weather.next24h,
         }
       : null,

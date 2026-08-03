@@ -12,6 +12,12 @@ export interface WeatherContext {
   isFresh: boolean;
   stale: boolean;
   staleHours: number | null;
+  current: {
+    temperatureC: number | null;
+    feelsLikeC: number | null;
+    summary: string | null;
+    observedAtUtc: string | null;
+  } | null;
   next24h: {
     summary: string | null;
     highC: number | null;
@@ -70,6 +76,7 @@ export async function getWeatherContextForHotel(hotelId: string): Promise<Weathe
       isFresh: false,
       stale: true,
       staleHours: null,
+      current: null,
       next24h: null,
     };
   }
@@ -103,6 +110,16 @@ export async function getWeatherContextForHotel(hotelId: string): Promise<Weathe
   const weatherMain = typeof metrics.weatherMain === 'string' ? metrics.weatherMain : null;
   const weatherDesc = typeof metrics.weatherDesc === 'string' ? metrics.weatherDesc : null;
   const rainProb = normalizeNumber(metrics.precipitationProbMax);
+  const currentTempC = normalizeNumber(metrics.currentTempC);
+  const currentFeelsLikeC = normalizeNumber(metrics.currentFeelsLikeC);
+  const currentSummary =
+    typeof metrics.currentWeatherDesc === 'string'
+      ? metrics.currentWeatherDesc
+      : typeof metrics.currentWeatherMain === 'string'
+        ? metrics.currentWeatherMain
+        : null;
+  const currentObservedAtUtc =
+    typeof metrics.currentObservedAtUtc === 'string' ? metrics.currentObservedAtUtc : null;
 
   return {
     syncedAtUtc,
@@ -117,6 +134,14 @@ export async function getWeatherContextForHotel(hotelId: string): Promise<Weathe
     isFresh,
     stale,
     staleHours: staleHours != null ? Number(staleHours.toFixed(1)) : null,
+    current: currentTempC != null || currentSummary
+      ? {
+          temperatureC: currentTempC,
+          feelsLikeC: currentFeelsLikeC,
+          summary: currentSummary,
+          observedAtUtc: currentObservedAtUtc,
+        }
+      : null,
     next24h: next
       ? {
           summary: weatherDesc || weatherMain,

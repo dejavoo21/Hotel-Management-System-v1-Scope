@@ -357,10 +357,19 @@ export default function SettingsPage() {
         variables.country !== undefined ||
         variables.address !== undefined ||
         variables.addressLine1 !== undefined;
+      const currencyChanged = Boolean(
+        previousHotel &&
+          (updatedHotel.currency ?? previousHotel.currency) !== previousHotel.currency
+      );
 
       toast.success('Hotel settings updated');
       if (user) {
         setUser({ ...user, hotel: { ...user.hotel, ...updatedHotel } });
+      }
+
+      if (currencyChanged) {
+        await queryClient.invalidateQueries({ refetchType: 'active' });
+        toast.success(`Platform currency updated to ${updatedHotel.currency}`);
       }
 
       if (updatedHotel.id) {
@@ -841,6 +850,9 @@ export default function SettingsPage() {
                         </option>
                       ))}
                     </select>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Updates currency formatting across LaFlo. Existing monetary values are not converted automatically.
+                    </p>
                   </div>
                   <div>
                     <label className="label">Timezone</label>

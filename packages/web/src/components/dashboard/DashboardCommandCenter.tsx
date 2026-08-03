@@ -218,14 +218,20 @@ export default function DashboardCommandCenter() {
   const neutral = reviews.filter((review) => review.rating === 3).length;
   const negative = reviews.filter((review) => review.rating < 3).length;
   const weather = operationsContextQuery.data?.weather ?? null;
+  const weatherCurrent = weather?.current ?? null;
   const weatherForecast = weather?.next24h ?? null;
   const weatherRisk = weatherForecast?.rainRisk ?? (weather?.stale ? 'medium' : 'unknown');
-  const weatherSummary = weatherForecast?.summary?.trim()
+  const weatherSummary = weatherCurrent?.summary?.trim() || weatherForecast?.summary?.trim()
     || (operationsContextQuery.isLoading ? 'Loading forecast' : 'Forecast unavailable');
   const weatherRange = weatherForecast?.lowC != null && weatherForecast?.highC != null
     ? `${Math.round(weatherForecast.lowC)}–${Math.round(weatherForecast.highC)}°C`
     : null;
   const weatherFreshness = weather?.isFresh ? 'Current' : weather ? 'Needs refresh' : 'Unavailable';
+  const currentTemperature = weatherCurrent?.temperatureC != null
+    ? `${Math.round(weatherCurrent.temperatureC)}°C now`
+    : null;
+  const weatherTemperatureLabel = currentTemperature
+    || (weatherRange ? `Forecast ${weatherRange}` : 'Temperature unavailable');
   const propertyCity = weather?.city?.trim() || user?.hotel?.city?.trim() || 'Location not set';
   const propertyTimezone = validTimeZone(weather?.timezone || user?.hotel?.timezone);
   const [propertyNow, setPropertyNow] = useState(() => new Date());
@@ -370,14 +376,14 @@ export default function DashboardCommandCenter() {
             {canViewBookings ? <button
               type="button"
               onClick={() => navigate('/operations-center/weather')}
-              aria-label={`Weather for ${propertyCity}. Local time ${propertyTime}. ${weatherSummary}. ${weatherRange || 'Temperature unavailable'}. ${weatherRisk} risk. ${weatherFreshness}.`}
+              aria-label={`Weather for ${propertyCity}. Local time ${propertyTime}. ${weatherTemperatureLabel}. ${weatherSummary}. ${weatherRisk} risk. ${weatherFreshness}.`}
               title={`${propertyCity} · ${propertyTime} · ${weatherSummary}`}
               className={`inline-flex h-10 max-w-[310px] items-center gap-2 rounded-lg border bg-white px-3 text-left transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 ${weatherRisk === 'high' ? 'border-rose-200' : weather?.stale ? 'border-amber-200' : 'border-slate-200'}`}
             >
               <CloudIcon className={`h-4 w-4 shrink-0 ${weatherRisk === 'high' ? 'text-rose-600' : weather?.stale ? 'text-amber-600' : 'text-sky-600'}`} aria-hidden="true" />
               <span className="min-w-0">
                 <span className="block truncate text-[10px] font-bold text-slate-800">{propertyCity} · {propertyTime}</span>
-                <span className="block truncate text-[9px] text-slate-500">{weatherSummary} · {weatherRange || weatherFreshness} · {weatherRisk === 'unknown' ? 'Risk unavailable' : `${weatherRisk} risk`}</span>
+                <span className="block truncate text-[9px] text-slate-500">{weatherTemperatureLabel} · {weatherSummary} · {weatherFreshness}</span>
               </span>
             </button> : null}
             {can('bookings') ? <button type="button" onClick={() => navigate('/bookings?action=new')} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#087f72] px-3 text-xs font-bold text-white hover:bg-[#06695f]"><PlusIcon className="h-4 w-4" />New booking</button> : null}
@@ -448,18 +454,19 @@ export default function DashboardCommandCenter() {
 
               {canViewFinancials ? <Surface testId="revenue-panel">
                 <PanelHeader title="Revenue" subtitle={hasRevenueTrend ? `Completed payments · Last 6 months · ${currency}` : 'No posted revenue in the selected six-month period'} action="Financial reports" onAction={() => navigate('/reports')} />
-                {hasRevenueTrend ? <div className="h-56 px-2 pb-3">
+                {!hasRevenueTrend ? <p className="mx-4 mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] text-slate-600">No completed payments were posted in this period. The zero line is shown below; bookings alone are not counted as received revenue.</p> : null}
+                <div className={hasRevenueTrend ? 'h-56 px-2 pb-3' : 'h-44 px-2 pb-3'}>
                   <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 500, height: 224 }}>
                     <AreaChart data={revenueTrend} margin={{ top: 8, right: 10, left: -12, bottom: 0 }}>
                       <defs><linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#49b63f" stopOpacity={0.24} /><stop offset="100%" stopColor="#49b63f" stopOpacity={0.02} /></linearGradient></defs>
                       <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
                       <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#64748b' }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={(value) => currencyFormatter.format(Number(value))} />
+                      <YAxis domain={hasRevenueTrend ? [0, 'auto'] : [0, 1]} ticks={hasRevenueTrend ? undefined : [0]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={(value) => currencyFormatter.format(Number(value))} />
                       <Tooltip formatter={(value) => currencyFormatter.format(Number(value))} />
                       <Area type="monotone" dataKey="value" stroke="#49a942" strokeWidth={2} fill="url(#revenueFill)" />
                     </AreaChart>
                   </ResponsiveContainer>
-                </div> : <div className="flex h-56 items-center justify-center"><EmptyState label="No completed payment records are available for this period." action="Open financial reports" onAction={() => navigate('/reports')} /></div>}
+                </div>
               </Surface> : null}
 
               {canViewReviews ? <Surface testId="guest-experience-panel">

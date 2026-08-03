@@ -11,6 +11,12 @@ describe('buildDirectWeatherReply', () => {
           country: 'United Kingdom',
           isFresh: true,
           stale: false,
+          current: {
+            temperatureC: 21,
+            feelsLikeC: 20,
+            summary: 'Overcast clouds',
+            observedAtUtc: '2026-08-03T12:00:00.000Z',
+          },
           next24h: {
             summary: 'Overcast clouds',
             lowC: 18,
@@ -22,7 +28,7 @@ describe('buildDirectWeatherReply', () => {
     });
 
     expect(reply).toContain('London, United Kingdom');
-    expect(reply).toContain('18–23°C');
+    expect(reply).toContain('current observed temperature is 21°C');
     expect(reply).toContain('overcast clouds');
     expect(reply?.indexOf('London')).toBeLessThan(reply?.indexOf('Open Weather') ?? 0);
   });

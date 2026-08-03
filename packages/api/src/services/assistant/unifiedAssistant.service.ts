@@ -266,6 +266,12 @@ type AssistantWeatherSnapshot = {
   syncedAtUtc?: string | null;
   isFresh?: boolean;
   stale?: boolean;
+  current?: {
+    temperatureC?: number | null;
+    feelsLikeC?: number | null;
+    summary?: string | null;
+    observedAtUtc?: string | null;
+  } | null;
   next24h?: {
     summary?: string | null;
     highC?: number | null;
@@ -298,6 +304,11 @@ export function buildDirectWeatherReply(
   const country = weather?.country?.trim() || hotelContext?.hotelProfile?.country?.trim() || '';
   const location = [city, country].filter(Boolean).join(', ');
   const forecast = weather?.next24h || null;
+  const current = weather?.current || null;
+  const currentTempC = typeof current?.temperatureC === 'number'
+    ? Math.round(current.temperatureC)
+    : null;
+  const currentSummary = current?.summary?.trim() || '';
   const lowC = typeof forecast?.lowC === 'number' ? Math.round(forecast.lowC) : null;
   const highC = typeof forecast?.highC === 'number' ? Math.round(forecast.highC) : null;
   const summary = forecast?.summary?.trim() || '';
@@ -310,7 +321,9 @@ export function buildDirectWeatherReply(
         : null;
 
   const lines: string[] = [];
-  if (location && temperature) {
+  if (location && currentTempC != null) {
+    lines.push(`The configured property location is ${location}. The current observed temperature is ${currentTempC}°C${currentSummary ? ` with ${currentSummary.toLowerCase()}` : ''}.`);
+  } else if (location && temperature) {
     lines.push(`The configured property location is ${location}. The latest available forecast temperature is ${temperature}${summary ? ` with ${summary.toLowerCase()}` : ''}.`);
   } else if (location) {
     lines.push(`The configured property location is ${location}, but a current temperature is not available because weather data has not synced.`);
@@ -321,7 +334,7 @@ export function buildDirectWeatherReply(
   }
 
   if (weather?.stale || weather?.isFresh === false) {
-    lines.push('The forecast needs refresh, so it should not be treated as a live point-in-time reading.');
+    lines.push('The weather data needs refresh, so it should not be treated as a live point-in-time reading.');
   } else if (weather?.isFresh) {
     lines.push('This forecast is current in LaFlo.');
   }
