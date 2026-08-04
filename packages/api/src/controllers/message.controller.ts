@@ -892,6 +892,15 @@ export async function assignSupportAgent(
       return assignment;
     });
 
+    // Joining the conversation satisfies the live-support response target and
+    // prevents the 10/15-minute escalation job from sending stale alerts.
+    try {
+      const ticket = await ensureTicketForConversation(conversation.id, req.user!.id);
+      await recordFirstResponse(ticket.id, agent.id);
+    } catch (ticketError) {
+      logger.error('Failed to record live support assignment response', { error: ticketError });
+    }
+
     await prisma.conversation.update({
       where: { id: conversation.id },
       data: { status: 'OPEN', lastMessageAt: assignmentMessage.createdAt },

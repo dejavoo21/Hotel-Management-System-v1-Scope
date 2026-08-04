@@ -20,6 +20,9 @@ import {
 } from '@prisma/client';
 import * as notificationService from './notification.service.js';
 import { eventBus } from '../platform/event-bus/eventBus.service.js';
+import { config } from '../config/index.js';
+import { sendEmail } from './email.service.js';
+import { escapeEmailText, renderLafloEmail } from '../utils/emailTemplates.js';
 
 // ============================================
 // Configuration & Constants
@@ -111,6 +114,48 @@ const ESCALATION_LEVELS = [
   { level: 2, afterMinutes: 120, notifyRoles: ['MANAGER', 'ADMIN'] },  // Level 2: after 2 hours - notify ops manager
   { level: 3, afterMinutes: 240, notifyRoles: ['ADMIN'] },  // Level 3: after 4 hours - notify senior manager
 ];
+
+const LIVE_SUPPORT_ESCALATION_LEVELS = [
+  { level: 1, afterMinutes: 10, label: 'Assistance required' },
+  { level: 2, afterMinutes: 15, label: 'Urgent assistance required' },
+];
+
+async function sendLiveSupportEscalationEmail(params: {
+  conversationId: string;
+  hotelName: string;
+  level: number;
+  waitingMinutes: number;
+}) {
+  if (config.supportNotifyEmails.length === 0) return;
+  const step = LIVE_SUPPORT_ESCALATION_LEVELS.find((item) => item.level === params.level);
+  const urgent = params.level >= 2;
+  const threadUrl = `${config.appUrl}/messages?thread=${encodeURIComponent(params.conversationId)}`;
+  const rendered = renderLafloEmail({
+    preheader: `A live support conversation has waited ${params.waitingMinutes} minutes without an agent.`,
+    title: step?.label || 'Live support escalation',
+    intro: urgent
+      ? 'No support agent has joined this conversation after 15 minutes. Immediate assistance is required.'
+      : 'No support agent has joined this conversation after 10 minutes. Please assist or coordinate coverage.',
+    bodyHtml: `
+      <div style="margin: 18px 0; padding: 16px; border-left: 4px solid ${urgent ? '#dc2626' : '#f59e0b'}; border-radius: 0 12px 12px 0; background: ${urgent ? '#fef2f2' : '#fffbeb'};">
+        <p style="margin: 0 0 10px; color: ${urgent ? '#991b1b' : '#92400e'}; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;">Escalation level ${params.level}</p>
+        <p style="margin: 0 0 6px; color: #0f172a;"><strong>Hotel:</strong> ${escapeEmailText(params.hotelName)}</p>
+        <p style="margin: 0 0 6px; color: #0f172a;"><strong>Waiting time:</strong> ${params.waitingMinutes} minutes</p>
+        <p style="margin: 0; color: #475569; font-family: Consolas, Monaco, monospace; font-size: 12px; word-break: break-all;"><strong>Conversation:</strong> ${escapeEmailText(params.conversationId)}</p>
+      </div>
+    `,
+    cta: { label: 'Open and assign conversation', url: threadUrl },
+    footerNote: 'This escalation stops automatically when a support agent joins or replies.',
+  });
+
+  await sendEmail({
+    to: config.supportNotifyEmails.join(','),
+    subject: `[LaFlo Support][Level ${params.level}] No agent joined after ${params.waitingMinutes} minutes`,
+    html: rendered.html,
+    text: rendered.text,
+    mailbox: 'support',
+  });
+}
 
 // ============================================
 // Core Ticket Functions
@@ -382,6 +427,52 @@ export async function processSlaEscalations(): Promise<{
     try {
       const ticketAge = now.getTime() - ticket.createdAtUtc.getTime();
       const ticketAgeMinutes = ticketAge / (60 * 1000);
+
+      // Live support uses a dedicated rapid escalation matrix. The job only
+      // selects tickets without a first response, so assignment/reply stops it.
+      if (ticket.conversation.subject === 'Live Support') {
+        const escalation = [...LIVE_SUPPORT_ESCALATION_LEVELS]
+          .reverse()
+          .find((step) => ticketAgeMinutes >= step.afterMinutes);
+
+        if (escalation && ticket.escalatedLevel < escalation.level) {
+          const waitingMinutes = Math.max(escalation.afterMinutes, Math.floor(ticketAgeMinutes));
+          await prisma.ticket.update({
+            where: { id: ticket.id },
+            data: {
+              escalatedLevel: escalation.level,
+              lastEscalationAtUtc: now,
+            },
+          });
+
+          await prisma.activityLog.create({
+            data: {
+              userId: 'system',
+              entity: 'TICKET',
+              entityId: ticket.id,
+              action: 'LIVE_SUPPORT_ESCALATION',
+              details: {
+                ticketId: ticket.id,
+                conversationId: ticket.conversationId,
+                previousLevel: ticket.escalatedLevel,
+                newLevel: escalation.level,
+                waitingMinutes,
+                escalatedAt: now.toISOString(),
+              },
+            },
+          });
+
+          await sendLiveSupportEscalationEmail({
+            conversationId: ticket.conversationId,
+            hotelName: ticket.conversation.hotel.name,
+            level: escalation.level,
+            waitingMinutes,
+          });
+          result.escalationsTriggered++;
+        }
+
+        continue;
+      }
 
       // Check if response SLA is breached (no first response yet)
       if (ticket.responseDueAtUtc && now > ticket.responseDueAtUtc && !ticket.firstResponseAtUtc) {
