@@ -320,8 +320,8 @@ export default function DashboardLayout() {
   const { data: accessRequests } = useQuery({
     queryKey: ['accessRequests', 'badge'],
     queryFn: accessRequestService.list,
-    enabled: isAdmin,
-    refetchInterval: isAdmin ? 30000 : false,
+    enabled: user?.role === 'ADMIN',
+    refetchInterval: user?.role === 'ADMIN' ? 30000 : false,
   });
 
   // System notifications query
@@ -382,17 +382,20 @@ export default function DashboardLayout() {
   }, [accessRequests, accessRequestAck]);
 
   const settingsFlyoutItems = useMemo(
-    () => [
-      { label: 'Hotel Info', href: '/settings?tab=hotel' },
-      { label: 'Room Types', href: '/settings?tab=room-types' },
-      { label: 'Security', href: '/settings?tab=security' },
-      { label: 'Notifications', href: '/settings?tab=notifications' },
-      { label: 'Appearance', href: '/settings?tab=appearance' },
-      { label: 'Integrations', href: '/settings?tab=integrations' },
-      { label: 'Audit Trail', href: '/settings?tab=audit-trail' },
-      { label: 'Access Requests', href: '/settings?tab=access-requests' },
-    ],
-    []
+    () => {
+      const items = [
+        { label: 'Hotel Info', href: '/settings?tab=hotel' },
+        { label: 'Room Types', href: '/settings?tab=room-types' },
+        { label: 'Security', href: '/settings?tab=security' },
+        { label: 'Notifications', href: '/settings?tab=notifications' },
+        { label: 'Appearance', href: '/settings?tab=appearance' },
+        { label: 'Integrations', href: '/settings?tab=integrations' },
+        { label: 'Audit Trail', href: '/settings?tab=audit-trail' },
+        { label: 'Access Requests', href: '/settings?tab=access-requests' },
+      ];
+      return user?.role === 'ADMIN' ? items : items.filter((item) => item.label !== 'Access Requests');
+    },
+    [user?.role]
   );
 
   useEffect(() => {

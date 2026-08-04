@@ -227,8 +227,8 @@ export default function DashboardLayout() {
   const { data: accessRequests } = useQuery({
     queryKey: ['accessRequests', 'badge'],
     queryFn: accessRequestService.list,
-    enabled: isAdmin,
-    refetchInterval: isAdmin ? 30000 : false,
+    enabled: user?.role === 'ADMIN',
+    refetchInterval: user?.role === 'ADMIN' ? 30000 : false,
   });
 
   const queryClient = useQueryClient();
