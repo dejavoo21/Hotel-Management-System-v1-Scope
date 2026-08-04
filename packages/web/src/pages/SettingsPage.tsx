@@ -16,8 +16,14 @@ import {
 import toast from 'react-hot-toast';
 import { formatEnumLabel } from '@/utils';
 import { ackAccessRequest } from '@/utils/accessRequestAck';
-import ThemeSwitcher from '@/components/theme/ThemeSwitcher';
 import { useTheme } from '@/theme/ThemeProvider';
+import AppearancePanel from '@/components/settings/AppearancePanel';
+import {
+  DEFAULT_APPEARANCE,
+  readAppearancePreferences,
+  saveAppearancePreferences,
+  type AppearancePreferences,
+} from '@/theme/appearance';
 import IntegrationManagerPanel from '@/components/settings/IntegrationManagerPanel';
 import { currencyForCountry } from '@/utils/countryCurrency';
 
@@ -61,14 +67,17 @@ export default function SettingsPage() {
     housekeepingUpdates: false,
     dailyReports: true,
   });
-  const [appearancePrefs, setAppearancePrefs] = useState({
-    background: 'mist',
-  });
+  const [appearancePrefs, setAppearancePrefs] = useState<AppearancePreferences>(() =>
+    readAppearancePreferences()
+  );
+  const [savedAppearance, setSavedAppearance] = useState<AppearancePreferences>(() =>
+    readAppearancePreferences()
+  );
   const [auditSettings, setAuditSettings] = useState(getAuditSettings());
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [auditFilter, setAuditFilter] = useState('');
   const { user, setUser } = useAuthStore();
-  const { theme } = useTheme();
+  const { setTheme } = useTheme();
   const queryClient = useQueryClient();
   const [hotelForm, setHotelForm] = useState({
     name: '',
@@ -89,15 +98,6 @@ export default function SettingsPage() {
     ],
     []
   );
-
-  const backgroundOptions = [
-    { value: 'mist', label: 'Mist Gradient' },
-    { value: 'linen', label: 'Linen Pattern' },
-    { value: 'glow', label: 'Soft Glow' },
-    { value: 'dusk', label: 'Dusk Horizon' },
-    { value: 'sand', label: 'Sand Wash' },
-    { value: 'tide', label: 'Tide Lines' },
-  ];
 
   const filteredAuditLogs = useMemo(() => {
     if (!auditFilter.trim()) return auditLogs;
@@ -145,26 +145,9 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    const stored = localStorage.getItem('laflo:appearance');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as Partial<typeof appearancePrefs> & { theme?: string };
-        setAppearancePrefs((prev) => ({ ...prev, background: parsed.background ?? prev.background }));
-      } catch {
-        // Ignore malformed values.
-      }
-    }
-  }, []);
-
-  useEffect(() => {
     setAuditLogs(getAuditLogs());
     setAuditSettings(getAuditSettings());
   }, []);
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    document.body.dataset.bg = appearancePrefs.background;
-  }, [appearancePrefs]);
 
   useEffect(() => {
     const tab = searchParams.get('tab') as SettingsTab | null;
@@ -586,15 +569,35 @@ export default function SettingsPage() {
   };
 
   const saveAppearancePrefs = () => {
-    localStorage.setItem('laflo:appearance', JSON.stringify(appearancePrefs));
+    const nextAppearance = { ...appearancePrefs };
+    saveAppearancePreferences(nextAppearance);
+    setTheme(nextAppearance.theme);
+    document.body.dataset.bg = nextAppearance.background;
+    setSavedAppearance(nextAppearance);
     appendAuditLog({
       action: 'APPEARANCE_UPDATED',
       actorId: user?.id,
       actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
-      details: { ...appearancePrefs, theme },
+      details: nextAppearance,
     });
     refreshAuditLogs();
     toast.success('Appearance saved');
+  };
+
+  const resetAppearancePrefs = () => {
+    setTheme(DEFAULT_APPEARANCE.theme);
+    setAppearancePrefs(DEFAULT_APPEARANCE);
+    saveAppearancePreferences(DEFAULT_APPEARANCE);
+    setSavedAppearance(DEFAULT_APPEARANCE);
+    document.body.dataset.bg = DEFAULT_APPEARANCE.background;
+    appendAuditLog({
+      action: 'APPEARANCE_RESET',
+      actorId: user?.id,
+      actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
+      details: DEFAULT_APPEARANCE,
+    });
+    refreshAuditLogs();
+    toast.success('Appearance reset to default');
   };
 
   const saveAuditPrefs = () => {
@@ -734,8 +737,8 @@ export default function SettingsPage() {
 
       <div className="flex flex-col gap-6 lg:flex-row">
         {/* Sidebar */}
-        <div className="w-full lg:w-64 shrink-0">
-          <nav className="space-y-1">
+        <div className="w-full shrink-0 lg:w-64">
+          <nav className="space-y-1 rounded-2xl border border-border bg-card p-3 shadow-sm" aria-label="Settings sections">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -754,7 +757,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Content */}
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           {/* Hotel Info */}
           {activeTab === 'hotel' && (
             <div className="card">
@@ -1199,49 +1202,22 @@ export default function SettingsPage() {
 
           {/* Appearance */}
           {activeTab === 'appearance' && (
-            <div className="card">
-              <h2 className="text-lg font-semibold text-slate-900">Appearance</h2>
-              <p className="text-sm text-slate-500">Choose a theme and background style.</p>
-
-              <div className="mt-6 space-y-6">
-                <div>
-                  <label className="label">Theme</label>
-                  <ThemeSwitcher />
-                  <p className="mt-2 text-xs text-slate-500">
-                    Active theme: <span className="font-medium capitalize">{theme}</span>
-                  </p>
-                </div>
-
-                <div>
-                  <label className="label">Background</label>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    {backgroundOptions.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() =>
-                          setAppearancePrefs((prev) => ({ ...prev, background: option.value }))
-                        }
-                        className={`rounded-lg border px-3 py-3 text-left text-sm transition-colors ${
-                          appearancePrefs.background === option.value
-                            ? 'border-primary-500 bg-primary-50 text-primary-700'
-                            : 'border-slate-200 bg-white text-slate-600 hover:border-primary-300'
-                        }`}
-                      >
-                        <div className="font-medium text-slate-900">{option.label}</div>
-                        <div className="mt-1 text-xs text-slate-500">Page background</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <button className="btn-primary" onClick={saveAppearancePrefs}>
-                    Save Appearance
-                  </button>
-                </div>
-              </div>
-            </div>
+            <AppearancePanel
+              theme={appearancePrefs.theme}
+              background={appearancePrefs.background}
+              isDirty={
+                appearancePrefs.theme !== savedAppearance.theme ||
+                appearancePrefs.background !== savedAppearance.background
+              }
+              onThemeChange={(nextTheme) => {
+                setAppearancePrefs((current) => ({ ...current, theme: nextTheme }));
+              }}
+              onBackgroundChange={(background) =>
+                setAppearancePrefs((current) => ({ ...current, background }))
+              }
+              onSave={saveAppearancePrefs}
+              onReset={resetAppearancePrefs}
+            />
           )}
 
           {/* Integrations */}
