@@ -1,5 +1,30 @@
 import { describe, expect, it } from 'vitest';
-import { buildDashboardDeepDiveReply, buildDirectWeatherReply } from './unifiedAssistant.service.js';
+import {
+  buildAmbiguousPlatformClarification,
+  buildDashboardDeepDiveReply,
+  buildDirectWeatherReply,
+  catalogueGuideFor,
+} from './unifiedAssistant.service.js';
+
+describe('assistant topic routing', () => {
+  it('does not replace a new unmatched topic with the current page', () => {
+    expect(catalogueGuideFor('door', '/settings')).toBeNull();
+  });
+
+  it('uses current-page guidance only when the user explicitly references it', () => {
+    expect(catalogueGuideFor('What can I do on this page?', '/settings')?.id).toBe('settings');
+  });
+
+  it('clarifies the distinct door workflows instead of inheriting CCTV context', () => {
+    const result = buildAmbiguousPlatformClarification('door');
+    expect(result?.reply).toContain('Which door workflow');
+    expect(result?.reply).toContain('Access Logs');
+    expect(result?.reply).toContain('Smart Building');
+    expect(result?.reply).toContain('Maintenance Center');
+    expect(result?.reply).not.toContain('CCTV');
+    expect(result?.prompts).toHaveLength(3);
+  });
+});
 
 describe('buildDirectWeatherReply', () => {
   it('answers with location and temperature before offering deeper navigation', () => {

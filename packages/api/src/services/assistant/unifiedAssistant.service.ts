@@ -213,8 +213,11 @@ function hasModuleAccess(role: Role, permissions: string[], permission: string) 
   return role === Role.ADMIN || permissions.includes(permission);
 }
 
-function catalogueGuideFor(message: string, currentRoute?: string): PlatformGuide | null {
-  const item = findPlatformInterface(message) || findPlatformInterfaceByRoute(currentRoute);
+export function catalogueGuideFor(message: string, currentRoute?: string): PlatformGuide | null {
+  const explicitlyReferencesCurrentPage =
+    /\b(this|current)\s+(page|screen|section|view)\b|\b(on|from)\s+this\s+page\b|\bwhat\s+can\s+i\s+do\s+here\b|\bwhere\s+am\s+i\b/i.test(message);
+  const item = findPlatformInterface(message) ||
+    (explicitlyReferencesCurrentPage ? findPlatformInterfaceByRoute(currentRoute) : null);
   if (!item) return null;
   const guidance = getPlatformInterfaceGuidance(item);
   return {
@@ -227,6 +230,31 @@ function catalogueGuideFor(message: string, currentRoute?: string): PlatformGuid
     keyAreas: guidance.keyAreas,
     priorities: guidance.priorities,
     followUpPrompts: guidance.followUpPrompts,
+  };
+}
+
+export function buildAmbiguousPlatformClarification(message: string): {
+  reply: string;
+  prompts: string[];
+} | null {
+  const normalized = message.trim().toLowerCase().replace(/[?.!]+$/g, '').trim();
+  if (!/^(door|doors)$/.test(normalized)) return null;
+
+  return {
+    reply: [
+      'Which door workflow do you mean?',
+      '',
+      '- **Door entry or access event** — review Access Logs.',
+      '- **Connected door status or alerts** — review Smart Building.',
+      '- **Broken door, lock, or repair** — open Maintenance Center.',
+      '',
+      'Tell me which one you want, and I’ll guide you through that exact workflow.',
+    ].join('\n'),
+    prompts: [
+      'Show door access events',
+      'Check connected door status',
+      'Report a broken door or lock',
+    ],
   };
 }
 
@@ -647,6 +675,7 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
     mode,
   };
   const platformGuide = platformGuideFor(trimmed) || catalogueGuideFor(trimmed, applicationContext?.route);
+  const ambiguousClarification = buildAmbiguousPlatformClarification(trimmed);
   structuredContext.platformGuidance = platformGuide
     ? { ...platformGuide, accessible: hasModuleAccess(user.role, user.modulePermissions || [], platformGuide.permission) }
     : null;
@@ -654,18 +683,26 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
   let usedFallback = false;
   let reply: string;
   let deepDivePrompts: string[] = [];
+  let routingDecision = 'provider';
   const directWeatherReply = sections.includes('weather')
     ? buildDirectWeatherReply(trimmed, hotelContext)
     : null;
   const dashboardDeepDive = applicationContext?.route?.split('?')[0] === '/'
     ? buildDashboardDeepDiveReply(trimmed, hotelContext as unknown as Record<string, unknown> | null)
     : null;
-  if (directWeatherReply) {
+  if (ambiguousClarification) {
+    reply = ambiguousClarification.reply;
+    deepDivePrompts = ambiguousClarification.prompts;
+    routingDecision = 'ambiguous-clarification';
+  } else if (directWeatherReply) {
     reply = directWeatherReply;
+    routingDecision = 'direct-weather';
   } else if (dashboardDeepDive) {
     reply = dashboardDeepDive.reply;
     deepDivePrompts = dashboardDeepDive.prompts;
+    routingDecision = 'dashboard-deep-dive';
   } else if (platformGuide && isInterfaceExplanationRequest(trimmed)) {
+    routingDecision = 'verified-platform-guide';
     if (!hasModuleAccess(user.role, user.modulePermissions || [], platformGuide.permission)) {
       reply = `Your current role does not include access to ${platformGuide.title}. Ask an administrator if this access is required.`;
     } else {
@@ -680,6 +717,7 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
     });
   } catch (error) {
     usedFallback = true;
+    routingDecision = 'provider-fallback';
     reply = buildFallbackReply(
       trimmed,
       sections,
@@ -725,9 +763,23 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
       route: applicationContext?.route,
       allowedContextSections: sections,
       questionLength: trimmed.length,
+      routingDecision,
+      platformGuideId: platformGuide?.id || null,
       usedFallback,
       needsHumanSupport,
     },
+  });
+
+  console.info('[assistant] routing decision', {
+    conversationId,
+    hotelId,
+    mode,
+    route: applicationContext?.route || null,
+    routingDecision,
+    platformGuideId: platformGuide?.id || null,
+    wordCount: trimmed.split(/\s+/).filter(Boolean).length,
+    usedFallback,
+    needsHumanSupport,
   });
 
   return {
