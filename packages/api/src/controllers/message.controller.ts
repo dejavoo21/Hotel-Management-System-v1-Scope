@@ -30,18 +30,43 @@ async function notifyLiveSupportMailbox(params: LiveSupportEmailParams) {
   const recipients = config.supportNotifyEmails;
   if (recipients.length === 0) return { emailSent: false, recipientCount: 0, threadUrl };
   const context = [params.handoffSummary, params.initialMessage].filter(Boolean).join('\n\n').slice(0, 2000);
+  const hotelName = escapeEmailText(params.hotelName);
+  const requesterName = escapeEmailText(params.requesterName);
+  const conversationId = escapeEmailText(params.conversationId);
+  const handoffContext = escapeEmailText(context).replace(/\n/g, '<br />');
   const rendered = renderLafloEmail({
     preheader: `${params.requesterName} requested a live support conversation.`,
-    title: 'Live support conversation requested',
-    intro: 'A LaFlo user is waiting for a support assistant to join their conversation.',
-    meta: [
-      { label: 'Hotel', value: params.hotelName },
-      { label: 'Requester', value: `${params.requesterName} (${params.requesterEmail})` },
-      { label: 'Conversation', value: params.conversationId },
-    ],
-    bodyHtml: context ? `<p><strong>Handoff context:</strong></p><p>${escapeEmailText(context)}</p>` : undefined,
-    cta: { label: 'Join support conversation', url: threadUrl },
-    footerNote: 'Open the conversation, assign it to yourself, and reply from LaFlo Messages.',
+    title: 'Live support request',
+    intro: 'A guest is waiting for a support assistant. Review the handoff below and take ownership of the conversation.',
+    bodyHtml: `
+      <div style="margin: 18px 0; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 14px; background: #f8fafc;">
+        <div style="padding: 11px 16px; background: #0f172a; color: #ffffff; font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;">
+          Request details
+        </div>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse: collapse;">
+          <tr>
+            <td style="width: 112px; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; color: #64748b; font-size: 12px; font-weight: 700;">Hotel</td>
+            <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; color: #0f172a; font-size: 14px; font-weight: 600;">${hotelName}</td>
+          </tr>
+          <tr>
+            <td style="width: 112px; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; color: #64748b; font-size: 12px; font-weight: 700;">Requester</td>
+            <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; color: #0f172a; font-size: 14px; font-weight: 600;">${requesterName}</td>
+          </tr>
+          <tr>
+            <td style="width: 112px; padding: 12px 16px; color: #64748b; font-size: 12px; font-weight: 700;">Conversation ID</td>
+            <td style="padding: 12px 16px; color: #475569; font-family: Consolas, Monaco, monospace; font-size: 12px; word-break: break-all;">${conversationId}</td>
+          </tr>
+        </table>
+      </div>
+      ${context ? `
+        <div style="margin: 0 0 18px; padding: 16px; border-left: 4px solid #2563eb; border-radius: 0 12px 12px 0; background: #eff6ff;">
+          <p style="margin: 0 0 7px; color: #1e3a8a; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;">Handoff context</p>
+          <p style="margin: 0; color: #1e293b; font-size: 14px; line-height: 1.65;">${handoffContext}</p>
+        </div>
+      ` : ''}
+    `,
+    cta: { label: 'Open and assign conversation', url: threadUrl },
+    footerNote: 'Please assign the conversation to yourself before replying in LaFlo Messages.',
   });
   await sendEmail({
     to: recipients.join(','),
