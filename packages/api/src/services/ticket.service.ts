@@ -460,7 +460,7 @@ export async function processSlaEscalations(): Promise<{
 
       // Live support uses a dedicated rapid escalation matrix. The job only
       // selects tickets without a first response, so assignment/reply stops it.
-      if (ticket.conversation.subject === 'Live Support') {
+      if (ticket.conversation.subject.startsWith('Live Support')) {
         const escalation = [...LIVE_SUPPORT_ESCALATION_LEVELS]
           .reverse()
           .find((step) => ticketAgeMinutes >= step.afterMinutes);

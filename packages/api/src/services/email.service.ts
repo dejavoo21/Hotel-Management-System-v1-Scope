@@ -102,10 +102,9 @@ async function getMicrosoftAccessToken(): Promise<string> {
 
 async function sendViaMicrosoft365(payload: EmailPayload) {
   const token = await getMicrosoftAccessToken();
-  const mailbox =
-    payload.mailbox === 'support'
-      ? config.email.microsoft365.supportMailbox
-      : config.email.microsoft365.onboardingMailbox;
+  // LaFlo correspondence is sent from the authorised onboarding mailbox.
+  // Support is a routing concern for recipients, not a separate sender.
+  const mailbox = config.email.microsoft365.onboardingMailbox;
   const recipients = payload.to.split(',').map((item) => item.trim()).filter(Boolean);
   const response = await fetch(
     `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(mailbox)}/sendMail`,
