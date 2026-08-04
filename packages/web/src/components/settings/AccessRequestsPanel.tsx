@@ -75,6 +75,11 @@ const normalizeStatus = (status: string) =>
 const normalizedRoleLabel = (value?: string) =>
   formatEnumLabel((value || 'RECEPTIONIST').replace('FRONT_DESK_MANAGER', 'MANAGER'));
 
+const statusLabel = (status: string) =>
+  normalizeStatus(status) === 'NEEDS_INFO'
+    ? 'More Info Required'
+    : formatEnumLabel(normalizeStatus(status));
+
 function normalizeApprovalRole(value: string | undefined, options: AccessRoleOption[]) {
   const normalized = (value || '').trim().toUpperCase().replace(/[\s/-]+/g, '_');
   const aliases: Record<string, string> = {
@@ -152,7 +157,7 @@ function SelectMenu({
           <span className="truncate">{selected?.label}</span>
           <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" aria-hidden="true" />
         </ListboxButton>
-        <ListboxOptions className="absolute z-40 mt-1 max-h-64 w-full min-w-48 overflow-auto rounded-xl border border-border bg-card p-1 shadow-xl focus:outline-none">
+        <ListboxOptions anchor="bottom start" className="z-50 max-h-64 w-[var(--button-width)] min-w-48 overflow-auto rounded-xl border border-border bg-card p-1 shadow-xl focus:outline-none [--anchor-gap:4px]">
           {options.map((option) => (
             <ListboxOption
               key={option.value}
@@ -294,7 +299,7 @@ export default function AccessRequestsPanel({
       request.email,
       request.company || '',
       normalizedRoleLabel(request.role),
-      formatEnumLabel(normalizeStatus(request.status)),
+      statusLabel(request.status),
       request.createdAt,
       request.updatedAt || '',
     ]);
@@ -441,7 +446,7 @@ export default function AccessRequestsPanel({
                             <span className="font-medium text-text-main">{normalizedRoleLabel(request.role)}</span>
                           )}
                         </td>
-                        <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusClasses(status)}`}>{formatEnumLabel(status)}</span></td>
+                        <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusClasses(status)}`}>{statusLabel(status)}</span></td>
                         <td className="px-4 py-3 text-text-muted"><span className="block text-text-main">{requested.date}</span><span className="text-xs">{requested.time}</span></td>
                         <td className="px-5 py-3">
                           <div className="flex flex-wrap justify-end gap-2">

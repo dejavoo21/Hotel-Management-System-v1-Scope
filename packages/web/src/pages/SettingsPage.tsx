@@ -14,7 +14,6 @@ import {
   type AuditLogEntry,
 } from '@/utils/auditLog';
 import toast from 'react-hot-toast';
-import { formatEnumLabel } from '@/utils';
 import { ackAccessRequest } from '@/utils/accessRequestAck';
 import { useTheme } from '@/theme/ThemeProvider';
 import AppearancePanel from '@/components/settings/AppearancePanel';
@@ -59,9 +58,8 @@ export default function SettingsPage() {
     replies: AccessRequestReply[];
     baseUrl: string;
   } | null>(null);
-  const [replyLoading, setReplyLoading] = useState(false);
+  const [, setReplyLoading] = useState(false);
   const [actionSubmitting, setActionSubmitting] = useState(false);
-  const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null);
   const [notificationPrefs, setNotificationPrefs] = useState({
     newBookings: true,
     checkIns: true,
@@ -110,15 +108,6 @@ export default function SettingsPage() {
         .some((value) => String(value).toLowerCase().includes(query))
     );
   }, [auditFilter, auditLogs]);
-
-  const normalizeRole = (role?: string | null) => {
-    if (!role) return 'RECEPTIONIST';
-    const value = role.trim().toUpperCase().replace(/\s+/g, '_');
-    if (roleOptions.some((option) => option.value === value)) {
-      return value;
-    }
-    return 'RECEPTIONIST';
-  };
 
   useEffect(() => {
     if (user?.hotel) {
@@ -1482,235 +1471,6 @@ export default function SettingsPage() {
             />
           )}
 
-          {/* Legacy access request renderer retained temporarily for rollback safety. */}
-          {false && activeTab === 'access-requests' && (
-            <div className="card">
-              <h2 className="text-lg font-semibold text-slate-900">Access Requests</h2>
-              <p className="text-sm text-slate-500">
-                Review new access requests and send password setup invites.
-              </p>
-
-              <div className="mt-6">
-                {accessRequestsLoading ? (
-                  <div className="space-y-3">
-                    {[...Array(3)].map((_, i) => (
-                      <div key={i} className="h-16 animate-shimmer rounded-lg" />
-                    ))}
-                  </div>
-                ) : accessRequests && accessRequests!.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full text-sm">
-                      <thead className="text-left text-slate-500">
-                        <tr>
-                          <th className="px-3 py-2">Requester</th>
-                          <th className="px-3 py-2">Company</th>
-                          <th className="px-3 py-2">Requested Role</th>
-                          <th className="px-3 py-2">Status</th>
-                          <th className="px-3 py-2">Requested</th>
-                          <th className="px-3 py-2 text-right">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        {accessRequests!.map((request) => {
-                          const selectedRole =
-                            selectedRoles[request.id] || normalizeRole(request.role);
-                          return (
-                            <tr key={request.id}>
-                              <td className="px-3 py-3">
-                                <div className="font-medium text-slate-900">{request.fullName}</div>
-                                <div className="text-slate-500">{request.email}</div>
-                              </td>
-                              <td className="px-3 py-3 text-slate-600">
-                                {request.company || '-'}
-                              </td>
-                              <td className="px-3 py-3">
-                                {request.status === 'PENDING' ? (
-                                  <select
-                                    className="input h-9"
-                                    value={selectedRole}
-                                    onChange={(event) =>
-                                      setSelectedRoles((prev) => ({
-                                        ...prev,
-                                        [request.id]: event.target.value,
-                                      }))
-                                    }
-                                  >
-                                    {roleOptions.map((option) => (
-                                      <option key={option.value} value={option.value}>
-                                        {option.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <span className="text-slate-700">
-                                    {normalizeRole(request.role)}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-3 py-3">
-                                <span
-                                  className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                                    request.status === 'APPROVED'
-                                      ? 'bg-emerald-100 text-emerald-700'
-                                      : request.status === 'REJECTED'
-                                        ? 'bg-rose-100 text-rose-700'
-                                        : request.status === 'INFO_RECEIVED'
-                                          ? 'bg-indigo-100 text-indigo-700'
-                                          : request.status === 'NEEDS_INFO' || request.status === 'INFO_REQUESTED'
-                                            ? 'bg-blue-100 text-blue-700'
-                                            : 'bg-amber-100 text-amber-700'
-                                  }`}
-                                >
-                                  {formatEnumLabel(request.status)}
-                                </span>
-                                {request.adminNotes && (
-                                  <div className="mt-2 text-xs text-slate-500">
-                                    Notes: {request.adminNotes}
-                                  </div>
-                                )}
-                              </td>
-                              <td className="px-3 py-3 text-slate-600">
-                                {new Date(request.createdAt).toLocaleDateString()}
-                              </td>
-                              <td className="px-3 py-3 text-right">
-                                {request.status === 'PENDING' ||
-                                request.status === 'NEEDS_INFO' ||
-                                request.status === 'INFO_REQUESTED' ||
-                                request.status === 'INFO_RECEIVED' ? (
-                                  <div className="flex flex-wrap justify-end gap-2">
-                                    {(request.status === 'INFO_RECEIVED' ||
-                                      request.status === 'NEEDS_INFO' ||
-                                      request.status === 'INFO_REQUESTED') && (
-                                      <button
-                                        className="btn-outline text-sm"
-                                        onClick={() => openReplyModal(request)}
-                                        disabled={replyLoading}
-                                      >
-                                        {replyLoading ? 'Loading...' : 'View response'}
-                                      </button>
-                                    )}
-                                    <button
-                                      className="btn-outline text-sm"
-                                      onClick={() => {
-                                        setAccessRequestNotes('');
-                                        setAccessRequestAction({
-                                          id: request.id,
-                                          type: 'request-info',
-                                          name: request.fullName,
-                                        });
-                                      }}
-                                    >
-                                      Request info
-                                    </button>
-                                    <button
-                                      className="btn-outline text-sm text-rose-600"
-                                      onClick={() => {
-                                        setAccessRequestNotes('');
-                                        setAccessRequestAction({
-                                          id: request.id,
-                                          type: 'reject',
-                                          name: request.fullName,
-                                        });
-                                      }}
-                                    >
-                                      Reject
-                                    </button>
-                                    <button
-                                      className="btn-primary text-sm"
-                                      disabled={
-                                        approveAccessMutation.isPending &&
-                                        approvingRequestId === request.id
-                                      }
-                                      onClick={async () => {
-                                        setApprovingRequestId(request.id);
-                                        try {
-                                          await approveAccessMutation.mutateAsync({
-                                            id: request.id,
-                                            role: selectedRole,
-                                          });
-                                        } finally {
-                                          setApprovingRequestId((current) =>
-                                            current === request.id ? null : current
-                                          );
-                                        }
-                                      }}
-                                    >
-                                      {approveAccessMutation.isPending &&
-                                      approvingRequestId === request.id
-                                        ? 'Sending...'
-                                        : 'Approve'}
-                                    </button>
-                                    <button
-                                      className="btn-outline text-sm text-rose-600"
-                                      onClick={() => {
-                                        const confirmed = window.confirm(
-                                          'Delete this access request? This cannot be undone.'
-                                        );
-                                        if (confirmed) {
-                                          deleteAccessRequestMutation.mutate(request.id);
-                                        }
-                                      }}
-                                    >
-                                      Delete
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <div className="flex flex-wrap justify-end gap-2">
-                                    {request.status === 'APPROVED' && (
-                                      <button
-                                        className="btn-outline text-sm"
-                                        disabled={
-                                          approveAccessMutation.isPending &&
-                                          approvingRequestId === request.id
-                                        }
-                                        onClick={async () => {
-                                          setApprovingRequestId(request.id);
-                                          try {
-                                            await approveAccessMutation.mutateAsync({
-                                              id: request.id,
-                                              role: selectedRole,
-                                            });
-                                          } finally {
-                                            setApprovingRequestId((current) =>
-                                              current === request.id ? null : current
-                                            );
-                                          }
-                                        }}
-                                      >
-                                        {approveAccessMutation.isPending &&
-                                        approvingRequestId === request.id
-                                          ? 'Sending...'
-                                          : 'Resend setup'}
-                                      </button>
-                                    )}
-                                    <button
-                                      className="btn-outline text-sm text-rose-600"
-                                      onClick={() => {
-                                        const confirmed = window.confirm(
-                                          'Delete this access request? This cannot be undone.'
-                                        );
-                                        if (confirmed) {
-                                          deleteAccessRequestMutation.mutate(request.id);
-                                        }
-                                      }}
-                                    >
-                                      Delete
-                                    </button>
-                                  </div>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-sm text-slate-500">No access requests yet.</p>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
