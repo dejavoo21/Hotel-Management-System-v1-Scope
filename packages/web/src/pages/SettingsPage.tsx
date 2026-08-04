@@ -25,6 +25,7 @@ import {
   type AppearancePreferences,
 } from '@/theme/appearance';
 import IntegrationManagerPanel from '@/components/settings/IntegrationManagerPanel';
+import AccessRequestsPanel from '@/components/settings/AccessRequestsPanel';
 import { currencyForCountry } from '@/utils/countryCurrency';
 
 type SettingsTab =
@@ -77,6 +78,7 @@ export default function SettingsPage() {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [auditFilter, setAuditFilter] = useState('');
   const { user, setUser } = useAuthStore();
+  const isAdmin = user?.role === 'ADMIN';
   const { setTheme } = useTheme();
   const queryClient = useQueryClient();
   const [hotelForm, setHotelForm] = useState({
@@ -160,13 +162,13 @@ export default function SettingsPage() {
         'appearance',
         'integrations',
         'audit-trail',
-        'access-requests',
+        ...(isAdmin ? (['access-requests'] as SettingsTab[]) : []),
       ];
       if (allowedTabs.includes(tab)) {
         setActiveTab(tab);
       }
     }
-  }, [activeTab, searchParams]);
+  }, [activeTab, isAdmin, searchParams]);
 
   const { data: roomTypes, isLoading: roomTypesLoading } = useQuery({
     queryKey: ['roomTypes'],
@@ -177,10 +179,12 @@ export default function SettingsPage() {
   const {
     data: accessRequests,
     isLoading: accessRequestsLoading,
+    isError: accessRequestsError,
+    refetch: refetchAccessRequests,
   } = useQuery({
     queryKey: ['accessRequests'],
     queryFn: accessRequestService.list,
-    enabled: activeTab === 'access-requests',
+    enabled: activeTab === 'access-requests' && isAdmin,
   });
 
   const createRoomTypeMutation = useMutation({
@@ -369,6 +373,28 @@ export default function SettingsPage() {
     onError: () => {
       toast.error('Failed to update hotel settings');
     },
+  });
+
+  const resendAccessSetupMutation = useMutation({
+    mutationFn: ({ id, role }: { id: string; role?: string }) =>
+      accessRequestService.resendSetup(id, role),
+    onSuccess: (result, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['accessRequests'] });
+      appendAuditLog({
+        action: 'ACCESS_REQUEST_SETUP_RESENT',
+        actorId: user?.id,
+        actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
+        targetId: variables.id,
+        details: { role: variables.role },
+      });
+      refreshAuditLogs();
+      if (result.inviteEmailSent) {
+        toast.success('Password setup invite resent');
+      } else {
+        toast.error(result.deliveryWarning || 'Access remains approved, but the setup email was not delivered');
+      }
+    },
+    onError: () => toast.error('Failed to resend password setup invite'),
   });
 
   const syncWeatherMutation = useMutation({
@@ -726,6 +752,7 @@ export default function SettingsPage() {
       ),
     },
   ];
+  const visibleTabs = isAdmin ? tabs : tabs.filter((tab) => tab.id !== 'access-requests');
 
   return (
     <div className="space-y-6">
@@ -739,7 +766,7 @@ export default function SettingsPage() {
         {/* Sidebar */}
         <div className="w-full shrink-0 lg:w-64">
           <nav className="space-y-1 rounded-2xl border border-border bg-card p-3 shadow-sm" aria-label="Settings sections">
-              {tabs.map((tab) => (
+              {visibleTabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => handleTabChange(tab.id)}
@@ -1422,7 +1449,41 @@ export default function SettingsPage() {
           )}
 
           {/* Access Requests */}
-          {activeTab === 'access-requests' && (
+          {activeTab === 'access-requests' && isAdmin && (
+            <AccessRequestsPanel
+              requests={accessRequests}
+              isLoading={accessRequestsLoading}
+              isError={accessRequestsError}
+              currentUserEmail={user?.email}
+              roleOptions={roleOptions}
+              selectedRoles={selectedRoles}
+              onRoleChange={(requestId, role) =>
+                setSelectedRoles((current) => ({ ...current, [requestId]: role }))
+              }
+              onRetry={() => { void refetchAccessRequests(); }}
+              onApprove={async (request, role) => {
+                await approveAccessMutation.mutateAsync({ id: request.id, role });
+              }}
+              onResend={async (request, role) => {
+                await resendAccessSetupMutation.mutateAsync({ id: request.id, role });
+              }}
+              onReject={(request) => {
+                setAccessRequestNotes('');
+                setAccessRequestAction({ id: request.id, type: 'reject', name: request.fullName });
+              }}
+              onRequestInfo={(request) => {
+                setAccessRequestNotes('');
+                setAccessRequestAction({ id: request.id, type: 'request-info', name: request.fullName });
+              }}
+              onViewResponse={(request) => { void openReplyModal(request); }}
+              onDelete={async (request) => {
+                await deleteAccessRequestMutation.mutateAsync(request.id);
+              }}
+            />
+          )}
+
+          {/* Legacy access request renderer retained temporarily for rollback safety. */}
+          {false && activeTab === 'access-requests' && (
             <div className="card">
               <h2 className="text-lg font-semibold text-slate-900">Access Requests</h2>
               <p className="text-sm text-slate-500">
@@ -1436,7 +1497,7 @@ export default function SettingsPage() {
                       <div key={i} className="h-16 animate-shimmer rounded-lg" />
                     ))}
                   </div>
-                ) : accessRequests && accessRequests.length > 0 ? (
+                ) : accessRequests && accessRequests!.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
                       <thead className="text-left text-slate-500">
@@ -1450,7 +1511,7 @@ export default function SettingsPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200">
-                        {accessRequests.map((request) => {
+                        {accessRequests!.map((request) => {
                           const selectedRole =
                             selectedRoles[request.id] || normalizeRole(request.role);
                           return (

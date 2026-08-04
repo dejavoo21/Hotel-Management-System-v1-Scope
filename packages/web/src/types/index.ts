@@ -371,8 +371,10 @@ export interface AccessRequest {
   role?: string;
   message?: string;
   adminNotes?: string;
+  lastReplyAt?: string;
   status: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface AccessRequestAttachment {

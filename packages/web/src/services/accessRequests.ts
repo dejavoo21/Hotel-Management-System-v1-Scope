@@ -34,6 +34,10 @@ export const accessRequestService = {
     const response = await api.post(`/access-requests/${id}/approve`, role ? { role } : undefined);
     return response.data?.data || { inviteEmailSent: false };
   },
+  async resendSetup(id: string, role?: string): Promise<ApproveAccessResult> {
+    const response = await api.post(`/access-requests/${id}/approve`, role ? { role } : undefined);
+    return response.data?.data || { inviteEmailSent: false };
+  },
   async reject(id: string, notes: string): Promise<void> {
     await api.post(`/access-requests/${id}/reject`, { notes });
   },
