@@ -11,6 +11,7 @@ import {
   getAuditLogs,
   getAuditSettings,
   saveAuditSettings,
+  sanitizeAuditEntry,
   type AuditLogEntry,
 } from '@/utils/auditLog';
 import toast from 'react-hot-toast';
@@ -25,6 +26,7 @@ import {
 } from '@/theme/appearance';
 import IntegrationManagerPanel from '@/components/settings/IntegrationManagerPanel';
 import AccessRequestsPanel from '@/components/settings/AccessRequestsPanel';
+import AuditTrailPanel from '@/components/settings/AuditTrailPanel';
 import { currencyForCountry } from '@/utils/countryCurrency';
 
 type SettingsTab =
@@ -74,7 +76,6 @@ export default function SettingsPage() {
   );
   const [auditSettings, setAuditSettings] = useState(getAuditSettings());
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
-  const [auditFilter, setAuditFilter] = useState('');
   const { user, setUser } = useAuthStore();
   const isAdmin = user?.role === 'ADMIN';
   const { setTheme } = useTheme();
@@ -98,16 +99,6 @@ export default function SettingsPage() {
     ],
     []
   );
-
-  const filteredAuditLogs = useMemo(() => {
-    if (!auditFilter.trim()) return auditLogs;
-    const query = auditFilter.trim().toLowerCase();
-    return auditLogs.filter((log) =>
-      [log.action, log.actorName, log.targetLabel, log.targetId]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query))
-    );
-  }, [auditFilter, auditLogs]);
 
   useEffect(() => {
     if (user?.hotel) {
@@ -617,14 +608,81 @@ export default function SettingsPage() {
 
   const saveAuditPrefs = () => {
     saveAuditSettings(auditSettings);
-      appendAuditLog({
-        action: 'AUDIT_SETTINGS_UPDATED',
-        actorId: user?.id,
-        actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
-        details: { ...auditSettings },
-      });
+    appendAuditLog({
+      action: 'AUDIT_SETTINGS_UPDATED',
+      actorId: user?.id,
+      actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
+      details: {
+        retentionDays: auditSettings.retentionDays,
+        forwardingEnabled: auditSettings.forwardingEnabled,
+        forwardingUrl: auditSettings.forwardingUrl || '',
+        forwardingApiKeyConfigured: Boolean(auditSettings.forwardingApiKey),
+      },
+    });
     refreshAuditLogs();
     toast.success('Audit settings saved');
+  };
+
+  const recordAuditExport = (format: 'JSON' | 'CSV' | 'COMPLIANCE_REPORT', count: number) => {
+    appendAuditLog({
+      action: format === 'COMPLIANCE_REPORT' ? 'COMPLIANCE_REPORT_GENERATED' : 'AUDIT_EXPORT_GENERATED',
+      actorId: user?.id,
+      actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
+      targetLabel: format === 'COMPLIANCE_REPORT' ? 'Compliance report' : `Audit export (${format})`,
+      details: { format, recordCount: count },
+    });
+    refreshAuditLogs();
+  };
+
+  const exportAuditJson = (entries: AuditLogEntry[]) => {
+    downloadTextFile(
+      JSON.stringify(entries.map(sanitizeAuditEntry), null, 2),
+      'audit-log.json',
+      'application/json'
+    );
+    recordAuditExport('JSON', entries.length);
+    toast.success('Audit JSON exported');
+  };
+
+  const exportAuditCsv = (entries: AuditLogEntry[]) => {
+    const header = ['Timestamp', 'Action', 'Actor', 'Target', 'Details'];
+    const rows = entries.map((entry) => {
+      const safeEntry = sanitizeAuditEntry(entry);
+      return [
+        safeEntry.createdAt,
+        safeEntry.action,
+        safeEntry.actorName || '',
+        safeEntry.targetLabel || safeEntry.targetId || '',
+        safeEntry.details ? JSON.stringify(safeEntry.details) : '',
+      ];
+    });
+    const csv = [header, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    downloadTextFile(csv, 'audit-log.csv', 'text/csv');
+    recordAuditExport('CSV', entries.length);
+    toast.success('Audit CSV exported');
+  };
+
+  const generateComplianceReport = (entries: AuditLogEntry[]) => {
+    const latest = entries[0]?.createdAt || 'N/A';
+    const report = [
+      'LaFlo Compliance Snapshot',
+      `Generated: ${new Date().toISOString()}`,
+      `Retention: ${auditSettings.retentionDays} days`,
+      `Forwarding Enabled: ${auditSettings.forwardingEnabled ? 'Yes' : 'No'}`,
+      `Forwarding URL: ${auditSettings.forwardingUrl || 'Not configured'}`,
+      `Included Audit Events: ${entries.length}`,
+      `Latest Included Entry: ${latest}`,
+      '',
+      'Review items:',
+      '- Access requests audited',
+      '- User management changes logged',
+      '- Notification settings tracked',
+    ].join('\n');
+    downloadTextFile(report, 'compliance-report.txt');
+    recordAuditExport('COMPLIANCE_REPORT', entries.length);
+    toast.success('Compliance report generated');
   };
 
   const tabs: { id: SettingsTab; name: string; icon: JSX.Element }[] = [
@@ -1241,200 +1299,15 @@ export default function SettingsPage() {
 
           {/* Audit Trail */}
           {activeTab === 'audit-trail' && (
-            <div className="space-y-6">
-              <div className="card">
-                <h2 className="text-lg font-semibold text-slate-900">Audit Trail</h2>
-                <p className="text-sm text-slate-500">
-                  Track critical changes and keep an operational record.
-                </p>
-
-                <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="label">Retention (days)</label>
-                    <input
-                      type="number"
-                      min={14}
-                      max={365}
-                      className="input"
-                      value={auditSettings.retentionDays}
-                      onChange={(event) =>
-                        setAuditSettings((prev) => ({
-                          ...prev,
-                          retentionDays: Number(event.target.value || 0),
-                        }))
-                      }
-                    />
-                    <p className="mt-1 text-xs text-slate-500">
-                      Recommended: 90 days for operational audit needs.
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
-                    <div>
-                      <p className="font-medium text-slate-900">External log forwarding</p>
-                      <p className="text-xs text-slate-500">
-                        Send copies to your log monitoring tool.
-                      </p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={auditSettings.forwardingEnabled}
-                      onChange={(event) =>
-                        setAuditSettings((prev) => ({
-                          ...prev,
-                          forwardingEnabled: event.target.checked,
-                        }))
-                      }
-                      className="h-5 w-5 rounded border-slate-300 text-primary-600"
-                    />
-                  </div>
-                </div>
-
-                {auditSettings.forwardingEnabled && (
-                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="label">Forwarding URL</label>
-                      <input
-                        className="input"
-                        placeholder="https://logs.example.com/ingest"
-                        value={auditSettings.forwardingUrl || ''}
-                        onChange={(event) =>
-                          setAuditSettings((prev) => ({
-                            ...prev,
-                            forwardingUrl: event.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className="label">API Key</label>
-                      <input
-                        className="input"
-                        placeholder="Optional"
-                        value={auditSettings.forwardingApiKey || ''}
-                        onChange={(event) =>
-                          setAuditSettings((prev) => ({
-                            ...prev,
-                            forwardingApiKey: event.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <button className="btn-primary" onClick={saveAuditPrefs}>
-                    Save Audit Settings
-                  </button>
-                  <button
-                    className="btn-outline"
-                    onClick={() =>
-                      downloadTextFile(
-                        JSON.stringify(auditLogs, null, 2),
-                        'audit-log.json',
-                        'application/json'
-                      )
-                    }
-                  >
-                    Export JSON
-                  </button>
-                  <button
-                    className="btn-outline"
-                    onClick={() => {
-                      const header = ['Timestamp', 'Action', 'Actor', 'Target', 'Details'];
-                      const rows = auditLogs.map((log) => [
-                        log.createdAt,
-                        log.action,
-                        log.actorName || '',
-                        log.targetLabel || log.targetId || '',
-                        log.details ? JSON.stringify(log.details) : '',
-                      ]);
-                      const csv = [header, ...rows]
-                        .map((row) =>
-                          row
-                            .map((cell) => `"${String(cell).replace(/\"/g, '""')}"`)
-                            .join(',')
-                        )
-                        .join('\n');
-                      downloadTextFile(csv, 'audit-log.csv', 'text/csv');
-                    }}
-                  >
-                    Export CSV
-                  </button>
-                  <button
-                    className="btn-outline"
-                    onClick={() => {
-                      const latest = auditLogs[0]?.createdAt || 'N/A';
-                      const report = [
-                        'LaFlo Compliance Snapshot',
-                        `Generated: ${new Date().toISOString()}`,
-                        `Retention: ${auditSettings.retentionDays} days`,
-                        `Forwarding Enabled: ${auditSettings.forwardingEnabled ? 'Yes' : 'No'}`,
-                        `Forwarding URL: ${auditSettings.forwardingUrl || 'Not configured'}`,
-                        `Latest Log Entry: ${latest}`,
-                        '',
-                        'Review items:',
-                        '- Access requests audited',
-                        '- User management changes logged',
-                        '- Notification settings tracked',
-                      ].join('\n');
-                      downloadTextFile(report, 'compliance-report.txt');
-                    }}
-                  >
-                    Generate Compliance Report
-                  </button>
-                </div>
-              </div>
-
-              <div className="card">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="text-lg font-semibold text-slate-900">Recent Activity</h3>
-                  <input
-                    value={auditFilter}
-                    onChange={(event) => setAuditFilter(event.target.value)}
-                    placeholder="Filter audit entries..."
-                    className="input max-w-xs"
-                  />
-                </div>
-
-                <div className="mt-4">
-                  {filteredAuditLogs.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-                      No audit entries yet.
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {filteredAuditLogs.map((entry) => (
-                        <div
-                          key={entry.id}
-                          className="rounded-lg border border-slate-200 px-4 py-3 text-sm"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="font-semibold text-slate-900">{entry.action}</span>
-                            <span className="text-xs text-slate-500">
-                              {new Date(entry.createdAt).toLocaleString()}
-                            </span>
-                          </div>
-                          <div className="mt-2 text-xs text-slate-600">
-                            Actor: {entry.actorName || 'System'}
-                          </div>
-                          {entry.targetLabel || entry.targetId ? (
-                            <div className="text-xs text-slate-600">
-                              Target: {entry.targetLabel || entry.targetId}
-                            </div>
-                          ) : null}
-                          {entry.details && (
-                            <pre className="mt-2 max-h-32 overflow-auto rounded bg-slate-50 p-2 text-[11px] text-slate-500">
-                              {JSON.stringify(entry.details, null, 2)}
-                            </pre>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+            <AuditTrailPanel
+              settings={auditSettings}
+              logs={auditLogs}
+              onSettingsChange={setAuditSettings}
+              onSave={saveAuditPrefs}
+              onExportJson={exportAuditJson}
+              onExportCsv={exportAuditCsv}
+              onGenerateReport={generateComplianceReport}
+            />
           )}
 
           {/* Access Requests */}

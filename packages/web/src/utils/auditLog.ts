@@ -16,6 +16,26 @@ export interface AuditSettings {
   forwardingApiKey?: string;
 }
 
+const SENSITIVE_AUDIT_KEY = /(api.?key|authorization|cookie|credential|password|secret|setup.?token|access.?token|refresh.?token)/i;
+
+export const sanitizeAuditValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(sanitizeAuditValue);
+  if (!value || typeof value !== 'object') return value;
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => !SENSITIVE_AUDIT_KEY.test(key))
+      .map(([key, nestedValue]) => [key, sanitizeAuditValue(nestedValue)])
+  );
+};
+
+export const sanitizeAuditEntry = (entry: AuditLogEntry): AuditLogEntry => ({
+  ...entry,
+  details: entry.details
+    ? (sanitizeAuditValue(entry.details) as Record<string, unknown>)
+    : undefined,
+});
+
 const LOG_KEY = 'laflo:auditLog';
 const SETTINGS_KEY = 'laflo:auditSettings';
 
