@@ -182,6 +182,131 @@ export function renderLafloEmail(params: {
   return { html, text };
 }
 
+export function renderLiveSupportRequestEmail(params: {
+  hotelName: string;
+  requesterName: string;
+  conversationId: string;
+  handoffContext?: string;
+  threadUrl: string;
+}) {
+  const hotelName = escapeHtml(params.hotelName);
+  const requesterName = escapeHtml(params.requesterName);
+  const conversationId = escapeHtml(params.conversationId);
+  const handoffContext = params.handoffContext
+    ? escapeHtml(params.handoffContext).replace(/\n/g, '<br />')
+    : 'No additional handoff context was provided.';
+  const threadUrl = escapeHtml(params.threadUrl);
+  const logoUrl = 'https://laflo-web-production.up.railway.app/laflo-logo.png';
+
+  const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Live support conversation requested</title>
+  </head>
+  <body style="margin:0; padding:0; background:#f3f7f9;">
+    <div style="display:none; max-height:0; overflow:hidden; opacity:0;">A LaFlo user is waiting for a support assistant.</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%; background:#f3f7f9;">
+      <tr>
+        <td align="center" style="padding:28px 12px;">
+          <table role="presentation" width="680" cellspacing="0" cellpadding="0" style="width:100%; max-width:680px; border:1px solid #e3eaee; border-radius:22px; background:#ffffff; box-shadow:0 12px 34px rgba(15,23,42,.08);">
+            <tr>
+              <td style="padding:28px 32px 22px; border-bottom:1px solid #dce6ea;">
+                <img src="${logoUrl}" width="116" alt="LaFlo" style="display:block; width:116px; max-width:100%; height:auto; border:0;" />
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:30px 32px 12px; font-family:Arial,Helvetica,sans-serif;">
+                <h1 style="margin:0; color:#0b2342; font-size:30px; line-height:1.25; letter-spacing:-.02em; font-weight:800;">
+                  A LaFlo user is waiting for a support assistant to join their conversation.
+                </h1>
+                <p style="margin:10px 0 0; color:#526078; font-size:16px; line-height:1.6;">
+                  Please review the details below and join the conversation to assist the user.
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:14px 32px 0;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #dce6ea; border-radius:16px; border-collapse:separate; overflow:hidden;">
+                  <tr>
+                    <td style="width:130px; padding:17px 20px; border-bottom:1px solid #e4ebef; background:#f7fbfb; color:#0b2342; font-family:Arial,Helvetica,sans-serif; font-size:14px; font-weight:700;">Hotel</td>
+                    <td style="padding:17px 20px; border-bottom:1px solid #e4ebef; color:#17233b; font-family:Arial,Helvetica,sans-serif; font-size:15px;">${hotelName}</td>
+                  </tr>
+                  <tr>
+                    <td style="width:130px; padding:17px 20px; border-bottom:1px solid #e4ebef; background:#f7fbfb; color:#0b2342; font-family:Arial,Helvetica,sans-serif; font-size:14px; font-weight:700;">Requester</td>
+                    <td style="padding:17px 20px; border-bottom:1px solid #e4ebef; color:#17233b; font-family:Arial,Helvetica,sans-serif; font-size:15px; font-weight:600;">${requesterName}</td>
+                  </tr>
+                  <tr>
+                    <td style="width:130px; padding:17px 20px; background:#f7fbfb; color:#0b2342; font-family:Arial,Helvetica,sans-serif; font-size:14px; font-weight:700;">Conversation</td>
+                    <td style="padding:17px 20px; color:#334155; font-family:Consolas,Monaco,monospace; font-size:13px; word-break:break-all;">${conversationId}</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:26px 32px 0; font-family:Arial,Helvetica,sans-serif;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td style="white-space:nowrap; color:#0b2342; font-size:17px; font-weight:800;">Handoff context</td>
+                    <td width="100%" style="padding-left:16px;"><div style="height:2px; background:#21b6ae; line-height:2px; font-size:2px;">&nbsp;</div></td>
+                  </tr>
+                </table>
+                <div style="margin-top:14px; padding:16px 18px; border:1px solid #dceff0; border-radius:10px; background:#f2fbfb; color:#17233b; font-size:15px; line-height:1.65;">
+                  ${handoffContext}
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td align="center" style="padding:28px 32px 0;">
+                <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%; max-width:470px;">
+                  <tr>
+                    <td align="center" style="border-radius:12px; background:#07978f; box-shadow:0 7px 16px rgba(7,151,143,.24);">
+                      <a href="${threadUrl}" style="display:block; padding:17px 24px; color:#ffffff; font-family:Arial,Helvetica,sans-serif; font-size:18px; line-height:1.2; font-weight:800; text-align:center; text-decoration:none; border-radius:12px;">
+                        Join support conversation
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:28px 32px 30px; font-family:Arial,Helvetica,sans-serif;">
+                <div style="height:1px; background:#e3eaee; line-height:1px; font-size:1px;">&nbsp;</div>
+                <p style="margin:18px 0 0; color:#637187; font-size:13px; line-height:1.6; text-align:center;">
+                  Open the conversation, assign it to yourself, and reply from LaFlo Messages.
+                </p>
+                <p style="margin:8px 0 0; color:#94a3b8; font-size:11px; line-height:1.5; text-align:center; word-break:break-all;">
+                  If the button does not open, use this link: ${threadUrl}
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  const text = toText([
+    'A LaFlo user is waiting for a support assistant to join their conversation.',
+    'Please review the details below and join the conversation to assist the user.',
+    `Hotel: ${params.hotelName}`,
+    `Requester: ${params.requesterName}`,
+    `Conversation: ${params.conversationId}`,
+    params.handoffContext ? `Handoff context: ${params.handoffContext}` : undefined,
+    `Join support conversation: ${params.threadUrl}`,
+    'Open the conversation, assign it to yourself, and reply from LaFlo Messages.',
+  ]);
+
+  return { html, text };
+}
+
 export function renderOtpEmail(params: { firstName: string; code: string }) {
   const code = escapeHtml(params.code);
   return renderLafloEmail({
