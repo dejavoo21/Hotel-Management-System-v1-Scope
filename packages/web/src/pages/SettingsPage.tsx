@@ -19,6 +19,7 @@ import { ackAccessRequest } from '@/utils/accessRequestAck';
 import ThemeSwitcher from '@/components/theme/ThemeSwitcher';
 import { useTheme } from '@/theme/ThemeProvider';
 import IntegrationManagerPanel from '@/components/settings/IntegrationManagerPanel';
+import { currencyForCountry } from '@/utils/countryCurrency';
 
 type SettingsTab =
   | 'hotel'
@@ -805,7 +806,15 @@ export default function SettingsPage() {
                     <input
                       type="text"
                       value={hotelForm.country}
-                      onChange={(e) => setHotelForm((prev) => ({ ...prev, country: e.target.value }))}
+                      onChange={(e) => {
+                        const country = e.target.value;
+                        const inferredCurrency = currencyForCountry(country);
+                        setHotelForm((prev) => ({
+                          ...prev,
+                          country,
+                          currency: inferredCurrency || prev.currency,
+                        }));
+                      }}
                       className="input"
                       placeholder="e.g. Nigeria"
                       required
@@ -843,6 +852,7 @@ export default function SettingsPage() {
                       value={hotelForm.currency}
                       onChange={(e) => setHotelForm((prev) => ({ ...prev, currency: e.target.value }))}
                       className="input"
+                      disabled={Boolean(currencyForCountry(hotelForm.country))}
                     >
                       {currencyOptions.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -851,7 +861,10 @@ export default function SettingsPage() {
                       ))}
                     </select>
                     <p className="mt-1 text-xs text-slate-500">
-                      Updates currency formatting across LaFlo. Existing monetary values are not converted automatically.
+                      {currencyForCountry(hotelForm.country)
+                        ? `Automatically set from ${hotelForm.country}.`
+                        : 'Select a currency because this country is not in the automatic mapping.'}{' '}
+                      Existing monetary values are not converted automatically.
                     </p>
                   </div>
                   <div>

@@ -234,6 +234,122 @@ function isInterfaceExplanationRequest(message: string) {
   return /(explain|overview|what can i do|what is this|what.*page|how.*page.*work|guide me|walk me through|take me through|page tour|help me understand)/i.test(message);
 }
 
+function isDelegatedDeepDiveRequest(message: string) {
+  return /(dive\s*(?:deep|deeper)|go\s*(?:deep|deeper)|pick\s+(?:something|one|an?\s+area)|choose\s+(?:something|one|an?\s+area)|analyse\s+(?:something|one)|analyze\s+(?:something|one))/i.test(message);
+}
+
+function recordValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function countItems(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function numberValue(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+export function buildDashboardDeepDiveReply(
+  message: string,
+  hotelContext: Record<string, unknown> | null
+): { reply: string; prompts: string[] } | null {
+  if (!isDelegatedDeepDiveRequest(message) || !hotelContext) return null;
+
+  const security = recordValue(hotelContext.security);
+  const smartBuilding = recordValue(hotelContext.smartBuilding);
+  const tasks = recordValue(hotelContext.tasks);
+  const housekeeping = recordValue(hotelContext.housekeeping);
+  const occupancy = recordValue(hotelContext.occupancy);
+  const incidents = recordValue(hotelContext.incidents);
+
+  const criticalIncidents = countItems(incidents.criticalIncidents);
+  const activeSecurityAlerts = countItems(security.activeSecurityAlerts);
+  const offlineCameras = countItems(smartBuilding.cameraOfflineEvents);
+  const offlineDevices = countItems(smartBuilding.devicesOffline);
+  const criticalSensors = countItems(smartBuilding.criticalSensors);
+  const doorEvents = countItems(smartBuilding.doorForcedOpenEvents);
+  const overdueTasks = countItems(tasks.overdueTasks);
+  const highPriorityTasks = countItems(tasks.highPriority);
+  const dirtyRooms = numberValue(housekeeping.dirtyRooms);
+  const inspectionRooms = numberValue(housekeeping.inspectionRooms);
+  const outOfServiceRooms = numberValue(housekeeping.outOfServiceRooms);
+  const arrivalsToday = numberValue(occupancy.arrivalsToday);
+  const roomsTotal = numberValue(occupancy.roomsTotal);
+  const roomsAvailable = numberValue(occupancy.roomsAvailable);
+
+  if (criticalIncidents + activeSecurityAlerts + offlineCameras + offlineDevices + criticalSensors + doorEvents > 0) {
+    const signals = [
+      criticalIncidents ? `${criticalIncidents} critical incident${criticalIncidents === 1 ? '' : 's'}` : null,
+      activeSecurityAlerts ? `${activeSecurityAlerts} active security alert${activeSecurityAlerts === 1 ? '' : 's'}` : null,
+      offlineCameras ? `${offlineCameras} offline camera${offlineCameras === 1 ? '' : 's'}` : null,
+      offlineDevices ? `${offlineDevices} offline or warning device${offlineDevices === 1 ? '' : 's'}` : null,
+      criticalSensors ? `${criticalSensors} critical sensor reading${criticalSensors === 1 ? '' : 's'}` : null,
+      doorEvents ? `${doorEvents} recent forced/held-open door event${doorEvents === 1 ? '' : 's'}` : null,
+    ].filter(Boolean);
+    return {
+      reply: [
+        'I’ll choose Operational attention: Security and Smart Building.',
+        '',
+        `Why I chose it: the authorised live context currently shows ${signals.join(', ')}. These signals can affect guest safety, access control, and the hotel’s ability to detect an incident, so they outrank routine dashboard review.`,
+        '',
+        'What to investigate first:',
+        '1. Open the highest-severity active alert and confirm its location, time, owner, and acknowledgement status.',
+        '2. For an offline camera or device, check last-seen time and provider/integration health before treating it as a hardware failure.',
+        '3. Correlate door or sensor events with CCTV and access logs for the same location and time.',
+        '4. Assign an owner and escalation deadline; do not close the item until monitoring is restored or a documented control is in place.',
+        '',
+        'Operational meaning: an offline device is not automatically an incident, but it creates a monitoring gap. A monitoring gap combined with a door, sensor, or security alert should be handled as the higher priority.',
+        '',
+        'Would you like me to dive next into the camera/device outage, the security alerts, or the door events?',
+      ].join('\n'),
+      prompts: ['Analyse the camera and device outage', 'Break down the active security alerts', 'Explain the door events and next actions'],
+    };
+  }
+
+  if (overdueTasks + highPriorityTasks > 0) {
+    return {
+      reply: [
+        'I’ll choose Tasks and operational ownership.',
+        '',
+        `Why I chose it: there are ${overdueTasks} overdue and ${highPriorityTasks} high-priority task records in the authorised live context.`,
+        '',
+        'What to review:',
+        '1. Start with overdue items that affect safety, arrivals, room availability, or guest commitments.',
+        '2. Confirm every urgent item has an owner, due time, and visible next action.',
+        '3. Escalate breached work rather than duplicating it, then verify completion evidence before closure.',
+        '',
+        'Would you like me to focus on overdue work or high-priority work?',
+      ].join('\n'),
+      prompts: ['Analyse the overdue tasks', 'Analyse the high-priority tasks', 'How should these tasks be escalated?'],
+    };
+  }
+
+  return {
+    reply: [
+      'I’ll choose Room readiness because it directly controls whether Front Desk can allocate rooms safely and on time.',
+      '',
+      `Current authorised context: ${dirtyRooms} dirty, ${inspectionRooms} awaiting inspection, ${outOfServiceRooms} out of service, ${roomsAvailable} available out of ${roomsTotal || 'the configured'} rooms, with ${arrivalsToday} arrival${arrivalsToday === 1 ? '' : 's'} today.`,
+      '',
+      'How to interpret it:',
+      '- Dirty rooms need cleaning before they can enter the inspection/ready workflow.',
+      '- Inspection rooms may be close to ready but must not be allocated until the required check passes.',
+      '- Out-of-service rooms reduce sellable capacity and should have a linked maintenance reason and owner.',
+      '',
+      'What to do next:',
+      '1. Match today’s arrivals to rooms that are not ready.',
+      '2. Prioritise those rooms by arrival time and guest requirement.',
+      '3. Confirm housekeeping assignment, blocker, and expected completion time.',
+      '4. Escalate maintenance or failed-inspection blockers before promising the room.',
+      '',
+      'Would you like me to focus on the dirty rooms, inspection queue, or out-of-service rooms?',
+    ].join('\n'),
+    prompts: ['Focus on the dirty rooms', 'Explain the inspection queue', 'Analyse the out-of-service rooms'],
+  };
+}
+
 function buildVerifiedGuideReply(guide: PlatformGuide) {
   if (!guide.summary || !guide.keyAreas?.length) {
     return [
@@ -512,11 +628,22 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
   const hotelContext = sections.length
     ? await buildHotelContext(hotelId, { sections, limit: 12 })
     : null;
+  const recentMessages = await prisma.message.findMany({
+    where: { conversationId },
+    orderBy: { createdAt: 'desc' },
+    take: 12,
+    select: { senderType: true, body: true, createdAt: true },
+  });
   const structuredContext: Record<string, unknown> = {
     application: applicationContext,
     authorisedHotelContext: hotelContext,
     access: { role: user.role, allowedContextSections: sections },
     authorisedInterfaces: getAuthorisedInterfaces(user.role, user.modulePermissions || []),
+    conversationHistory: recentMessages.reverse().map((item) => ({
+      role: item.senderType === MessageSender.STAFF ? 'user' : 'assistant',
+      text: item.body.slice(0, 2000),
+      at: item.createdAt.toISOString(),
+    })),
     mode,
   };
   const platformGuide = platformGuideFor(trimmed) || catalogueGuideFor(trimmed, applicationContext?.route);
@@ -526,11 +653,18 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
 
   let usedFallback = false;
   let reply: string;
+  let deepDivePrompts: string[] = [];
   const directWeatherReply = sections.includes('weather')
     ? buildDirectWeatherReply(trimmed, hotelContext)
     : null;
+  const dashboardDeepDive = applicationContext?.route === '/'
+    ? buildDashboardDeepDiveReply(trimmed, hotelContext as Record<string, unknown> | null)
+    : null;
   if (directWeatherReply) {
     reply = directWeatherReply;
+  } else if (dashboardDeepDive) {
+    reply = dashboardDeepDive.reply;
+    deepDivePrompts = dashboardDeepDive.prompts;
   } else if (platformGuide && isInterfaceExplanationRequest(trimmed)) {
     if (!hasModuleAccess(user.role, user.modulePermissions || [], platformGuide.permission)) {
       reply = `Your current role does not include access to ${platformGuide.title}. Ask an administrator if this access is required.`;
@@ -603,7 +737,9 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
     generatedAtUtc: new Date().toISOString(),
     needsHumanSupport,
     supportReason: needsHumanSupport ? 'No sufficiently verified authorised platform answer was available.' : null,
-    suggestedPrompts: platformGuide && hasModuleAccess(user.role, user.modulePermissions || [], platformGuide.permission)
+    suggestedPrompts: deepDivePrompts.length
+      ? deepDivePrompts
+      : platformGuide && hasModuleAccess(user.role, user.modulePermissions || [], platformGuide.permission)
       ? (platformGuide.followUpPrompts?.length
           ? platformGuide.followUpPrompts
           : [`Explain ${platformGuide.title}`, `What should I review first in ${platformGuide.title}?`]

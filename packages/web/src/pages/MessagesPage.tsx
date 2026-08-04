@@ -8,6 +8,7 @@ import { getTimeRemaining, getEscalationBadge, escalateTicket, type Ticket } fro
 import type { RecommendedAction } from '@/services/aiHooks';
 import { PAGE_TITLE_CLASS } from '@/styles/typography';
 import { useAuthStore } from '@/stores/authStore';
+import { formatCurrency } from '@/utils/format';
 import SupportVideoPanel from '@/components/calls/SupportVideoPanel';
 import type {
   ConversationMessage,
@@ -188,6 +189,7 @@ const mockMessages: ConversationMessage[] = [
 
 export default function MessagesPage() {
   const { user } = useAuthStore();
+  const currency = user?.hotel?.currency || 'USD';
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
@@ -1150,15 +1152,15 @@ export default function MessagesPage() {
             <div className="mt-2 space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-500">Room Rate</span>
-                <span className="text-xs font-semibold text-slate-800">$250/night</span>
+                <span className="text-xs font-semibold text-slate-800">{formatCurrency(250, currency)}/night</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-500">Incidentals</span>
-                <span className="text-xs font-semibold text-slate-800">$85.00</span>
+                <span className="text-xs font-semibold text-slate-800">{formatCurrency(85, currency)}</span>
               </div>
               <div className="flex items-center justify-between border-t border-slate-200 pt-1.5">
                 <span className="text-xs font-medium text-slate-600">Total Balance</span>
-                <span className="text-xs font-bold text-slate-900">$585.00</span>
+                <span className="text-xs font-bold text-slate-900">{formatCurrency(585, currency)}</span>
               </div>
             </div>
           </div>

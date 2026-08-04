@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildDirectWeatherReply } from './unifiedAssistant.service.js';
+import { buildDashboardDeepDiveReply, buildDirectWeatherReply } from './unifiedAssistant.service.js';
 
 describe('buildDirectWeatherReply', () => {
   it('answers with location and temperature before offering deeper navigation', () => {
@@ -45,5 +45,49 @@ describe('buildDirectWeatherReply', () => {
 
   it('does not intercept unrelated platform questions', () => {
     expect(buildDirectWeatherReply('Explain the Rooms page', null)).toBeNull();
+  });
+});
+
+describe('buildDashboardDeepDiveReply', () => {
+  it('selects a live operational risk instead of repeating the dashboard overview', () => {
+    const result = buildDashboardDeepDiveReply('pick something on the dashboard and dive deep into it', {
+      security: { activeSecurityAlerts: [] },
+      smartBuilding: {
+        cameraOfflineEvents: [{ id: 'camera-1' }],
+        devicesOffline: [{ id: 'device-1' }],
+        criticalSensors: [],
+        doorForcedOpenEvents: [{ id: 'door-1' }],
+      },
+      incidents: { criticalIncidents: [] },
+      tasks: { overdueTasks: [], highPriority: [] },
+      housekeeping: { dirtyRooms: 3, inspectionRooms: 1, outOfServiceRooms: 1 },
+      occupancy: { roomsAvailable: 18, roomsTotal: 20, arrivalsToday: 0 },
+    });
+
+    expect(result?.reply).toContain('Security and Smart Building');
+    expect(result?.reply).toContain('1 offline camera');
+    expect(result?.reply).toContain('1 recent forced/held-open door event');
+    expect(result?.reply).not.toContain('hotel operations command centre');
+    expect(result?.prompts).toHaveLength(3);
+  });
+
+  it('uses room-readiness evidence when no higher operational risk exists', () => {
+    const result = buildDashboardDeepDiveReply('choose one area and go deeper', {
+      security: { activeSecurityAlerts: [] },
+      smartBuilding: {
+        cameraOfflineEvents: [],
+        devicesOffline: [],
+        criticalSensors: [],
+        doorForcedOpenEvents: [],
+      },
+      incidents: { criticalIncidents: [] },
+      tasks: { overdueTasks: [], highPriority: [] },
+      housekeeping: { dirtyRooms: 3, inspectionRooms: 1, outOfServiceRooms: 1 },
+      occupancy: { roomsAvailable: 18, roomsTotal: 20, arrivalsToday: 2 },
+    });
+
+    expect(result?.reply).toContain('Room readiness');
+    expect(result?.reply).toContain('3 dirty');
+    expect(result?.reply).toContain('18 available out of 20 rooms');
   });
 });
