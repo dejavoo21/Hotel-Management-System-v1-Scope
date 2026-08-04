@@ -22,19 +22,29 @@ describe('appearance preferences', () => {
   it('reads valid saved preferences', () => {
     vi.mocked(localStorage.getItem).mockImplementation((key) =>
       key === 'laflo:appearance'
+        ? JSON.stringify({ version: 1, theme: 'ocean-blue', background: 'sand-wash' })
+        : null
+    );
+
+    expect(readAppearancePreferences()).toEqual({ theme: 'ocean-blue', background: 'sand-wash' });
+  });
+
+  it('migrates legacy appearance identifiers', () => {
+    vi.mocked(localStorage.getItem).mockImplementation((key) =>
+      key === 'laflo:appearance'
         ? JSON.stringify({ version: 1, theme: 'ocean', background: 'sand' })
         : null
     );
 
-    expect(readAppearancePreferences()).toEqual({ theme: 'ocean', background: 'sand' });
+    expect(readAppearancePreferences()).toEqual({ theme: 'ocean-blue', background: 'sand-wash' });
   });
 
   it('stores a versioned preference payload', () => {
-    saveAppearancePreferences({ theme: 'amber', background: 'dusk' });
+    saveAppearancePreferences({ theme: 'amber-sunset', background: 'dusk-horizon' });
 
     expect(localStorage.setItem).toHaveBeenCalledWith(
       'laflo:appearance',
-      JSON.stringify({ version: 1, theme: 'amber', background: 'dusk' })
+      JSON.stringify({ version: 1, theme: 'amber-sunset', background: 'dusk-horizon' })
     );
   });
 });

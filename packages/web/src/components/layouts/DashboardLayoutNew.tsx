@@ -475,7 +475,7 @@ export default function DashboardLayout() {
   }, [location.pathname]);
 
   return (
-    <div className="flex min-h-screen w-full bg-slate-50">
+    <div className="app-workspace-background flex min-h-screen w-full bg-bg">
       {/* Mobile sidebar backdrop */}
       {sidebarNav.isMobileOpen && (
         <div

@@ -78,7 +78,7 @@ export default function SettingsPage() {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const { user, setUser } = useAuthStore();
   const isAdmin = user?.role === 'ADMIN';
-  const { setTheme } = useTheme();
+  const { setTheme, setBackground } = useTheme();
   const queryClient = useQueryClient();
   const [hotelForm, setHotelForm] = useState({
     name: '',
@@ -578,7 +578,7 @@ export default function SettingsPage() {
     const nextAppearance = { ...appearancePrefs };
     saveAppearancePreferences(nextAppearance);
     setTheme(nextAppearance.theme);
-    document.body.dataset.bg = nextAppearance.background;
+    setBackground(nextAppearance.background);
     setSavedAppearance(nextAppearance);
     appendAuditLog({
       action: 'APPEARANCE_UPDATED',
@@ -592,10 +592,10 @@ export default function SettingsPage() {
 
   const resetAppearancePrefs = () => {
     setTheme(DEFAULT_APPEARANCE.theme);
+    setBackground(DEFAULT_APPEARANCE.background);
     setAppearancePrefs(DEFAULT_APPEARANCE);
     saveAppearancePreferences(DEFAULT_APPEARANCE);
     setSavedAppearance(DEFAULT_APPEARANCE);
-    document.body.dataset.bg = DEFAULT_APPEARANCE.background;
     appendAuditLog({
       action: 'APPEARANCE_RESET',
       actorId: user?.id,

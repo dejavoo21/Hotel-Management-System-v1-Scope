@@ -6,14 +6,14 @@ import type { ThemeName } from '@/theme/ThemeProvider';
 import type { BackgroundName } from '@/theme/appearance';
 
 function StatefulPanel() {
-  const [theme, setTheme] = useState<ThemeName>('ocean');
-  const [background, setBackground] = useState<BackgroundName>('sand');
+  const [theme, setTheme] = useState<ThemeName>('ocean-blue');
+  const [background, setBackground] = useState<BackgroundName>('sand-wash');
 
   return (
     <AppearancePanel
       theme={theme}
       background={background}
-      isDirty={theme !== 'ocean' || background !== 'sand'}
+      isDirty={theme !== 'ocean-blue' || background !== 'sand-wash'}
       onThemeChange={setTheme}
       onBackgroundChange={setBackground}
       onSave={vi.fn()}
@@ -48,8 +48,8 @@ describe('AppearancePanel', () => {
 
     render(
       <AppearancePanel
-        theme="amber"
-        background="glow"
+        theme="amber-sunset"
+        background="soft-glow"
         isDirty
         onThemeChange={vi.fn()}
         onBackgroundChange={vi.fn()}

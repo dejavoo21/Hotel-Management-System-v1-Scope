@@ -19,25 +19,25 @@ const themeOptions: Array<{
   colors: string[];
 }> = [
   {
-    value: 'laflo',
+    value: 'laflo-green',
     label: 'LaFlo Green',
     description: 'Fresh, clean and balanced.',
     colors: ['#075e54', '#0f8f7d', '#54b897', '#b9ddcf', '#e8f4ef'],
   },
   {
-    value: 'ocean',
+    value: 'ocean-blue',
     label: 'Ocean Blue',
     description: 'Calm, professional and reliable.',
     colors: ['#0369a1', '#0284c7', '#0ea5e9', '#7dd3fc', '#d7eefb'],
   },
   {
-    value: 'amber',
+    value: 'amber-sunset',
     label: 'Amber Sunset',
     description: 'Warm, welcoming and vibrant.',
     colors: ['#9a4b08', '#d97706', '#f59e0b', '#f8c477', '#f7e5cf'],
   },
   {
-    value: 'dark',
+    value: 'dark-mode',
     label: 'Dark Mode',
     description: 'Sleek, modern and easy on the eyes.',
     colors: ['#05080d', '#111827', '#374151', '#6b7280', '#b5bbc3'],
@@ -45,12 +45,12 @@ const themeOptions: Array<{
 ];
 
 const backgroundOptions: Array<{ value: BackgroundName; label: string }> = [
-  { value: 'mist', label: 'Mist Gradient' },
-  { value: 'linen', label: 'Linen Pattern' },
-  { value: 'glow', label: 'Soft Glow' },
-  { value: 'dusk', label: 'Dusk Horizon' },
-  { value: 'sand', label: 'Sand Wash' },
-  { value: 'tide', label: 'Tide Lines' },
+  { value: 'mist-gradient', label: 'Mist Gradient' },
+  { value: 'linen-pattern', label: 'Linen Pattern' },
+  { value: 'soft-glow', label: 'Soft Glow' },
+  { value: 'dusk-horizon', label: 'Dusk Horizon' },
+  { value: 'sand-wash', label: 'Sand Wash' },
+  { value: 'tide-lines', label: 'Tide Lines' },
 ];
 
 const themeLabel = (value: ThemeName) =>
@@ -150,7 +150,7 @@ export default function AppearancePanel({
                       <Check className="h-4 w-4" strokeWidth={3} aria-hidden="true" />
                     </span>
                   )}
-                  <ThemePreview colors={option.colors} dark={option.value === 'dark'} />
+                  <ThemePreview colors={option.colors} dark={option.value === 'dark-mode'} />
                   <div className="mt-4 flex gap-2" aria-hidden="true">
                     {option.colors.map((color) => (
                       <span key={color} className="h-4 w-4 rounded-full ring-1 ring-black/5" style={{ backgroundColor: color }} />
