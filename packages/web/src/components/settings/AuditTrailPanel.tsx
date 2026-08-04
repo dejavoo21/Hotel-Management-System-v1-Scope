@@ -17,6 +17,7 @@ import {
   KeyRound,
   Search,
   ShieldCheck,
+  X,
 } from 'lucide-react';
 import { format, formatDistanceToNowStrict, isSameDay } from 'date-fns';
 import { Fragment, useDeferredValue, useMemo, useState } from 'react';
@@ -35,8 +36,8 @@ type AuditTrailPanelProps = {
 };
 
 type SelectOption = { value: string; label: string };
-type EventCategory = 'Access' | 'Security' | 'Configuration' | 'User' | 'Export' | 'Report' | 'Operations';
-type EventSeverity = 'High' | 'Medium' | 'Info' | 'Low';
+type EventCategory = 'Access' | 'Security' | 'Configuration' | 'User' | 'Export' | 'Report' | 'System' | 'Operations';
+type EventSeverity = 'Critical' | 'High' | 'Medium' | 'Info' | 'Low';
 
 const PAGE_SIZE = 10;
 const RETENTION_OPTIONS = [30, 90, 180, 365];
@@ -48,10 +49,12 @@ const categoryStyles: Record<EventCategory, string> = {
   User: 'bg-violet-50 text-violet-700',
   Export: 'bg-cyan-50 text-cyan-700',
   Report: 'bg-indigo-50 text-indigo-700',
+  System: 'bg-sky-50 text-sky-700',
   Operations: 'bg-slate-100 text-slate-700',
 };
 
 const severityStyles: Record<EventSeverity, string> = {
+  Critical: 'bg-red-700',
   High: 'bg-rose-500',
   Medium: 'bg-amber-500',
   Info: 'bg-blue-500',
@@ -74,9 +77,11 @@ export function getAuditEventMeta(entry: AuditLogEntry): {
   else if (action.includes('USER')) category = 'User';
   else if (action.includes('EXPORT')) category = 'Export';
   else if (action.includes('REPORT')) category = 'Report';
+  else if (/(SYSTEM|AUDIT|SESSION)/.test(action)) category = 'System';
 
   let severity: EventSeverity = 'Low';
-  if (/(DELETED|REJECTED|FAILED|DISABLED|BREACH|CRITICAL)/.test(action)) severity = 'High';
+  if (/(BREACH|CRITICAL|COMPROMISED)/.test(action)) severity = 'Critical';
+  else if (/(DELETED|REJECTED|FAILED|DISABLED)/.test(action)) severity = 'High';
   else if (/(UPDATED|CANCELLED|RESET|CHANGED|REQUESTED)/.test(action)) severity = 'Medium';
   else if (/(EXPORT|REPORT|LOGIN|CREATED)/.test(action)) severity = 'Info';
 
@@ -159,10 +164,19 @@ function AuditDetails({ entry }: { entry: AuditLogEntry }) {
   const safeEntry = sanitizeAuditEntry(entry);
   const payload = JSON.stringify(safeEntry.details || {}, null, 2);
   const meta = getAuditEventMeta(entry);
+  const details = safeEntry.details || {};
+  const detailText = (keys: string[]) => {
+    const match = keys.find((key) => typeof details[key] === 'string');
+    return match ? String(details[match]) : 'Not recorded';
+  };
 
   const copyPayload = async () => {
-    await navigator.clipboard.writeText(payload);
-    toast.success('Event payload copied');
+    try {
+      await navigator.clipboard.writeText(payload);
+      toast.success('Event payload copied');
+    } catch {
+      toast.error('Event payload could not be copied');
+    }
   };
 
   return (
@@ -174,6 +188,9 @@ function AuditDetails({ entry }: { entry: AuditLogEntry }) {
           <dt className="text-text-muted">Category</dt><dd className="font-medium text-text-main">{meta.category}</dd>
           <dt className="text-text-muted">Actor ID</dt><dd className="break-all font-medium text-text-main">{entry.actorId || 'Not recorded'}</dd>
           <dt className="text-text-muted">Target ID</dt><dd className="break-all font-medium text-text-main">{entry.targetId || 'Not recorded'}</dd>
+          <dt className="text-text-muted">IP address</dt><dd className="break-all font-medium text-text-main">{detailText(['ipAddress', 'ip'])}</dd>
+          <dt className="text-text-muted">User agent</dt><dd className="break-all font-medium text-text-main">{detailText(['userAgent', 'browser'])}</dd>
+          <dt className="text-text-muted">Session ID</dt><dd className="break-all font-medium text-text-main">{detailText(['sessionId'])}</dd>
           <dt className="text-text-muted">Recorded</dt><dd className="font-medium text-text-main">{format(new Date(entry.createdAt), 'PPpp')}</dd>
         </dl>
       </div>
@@ -209,6 +226,7 @@ export default function AuditTrailPanel({
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [destinationEditorOpen, setDestinationEditorOpen] = useState(false);
   const [page, setPage] = useState(1);
 
   const actors = useMemo(
@@ -256,6 +274,7 @@ export default function AuditTrailPanel({
   const firstResult = filteredLogs.length ? (safePage - 1) * PAGE_SIZE + 1 : 0;
   const lastResult = Math.min(safePage * PAGE_SIZE, filteredLogs.length);
   const hasFilters = Boolean(search || category !== 'ALL' || actor !== 'ALL' || severity !== 'ALL' || dateFrom || dateTo);
+  const forwardingConnected = settings.forwardingEnabled && Boolean(settings.forwardingUrl?.trim());
 
   const updateFilter = (setter: (value: string) => void, value: string) => {
     setter(value);
@@ -291,7 +310,7 @@ export default function AuditTrailPanel({
           </div>
           <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5 shadow-sm">
             <CloudUpload className="h-5 w-5 text-emerald-600" aria-hidden="true" />
-            <div><p className="text-xs text-text-muted">Log forwarding</p><p className="flex items-center gap-1.5 text-sm font-semibold text-text-main">{settings.forwardingEnabled ? 'Enabled' : 'Disabled'}<span className={`h-1.5 w-1.5 rounded-full ${settings.forwardingEnabled ? 'bg-emerald-500' : 'bg-slate-400'}`} /></p></div>
+            <div><p className="text-xs text-text-muted">Log forwarding</p><p className="flex items-center gap-1.5 text-sm font-semibold text-text-main">{forwardingConnected ? 'Enabled' : settings.forwardingEnabled ? 'Not connected' : 'Disabled'}<span className={`h-1.5 w-1.5 rounded-full ${forwardingConnected ? 'bg-emerald-500' : settings.forwardingEnabled ? 'bg-amber-500' : 'bg-slate-400'}`} /></p></div>
           </div>
         </div>
       </header>
@@ -302,7 +321,7 @@ export default function AuditTrailPanel({
         <SummaryCard icon={AlertTriangle} value={summary.highImpact.toLocaleString()} label="High-impact changes" supporting="Require attention" tone="bg-orange-50 text-orange-600" />
         <SummaryCard icon={KeyRound} value={summary.accessEvents.toLocaleString()} label="Access events" supporting="User and role activity" tone="bg-violet-50 text-violet-600" />
         <SummaryCard icon={Download} value={summary.exports.toLocaleString()} label="Exports generated" supporting="Recorded exports" tone="bg-cyan-50 text-cyan-600" />
-        <SummaryCard icon={CloudUpload} value={settings.forwardingEnabled ? 'Enabled' : 'Disabled'} label="Log forwarding" supporting="External destination" tone="bg-sky-50 text-sky-600" />
+        <SummaryCard icon={CloudUpload} value={forwardingConnected ? 'Enabled' : settings.forwardingEnabled ? 'Setup needed' : 'Disabled'} label="Log forwarding" supporting="External destination" tone="bg-sky-50 text-sky-600" />
       </div>
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm" aria-labelledby="audit-configuration-title">
@@ -356,17 +375,11 @@ export default function AuditTrailPanel({
               </button>
             </div>
             <div className="mt-5 rounded-xl border border-border bg-bg/50 p-4">
-              <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${settings.forwardingEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'}`}>{settings.forwardingEnabled ? 'Enabled' : 'Disabled'}</span>
+              <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${forwardingConnected ? 'bg-emerald-100 text-emerald-700' : settings.forwardingEnabled ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-700'}`}>{forwardingConnected ? 'Enabled' : settings.forwardingEnabled ? 'Not connected' : 'Disabled'}</span>
               {settings.forwardingEnabled ? (
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <label htmlFor="forwarding-url" className="label">Destination URL</label>
-                    <input id="forwarding-url" type="url" className="input" placeholder="https://logs.example.com/ingest" value={settings.forwardingUrl || ''} onChange={(event) => onSettingsChange({ ...settings, forwardingUrl: event.target.value })} />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label htmlFor="forwarding-key" className="label">API key</label>
-                    <input id="forwarding-key" type="password" autoComplete="new-password" className="input" placeholder="Stored securely when configured" value={settings.forwardingApiKey || ''} onChange={(event) => onSettingsChange({ ...settings, forwardingApiKey: event.target.value })} />
-                  </div>
+                <div className="mt-4 flex items-end justify-between gap-4">
+                  <div className="min-w-0"><p className="text-xs text-text-muted">Destination</p><p className="truncate text-sm font-semibold text-text-main">{settings.forwardingUrl || 'No destination configured'}</p></div>
+                  <button type="button" className="btn-outline h-9 px-3 text-xs" onClick={() => setDestinationEditorOpen(true)}>Edit</button>
                 </div>
               ) : <p className="mt-3 text-sm text-text-muted">Enable forwarding to configure an external destination.</p>}
             </div>
@@ -402,9 +415,9 @@ export default function AuditTrailPanel({
               <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-text-muted" aria-hidden="true" />
               <input value={search} onChange={(event) => updateFilter(setSearch, event.target.value)} placeholder="Search events..." className="input h-10 pl-9" />
             </label>
-            <SelectMenu label="Filter by event type" value={category} onChange={(value) => updateFilter(setCategory, value)} options={[{ value: 'ALL', label: 'All event types' }, ...(['Access', 'Security', 'Configuration', 'User', 'Export', 'Report', 'Operations'] as EventCategory[]).map((value) => ({ value, label: value }))]} />
+            <SelectMenu label="Filter by event type" value={category} onChange={(value) => updateFilter(setCategory, value)} options={[{ value: 'ALL', label: 'All event types' }, ...(['Access', 'Security', 'Configuration', 'User', 'Export', 'Report', 'System', 'Operations'] as EventCategory[]).map((value) => ({ value, label: value }))]} />
             <SelectMenu label="Filter by actor" value={actor} onChange={(value) => updateFilter(setActor, value)} options={[{ value: 'ALL', label: 'All actors' }, ...actors.map((value) => ({ value, label: value }))]} />
-            <SelectMenu label="Filter by severity" value={severity} onChange={(value) => updateFilter(setSeverity, value)} options={[{ value: 'ALL', label: 'All severity' }, ...(['High', 'Medium', 'Info', 'Low'] as EventSeverity[]).map((value) => ({ value, label: value }))]} />
+            <SelectMenu label="Filter by severity" value={severity} onChange={(value) => updateFilter(setSeverity, value)} options={[{ value: 'ALL', label: 'All severity' }, ...(['Critical', 'High', 'Medium', 'Info', 'Low'] as EventSeverity[]).map((value) => ({ value, label: value }))]} />
             <div className="grid grid-cols-2 gap-2">
               <label><span className="sr-only">From date</span><input type="date" aria-label="From date" className="input h-10 px-2 text-xs" value={dateFrom} onChange={(event) => updateFilter(setDateFrom, event.target.value)} /></label>
               <label><span className="sr-only">To date</span><input type="date" aria-label="To date" className="input h-10 px-2 text-xs" value={dateTo} onChange={(event) => updateFilter(setDateTo, event.target.value)} /></label>
@@ -416,7 +429,7 @@ export default function AuditTrailPanel({
         {visibleLogs.length === 0 ? (
           <div className="p-10 text-center">
             <History className="mx-auto h-9 w-9 text-text-muted" aria-hidden="true" />
-            <p className="mt-3 font-semibold text-text-main">{logs.length ? 'No audit events match your filters.' : 'No audit events yet.'}</p>
+            <p className="mt-3 font-semibold text-text-main">{logs.length ? 'No audit entries match your filters.' : 'No audit events found.'}</p>
             <p className="mt-1 text-sm text-text-muted">{logs.length ? 'Adjust or clear the filters to see more activity.' : 'Recorded system and user actions will appear here.'}</p>
           </div>
         ) : (
@@ -462,6 +475,21 @@ export default function AuditTrailPanel({
           </div>
         </footer>
       </section>
+
+      {destinationEditorOpen ? (
+        <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-labelledby="forwarding-editor-title">
+          <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div><h3 id="forwarding-editor-title" className="text-lg font-semibold text-text-main">External log destination</h3><p className="mt-1 text-sm text-text-muted">Configure the HTTPS endpoint supplied by your monitoring provider.</p></div>
+              <button type="button" className="btn-ghost h-9 w-9 p-0" onClick={() => setDestinationEditorOpen(false)} aria-label="Close destination editor"><X className="h-4 w-4" /></button>
+            </div>
+            <label htmlFor="forwarding-url" className="label mt-5">Destination URL</label>
+            <input id="forwarding-url" type="url" className="input" placeholder="https://logs.example.com/ingest" value={settings.forwardingUrl || ''} onChange={(event) => onSettingsChange({ ...settings, forwardingUrl: event.target.value })} />
+            <p className="mt-3 text-xs text-text-muted">Credentials are not collected in this browser. Secure authentication requires the production forwarding service.</p>
+            <div className="mt-5 flex justify-end"><button type="button" className="btn-primary" onClick={() => setDestinationEditorOpen(false)}>Done</button></div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

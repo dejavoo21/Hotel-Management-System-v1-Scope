@@ -112,7 +112,7 @@ describe('AuditTrailPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Filter by severity' }));
     fireEvent.click(await screen.findByRole('option', { name: 'High' }));
-    expect(screen.getByText('No audit events match your filters.')).toBeInTheDocument();
+    expect(screen.getByText('No audit entries match your filters.')).toBeInTheDocument();
   });
 
   it('expands a compact event row and removes secrets from the visible JSON payload', async () => {
@@ -128,19 +128,19 @@ describe('AuditTrailPanel', () => {
     expect(screen.queryByText(/setupToken/)).not.toBeInTheDocument();
   });
 
-  it('renders forwarding fields only when enabled and masks the API key field', () => {
-    renderPanel({ settings: { ...settings, forwardingEnabled: true, forwardingApiKey: 'secret-value' } });
+  it('opens the destination editor without collecting credentials in the browser', () => {
+    renderPanel({ settings: { ...settings, forwardingEnabled: true } });
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     expect(screen.getByLabelText('Destination URL')).toBeInTheDocument();
-    const keyField = screen.getByLabelText('API key');
-    expect(keyField).toHaveAttribute('type', 'password');
-    expect(keyField).toHaveAttribute('autocomplete', 'new-password');
+    expect(screen.queryByLabelText('API key')).not.toBeInTheDocument();
+    expect(screen.getByText(/Credentials are not collected/)).toBeInTheDocument();
   });
 
   it('renders a clear empty state', () => {
     renderPanel({ logs: [] });
     const recentActivity = screen.getByRole('heading', { name: 'Recent Activity' }).closest('section');
     expect(recentActivity).not.toBeNull();
-    expect(within(recentActivity as HTMLElement).getByText('No audit events yet.')).toBeInTheDocument();
+    expect(within(recentActivity as HTMLElement).getByText('No audit events found.')).toBeInTheDocument();
     expect(screen.getByText('Showing 0 to 0 of 0 events')).toBeInTheDocument();
   });
 });

@@ -607,6 +607,10 @@ export default function SettingsPage() {
   };
 
   const saveAuditPrefs = () => {
+    if (auditSettings.forwardingEnabled && !auditSettings.forwardingUrl?.trim()) {
+      toast.error('Add an external log destination before enabling forwarding');
+      return;
+    }
     saveAuditSettings(auditSettings);
     appendAuditLog({
       action: 'AUDIT_SETTINGS_UPDATED',
@@ -616,7 +620,7 @@ export default function SettingsPage() {
         retentionDays: auditSettings.retentionDays,
         forwardingEnabled: auditSettings.forwardingEnabled,
         forwardingUrl: auditSettings.forwardingUrl || '',
-        forwardingApiKeyConfigured: Boolean(auditSettings.forwardingApiKey),
+        forwardingConfigured: Boolean(auditSettings.forwardingUrl?.trim()),
       },
     });
     refreshAuditLogs();

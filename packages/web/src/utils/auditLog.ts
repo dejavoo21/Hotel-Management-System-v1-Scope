@@ -56,15 +56,22 @@ const saveStorage = <T>(key: string, value: T) => {
 };
 
 export const getAuditSettings = (): AuditSettings =>
-  loadStorage<AuditSettings>(SETTINGS_KEY, {
+  (() => {
+    const settings = loadStorage<AuditSettings>(SETTINGS_KEY, {
     retentionDays: 90,
     forwardingEnabled: false,
     forwardingUrl: '',
     forwardingApiKey: '',
-  });
+    });
+    return { ...settings, forwardingApiKey: '' };
+  })();
 
 export const saveAuditSettings = (settings: AuditSettings) => {
-  saveStorage(SETTINGS_KEY, settings);
+  saveStorage(SETTINGS_KEY, {
+    retentionDays: settings.retentionDays,
+    forwardingEnabled: settings.forwardingEnabled,
+    forwardingUrl: settings.forwardingUrl || '',
+  });
 };
 
 // Mock audit log data for demo purposes
