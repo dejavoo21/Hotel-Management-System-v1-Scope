@@ -657,8 +657,8 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
   const directWeatherReply = sections.includes('weather')
     ? buildDirectWeatherReply(trimmed, hotelContext)
     : null;
-  const dashboardDeepDive = applicationContext?.route === '/'
-    ? buildDashboardDeepDiveReply(trimmed, hotelContext as Record<string, unknown> | null)
+  const dashboardDeepDive = applicationContext?.route?.split('?')[0] === '/'
+    ? buildDashboardDeepDiveReply(trimmed, hotelContext as unknown as Record<string, unknown> | null)
     : null;
   if (directWeatherReply) {
     reply = directWeatherReply;
