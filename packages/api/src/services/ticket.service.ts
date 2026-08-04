@@ -157,6 +157,38 @@ async function sendLiveSupportEscalationEmail(params: {
   });
 }
 
+async function logSystemActivity(params: {
+  hotelId?: string;
+  entity: string;
+  entityId?: string;
+  action: string;
+  details: Prisma.InputJsonValue;
+}) {
+  const actor = await prisma.user.findFirst({
+    where: {
+      ...(params.hotelId ? { hotelId: params.hotelId } : {}),
+      isActive: true,
+    },
+    orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
+    select: { id: true },
+  });
+
+  if (!actor) {
+    console.warn(`[SLA] Skipped ${params.action} audit log because no active user exists`);
+    return;
+  }
+
+  await prisma.activityLog.create({
+    data: {
+      userId: actor.id,
+      entity: params.entity,
+      entityId: params.entityId,
+      action: params.action,
+      details: params.details,
+    },
+  });
+}
+
 // ============================================
 // Core Ticket Functions
 // ============================================
@@ -356,22 +388,20 @@ export async function applySlaPolicy(
   };
 
   // Log SLA_POLICY_APPLIED event
-  await prisma.activityLog.create({
-    data: {
-      userId: 'system',
-      entity: 'SLA_POLICY',
-      entityId: policy?.id || 'default',
-      action: 'SLA_POLICY_APPLIED',
-      details: {
-        hotelId,
-        category,
-        policyId: policy?.id || null,
-        policyName: policy ? `${policy.category}-${policy.department}` : 'DEFAULT',
-        responseMinutes,
-        resolutionMinutes,
-        responseDueAtUtc: dueDates.responseDueAtUtc.toISOString(),
-        resolutionDueAtUtc: dueDates.resolutionDueAtUtc.toISOString(),
-      },
+  await logSystemActivity({
+    hotelId,
+    entity: 'SLA_POLICY',
+    entityId: policy?.id || 'default',
+    action: 'SLA_POLICY_APPLIED',
+    details: {
+      hotelId,
+      category,
+      policyId: policy?.id || null,
+      policyName: policy ? `${policy.category}-${policy.department}` : 'DEFAULT',
+      responseMinutes,
+      resolutionMinutes,
+      responseDueAtUtc: dueDates.responseDueAtUtc.toISOString(),
+      resolutionDueAtUtc: dueDates.resolutionDueAtUtc.toISOString(),
     },
   });
 
@@ -445,20 +475,18 @@ export async function processSlaEscalations(): Promise<{
             },
           });
 
-          await prisma.activityLog.create({
-            data: {
-              userId: 'system',
-              entity: 'TICKET',
-              entityId: ticket.id,
-              action: 'LIVE_SUPPORT_ESCALATION',
-              details: {
-                ticketId: ticket.id,
-                conversationId: ticket.conversationId,
-                previousLevel: ticket.escalatedLevel,
-                newLevel: escalation.level,
-                waitingMinutes,
-                escalatedAt: now.toISOString(),
-              },
+          await logSystemActivity({
+            hotelId: ticket.hotelId,
+            entity: 'TICKET',
+            entityId: ticket.id,
+            action: 'LIVE_SUPPORT_ESCALATION',
+            details: {
+              ticketId: ticket.id,
+              conversationId: ticket.conversationId,
+              previousLevel: ticket.escalatedLevel,
+              newLevel: escalation.level,
+              waitingMinutes,
+              escalatedAt: now.toISOString(),
             },
           });
 
@@ -486,20 +514,18 @@ export async function processSlaEscalations(): Promise<{
         result.overdueResponse++;
 
         // Log SLA_BREACH to audit trail
-        await prisma.activityLog.create({
-          data: {
-            userId: 'system',
-            entity: 'TICKET',
-            entityId: ticket.id,
-            action: 'SLA_BREACH',
-            details: {
-              ticketId: ticket.id,
-              conversationId: ticket.conversationId,
-              category: ticket.category,
-              responseDueAt: ticket.responseDueAtUtc?.toISOString(),
-              breachedAt: now.toISOString(),
-              delayMinutes: Math.round((now.getTime() - ticket.responseDueAtUtc.getTime()) / (60 * 1000)),
-            },
+        await logSystemActivity({
+          hotelId: ticket.hotelId,
+          entity: 'TICKET',
+          entityId: ticket.id,
+          action: 'SLA_BREACH',
+          details: {
+            ticketId: ticket.id,
+            conversationId: ticket.conversationId,
+            category: ticket.category,
+            responseDueAt: ticket.responseDueAtUtc?.toISOString(),
+            breachedAt: now.toISOString(),
+            delayMinutes: Math.round((now.getTime() - ticket.responseDueAtUtc.getTime()) / (60 * 1000)),
           },
         });
 
@@ -543,21 +569,19 @@ export async function processSlaEscalations(): Promise<{
         });
 
         // Log ESCALATION_TRIGGERED to audit trail
-        await prisma.activityLog.create({
-          data: {
-            userId: 'system',
-            entity: 'TICKET',
-            entityId: ticket.id,
-            action: 'ESCALATION_TRIGGERED',
-            details: {
-              ticketId: ticket.id,
-              conversationId: ticket.conversationId,
-              category: ticket.category,
-              previousLevel: ticket.escalatedLevel,
-              newLevel,
-              ticketAgeMinutes: Math.round(ticketAgeMinutes),
-              escalatedAt: now.toISOString(),
-            },
+        await logSystemActivity({
+          hotelId: ticket.hotelId,
+          entity: 'TICKET',
+          entityId: ticket.id,
+          action: 'ESCALATION_TRIGGERED',
+          details: {
+            ticketId: ticket.id,
+            conversationId: ticket.conversationId,
+            category: ticket.category,
+            previousLevel: ticket.escalatedLevel,
+            newLevel,
+            ticketAgeMinutes: Math.round(ticketAgeMinutes),
+            escalatedAt: now.toISOString(),
           },
         });
 
@@ -614,21 +638,19 @@ export async function processSlaEscalations(): Promise<{
         result.overdueResolution++;
 
         // Log resolution breach to audit trail if not already logged
-        await prisma.activityLog.create({
-          data: {
-            userId: 'system',
-            entity: 'TICKET',
-            entityId: ticket.id,
-            action: 'SLA_BREACH',
-            details: {
-              ticketId: ticket.id,
-              conversationId: ticket.conversationId,
-              category: ticket.category,
-              breachType: 'resolution',
-              resolutionDueAt: ticket.resolutionDueAtUtc?.toISOString(),
-              breachedAt: now.toISOString(),
-              delayMinutes: Math.round((now.getTime() - ticket.resolutionDueAtUtc.getTime()) / (60 * 1000)),
-            },
+        await logSystemActivity({
+          hotelId: ticket.hotelId,
+          entity: 'TICKET',
+          entityId: ticket.id,
+          action: 'SLA_BREACH',
+          details: {
+            ticketId: ticket.id,
+            conversationId: ticket.conversationId,
+            category: ticket.category,
+            breachType: 'resolution',
+            resolutionDueAt: ticket.resolutionDueAtUtc?.toISOString(),
+            breachedAt: now.toISOString(),
+            delayMinutes: Math.round((now.getTime() - ticket.resolutionDueAtUtc.getTime()) / (60 * 1000)),
           },
         });
 
@@ -653,22 +675,19 @@ export async function processSlaEscalations(): Promise<{
 
   // Log SLA_JOB_RUN to audit trail
   const jobEndTime = new Date();
-  await prisma.activityLog.create({
-    data: {
-      userId: 'system',
-      entity: 'SLA_JOB',
-      entityId: `run-${jobStartTime.toISOString()}`,
-      action: 'SLA_JOB_RUN',
-      details: {
-        startedAt: jobStartTime.toISOString(),
-        completedAt: jobEndTime.toISOString(),
-        runtimeMs: jobEndTime.getTime() - jobStartTime.getTime(),
-        checkedTickets: result.checkedTickets,
-        escalationsTriggered: result.escalationsTriggered,
-        overdueResponse: result.overdueResponse,
-        overdueResolution: result.overdueResolution,
-        errors: result.errors.length,
-      },
+  await logSystemActivity({
+    entity: 'SLA_JOB',
+    entityId: `run-${jobStartTime.toISOString()}`,
+    action: 'SLA_JOB_RUN',
+    details: {
+      startedAt: jobStartTime.toISOString(),
+      completedAt: jobEndTime.toISOString(),
+      runtimeMs: jobEndTime.getTime() - jobStartTime.getTime(),
+      checkedTickets: result.checkedTickets,
+      escalationsTriggered: result.escalationsTriggered,
+      overdueResponse: result.overdueResponse,
+      overdueResolution: result.overdueResolution,
+      errors: result.errors.length,
     },
   });
 
