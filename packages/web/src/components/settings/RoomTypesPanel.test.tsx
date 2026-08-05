@@ -9,7 +9,7 @@ const roomTypes: RoomType[] = [
   { id: 'legacy', name: 'Legacy', description: 'Unavailable category', baseRate: 79, maxGuests: 1, amenities: [], isActive: false },
 ];
 
-const defaults = { roomTypes, currency: 'ZAR', loading: false, error: false, canEdit: true, saving: false, onRetry: vi.fn(), onCreate: vi.fn().mockResolvedValue(undefined), onUpdate: vi.fn().mockResolvedValue(undefined) };
+const defaults = { roomTypes, roomCounts: { standard: 12, deluxe: 5, legacy: 1 }, currency: 'ZAR', loading: false, error: false, canEdit: true, saving: false, onRetry: vi.fn(), onCreate: vi.fn().mockResolvedValue(undefined), onUpdate: vi.fn().mockResolvedValue(undefined) };
 
 describe('RoomTypesPanel', () => {
   it('renders currency-aware summaries and room type cards', () => {
@@ -19,6 +19,11 @@ describe('RoomTypesPanel', () => {
     expect(screen.getAllByText(/ZAR/).length).toBeGreaterThan(0);
     expect(screen.getByText('Standard')).toBeInTheDocument();
     expect(screen.getByText('Deluxe')).toBeInTheDocument();
+    expect(screen.getByText('Last Updated')).toBeInTheDocument();
+    expect(screen.getByText('Amenities')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Standard room' })).toHaveAttribute('src', '/assets/rooms/single-room.jpg');
+    expect(screen.getByText(/Showing 1–3 of 3 room types/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Room types per page')).toHaveValue('10');
   });
 
   it('searches, filters by status and capacity, and sorts', () => {
@@ -60,6 +65,7 @@ describe('RoomTypesPanel', () => {
     const onUpdate = vi.fn().mockResolvedValue(undefined);
     const { rerender } = render(<RoomTypesPanel {...defaults} onUpdate={onUpdate} />);
     const standardCard = screen.getByRole('heading', { name: 'Standard' }).closest('article');
+    fireEvent.click(within(standardCard as HTMLElement).getByRole('button', { name: 'More actions for Standard' }));
     fireEvent.click(within(standardCard as HTMLElement).getByRole('button', { name: 'Disable' }));
     expect(screen.getByRole('dialog', { name: /Disable Standard/ })).toBeInTheDocument();
     expect(onUpdate).not.toHaveBeenCalled();

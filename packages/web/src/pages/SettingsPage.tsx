@@ -173,6 +173,20 @@ export default function SettingsPage() {
     enabled: activeTab === 'room-types',
   });
 
+  const { data: roomInventory } = useQuery({
+    queryKey: ['rooms', 'room-type-counts'],
+    queryFn: () => roomService.getRooms(),
+    enabled: activeTab === 'room-types',
+  });
+
+  const roomCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const room of roomInventory?.data || []) {
+      counts[room.roomType.id] = (counts[room.roomType.id] || 0) + 1;
+    }
+    return counts;
+  }, [roomInventory]);
+
   const {
     data: accessRequests,
     isLoading: accessRequestsLoading,
@@ -915,7 +929,7 @@ export default function SettingsPage() {
 
           {/* Room Types */}
           {activeTab === 'room-types' && (
-            <RoomTypesPanel roomTypes={roomTypes || []} currency={hotelForm.currency || 'USD'} loading={roomTypesLoading} error={roomTypesError} canEdit={isAdmin} saving={createRoomTypeMutation.isPending || updateRoomTypeMutation.isPending} onRetry={() => { void refetchRoomTypes(); }} onCreate={async (input) => { await createRoomTypeMutation.mutateAsync(input); }} onUpdate={async (id, input) => { await updateRoomTypeMutation.mutateAsync({ id, data: input }); }} />
+            <RoomTypesPanel roomTypes={roomTypes || []} roomCounts={roomCounts} currency={hotelForm.currency || 'USD'} loading={roomTypesLoading} error={roomTypesError} canEdit={isAdmin} saving={createRoomTypeMutation.isPending || updateRoomTypeMutation.isPending} onRetry={() => { void refetchRoomTypes(); }} onCreate={async (input) => { await createRoomTypeMutation.mutateAsync(input); }} onUpdate={async (id, input) => { await updateRoomTypeMutation.mutateAsync({ id, data: input }); }} />
           )}
 
           {/* Security */}
