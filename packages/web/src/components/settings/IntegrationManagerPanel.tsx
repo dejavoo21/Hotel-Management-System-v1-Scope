@@ -79,6 +79,7 @@ function CategoryCard({ card, active, onClick }: { card: IntegrationCategoryCard
         </div>
       </div>
       <div className="mt-3 text-xs text-slate-500">Last sync: {formatDate(card.lastSyncAt)}</div>
+      <div className="mt-3 border-t border-slate-200 pt-3 text-xs font-semibold text-primary-700">Open category details</div>
     </button>
   );
 }
@@ -268,8 +269,8 @@ export default function IntegrationManagerPanel() {
           </div>
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <AlertTriangle className="h-5 w-5 text-amber-600" />
-            <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-amber-700">Needs attention</p>
-            <p className="mt-1 text-2xl font-bold text-slate-950">{overview?.categories.filter((card) => card.errorCount > 0).length || 0}</p>
+            <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-amber-700">Not configured</p>
+            <p className="mt-1 text-2xl font-bold text-slate-950">{overview?.categories.filter((card) => card.connectionStatus !== 'Connected').length || 0}</p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <Layers className="h-5 w-5 text-slate-500" />

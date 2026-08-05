@@ -99,6 +99,15 @@ export default function SettingsPage() {
     ],
     []
   );
+  const roomRateFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: hotelForm.currency || 'USD',
+        maximumFractionDigits: 0,
+      }),
+    [hotelForm.currency]
+  );
 
   useEffect(() => {
     if (user?.hotel) {
@@ -905,7 +914,7 @@ export default function SettingsPage() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="label">Address (optional)</label>
+                    <label className="label">Mailing / full address (optional)</label>
                     <input
                       type="text"
                       value={hotelForm.address}
@@ -915,7 +924,7 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div>
-                    <label className="label">Address Line 1 (optional)</label>
+                    <label className="label">Street / building (optional)</label>
                     <input
                       type="text"
                       value={hotelForm.addressLine1}
@@ -984,7 +993,7 @@ export default function SettingsPage() {
                     <button
                       type="button"
                       onClick={() => navigate('/operations')}
-                      className="inline-flex items-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                      className="btn-outline whitespace-nowrap"
                     >
                       Open Operations Center
                     </button>
@@ -1013,7 +1022,7 @@ export default function SettingsPage() {
 
                 <div className="mt-6">
                   {roomTypesLoading ? (
-                    <div className="space-y-3">
+                    <div className="overflow-hidden rounded-xl border border-border bg-card">
                       {[...Array(3)].map((_, i) => (
                         <div key={i} className="h-20 animate-shimmer rounded-lg" />
                       ))}
@@ -1023,21 +1032,16 @@ export default function SettingsPage() {
                       {roomTypes.map((roomType) => (
                         <div
                           key={roomType.id}
-                          className="flex items-center justify-between rounded-lg border border-slate-200 p-4"
+                          className="grid gap-3 border-b border-border p-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center"
                         >
-                          <div>
+                          <div className="min-w-0">
                             <h3 className="font-medium text-slate-900">{roomType.name}</h3>
-                            <p className="text-sm text-slate-500">
+                            <p className="truncate text-sm text-slate-500">
                               {roomType.description || 'No description'}
                             </p>
-                            <div className="mt-1 flex items-center gap-4 text-sm text-slate-500">
-                              <span>Base rate: ${roomType.baseRate}/night</span>
-                              <span>Max guests: {roomType.maxGuests}</span>
-                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <button className="btn-ghost text-sm">Edit</button>
-                          </div>
+                          <div className="text-sm text-text-muted"><span className="block text-xs">Base rate</span><strong className="text-text-main">{roomRateFormatter.format(Number(roomType.baseRate))}</strong><span> / night</span></div>
+                          <div className="flex items-center justify-between gap-4 sm:justify-end"><span className="text-sm text-text-muted">Up to {roomType.maxGuests} guests</span><button className="btn-outline h-9 px-3 text-sm">Edit</button></div>
                         </div>
                       ))}
                     </div>
@@ -1189,7 +1193,7 @@ export default function SettingsPage() {
               <p className="text-sm text-slate-500">Choose what notifications you receive</p>
 
               <div className="mt-6 space-y-4">
-                  <label className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
+                  <label className={`flex cursor-pointer items-center justify-between rounded-xl border p-4 transition-colors ${notificationPrefs.newBookings ? 'border-primary-200 bg-primary-50/40' : 'border-border bg-card hover:bg-bg/60'}`}>
                     <div>
                       <p className="font-medium text-slate-900">New Bookings</p>
                       <p className="text-sm text-slate-500">
@@ -1205,11 +1209,11 @@ export default function SettingsPage() {
                           newBookings: event.target.checked,
                         }))
                       }
-                      className="h-5 w-5 rounded border-slate-300 text-primary-600"
+                      className="h-6 w-6 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
                     />
                   </label>
 
-                  <label className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
+                  <label className={`flex cursor-pointer items-center justify-between rounded-xl border p-4 transition-colors ${notificationPrefs.checkIns ? 'border-primary-200 bg-primary-50/40' : 'border-border bg-card hover:bg-bg/60'}`}>
                     <div>
                       <p className="font-medium text-slate-900">Check-ins</p>
                       <p className="text-sm text-slate-500">
@@ -1225,11 +1229,11 @@ export default function SettingsPage() {
                           checkIns: event.target.checked,
                         }))
                       }
-                      className="h-5 w-5 rounded border-slate-300 text-primary-600"
+                      className="h-6 w-6 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
                     />
                   </label>
 
-                  <label className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
+                  <label className={`flex cursor-pointer items-center justify-between rounded-xl border p-4 transition-colors ${notificationPrefs.housekeepingUpdates ? 'border-primary-200 bg-primary-50/40' : 'border-border bg-card hover:bg-bg/60'}`}>
                     <div>
                       <p className="font-medium text-slate-900">Housekeeping Updates</p>
                       <p className="text-sm text-slate-500">
@@ -1245,11 +1249,11 @@ export default function SettingsPage() {
                           housekeepingUpdates: event.target.checked,
                         }))
                       }
-                      className="h-5 w-5 rounded border-slate-300 text-primary-600"
+                      className="h-6 w-6 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
                     />
                   </label>
 
-                  <label className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
+                  <label className={`flex cursor-pointer items-center justify-between rounded-xl border p-4 transition-colors ${notificationPrefs.dailyReports ? 'border-primary-200 bg-primary-50/40' : 'border-border bg-card hover:bg-bg/60'}`}>
                     <div>
                       <p className="font-medium text-slate-900">Daily Reports</p>
                       <p className="text-sm text-slate-500">
@@ -1265,7 +1269,7 @@ export default function SettingsPage() {
                           dailyReports: event.target.checked,
                         }))
                       }
-                      className="h-5 w-5 rounded border-slate-300 text-primary-600"
+                      className="h-6 w-6 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
                     />
                   </label>
                 </div>

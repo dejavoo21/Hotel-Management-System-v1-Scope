@@ -538,15 +538,15 @@ export default function DashboardCommandCenter() {
 
               <Surface testId="booking-list-panel" className="flex min-h-[280px] min-w-0 flex-col overflow-hidden">
                 <div className="grid gap-3 px-4 pb-3 pt-4 lg:grid-cols-[minmax(130px,1fr)_auto] lg:items-center">
-                  <div className="min-w-0"><h2 className="text-sm font-bold text-slate-950">Booking list</h2><p className="text-[10px] text-slate-500">{recentBookingsQuery.data ? 'Live recent booking records' : recentBookingsQuery.isLoading ? 'Loading booking records' : 'Booking records unavailable'}</p></div>
+                  <div className="min-w-0"><h2 className="text-sm font-bold text-slate-950">Booking list</h2><p className="text-xs text-slate-500">{recentBookingsQuery.data ? 'Recent booking records' : recentBookingsQuery.isLoading ? 'Loading booking records' : 'Booking records unavailable'}</p></div>
                   <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(160px,1fr)_minmax(120px,auto)_minmax(84px,auto)]">
-                    <input value={bookingSearch} onChange={(event) => { setBookingSearch(event.target.value); setBookingPage(1); }} className="h-8 w-full min-w-0 rounded-lg border border-slate-200 px-2.5 text-[10px]" placeholder="Search bookings…" aria-label="Search bookings" />
-                    <select className="h-8 min-w-0 rounded-lg border border-slate-200 px-2 text-[10px]" aria-label="Property filter"><option>All properties</option></select>
-                    <select value={bookingStatus} onChange={(event) => { setBookingStatus(event.target.value); setBookingPage(1); }} className="h-8 min-w-0 rounded-lg border border-slate-200 px-2 text-[10px]" aria-label="Booking status filter"><option>All</option>{Array.from(new Set(liveBookingRows.map((booking) => booking.status))).map((status) => <option key={status}>{status}</option>)}</select>
+                    <input value={bookingSearch} onChange={(event) => { setBookingSearch(event.target.value); setBookingPage(1); }} className="h-9 w-full min-w-0 rounded-lg border border-slate-200 px-2.5 text-xs" placeholder="Search bookings…" aria-label="Search bookings" />
+                    <select className="h-9 min-w-0 rounded-lg border border-slate-200 px-2 text-xs" aria-label="Property filter"><option>All properties</option></select>
+                    <select value={bookingStatus} onChange={(event) => { setBookingStatus(event.target.value); setBookingPage(1); }} className="h-9 min-w-0 rounded-lg border border-slate-200 px-2 text-xs" aria-label="Booking status filter"><option>All</option>{Array.from(new Set(liveBookingRows.map((booking) => booking.status))).map((status) => <option key={status}>{status}</option>)}</select>
                   </div>
                 </div>
                 <div className="flex flex-1 flex-col overflow-hidden" role="region" aria-label="Booking list table">
-                  <table className="w-full table-fixed text-left text-[9px]">
+                  <table className="w-full table-fixed text-left text-[11px]">
                     <colgroup>
                       <col className="w-[9%]" />
                       <col className="w-[13%]" />
@@ -565,15 +565,15 @@ export default function DashboardCommandCenter() {
                   </table>
                   {!bookingRows.length ? <div className="flex flex-1 items-center justify-center"><EmptyState label={recentBookingsQuery.isLoading ? 'Loading booking records…' : recentBookings.length ? 'No bookings match the selected filters.' : 'No live booking records are available.'} /></div> : null}
                 </div>
-                <div className="flex items-center justify-between border-t border-slate-100 px-4 py-2 text-[9px] text-slate-500"><span>Showing {bookingRows.length} of {filteredBookings.length}</span><div className="flex items-center gap-1"><button type="button" disabled={bookingPage === 1} onClick={() => setBookingPage((page) => Math.max(1, page - 1))} className="rounded border border-slate-200 px-2 py-1 disabled:opacity-40">Previous</button><span className="px-2">{bookingPage}/{pageCount}</span><button type="button" disabled={bookingPage === pageCount} onClick={() => setBookingPage((page) => Math.min(pageCount, page + 1))} className="rounded border border-slate-200 px-2 py-1 disabled:opacity-40">Next</button></div></div>
+                <div className="flex items-center justify-between border-t border-slate-100 px-4 py-2 text-[11px] text-slate-500"><span>Showing {bookingRows.length} of {filteredBookings.length}</span><div className="flex items-center gap-1"><button type="button" disabled={bookingPage === 1} onClick={() => setBookingPage((page) => Math.max(1, page - 1))} className="rounded border border-slate-200 px-2 py-1 disabled:opacity-40">Previous</button><span className="px-2">{bookingPage}/{pageCount}</span><button type="button" disabled={bookingPage === pageCount} onClick={() => setBookingPage((page) => Math.min(pageCount, page + 1))} className="rounded border border-slate-200 px-2 py-1 disabled:opacity-40">Next</button></div></div>
               </Surface>
             </div> : null}
           </div>
 
           <aside className="min-w-0 space-y-3" data-testid="dashboard-right-rail">
             {canViewBookings ? <Surface>
-              <PanelHeader title="Tasks" subtitle="Demo task queue — task service not connected" action="View all" onAction={() => navigate('/operations-center/tasks')} />
-              <div className="divide-y divide-slate-100 px-3">{demo.tasks.map((task) => <div key={task.id} className="py-3"><div className="flex items-start gap-2"><span className="mt-0.5 h-4 w-4 shrink-0 rounded border border-slate-300" aria-hidden="true" /><div className="min-w-0 flex-1"><p className="text-[10px] font-bold leading-4 text-slate-900">{task.title}</p><p className="mt-1 text-[9px] text-slate-500">{task.category} · {task.owner}</p><div className="mt-2 flex items-center justify-between"><span className="text-[9px] text-slate-400">Due {task.due}</span><span className={`rounded-full px-2 py-0.5 text-[8px] font-semibold ${task.priority === 'High' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{task.priority}</span></div></div></div></div>)}</div>
+              <PanelHeader title="Tasks" subtitle="Operational task service" action="Open tasks" onAction={() => navigate('/operations-center/tasks')} />
+              <div className="px-4 pb-5"><div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center"><p className="text-xs font-semibold text-slate-800">Task service is not connected</p><p className="mt-1 text-[11px] leading-4 text-slate-500">Connect the task service to show assigned work. Sample tasks are hidden in production.</p></div></div>
             </Surface> : null}
             <Surface className="overflow-hidden border-teal-200">
               <div className="bg-teal-950 px-4 py-3 text-white"><div className="flex items-center gap-2"><SparklesIcon className="h-4 w-4 text-teal-200" /><h2 className="text-xs font-bold">Operational attention</h2></div><p className="mt-1 text-[9px] text-teal-100/70">Authorised live priorities and Hotel Brain guidance</p></div>
