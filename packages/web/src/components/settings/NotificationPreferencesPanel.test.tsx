@@ -20,6 +20,11 @@ describe('NotificationPreferencesPanel', () => {
     expect(screen.getByRole('switch', { name: 'Check-ins notifications' })).toBeInTheDocument();
     expect(screen.getByRole('switch', { name: 'Housekeeping Updates notifications' })).toBeInTheDocument();
     expect(screen.getByRole('switch', { name: 'Daily Reports notifications' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'All Notifications' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByLabelText('Notification channel')).toBeInTheDocument();
+    expect(screen.getAllByText('Priority').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Channels').length).toBeGreaterThan(0);
+    expect(screen.getByText('Need help?')).toBeInTheDocument();
   });
 
   it('enables save after a change, saves, and resets pending changes', () => {
@@ -42,11 +47,23 @@ describe('NotificationPreferencesPanel', () => {
     fireEvent.change(screen.getByPlaceholderText('Search notifications...'), { target: { value: 'CCTV' } });
     expect(screen.getByText('CCTV Offline')).toBeInTheDocument();
     expect(screen.queryByText('New Bookings')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
     expect(screen.getByText('New Bookings')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Notification priority'), { target: { value: 'Critical' } });
     expect(screen.getByText('Security Alerts')).toBeInTheDocument();
     expect(screen.queryByRole('switch', { name: 'Daily Reports notifications' })).not.toBeInTheDocument();
+  });
+
+  it('filters from category tabs and expands notification details', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Housekeeping' }));
+    expect(screen.getByRole('heading', { name: 'Rooms & Housekeeping' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Booking & Front Desk' })).not.toBeInTheDocument();
+
+    const details = screen.getByRole('button', { name: 'Show Housekeeping Updates details' });
+    fireEvent.click(details);
+    expect(screen.getByText(/follows the selected medium priority rules/i)).toBeInTheDocument();
+    expect(details).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('prevents read-only users from changing preferences or delivery channels', () => {

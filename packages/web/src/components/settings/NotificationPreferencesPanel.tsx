@@ -1,11 +1,15 @@
 import { useMemo, useState } from 'react';
 import {
+  BarChart3,
   Bell,
   CalendarCheck,
   CheckCircle2,
+  ChevronDown,
   ClipboardList,
+  ExternalLink,
   FileChartColumn,
   FilterX,
+  Lightbulb,
   Mail,
   Search,
   ShieldAlert,
@@ -76,6 +80,15 @@ const definitions: PreferenceDefinition[] = [
 ];
 
 const categories = Array.from(new Set(definitions.map((item) => item.category)));
+const tabs = [
+  { id: 'ALL', label: 'All Notifications' },
+  { id: 'PRIORITY', label: 'Critical & High Priority' },
+  { id: 'Rooms & Housekeeping', label: 'Housekeeping' },
+  { id: 'Reports & Summaries', label: 'Reports' },
+  { id: 'Security & Smart Building', label: 'Security' },
+  { id: 'Guest Experience', label: 'Guest Experience' },
+] as const;
+
 const priorityStyles: Record<Priority, string> = {
   Low: 'border-blue-200 bg-blue-50 text-blue-700',
   Medium: 'border-amber-200 bg-amber-50 text-amber-700',
@@ -92,7 +105,7 @@ function Toggle({ checked, disabled, label, onChange }: { checked: boolean; disa
       aria-label={label}
       disabled={disabled}
       onClick={onChange}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-50 ${
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors duration-200 before:absolute before:-inset-2 before:content-[''] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-50 ${
         checked
           ? 'border-primary-600 bg-primary-600 hover:bg-primary-700'
           : 'border-slate-300 bg-slate-200 hover:bg-slate-300'
@@ -100,8 +113,8 @@ function Toggle({ checked, disabled, label, onChange }: { checked: boolean; disa
     >
       <span
         aria-hidden="true"
-        className={`absolute left-0.5 top-0.5 h-[18px] w-[18px] rounded-full bg-white shadow-sm ring-1 ring-black/5 transition-transform duration-200 ${
-          checked ? 'translate-x-5' : 'translate-x-0'
+        className={`absolute left-0.5 top-0.5 h-[14px] w-[14px] rounded-full bg-white shadow-sm ring-1 ring-black/5 transition-transform duration-200 ${
+          checked ? 'translate-x-4' : 'translate-x-0'
         }`}
       />
     </button>
@@ -110,35 +123,98 @@ function Toggle({ checked, disabled, label, onChange }: { checked: boolean; disa
 
 export default function NotificationPreferencesPanel({ values, savedValues, canEdit, onChange, onSave, onReset }: { values: NotificationPreferences; savedValues: NotificationPreferences; canEdit: boolean; onChange: (next: NotificationPreferences) => void; onSave: () => void; onReset: () => void }) {
   const [search, setSearch] = useState('');
+  const [activeTab, setActiveTab] = useState('ALL');
   const [category, setCategory] = useState('ALL');
   const [priority, setPriority] = useState('ALL');
+  const [channel, setChannel] = useState('ALL');
   const [enabledOnly, setEnabledOnly] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const dirty = JSON.stringify(values) !== JSON.stringify(savedValues);
   const enabledCount = definitions.filter((item) => values[item.id]).length;
   const criticalEnabled = definitions.some((item) => item.priority === 'Critical' && values[item.id]);
-  const visible = useMemo(() => definitions.filter((item) => (!search.trim() || `${item.title} ${item.description}`.toLowerCase().includes(search.trim().toLowerCase())) && (category === 'ALL' || item.category === category) && (priority === 'ALL' || item.priority === priority) && (!enabledOnly || values[item.id])), [category, enabledOnly, priority, search, values]);
+  const visible = useMemo(() => definitions.filter((item) => {
+    const matchesTab = activeTab === 'ALL'
+      || (activeTab === 'PRIORITY' && (item.priority === 'Critical' || item.priority === 'High'))
+      || item.category === activeTab;
+    const matchesChannel = channel === 'ALL'
+      || (channel === 'IN_APP' && values.inAppChannel)
+      || (channel === 'EMAIL' && values.emailChannel);
+
+    return matchesTab
+      && matchesChannel
+      && (!search.trim() || `${item.title} ${item.description}`.toLowerCase().includes(search.trim().toLowerCase()))
+      && (category === 'ALL' || item.category === category)
+      && (priority === 'ALL' || item.priority === priority)
+      && (!enabledOnly || values[item.id]);
+  }), [activeTab, category, channel, enabledOnly, priority, search, values]);
   const grouped = categories.map((name) => ({ name, items: visible.filter((item) => item.category === name) })).filter((group) => group.items.length);
   const setValue = (id: string, checked: boolean) => onChange({ ...values, [id]: checked });
   const channels = [values.inAppChannel ? 'In-app' : null, values.emailChannel ? 'Email' : null].filter(Boolean).join(' + ') || 'None';
+  const resetFilters = () => {
+    setSearch('');
+    setActiveTab('ALL');
+    setCategory('ALL');
+    setPriority('ALL');
+    setChannel('ALL');
+    setEnabledOnly(false);
+  };
 
   return <div className="space-y-4 pb-20">
-    <header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div className="flex items-start gap-4"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-primary-50 text-primary-700 ring-1 ring-primary-100"><Bell className="h-6 w-6" /></span><div><h2 className="text-2xl font-bold tracking-tight text-text-main">Notification Preferences</h2><p className="mt-1 text-sm text-text-muted">Choose which operational alerts, reminders, and reports you want to receive.</p></div></div><span className="inline-flex w-fit items-center gap-2 rounded-full border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-700"><CheckCircle2 className="h-4 w-4" />{enabledCount} active preferences</span></header>
+    <header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex items-start gap-4"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-primary-50 text-primary-700 ring-1 ring-primary-100"><Bell className="h-6 w-6" /></span><div><h2 className="text-2xl font-bold tracking-tight text-text-main">Notification Preferences</h2><p className="mt-1 text-sm text-text-muted">Choose which operational alerts, reminders, and reports you want to receive.</p></div></div>
+      <span className="inline-flex w-fit items-center gap-2 rounded-full border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-700"><CheckCircle2 className="h-4 w-4" />{enabledCount} active preferences</span>
+    </header>
 
     <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Notification summary">
-      {[[Bell, 'Active Preferences', `${enabledCount} enabled`, `${definitions.length} available`], [ShieldAlert, 'Critical Alerts', criticalEnabled ? 'Enabled' : 'Disabled', 'Security and urgent alerts'], [FileChartColumn, 'Daily Reports', values.dailyReports ? 'Enabled' : 'Disabled', 'Summary and reports'], [Mail, 'Delivery Channels', channels, `${[values.inAppChannel, values.emailChannel].filter(Boolean).length} active channels`]].map(([Icon, label, value, detail]) => <article key={String(label)} className="rounded-2xl border border-border bg-card p-4 shadow-sm"><Icon className="h-5 w-5 text-primary-600" /><p className="mt-2 text-xs font-semibold text-text-muted">{String(label)}</p><p className="mt-1 text-lg font-bold text-text-main">{String(value)}</p><p className="text-xs text-text-muted">{String(detail)}</p></article>)}
+      <article className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 shadow-sm"><span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-100 text-emerald-700"><Bell className="h-5 w-5" /></span><p className="mt-2 text-xs font-semibold text-text-muted">Active Preferences</p><p className="mt-1 text-lg font-bold text-text-main">{enabledCount} enabled</p><p className="text-xs text-text-muted">Out of {definitions.length} available</p></article>
+      <article className="rounded-2xl border border-rose-100 bg-rose-50/40 p-4 shadow-sm"><span className="grid h-9 w-9 place-items-center rounded-xl bg-rose-100 text-rose-600"><ShieldAlert className="h-5 w-5" /></span><p className="mt-2 text-xs font-semibold text-text-muted">Critical Alerts</p><p className="mt-1 text-lg font-bold text-text-main">{criticalEnabled ? 'Enabled' : 'Disabled'}</p><p className="text-xs text-text-muted">Security and urgent alerts</p></article>
+      <article className="rounded-2xl border border-blue-100 bg-blue-50/40 p-4 shadow-sm"><span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-100 text-blue-600"><BarChart3 className="h-5 w-5" /></span><p className="mt-2 text-xs font-semibold text-text-muted">Daily Reports</p><p className="mt-1 text-lg font-bold text-text-main">{values.dailyReports ? 'Enabled' : 'Disabled'}</p><p className="text-xs text-text-muted">Summary and reports</p></article>
+      <article className="rounded-2xl border border-violet-100 bg-violet-50/40 p-4 shadow-sm"><span className="grid h-9 w-9 place-items-center rounded-xl bg-violet-100 text-violet-600"><Mail className="h-5 w-5" /></span><p className="mt-2 text-xs font-semibold text-text-muted">Delivery Channels</p><p className="mt-1 text-lg font-bold text-text-main">{channels}</p><p className="text-xs text-text-muted">{[values.inAppChannel, values.emailChannel].filter(Boolean).length} active channels</p></article>
+    </section>
+
+    <nav aria-label="Notification categories" className="overflow-x-auto border-b border-border">
+      <div className="flex min-w-max gap-1">
+        {tabs.map((tab) => <button key={tab.id} type="button" aria-pressed={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} className={`border-b-2 px-4 py-3 text-sm font-medium transition ${activeTab === tab.id ? 'border-primary-600 text-primary-700' : 'border-transparent text-text-muted hover:border-border hover:text-text-main'}`}>{tab.label}</button>)}
+      </div>
+    </nav>
+
+    <section className="grid gap-2.5 rounded-2xl border border-border bg-card p-3 shadow-sm md:grid-cols-2 xl:grid-cols-[1.2fr_1fr_1fr_0.9fr_auto_auto]">
+      <label className="relative"><span className="sr-only">Search notifications</span><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-text-muted" /><input className="input h-10 pl-9" placeholder="Search notifications..." value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+      <select aria-label="Notification category" className="input h-10" value={category} onChange={(event) => setCategory(event.target.value)}><option value="ALL">All categories</option>{categories.map((value) => <option key={value}>{value}</option>)}</select>
+      <select aria-label="Notification priority" className="input h-10" value={priority} onChange={(event) => setPriority(event.target.value)}><option value="ALL">All priorities</option>{['Low', 'Medium', 'High', 'Critical'].map((value) => <option key={value}>{value}</option>)}</select>
+      <select aria-label="Notification channel" className="input h-10" value={channel} onChange={(event) => setChannel(event.target.value)}><option value="ALL">All channels</option><option value="IN_APP">In-app</option><option value="EMAIL">Email</option></select>
+      <label className="flex h-10 items-center gap-2 whitespace-nowrap px-2 text-sm text-text-muted"><Toggle checked={enabledOnly} disabled={false} label="Enabled notifications only" onChange={() => setEnabledOnly((current) => !current)} />Enabled only</label>
+      <button type="button" className="btn-ghost h-10 whitespace-nowrap px-3" onClick={resetFilters}><FilterX className="h-4 w-4" />Clear filters</button>
     </section>
 
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_17rem]">
       <div className="space-y-4">
-        <section className="rounded-2xl border border-border bg-card shadow-sm"><div className="grid gap-2.5 p-3 md:grid-cols-2 xl:grid-cols-[1.35fr_1fr_1fr_auto_auto]"><label className="relative"><span className="sr-only">Search notifications</span><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-text-muted" /><input className="input h-10 pl-9" placeholder="Search notifications..." value={search} onChange={(event) => setSearch(event.target.value)} /></label><select aria-label="Notification category" className="input h-10" value={category} onChange={(event) => setCategory(event.target.value)}><option value="ALL">All categories</option>{categories.map((value) => <option key={value}>{value}</option>)}</select><select aria-label="Notification priority" className="input h-10" value={priority} onChange={(event) => setPriority(event.target.value)}><option value="ALL">All priorities</option>{['Low', 'Medium', 'High', 'Critical'].map((value) => <option key={value}>{value}</option>)}</select><label className="flex h-10 items-center gap-2 whitespace-nowrap px-2 text-sm text-text-muted"><Toggle checked={enabledOnly} disabled={false} label="Enabled notifications only" onChange={() => setEnabledOnly((current) => !current)} />Enabled only</label><button type="button" className="btn-ghost h-10 px-3" onClick={() => { setSearch(''); setCategory('ALL'); setPriority('ALL'); setEnabledOnly(false); }}><FilterX className="h-4 w-4" />Clear</button></div></section>
-
-        {grouped.map((group) => <section key={group.name} className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm"><header className="flex items-center justify-between border-b border-border px-4 py-3"><h3 className="font-semibold text-text-main">{group.name}</h3><span className="rounded-full bg-bg px-2.5 py-1 text-xs text-text-muted">{group.items.length} notifications</span></header><div className="divide-y divide-border">{group.items.map((item) => <div key={item.id} className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_3rem] sm:items-center"><div className="flex min-w-0 items-start gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-700">{item.category === 'Booking & Front Desk' ? <CalendarCheck className="h-4 w-4" /> : item.category === 'Operations & Maintenance' ? <Wrench className="h-4 w-4" /> : item.category === 'Security & Smart Building' ? <ShieldAlert className="h-4 w-4" /> : item.category === 'Reports & Summaries' ? <FileChartColumn className="h-4 w-4" /> : item.category === 'Guest Experience' ? <Sparkles className="h-4 w-4" /> : <ClipboardList className="h-4 w-4" />}</span><div className="min-w-0"><p className="font-semibold text-text-main">{item.title}</p><p className="text-sm text-text-muted">{item.description}</p></div></div><div className="flex items-center gap-2"><span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${priorityStyles[item.priority]}`}>{item.priority}</span><span className="hidden text-xs text-text-muted lg:inline">{values.inAppChannel ? 'In-app' : ''}{values.inAppChannel && values.emailChannel ? ' + ' : ''}{values.emailChannel ? 'Email' : ''}</span></div><div className="flex justify-end"><Toggle checked={Boolean(values[item.id])} disabled={!canEdit} label={`${item.title} notifications`} onChange={() => setValue(item.id, !values[item.id])} /></div></div>)}</div></section>)}
-        {!grouped.length ? <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-12 text-center"><Bell className="mx-auto h-8 w-8 text-text-muted" /><p className="mt-3 font-semibold text-text-main">No notifications match your filters.</p></div> : null}
+        {grouped.map((group) => <section key={group.name} className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+          <header className="grid items-center gap-3 border-b border-border px-4 py-3 lg:grid-cols-[minmax(0,1fr)_7rem_10rem_5rem]">
+            <div className="flex items-center gap-3"><h3 className="font-semibold text-text-main">{group.name}</h3><span className="rounded-full bg-bg px-2.5 py-1 text-xs text-text-muted">{group.items.length} notifications</span></div>
+            <span className="hidden text-[11px] font-semibold uppercase tracking-wide text-text-muted lg:block">Priority</span><span className="hidden text-[11px] font-semibold uppercase tracking-wide text-text-muted lg:block">Channels</span><span aria-hidden="true" />
+          </header>
+          <div className="divide-y divide-border">{group.items.map((item) => <div key={item.id}>
+            <div className="grid gap-3 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_7rem_10rem_5rem] lg:items-center">
+              <div className="flex min-w-0 items-start gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-700">{item.category === 'Booking & Front Desk' ? <CalendarCheck className="h-4 w-4" /> : item.category === 'Operations & Maintenance' ? <Wrench className="h-4 w-4" /> : item.category === 'Security & Smart Building' ? <ShieldAlert className="h-4 w-4" /> : item.category === 'Reports & Summaries' ? <FileChartColumn className="h-4 w-4" /> : item.category === 'Guest Experience' ? <Sparkles className="h-4 w-4" /> : <ClipboardList className="h-4 w-4" />}</span><div className="min-w-0"><p className="font-semibold text-text-main">{item.title}</p><p className="text-sm text-text-muted">{item.description}</p></div></div>
+              <div><span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${priorityStyles[item.priority]}`}>{item.priority}</span></div>
+              <div className="flex items-center gap-3 text-xs text-text-muted">{values.inAppChannel ? <span className="inline-flex items-center gap-1"><Bell className="h-4 w-4 text-emerald-600" />In-app</span> : null}{values.emailChannel ? <span className="inline-flex items-center gap-1"><Mail className="h-4 w-4 text-emerald-600" />Email</span> : null}</div>
+              <div className="flex items-center justify-end gap-2"><Toggle checked={Boolean(values[item.id])} disabled={!canEdit} label={`${item.title} notifications`} onChange={() => setValue(item.id, !values[item.id])} /><button type="button" aria-label={`${expandedId === item.id ? 'Hide' : 'Show'} ${item.title} details`} aria-expanded={expandedId === item.id} onClick={() => setExpandedId((current) => current === item.id ? null : item.id)} className="rounded-lg p-1.5 text-text-muted hover:bg-bg hover:text-text-main"><ChevronDown className={`h-4 w-4 transition-transform ${expandedId === item.id ? 'rotate-180' : ''}`} /></button></div>
+            </div>
+            {expandedId === item.id ? <div className="border-t border-border bg-bg/60 px-16 py-3 text-xs text-text-muted">This alert uses your active delivery channels and follows the selected {item.priority.toLowerCase()} priority rules.</div> : null}
+          </div>)}</div>
+        </section>)}
+        {!grouped.length ? <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-12 text-center"><Bell className="mx-auto h-8 w-8 text-text-muted" /><p className="mt-3 font-semibold text-text-main">No notifications match your filters.</p><button type="button" className="btn-outline mt-4" onClick={resetFilters}>Clear filters</button></div> : null}
       </div>
 
-      <aside className="space-y-4"><section className="rounded-2xl border border-border bg-card shadow-sm"><div className="border-b border-border p-4"><h3 className="font-semibold text-text-main">Delivery Channels</h3><p className="mt-1 text-xs text-text-muted">Choose how you receive notifications.</p></div>{[['inAppChannel', Bell, 'In-app notifications', 'Real-time alerts in LaFlo'], ['emailChannel', Mail, 'Email notifications', 'Receive notifications via email']].map(([id, Icon, title, description]) => <div key={String(id)} className="grid grid-cols-[minmax(0,1fr)_3rem] items-center gap-3 border-b border-border p-4 last:border-0"><div className="flex min-w-0 items-start gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-700"><Icon className="h-4 w-4" /></span><div className="min-w-0"><p className="text-sm font-semibold text-text-main">{String(title)}</p><p className="text-xs text-text-muted">{String(description)}</p></div></div><div className="flex justify-end"><Toggle checked={Boolean(values[String(id)])} disabled={!canEdit} label={String(title)} onChange={() => setValue(String(id), !values[String(id)])} /></div></div>)}</section><div className="rounded-2xl border border-primary-200 bg-primary-50/50 p-4 text-sm text-primary-800"><p className="font-semibold">About priorities</p><p className="mt-1 text-xs">Critical and High priority alerts are always available in-app when that delivery channel is enabled.</p></div>{!canEdit ? <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">You have read-only access. An administrator must update notification preferences.</div> : null}</aside>
+      <aside className="space-y-4">
+        <section className="rounded-2xl border border-border bg-card shadow-sm"><div className="border-b border-border p-4"><h3 className="font-semibold text-text-main">Delivery Channels</h3><p className="mt-1 text-xs text-text-muted">Choose how you receive notifications.</p></div>{[['inAppChannel', Bell, 'In-app notifications', 'Real-time alerts in LaFlo'], ['emailChannel', Mail, 'Email notifications', 'Receive notifications via email']].map(([id, Icon, title, description]) => <div key={String(id)} className="grid grid-cols-[minmax(0,1fr)_3rem] items-center gap-3 border-b border-border p-4 last:border-0"><div className="flex min-w-0 items-start gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary-50 text-primary-700"><Icon className="h-4 w-4" /></span><div className="min-w-0"><p className="text-sm font-semibold text-text-main">{String(title)}</p><p className="text-xs text-text-muted">{String(description)}</p></div></div><div className="flex justify-end"><Toggle checked={Boolean(values[String(id)])} disabled={!canEdit} label={String(title)} onChange={() => setValue(String(id), !values[String(id)])} /></div></div>)}</section>
+        <div className="rounded-2xl border border-primary-200 bg-primary-50/50 p-4 text-sm text-primary-800"><div className="flex items-start gap-3"><Lightbulb className="mt-0.5 h-5 w-5 shrink-0" /><div><p className="font-semibold">About notification priorities</p><p className="mt-1 text-xs">Critical and High priority alerts are always available in-app when that delivery channel is enabled.</p></div></div></div>
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm"><p className="text-sm font-semibold text-text-main">Need help?</p><p className="mt-1 text-xs text-text-muted">Learn more about notifications</p><a href="https://laflogroup.com" target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary-700 hover:underline">View documentation <ExternalLink className="h-3.5 w-3.5" /></a></div>
+        {!canEdit ? <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">You have read-only access. An administrator must update notification preferences.</div> : null}
+      </aside>
     </div>
 
-    <div className="sticky bottom-3 z-20 flex flex-col gap-3 rounded-2xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-text-muted">{dirty ? 'You have unsaved changes' : 'All preferences are saved'}</p><div className="flex gap-2"><button type="button" className="btn-outline" disabled={!dirty || !canEdit} onClick={onReset}>Reset changes</button><button type="button" className="btn-primary" disabled={!dirty || !canEdit} onClick={onSave}>Save preferences</button></div></div>
+    <div className="sticky bottom-3 z-20 flex flex-col gap-3 rounded-2xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between"><p className="flex items-center gap-2 text-sm text-text-muted"><span className={`h-2 w-2 rounded-full ${dirty ? 'bg-amber-500' : 'bg-emerald-500'}`} />{dirty ? 'You have unsaved changes' : 'All preferences are saved'}</p><div className="flex gap-2"><button type="button" className="btn-outline" disabled={!dirty || !canEdit} onClick={onReset}>Reset changes</button><button type="button" className="btn-primary" disabled={!dirty || !canEdit} onClick={onSave}>Save preferences</button></div></div>
   </div>;
 }
