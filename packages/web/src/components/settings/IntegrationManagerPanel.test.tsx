@@ -59,6 +59,9 @@ describe('IntegrationManagerPanel', () => {
     expect(screen.getByRole('tab', { name: 'Hardware' })).toBeInTheDocument();
     expect(screen.getByLabelText('Provider filter')).toBeInTheDocument();
     expect(screen.getAllByText('Hikvision').length).toBeGreaterThan(0);
+    const openWeatherIcons = screen.getAllByRole('img', { name: 'OpenWeather integration icon' });
+    expect(openWeatherIcons.length).toBeGreaterThan(0);
+    expect(openWeatherIcons.some((icon) => icon.className.includes('ring-emerald-400'))).toBe(true);
   });
 
   it('filters integrations and opens the setup wizard without exposing a raw credential', async () => {

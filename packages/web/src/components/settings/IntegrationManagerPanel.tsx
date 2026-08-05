@@ -4,22 +4,35 @@ import toast from 'react-hot-toast';
 import {
   Activity,
   AlertTriangle,
+  Bot,
+  BrainCircuit,
+  Building2,
   Cable,
+  Cctv,
   CheckCircle2,
+  CloudSun,
   ClipboardList,
+  CreditCard,
   Database,
   FileText,
   FilterX,
   Layers,
   Link2,
+  LockKeyhole,
+  Mail,
+  MessageCircle,
   Plus,
   PlugZap,
+  RadioTower,
   RefreshCcw,
   Router,
   Search,
   ShieldCheck,
+  Thermometer,
   X,
+  Zap,
 } from 'lucide-react';
+import { siBookingdotcom, siStripe } from 'simple-icons';
 import HardwareIntegrationPanel from '@/components/hardware/HardwareIntegrationPanel';
 import { getApiError, integrationManagerService } from '@/services';
 import type {
@@ -58,6 +71,57 @@ const statusClass = (status: string) => {
 const formatDate = (value?: string | null) => value ? new Date(value).toLocaleString() : 'Never';
 const labelize = (value: string) => value.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 
+const providerIconClasses: Record<IntegrationManagerCategory, string> = {
+  CCTV: 'bg-slate-100 text-slate-700',
+  SMART_LOCKS: 'bg-blue-50 text-blue-700',
+  SENSORS: 'bg-teal-50 text-teal-700',
+  HVAC: 'bg-violet-50 text-violet-700',
+  ENERGY_METERS: 'bg-emerald-50 text-emerald-700',
+  WEATHER: 'bg-sky-50 text-sky-700',
+  PAYMENTS: 'bg-indigo-50 text-indigo-700',
+  BOOKING_CHANNELS: 'bg-blue-50 text-blue-700',
+  MICROSOFT_365: 'bg-cyan-50 text-cyan-700',
+  AI_PROVIDERS: 'bg-slate-100 text-slate-800',
+  OTHER_PROVIDERS: 'bg-rose-50 text-rose-700',
+};
+
+const categoryIcons: Record<IntegrationManagerCategory, typeof Cable> = {
+  CCTV: Cctv,
+  SMART_LOCKS: LockKeyhole,
+  SENSORS: RadioTower,
+  HVAC: Thermometer,
+  ENERGY_METERS: Zap,
+  WEATHER: CloudSun,
+  PAYMENTS: CreditCard,
+  BOOKING_CHANNELS: Building2,
+  MICROSOFT_365: Mail,
+  AI_PROVIDERS: BrainCircuit,
+  OTHER_PROVIDERS: PlugZap,
+};
+
+function ProviderIcon({ providerName, category, connected = false, size = 'md' }: { providerName: string; category: IntegrationManagerCategory; connected?: boolean; size?: 'sm' | 'md' }) {
+  const normalized = providerName.toLowerCase();
+  const brandIcon = normalized.includes('stripe') ? siStripe : normalized.includes('booking.com') ? siBookingdotcom : null;
+  const FallbackIcon = normalized.includes('twilio') ? MessageCircle
+    : normalized.includes('openweather') ? CloudSun
+      : normalized.includes('microsoft') ? Mail
+        : normalized.includes('openai') ? Bot
+          : normalized.includes('hikvision') ? Cctv
+            : normalized.includes('ttlock') ? LockKeyhole
+              : categoryIcons[category];
+  const dimensions = size === 'sm' ? 'h-9 w-9 rounded-xl' : 'h-11 w-11 rounded-2xl';
+  return (
+    <span role="img" aria-label={`${providerName} integration icon`} className={`relative grid shrink-0 place-items-center ${dimensions} ${providerIconClasses[category]} ${connected ? 'ring-2 ring-emerald-400 ring-offset-2 ring-offset-card' : 'ring-1 ring-border'}`}>
+      {brandIcon ? (
+        <svg viewBox="0 0 24 24" className={size === 'sm' ? 'h-4 w-4' : 'h-5 w-5'} aria-hidden="true" style={{ color: `#${brandIcon.hex}` }}>
+          <path fill="currentColor" d={brandIcon.path} />
+        </svg>
+      ) : <FallbackIcon className={size === 'sm' ? 'h-4 w-4' : 'h-5 w-5'} aria-hidden="true" />}
+      {connected ? <span className="absolute -bottom-1 -right-1 grid h-4 w-4 place-items-center rounded-full bg-emerald-500 text-white ring-2 ring-card"><CheckCircle2 className="h-3 w-3" aria-hidden="true" /></span> : null}
+    </span>
+  );
+}
+
 function CategoryCard({
   card,
   onPrimary,
@@ -80,9 +144,12 @@ function CategoryCard({
   return (
     <article className="rounded-2xl border border-border bg-card p-4 shadow-sm transition hover:border-primary-200 hover:shadow-md">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-sm font-bold text-text-main">{card.label}</div>
-          <div className="mt-1 text-xs text-text-muted">{card.providerName}</div>
+        <div className="flex min-w-0 items-center gap-3">
+          <ProviderIcon providerName={card.providerName} category={card.category} connected={connected} />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-bold text-text-main">{card.label}</div>
+            <div className="mt-1 truncate text-xs text-text-muted">{card.providerName}</div>
+          </div>
         </div>
         <div className="flex flex-col items-end gap-1"><span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClass(card.connectionStatus)}`}>{card.connectionStatus}</span>{comingSoon || demo ? <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClass(comingSoon ? 'Coming Soon' : 'Demo / Simulation')}`}>{comingSoon ? 'Coming Soon' : 'Demo / Simulation'}</span> : null}</div>
       </div>
@@ -122,9 +189,12 @@ function ProviderRegistry({
       {visible.map((provider) => (
         <div key={provider.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-sm font-bold text-slate-950">{provider.name}</div>
-              <div className="mt-1 text-xs text-slate-500">{provider.connectionMethods.join(' / ')}</div>
+            <div className="flex min-w-0 items-center gap-3">
+              <ProviderIcon providerName={provider.name} category={provider.category} size="sm" />
+              <div className="min-w-0">
+                <div className="truncate text-sm font-bold text-slate-950">{provider.name}</div>
+                <div className="mt-1 truncate text-xs text-slate-500">{provider.connectionMethods.join(' / ')}</div>
+              </div>
             </div>
             <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClass(provider.status)}`}>
               {labelize(provider.status)}
@@ -487,7 +557,7 @@ export default function IntegrationManagerPanel() {
         <div className="fixed inset-0 z-[70] flex justify-end bg-slate-950/40" role="dialog" aria-modal="true" aria-labelledby="integration-detail-title">
           <div className="flex h-full w-full max-w-xl flex-col border-l border-border bg-card shadow-2xl">
             <div className="flex items-start justify-between gap-4 border-b border-border p-5">
-              <div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Integration details</p><h3 id="integration-detail-title" className="mt-1 text-xl font-bold text-text-main">{selectedCard.label}</h3><p className="mt-1 text-sm text-text-muted">{selectedCard.providerName}</p></div>
+              <div className="flex items-center gap-3"><ProviderIcon providerName={selectedCard.providerName} category={selectedCard.category} connected={selectedCard.connectionStatus === 'Connected'} /><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Integration details</p><h3 id="integration-detail-title" className="mt-1 text-xl font-bold text-text-main">{selectedCard.label}</h3><p className="mt-1 text-sm text-text-muted">{selectedCard.providerName}</p></div></div>
               <button type="button" className="btn-ghost h-9 w-9 p-0" onClick={() => setDetailOpen(false)} aria-label="Close integration details"><X className="h-4 w-4" /></button>
             </div>
             <div className="flex-1 space-y-5 overflow-y-auto p-5">
