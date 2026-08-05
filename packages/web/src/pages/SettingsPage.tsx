@@ -28,6 +28,7 @@ import IntegrationManagerPanel from '@/components/settings/IntegrationManagerPan
 import AccessRequestsPanel from '@/components/settings/AccessRequestsPanel';
 import AuditTrailPanel from '@/components/settings/AuditTrailPanel';
 import NotificationPreferencesPanel, { DEFAULT_NOTIFICATION_PREFERENCES, type NotificationPreferences } from '@/components/settings/NotificationPreferencesPanel';
+import RoomTypesPanel from '@/components/settings/RoomTypesPanel';
 import { currencyForCountry } from '@/utils/countryCurrency';
 
 type SettingsTab =
@@ -44,7 +45,6 @@ export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<SettingsTab>('hotel');
-  const [showAddRoomTypeModal, setShowAddRoomTypeModal] = useState(false);
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [qrCode, setQrCode] = useState('');
   const [twoFASecret, setTwoFASecret] = useState('');
@@ -95,15 +95,6 @@ export default function SettingsPage() {
       { value: 'HOUSEKEEPING', label: 'Housekeeping' },
     ],
     []
-  );
-  const roomRateFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency: hotelForm.currency || 'USD',
-        maximumFractionDigits: 0,
-      }),
-    [hotelForm.currency]
   );
 
   useEffect(() => {
@@ -158,7 +149,7 @@ export default function SettingsPage() {
     }
   }, [activeTab, isAdmin, searchParams]);
 
-  const { data: roomTypes, isLoading: roomTypesLoading } = useQuery({
+  const { data: roomTypes, isLoading: roomTypesLoading, isError: roomTypesError, refetch: refetchRoomTypes } = useQuery({
     queryKey: ['roomTypes'],
     queryFn: roomService.getRoomTypes,
     enabled: activeTab === 'room-types',
@@ -177,10 +168,11 @@ export default function SettingsPage() {
 
   const createRoomTypeMutation = useMutation({
     mutationFn: roomService.createRoomType,
-    onSuccess: () => {
+    onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ['roomTypes'] });
+      appendAuditLog({ action: 'ROOM_TYPE_CREATED', actorId: user?.id, actorName: user ? `${user.firstName} ${user.lastName}` : 'System', targetId: created.id, targetLabel: created.name, details: { baseRate: created.baseRate, maxGuests: created.maxGuests, isActive: created.isActive } });
+      refreshAuditLogs();
       toast.success('Room type created');
-      setShowAddRoomTypeModal(false);
     },
     onError: () => {
       toast.error('Failed to create room type');
@@ -361,6 +353,16 @@ export default function SettingsPage() {
     onError: () => {
       toast.error('Failed to update hotel settings');
     },
+  });
+  const updateRoomTypeMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof roomService.updateRoomType>[1] }) => roomService.updateRoomType(id, data),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['roomTypes'] });
+      appendAuditLog({ action: updated.isActive ? 'ROOM_TYPE_UPDATED' : 'ROOM_TYPE_DISABLED', actorId: user?.id, actorName: user ? `${user.firstName} ${user.lastName}` : 'System', targetId: updated.id, targetLabel: updated.name, details: { baseRate: updated.baseRate, maxGuests: updated.maxGuests, isActive: updated.isActive } });
+      refreshAuditLogs();
+      toast.success(updated.isActive ? 'Room type updated' : 'Room type disabled');
+    },
+    onError: () => toast.error('Failed to update room type'),
   });
 
   const resendAccessSetupMutation = useMutation({
@@ -1011,52 +1013,7 @@ export default function SettingsPage() {
 
           {/* Room Types */}
           {activeTab === 'room-types' && (
-            <div className="space-y-6">
-              <div className="card">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold text-slate-900">Room Types</h2>
-                    <p className="text-sm text-slate-500">Manage your room categories and rates</p>
-                  </div>
-                  <button
-                    onClick={() => setShowAddRoomTypeModal(true)}
-                    className="btn-primary"
-                  >
-                    Add Room Type
-                  </button>
-                </div>
-
-                <div className="mt-6">
-                  {roomTypesLoading ? (
-                    <div className="overflow-hidden rounded-xl border border-border bg-card">
-                      {[...Array(3)].map((_, i) => (
-                        <div key={i} className="h-20 animate-shimmer rounded-lg" />
-                      ))}
-                    </div>
-                  ) : roomTypes && roomTypes.length > 0 ? (
-                    <div className="space-y-3">
-                      {roomTypes.map((roomType) => (
-                        <div
-                          key={roomType.id}
-                          className="grid gap-3 border-b border-border p-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center"
-                        >
-                          <div className="min-w-0">
-                            <h3 className="font-medium text-slate-900">{roomType.name}</h3>
-                            <p className="truncate text-sm text-slate-500">
-                              {roomType.description || 'No description'}
-                            </p>
-                          </div>
-                          <div className="text-sm text-text-muted"><span className="block text-xs">Base rate</span><strong className="text-text-main">{roomRateFormatter.format(Number(roomType.baseRate))}</strong><span> / night</span></div>
-                          <div className="flex items-center justify-between gap-4 sm:justify-end"><span className="text-sm text-text-muted">Up to {roomType.maxGuests} guests</span><button className="btn-outline h-9 px-3 text-sm">Edit</button></div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-slate-500">No room types configured</p>
-                  )}
-                </div>
-              </div>
-            </div>
+            <RoomTypesPanel roomTypes={roomTypes || []} currency={hotelForm.currency || 'USD'} loading={roomTypesLoading} error={roomTypesError} canEdit={isAdmin} saving={createRoomTypeMutation.isPending || updateRoomTypeMutation.isPending} onRetry={() => { void refetchRoomTypes(); }} onCreate={async (input) => { await createRoomTypeMutation.mutateAsync(input); }} onUpdate={async (id, input) => { await updateRoomTypeMutation.mutateAsync({ id, data: input }); }} />
           )}
 
           {/* Security */}
@@ -1269,87 +1226,6 @@ export default function SettingsPage() {
 
         </div>
       </div>
-
-      {/* Add Room Type Modal */}
-      {showAddRoomTypeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-slate-900/50"
-            onClick={() => setShowAddRoomTypeModal(false)}
-          />
-          <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h2 className="text-xl font-bold text-slate-900">Add Room Type</h2>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                createRoomTypeMutation.mutate({
-                  name: formData.get('name') as string,
-                  description: formData.get('description') as string || undefined,
-                  baseRate: Number(formData.get('baseRate')),
-                  maxGuests: Number(formData.get('maxGuests')),
-                  amenities: [],
-                  isActive: true,
-                });
-              }}
-              className="mt-6 space-y-4"
-            >
-              <div>
-                <label className="label">Name *</label>
-                <input name="name" required className="input" placeholder="e.g., Deluxe King" />
-              </div>
-
-              <div>
-                <label className="label">Description</label>
-                <textarea name="description" className="input" rows={2} />
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="label">Base Rate *</label>
-                  <input
-                    name="baseRate"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    required
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label className="label">Max Guests *</label>
-                  <input
-                    name="maxGuests"
-                    type="number"
-                    min="1"
-                    required
-                    className="input"
-                    defaultValue="2"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAddRoomTypeModal(false)}
-                  className="btn-outline flex-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createRoomTypeMutation.isPending}
-                  className="btn-primary flex-1"
-                >
-                  {createRoomTypeMutation.isPending ? 'Creating...' : 'Create'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* 2FA Setup Modal */}
       {show2FAModal && (

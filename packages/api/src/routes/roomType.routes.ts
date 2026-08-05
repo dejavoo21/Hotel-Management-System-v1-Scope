@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
-import { authenticate, requireManager } from '../middleware/auth.js';
+import { authenticate, requireAdmin } from '../middleware/auth.js';
 import * as roomTypeController from '../controllers/roomType.controller.js';
 
 const router = Router();
@@ -34,8 +34,8 @@ router.use(authenticate);
 // Routes
 router.get('/', roomTypeController.getAllRoomTypes);
 router.get('/:id', roomTypeController.getRoomTypeById);
-router.post('/', requireManager, validate(createRoomTypeSchema), roomTypeController.createRoomType);
-router.patch('/:id', requireManager, validate(updateRoomTypeSchema), roomTypeController.updateRoomType);
-router.delete('/:id', requireManager, roomTypeController.deleteRoomType);
+router.post('/', requireAdmin, validate(createRoomTypeSchema), roomTypeController.createRoomType);
+router.patch('/:id', requireAdmin, validate(updateRoomTypeSchema), roomTypeController.updateRoomType);
+router.delete('/:id', requireAdmin, roomTypeController.deleteRoomType);
 
 export default router;
