@@ -62,6 +62,7 @@ describe('IntegrationManagerPanel', () => {
     const openWeatherIcons = screen.getAllByRole('img', { name: 'OpenWeather integration icon' });
     expect(openWeatherIcons.length).toBeGreaterThan(0);
     expect(openWeatherIcons.some((icon) => icon.className.includes('ring-emerald-400'))).toBe(true);
+    expect(openWeatherIcons[0].querySelector('img')).toHaveAttribute('src', '/assets/integration-providers/openweather.svg');
   });
 
   it('filters integrations and opens the setup wizard without exposing a raw credential', async () => {

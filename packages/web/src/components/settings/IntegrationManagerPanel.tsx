@@ -4,7 +4,6 @@ import toast from 'react-hot-toast';
 import {
   Activity,
   AlertTriangle,
-  Bot,
   BrainCircuit,
   Building2,
   Cable,
@@ -20,7 +19,6 @@ import {
   Link2,
   LockKeyhole,
   Mail,
-  MessageCircle,
   Plus,
   PlugZap,
   RadioTower,
@@ -32,7 +30,6 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { siBookingdotcom, siStripe } from 'simple-icons';
 import HardwareIntegrationPanel from '@/components/hardware/HardwareIntegrationPanel';
 import { getApiError, integrationManagerService } from '@/services';
 import type {
@@ -99,23 +96,26 @@ const categoryIcons: Record<IntegrationManagerCategory, typeof Cable> = {
   OTHER_PROVIDERS: PlugZap,
 };
 
+const providerBrandAssets = [
+  { match: 'microsoft', src: '/assets/integration-providers/microsoft-365.ico' },
+  { match: 'openweather', src: '/assets/integration-providers/openweather.svg' },
+  { match: 'booking.com', src: '/assets/integration-providers/booking-com.svg' },
+  { match: 'hikvision', src: '/assets/integration-providers/hikvision.ico' },
+  { match: 'ttlock', src: '/assets/integration-providers/ttlock.png' },
+  { match: 'twilio', src: '/assets/integration-providers/twilio.png' },
+  { match: 'stripe', src: '/assets/integration-providers/stripe.svg' },
+  { match: 'openai', src: '/assets/integration-providers/openai.svg' },
+] as const;
+
 function ProviderIcon({ providerName, category, connected = false, size = 'md' }: { providerName: string; category: IntegrationManagerCategory; connected?: boolean; size?: 'sm' | 'md' }) {
   const normalized = providerName.toLowerCase();
-  const brandIcon = normalized.includes('stripe') ? siStripe : normalized.includes('booking.com') ? siBookingdotcom : null;
-  const FallbackIcon = normalized.includes('twilio') ? MessageCircle
-    : normalized.includes('openweather') ? CloudSun
-      : normalized.includes('microsoft') ? Mail
-        : normalized.includes('openai') ? Bot
-          : normalized.includes('hikvision') ? Cctv
-            : normalized.includes('ttlock') ? LockKeyhole
-              : categoryIcons[category];
+  const brandAsset = providerBrandAssets.find(({ match }) => normalized.includes(match));
+  const FallbackIcon = categoryIcons[category];
   const dimensions = size === 'sm' ? 'h-9 w-9 rounded-xl' : 'h-11 w-11 rounded-2xl';
   return (
-    <span role="img" aria-label={`${providerName} integration icon`} className={`relative grid shrink-0 place-items-center ${dimensions} ${providerIconClasses[category]} ${connected ? 'ring-2 ring-emerald-400 ring-offset-2 ring-offset-card' : 'ring-1 ring-border'}`}>
-      {brandIcon ? (
-        <svg viewBox="0 0 24 24" className={size === 'sm' ? 'h-4 w-4' : 'h-5 w-5'} aria-hidden="true" style={{ color: `#${brandIcon.hex}` }}>
-          <path fill="currentColor" d={brandIcon.path} />
-        </svg>
+    <span role="img" aria-label={`${providerName} integration icon`} className={`relative grid shrink-0 place-items-center ${dimensions} ${brandAsset ? 'bg-white' : providerIconClasses[category]} ${connected ? 'ring-2 ring-emerald-400 ring-offset-2 ring-offset-card' : 'ring-1 ring-border'}`}>
+      {brandAsset ? (
+        <img src={brandAsset.src} alt="" className={size === 'sm' ? 'h-5 w-5 object-contain' : 'h-6 w-6 object-contain'} aria-hidden="true" />
       ) : <FallbackIcon className={size === 'sm' ? 'h-4 w-4' : 'h-5 w-5'} aria-hidden="true" />}
       {connected ? <span className="absolute -bottom-1 -right-1 grid h-4 w-4 place-items-center rounded-full bg-emerald-500 text-white ring-2 ring-card"><CheckCircle2 className="h-3 w-3" aria-hidden="true" /></span> : null}
     </span>
