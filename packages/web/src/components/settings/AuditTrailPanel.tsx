@@ -147,12 +147,12 @@ function SummaryCard({
   tone: string;
 }) {
   return (
-    <article className="flex min-w-0 items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${tone}`}>
+    <article className="flex min-w-0 items-center gap-3 rounded-2xl border border-border bg-card p-3.5 shadow-sm">
+      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${tone}`}>
         <Icon className="h-5 w-5" aria-hidden="true" />
       </span>
       <div className="min-w-0">
-        <p className="truncate text-xl font-bold text-text-main">{value}</p>
+        <p className="truncate text-lg font-bold leading-5 text-text-main">{value}</p>
         <p className="truncate text-sm font-semibold text-text-main">{label}</p>
         <p className="truncate text-xs text-text-muted">{supporting}</p>
       </div>
@@ -292,8 +292,8 @@ export default function AuditTrailPanel({
   };
 
   return (
-    <section className="space-y-5" aria-labelledby="audit-trail-title">
-      <header className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+    <section className="space-y-3.5 pb-12" aria-labelledby="audit-trail-title">
+      <header className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-center gap-4">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
             <History className="h-6 w-6" aria-hidden="true" />
@@ -315,7 +315,7 @@ export default function AuditTrailPanel({
         </div>
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <SummaryCard icon={ShieldCheck} value={logs.length.toLocaleString()} label="Total audit events" supporting="Workspace browser history" tone="bg-blue-50 text-blue-600" />
         <SummaryCard icon={Activity} value={summary.todayCount.toLocaleString()} label="Events today" supporting="Current local day" tone="bg-emerald-50 text-emerald-600" />
         <SummaryCard icon={AlertTriangle} value={summary.highImpact.toLocaleString()} label="High-impact changes" supporting="Require attention" tone="bg-orange-50 text-orange-600" />
@@ -326,10 +326,10 @@ export default function AuditTrailPanel({
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm" aria-labelledby="audit-configuration-title">
         <div className="grid divide-y divide-border lg:grid-cols-2 lg:divide-x lg:divide-y-0">
-          <div className="p-5">
+          <div className="p-4">
             <h3 id="audit-configuration-title" className="font-semibold text-text-main">Retention policy</h3>
             <p className="mt-1 text-sm text-text-muted">Define how long audit records should be retained.</p>
-            <label htmlFor="audit-retention" className="label mt-5">Retention (days)</label>
+            <label htmlFor="audit-retention" className="label mt-3">Retention (days)</label>
             <div className="relative">
               <input
                 id="audit-retention"
@@ -342,7 +342,7 @@ export default function AuditTrailPanel({
               />
               <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-text-muted">days</span>
             </div>
-            <div className="mt-3 flex flex-wrap gap-2" aria-label="Retention presets">
+            <div className="mt-2.5 flex flex-wrap gap-2" aria-label="Retention presets">
               {RETENTION_OPTIONS.map((days) => (
                 <button
                   key={days}
@@ -354,10 +354,10 @@ export default function AuditTrailPanel({
                 </button>
               ))}
             </div>
-            <p className="mt-3 text-xs text-text-muted">Recommended: 90 days for operational audit needs.</p>
+            <p className="mt-2.5 text-xs text-text-muted">Recommended: 90 days for operational audit needs.</p>
           </div>
 
-          <div className="p-5">
+          <div className="p-4">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="font-semibold text-text-main">External log forwarding</h3>
@@ -374,10 +374,10 @@ export default function AuditTrailPanel({
                 <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${settings.forwardingEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
               </button>
             </div>
-            <div className="mt-5 rounded-xl border border-border bg-bg/50 p-4">
+            <div className="mt-3 rounded-xl border border-border bg-bg/50 p-3.5">
               <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${forwardingConnected ? 'bg-emerald-100 text-emerald-700' : settings.forwardingEnabled ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-700'}`}>{forwardingConnected ? 'Enabled' : settings.forwardingEnabled ? 'Not connected' : 'Disabled'}</span>
               {settings.forwardingEnabled ? (
-                <div className="mt-4 flex items-end justify-between gap-4">
+                <div className="mt-3 flex items-end justify-between gap-4">
                   <div className="min-w-0"><p className="text-xs text-text-muted">Destination</p><p className="truncate text-sm font-semibold text-text-main">{settings.forwardingUrl || 'No destination configured'}</p></div>
                   <button type="button" className="btn-outline h-9 px-3 text-xs" onClick={() => setDestinationEditorOpen(true)}>Edit</button>
                 </div>
@@ -385,7 +385,7 @@ export default function AuditTrailPanel({
             </div>
           </div>
         </div>
-        <div className="flex flex-col gap-3 border-t border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2.5 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-2">
             <button type="button" className="btn-primary" onClick={onSave}><ClipboardCheck className="h-4 w-4" aria-hidden="true" />Save Audit Settings</button>
             <button type="button" className="btn-outline" onClick={() => onExportJson(filteredLogs)}><FileJson className="h-4 w-4" aria-hidden="true" />Export JSON</button>
@@ -396,8 +396,8 @@ export default function AuditTrailPanel({
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm" aria-labelledby="recent-activity-title">
-        <div className="border-b border-border p-5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="border-b border-border p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 id="recent-activity-title" className="text-lg font-semibold text-text-main">Recent Activity</h3>
               <p className="mt-1 text-sm text-text-muted">Review recent system and user actions.</p>
@@ -409,7 +409,7 @@ export default function AuditTrailPanel({
               Workspace audit cache
             </span>
           </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(15rem,1.5fr)_1fr_1fr_1fr_1fr_auto]">
+          <div className="mt-3 grid items-center gap-2.5 md:grid-cols-2 xl:grid-cols-[minmax(14rem,1.4fr)_minmax(9rem,1fr)_minmax(9rem,1fr)_minmax(9rem,1fr)_minmax(14rem,1.15fr)_auto]">
             <label className="relative block">
               <span className="sr-only">Search audit events</span>
               <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-text-muted" aria-hidden="true" />
@@ -445,17 +445,17 @@ export default function AuditTrailPanel({
                   return (
                     <Fragment key={entry.id}>
                       <tr className="hover:bg-bg/40">
-                        <td className="px-5 py-3">
+                        <td className="px-5 py-2.5">
                           <div className="flex min-w-0 items-center gap-3">
                             <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${categoryStyles[meta.category]}`}><Activity className="h-4 w-4" aria-hidden="true" /></span>
                             <div className="min-w-0"><p className="truncate font-semibold text-text-main">{meta.readableAction}</p><span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${categoryStyles[meta.category]}`}>{meta.category}</span></div>
                           </div>
                         </td>
-                        <td className="min-w-0 px-4 py-3"><p className="truncate font-medium text-text-main">{entry.actorName || 'System'}</p><p className="truncate text-xs text-text-muted">{entry.actorId || 'System actor'}</p></td>
-                        <td className="min-w-0 px-4 py-3"><p className="truncate font-medium text-text-main">{entry.targetLabel || entry.targetId || 'Platform'}</p><p className="truncate text-xs text-text-muted">{entry.targetId || 'General event'}</p></td>
-                        <td className="px-4 py-3"><p className="whitespace-nowrap font-medium text-text-main">{format(new Date(entry.createdAt), 'MMM d, yyyy · h:mm a')}</p><p className="text-xs text-text-muted">{formatDistanceToNowStrict(new Date(entry.createdAt), { addSuffix: true })}</p></td>
-                        <td className="px-4 py-3"><div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${severityStyles[meta.severity]}`} /><span className="text-text-muted">{meta.severity}</span></div></td>
-                        <td className="px-5 py-3 text-right"><button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-border/60 hover:text-text-main focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500" aria-label={`${isExpanded ? 'Collapse' : 'Expand'} details for ${meta.readableAction}`} aria-expanded={isExpanded} onClick={() => setExpandedId(isExpanded ? null : entry.id)}><ChevronRight className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} aria-hidden="true" /></button></td>
+                        <td className="min-w-0 px-4 py-2.5"><p className="truncate font-medium text-text-main">{entry.actorName || 'System'}</p><p className="truncate text-xs text-text-muted">{entry.actorId || 'System actor'}</p></td>
+                        <td className="min-w-0 px-4 py-2.5"><p className="truncate font-medium text-text-main">{entry.targetLabel || entry.targetId || 'Platform'}</p><p className="truncate text-xs text-text-muted">{entry.targetId || 'General event'}</p></td>
+                        <td className="px-4 py-2.5"><p className="whitespace-nowrap font-medium text-text-main">{format(new Date(entry.createdAt), 'MMM d, yyyy · h:mm a')}</p><p className="text-xs text-text-muted">{formatDistanceToNowStrict(new Date(entry.createdAt), { addSuffix: true })}</p></td>
+                        <td className="px-4 py-2.5"><div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${severityStyles[meta.severity]}`} /><span className="text-text-muted">{meta.severity}</span></div></td>
+                        <td className="px-5 py-2.5 text-right"><button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-border/60 hover:text-text-main focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500" aria-label={`${isExpanded ? 'Collapse' : 'Expand'} details for ${meta.readableAction}`} aria-expanded={isExpanded} onClick={() => setExpandedId(isExpanded ? null : entry.id)}><ChevronRight className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} aria-hidden="true" /></button></td>
                       </tr>
                       {isExpanded ? <tr><td colSpan={6} className="p-0"><AuditDetails entry={entry} /></td></tr> : null}
                     </Fragment>
