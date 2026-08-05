@@ -99,7 +99,7 @@ const categoryIcons: Record<IntegrationManagerCategory, typeof Cable> = {
 const providerBrandAssets = [
   { match: 'microsoft', src: '/assets/integration-providers/microsoft-365.ico' },
   { match: 'openweather', src: '/assets/integration-providers/openweather.svg' },
-  { match: 'booking.com', src: '/assets/integration-providers/booking-com.svg' },
+  { match: 'booking.com', src: '/assets/integration-providers/booking-com.png' },
   { match: 'hikvision', src: '/assets/integration-providers/hikvision.ico' },
   { match: 'ttlock', src: '/assets/integration-providers/ttlock.png' },
   { match: 'twilio', src: '/assets/integration-providers/twilio.png' },
