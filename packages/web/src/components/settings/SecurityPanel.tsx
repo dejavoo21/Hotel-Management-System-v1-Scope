@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -17,13 +17,21 @@ import {
   Smartphone,
   Users,
 } from 'lucide-react';
+import type { ActiveSession } from '@/types';
 
 type SecurityPanelProps = {
   twoFactorEnabled: boolean;
   passwordLoading: boolean;
   twoFactorLoading: boolean;
+  sessions: ActiveSession[];
+  sessionsLoading: boolean;
+  sessionsError: boolean;
+  sessionActionLoading: boolean;
   onPasswordChange: (currentPassword: string, newPassword: string) => Promise<void>;
   onEnableTwoFactor: () => void;
+  onRetrySessions: () => void;
+  onRevokeOtherSessions: () => Promise<unknown>;
+  onRevokeSession: (sessionId: string) => Promise<unknown>;
 };
 
 type PasswordFieldProps = {
@@ -82,15 +90,36 @@ function formatPasswordUpdated(value: string | null) {
   return `${days} days ago`;
 }
 
-function detectCurrentDevice() {
-  if (typeof navigator === 'undefined') return { device: 'Current device', type: 'Desktop' };
-  const userAgent = navigator.userAgent;
+function parseDevice(userAgent: string | null) {
+  if (!userAgent) return { device: 'Unknown device · Browser', type: 'Desktop' as const };
   const browser = /Edg\//.test(userAgent) ? 'Edge' : /Firefox\//.test(userAgent) ? 'Firefox' : /Chrome\//.test(userAgent) ? 'Chrome' : /Safari\//.test(userAgent) ? 'Safari' : 'Browser';
   const operatingSystem = /Windows/.test(userAgent) ? 'Windows' : /Mac OS/.test(userAgent) ? 'macOS' : /Android/.test(userAgent) ? 'Android' : /iPhone|iPad/.test(userAgent) ? 'iOS' : 'Device';
-  return { device: `${operatingSystem} · ${browser}`, type: /Android|iPhone|iPad/.test(userAgent) ? 'Mobile' : 'Desktop' };
+  return { device: `${operatingSystem} · ${browser}`, type: /Android|iPhone|iPad/.test(userAgent) ? 'Mobile' as const : 'Desktop' as const };
 }
 
-export default function SecurityPanel({ twoFactorEnabled, passwordLoading, twoFactorLoading, onPasswordChange, onEnableTwoFactor }: SecurityPanelProps) {
+function formatLastActive(value: string, isCurrent: boolean) {
+  if (isCurrent) return 'Just now';
+  const elapsed = Date.now() - new Date(value).getTime();
+  if (!Number.isFinite(elapsed) || elapsed < 60_000) return 'Just now';
+  const minutes = Math.floor(elapsed / 60_000);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+}
+
+function formatIp(value: string | null) {
+  if (!value) return 'IP not available';
+  const cleaned = value.replace(/^::ffff:/, '');
+  if (cleaned.includes('.')) {
+    const parts = cleaned.split('.');
+    return `IP ${parts.slice(0, 3).join('.')}.•••`;
+  }
+  return `IP ${cleaned.slice(0, 12)}…`;
+}
+
+export default function SecurityPanel({ twoFactorEnabled, passwordLoading, twoFactorLoading, sessions, sessionsLoading, sessionsError, sessionActionLoading, onPasswordChange, onEnableTwoFactor, onRetrySessions, onRevokeOtherSessions, onRevokeSession }: SecurityPanelProps) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -100,7 +129,6 @@ export default function SecurityPanel({ twoFactorEnabled, passwordLoading, twoFa
   const [passwordUpdatedAt, setPasswordUpdatedAt] = useState(() => {
     try { return localStorage.getItem(PASSWORD_UPDATED_KEY); } catch { return null; }
   });
-  const currentDevice = useMemo(detectCurrentDevice, []);
 
   const requirements = {
     length: newPassword.length >= 8,
@@ -155,7 +183,7 @@ export default function SecurityPanel({ twoFactorEnabled, passwordLoading, twoFa
           </div>
           <SummaryCard icon={<Clock3 className="h-5 w-5" />} tone="success" label="Password updated" value={formatPasswordUpdated(passwordUpdatedAt)} />
           <SummaryCard icon={<Shield className="h-5 w-5" />} tone={twoFactorEnabled ? 'success' : 'warning'} label="2FA Status" value={twoFactorEnabled ? 'Enabled' : 'Disabled'} />
-          <SummaryCard icon={<Users className="h-5 w-5" />} tone="primary" label="Active sessions" value="1" />
+          <SummaryCard icon={<Users className="h-5 w-5" />} tone="primary" label="Active sessions" value={sessionsLoading ? '—' : String(sessions.length)} />
         </div>
       </section>
 
@@ -208,20 +236,51 @@ export default function SecurityPanel({ twoFactorEnabled, passwordLoading, twoFa
         <section className="rounded-2xl border border-border bg-card p-5 shadow-card" aria-labelledby="session-security-title">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <CardHeading icon={<Laptop className="h-5 w-5" />} title="Session Security" subtitle="Manage your active sessions and sign out devices you don't recognize." id="session-security-title" />
-            <button type="button" className="btn-outline shrink-0 border-danger/30 text-danger hover:bg-danger/10" disabled title="No other active sessions">Sign out all other sessions</button>
+            <button
+              type="button"
+              className="btn-outline shrink-0 border-danger/30 text-danger hover:bg-danger/10"
+              disabled={sessions.length < 2 || sessionsLoading || sessionActionLoading}
+              title={sessions.length < 2 ? 'No other active sessions' : undefined}
+              onClick={async () => {
+                if (!window.confirm('Sign out every other active session? Your current session will stay signed in.')) return;
+                try { await onRevokeOtherSessions(); } catch { /* feedback is shown by the mutation */ }
+              }}
+            >
+              {sessionActionLoading ? 'Signing out...' : 'Sign out all other sessions'}
+            </button>
           </div>
           <div className="mt-4 overflow-hidden rounded-xl border border-border">
-            <article className="grid gap-3 bg-success/10 px-4 py-3 sm:grid-cols-[minmax(12rem,1.25fr)_minmax(10rem,1fr)_minmax(7rem,.65fr)_auto] sm:items-center">
-              <div className="flex items-center gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-success/15 text-success">{currentDevice.type === 'Mobile' ? <Smartphone className="h-5 w-5" /> : <Laptop className="h-5 w-5" />}</span><div><p className="text-sm font-semibold text-text-main">{currentDevice.device}</p><p className="text-xs font-medium text-success">Current session</p></div></div>
-              <div className="flex items-start gap-2"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-text-muted" /><div><p className="text-sm font-medium text-text-main">This device</p><p className="text-xs text-text-muted">Location and IP are hidden</p></div></div>
-              <div className="flex items-center gap-2 text-sm text-text-muted"><Clock3 className="h-4 w-4" /><span>Just now</span></div>
-              <button type="button" className="btn-ghost h-9 w-9 p-0" aria-label="Current session options" disabled><MoreVertical className="h-4 w-4" /></button>
-            </article>
+            {sessionsLoading ? <p className="px-4 py-8 text-center text-sm text-text-muted">Loading active sessions…</p> : null}
+            {sessionsError ? <div className="flex items-center justify-between gap-3 px-4 py-5"><p className="text-sm text-danger">Active sessions could not be loaded.</p><button type="button" className="btn-outline" onClick={onRetrySessions}>Try again</button></div> : null}
+            {!sessionsLoading && !sessionsError && sessions.length === 0 ? <p className="px-4 py-8 text-center text-sm text-text-muted">No active sessions were found.</p> : null}
+            {!sessionsLoading && !sessionsError ? sessions.map((session) => <SessionRow key={session.id} session={session} actionLoading={sessionActionLoading} onRevoke={onRevokeSession} />) : null}
           </div>
-          <p className="mt-3 text-xs text-text-muted">Only this browser session is available to manage. Device location is not collected by LaFlo.</p>
+          <p className="mt-3 text-xs text-text-muted">IP addresses are masked and precise device location is not collected by LaFlo.</p>
         </section>
       </div>
     </div>
+  );
+}
+
+function SessionRow({ session, actionLoading, onRevoke }: { session: ActiveSession; actionLoading: boolean; onRevoke: (sessionId: string) => Promise<unknown> }) {
+  const device = parseDevice(session.userAgent);
+  return (
+    <article className={`grid gap-3 border-b border-border px-4 py-3 last:border-b-0 sm:grid-cols-[minmax(12rem,1.25fr)_minmax(10rem,1fr)_minmax(7rem,.65fr)_auto] sm:items-center ${session.isCurrent ? 'bg-success/10' : 'bg-card'}`}>
+      <div className="flex items-center gap-3"><span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${session.isCurrent ? 'bg-success/15 text-success' : 'bg-bg text-text-muted'}`}>{device.type === 'Mobile' ? <Smartphone className="h-5 w-5" /> : <Laptop className="h-5 w-5" />}</span><div><p className="text-sm font-semibold text-text-main">{device.device}</p><p className={`text-xs font-medium ${session.isCurrent ? 'text-success' : 'text-text-muted'}`}>{session.isCurrent ? 'Current session' : device.type}</p></div></div>
+      <div className="flex items-start gap-2"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-text-muted" /><div><p className="text-sm font-medium text-text-main">Location not collected</p><p className="text-xs text-text-muted">{formatIp(session.ipAddress)}</p></div></div>
+      <div className="flex items-center gap-2 text-sm text-text-muted"><Clock3 className="h-4 w-4" /><span>{formatLastActive(session.lastActiveAt, session.isCurrent)}</span></div>
+      <button
+        type="button"
+        className="btn-ghost h-9 w-9 p-0"
+        aria-label={session.isCurrent ? 'Current session options' : `Sign out ${device.device}`}
+        disabled={session.isCurrent || actionLoading}
+        title={session.isCurrent ? 'Use the account menu to sign out this session' : 'Sign out this device'}
+        onClick={async () => {
+          if (!window.confirm(`Sign out ${device.device}?`)) return;
+          try { await onRevoke(session.id); } catch { /* feedback is shown by the mutation */ }
+        }}
+      ><MoreVertical className="h-4 w-4" /></button>
+    </article>
   );
 }
 

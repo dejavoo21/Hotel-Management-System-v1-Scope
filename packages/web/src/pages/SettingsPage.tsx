@@ -75,7 +75,7 @@ export default function SettingsPage() {
   const [auditSettings, setAuditSettings] = useState(getAuditSettings());
   const [savedAuditSettings, setSavedAuditSettings] = useState(getAuditSettings());
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
-  const { user, setUser } = useAuthStore();
+  const { user, setUser, refreshToken } = useAuthStore();
   const isAdmin = user?.role === 'ADMIN';
   const { setTheme, setBackground } = useTheme();
   const queryClient = useQueryClient();
@@ -178,6 +178,30 @@ export default function SettingsPage() {
     queryKey: ['rooms', 'room-type-counts'],
     queryFn: () => roomService.getRooms(),
     enabled: activeTab === 'room-types',
+  });
+
+  const sessionsQuery = useQuery({
+    queryKey: ['auth', 'sessions', user?.id],
+    queryFn: () => authService.listSessions(refreshToken as string),
+    enabled: activeTab === 'security' && Boolean(refreshToken),
+  });
+
+  const revokeOtherSessionsMutation = useMutation({
+    mutationFn: () => authService.revokeOtherSessions(refreshToken as string),
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ['auth', 'sessions', user?.id] });
+      toast.success(count === 1 ? '1 other session signed out' : `${count} other sessions signed out`);
+    },
+    onError: () => toast.error('Other sessions could not be signed out. Please try again.'),
+  });
+
+  const revokeSessionMutation = useMutation({
+    mutationFn: (sessionId: string) => authService.revokeSession(refreshToken as string, sessionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['auth', 'sessions', user?.id] });
+      toast.success('Session signed out');
+    },
+    onError: () => toast.error('Session could not be signed out. Please try again.'),
   });
 
   const roomCounts = useMemo(() => {
@@ -960,10 +984,17 @@ export default function SettingsPage() {
               twoFactorEnabled={Boolean(user?.twoFactorEnabled)}
               passwordLoading={changePasswordMutation.isPending}
               twoFactorLoading={setup2FAMutation.isPending}
+              sessions={sessionsQuery.data || []}
+              sessionsLoading={sessionsQuery.isLoading}
+              sessionsError={sessionsQuery.isError}
+              sessionActionLoading={revokeOtherSessionsMutation.isPending || revokeSessionMutation.isPending}
               onPasswordChange={async (currentPassword, newPassword) => {
                 await changePasswordMutation.mutateAsync({ currentPassword, newPassword });
               }}
               onEnableTwoFactor={() => setup2FAMutation.mutate()}
+              onRetrySessions={() => sessionsQuery.refetch()}
+              onRevokeOtherSessions={() => revokeOtherSessionsMutation.mutateAsync()}
+              onRevokeSession={(sessionId) => revokeSessionMutation.mutateAsync(sessionId)}
             />
           )}
 

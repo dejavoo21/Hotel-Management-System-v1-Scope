@@ -148,7 +148,7 @@ export async function login(
     hotelId: user.hotelId,
   });
 
-  const refreshToken = await generateRefreshToken(user.id);
+  const refreshToken = await generateRefreshToken(user.id, { ipAddress, userAgent });
 
   // Update last login
   await prisma.user.update({
@@ -249,7 +249,10 @@ export async function refreshAccessToken(refreshToken: string): Promise<{
       hotelId: storedToken.user.hotelId,
     });
 
-    const newRefreshToken = await generateRefreshToken(storedToken.user.id);
+    const newRefreshToken = await generateRefreshToken(storedToken.user.id, {
+      ipAddress: storedToken.ipAddress || undefined,
+      userAgent: storedToken.userAgent || undefined,
+    });
 
     return {
       accessToken,
@@ -397,7 +400,7 @@ export async function loginWithBackupCode(
     role: user.role,
     hotelId: user.hotelId,
   });
-  const refreshToken = await generateRefreshToken(user.id);
+  const refreshToken = await generateRefreshToken(user.id, { ipAddress, userAgent });
 
   return {
     user: {
@@ -654,7 +657,9 @@ export async function loginWithEmailOtp(
   email: string,
   code: string,
   purpose: string,
-  rememberDevice: boolean = false
+  rememberDevice: boolean = false,
+  ipAddress?: string,
+  userAgent?: string
 ) {
   const otp = await prisma.emailOtp.findFirst({
     where: {
@@ -692,7 +697,19 @@ export async function loginWithEmailOtp(
     hotelId: otp.user.hotelId,
   });
 
-  const refreshToken = await generateRefreshToken(otp.user.id);
+  const refreshToken = await generateRefreshToken(otp.user.id, { ipAddress, userAgent });
+
+  await prisma.activityLog.create({
+    data: {
+      userId: otp.user.id,
+      action: 'LOGIN_OTP',
+      entity: 'user',
+      entityId: otp.user.id,
+      details: { ipAddress, userAgent },
+      ipAddress,
+      userAgent,
+    },
+  });
 
   await prisma.user.update({
     where: { id: otp.user.id },
@@ -945,7 +962,10 @@ function generateAccessToken(payload: TokenPayload): string {
 /**
  * Generate and store refresh token
  */
-async function generateRefreshToken(userId: string): Promise<string> {
+async function generateRefreshToken(
+  userId: string,
+  context: { ipAddress?: string; userAgent?: string } = {}
+): Promise<string> {
   const tokenId = uuidv4();
 
   // Calculate expiry
@@ -964,6 +984,8 @@ async function generateRefreshToken(userId: string): Promise<string> {
     data: {
       userId,
       token,
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
       expiresAt,
     },
   });
@@ -984,6 +1006,79 @@ async function generateRefreshToken(userId: string): Promise<string> {
   }
 
   return token;
+}
+
+export type ActiveSession = {
+  id: string;
+  userAgent: string | null;
+  ipAddress: string | null;
+  createdAt: Date;
+  lastActiveAt: Date;
+  isCurrent: boolean;
+};
+
+async function requireOwnedRefreshToken(userId: string, refreshToken: string) {
+  const current = await prisma.refreshToken.findUnique({ where: { token: refreshToken } });
+  if (!current || current.userId !== userId || current.expiresAt < new Date()) {
+    throw new UnauthorizedError('Current session is no longer active');
+  }
+  return current;
+}
+
+export async function listActiveSessions(userId: string, refreshToken: string): Promise<ActiveSession[]> {
+  const current = await requireOwnedRefreshToken(userId, refreshToken);
+  const now = new Date();
+  await prisma.refreshToken.update({ where: { id: current.id }, data: { lastActiveAt: now } });
+  const sessions = await prisma.refreshToken.findMany({
+    where: { userId, expiresAt: { gt: now } },
+    orderBy: { lastActiveAt: 'desc' },
+  });
+  return sessions.map((session) => ({
+    id: session.id,
+    userAgent: session.userAgent,
+    ipAddress: session.ipAddress,
+    createdAt: session.createdAt,
+    lastActiveAt: session.id === current.id ? now : session.lastActiveAt,
+    isCurrent: session.id === current.id,
+  }));
+}
+
+export async function revokeOtherSessions(userId: string, refreshToken: string): Promise<number> {
+  const current = await requireOwnedRefreshToken(userId, refreshToken);
+  const result = await prisma.refreshToken.deleteMany({
+    where: { userId, id: { not: current.id } },
+  });
+  await prisma.activityLog.create({
+    data: {
+      userId,
+      action: 'SESSIONS_REVOKED',
+      entity: 'user',
+      entityId: userId,
+      details: { count: result.count },
+    },
+  });
+  return result.count;
+}
+
+export async function revokeSession(userId: string, refreshToken: string, sessionId: string): Promise<void> {
+  const current = await requireOwnedRefreshToken(userId, refreshToken);
+  if (current.id === sessionId) {
+    throw new ForbiddenError('Use sign out to end the current session');
+  }
+  const session = await prisma.refreshToken.findFirst({ where: { id: sessionId, userId } });
+  if (!session) throw new NotFoundError('Session not found');
+  await prisma.$transaction([
+    prisma.refreshToken.delete({ where: { id: session.id } }),
+    prisma.activityLog.create({
+      data: {
+        userId,
+        action: 'SESSION_REVOKED',
+        entity: 'user',
+        entityId: userId,
+        details: { sessionId },
+      },
+    }),
+  ]);
 }
 
 /**

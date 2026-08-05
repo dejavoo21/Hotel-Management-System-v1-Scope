@@ -6,8 +6,15 @@ const defaults = {
   twoFactorEnabled: false,
   passwordLoading: false,
   twoFactorLoading: false,
+  sessions: [{ id: 'current', userAgent: 'Mozilla/5.0 (Windows NT 10.0) Chrome/126.0', ipAddress: '203.0.113.45', createdAt: new Date().toISOString(), lastActiveAt: new Date().toISOString(), isCurrent: true }],
+  sessionsLoading: false,
+  sessionsError: false,
+  sessionActionLoading: false,
   onPasswordChange: vi.fn().mockResolvedValue(undefined),
   onEnableTwoFactor: vi.fn(),
+  onRetrySessions: vi.fn(),
+  onRevokeOtherSessions: vi.fn().mockResolvedValue(undefined),
+  onRevokeSession: vi.fn().mockResolvedValue(undefined),
 };
 
 describe('SecurityPanel', () => {
@@ -29,7 +36,18 @@ describe('SecurityPanel', () => {
     expect(screen.getByText('SMS Backup')).toBeInTheDocument();
     expect(screen.getByText('Recovery Codes')).toBeInTheDocument();
     expect(screen.getByText('Current session')).toBeInTheDocument();
+    expect(screen.getByText('Windows · Chrome')).toBeInTheDocument();
+    expect(screen.getByText('IP 203.0.113.•••')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sign out all other sessions' })).toBeDisabled();
+  });
+
+  it('confirms and revokes other active sessions', async () => {
+    const onRevokeOtherSessions = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<SecurityPanel {...defaults} sessions={[...defaults.sessions, { ...defaults.sessions[0], id: 'other', userAgent: 'Mozilla/5.0 (iPhone) Safari/605.1', isCurrent: false }]} onRevokeOtherSessions={onRevokeOtherSessions} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out all other sessions' }));
+    await waitFor(() => expect(onRevokeOtherSessions).toHaveBeenCalledTimes(1));
+    vi.restoreAllMocks();
   });
 
   it('toggles password visibility without exposing values by default', () => {

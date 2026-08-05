@@ -82,6 +82,15 @@ export interface LoginResponse {
   trustedDeviceToken?: string;
 }
 
+export interface ActiveSession {
+  id: string;
+  userAgent: string | null;
+  ipAddress: string | null;
+  createdAt: string;
+  lastActiveAt: string;
+  isCurrent: boolean;
+}
+
 // Room types
 export interface RoomType {
   id: string;

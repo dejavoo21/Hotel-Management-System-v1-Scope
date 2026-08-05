@@ -1,5 +1,5 @@
 import api from './api';
-import type { LoginCredentials, LoginResponse, User, PresenceStatus, PresenceUpdate } from '@/types';
+import type { ActiveSession, LoginCredentials, LoginResponse, User, PresenceStatus, PresenceUpdate } from '@/types';
 
 export const authService = {
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
@@ -19,6 +19,20 @@ export const authService = {
   async getCurrentUser(): Promise<User> {
     const response = await api.get('/auth/me');
     return response.data.data;
+  },
+
+  async listSessions(refreshToken: string): Promise<ActiveSession[]> {
+    const response = await api.post('/auth/sessions/list', { refreshToken });
+    return response.data.data;
+  },
+
+  async revokeOtherSessions(refreshToken: string): Promise<number> {
+    const response = await api.post('/auth/sessions/revoke-others', { refreshToken });
+    return response.data.data.count;
+  },
+
+  async revokeSession(refreshToken: string, sessionId: string): Promise<void> {
+    await api.post(`/auth/sessions/${encodeURIComponent(sessionId)}/revoke`, { refreshToken });
   },
 
   async setup2FA(): Promise<{ secret: string; qrCode: string }> {
