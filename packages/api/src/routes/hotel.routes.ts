@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
-import { authenticate, requireManager } from '../middleware/auth.js';
+import { authenticate, requireAdmin } from '../middleware/auth.js';
 import * as hotelController from '../controllers/hotel.controller.js';
 
 const router = Router();
@@ -24,6 +24,6 @@ const updateSchema = z.object({
 router.use(authenticate);
 
 router.get('/me', hotelController.getMyHotel);
-router.patch('/me', requireManager, validate(updateSchema), hotelController.updateMyHotel);
+router.patch('/me', requireAdmin, validate(updateSchema), hotelController.updateMyHotel);
 
 export default router;

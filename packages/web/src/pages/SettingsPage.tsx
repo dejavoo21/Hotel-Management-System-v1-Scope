@@ -29,7 +29,7 @@ import AccessRequestsPanel from '@/components/settings/AccessRequestsPanel';
 import AuditTrailPanel from '@/components/settings/AuditTrailPanel';
 import NotificationPreferencesPanel, { DEFAULT_NOTIFICATION_PREFERENCES, type NotificationPreferences } from '@/components/settings/NotificationPreferencesPanel';
 import RoomTypesPanel from '@/components/settings/RoomTypesPanel';
-import { currencyForCountry } from '@/utils/countryCurrency';
+import HotelInfoPanel, { type HotelInfoForm } from '@/components/settings/HotelInfoPanel';
 
 type SettingsTab =
   | 'hotel'
@@ -77,7 +77,16 @@ export default function SettingsPage() {
   const isAdmin = user?.role === 'ADMIN';
   const { setTheme, setBackground } = useTheme();
   const queryClient = useQueryClient();
-  const [hotelForm, setHotelForm] = useState({
+  const [hotelForm, setHotelForm] = useState<HotelInfoForm>({
+    name: '',
+    address: '',
+    addressLine1: '',
+    city: '',
+    country: '',
+    currency: 'USD',
+    timezone: 'UTC',
+  });
+  const [savedHotelForm, setSavedHotelForm] = useState<HotelInfoForm>({
     name: '',
     address: '',
     addressLine1: '',
@@ -99,7 +108,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (user?.hotel) {
-      setHotelForm({
+      const nextHotelForm: HotelInfoForm = {
         name: user.hotel.name || '',
         address: user.hotel.address || '',
         addressLine1: user.hotel.addressLine1 || '',
@@ -107,7 +116,9 @@ export default function SettingsPage() {
         country: user.hotel.country || '',
         currency: user.hotel.currency || 'USD',
         timezone: user.hotel.timezone || 'UTC',
-      });
+      };
+      setHotelForm(nextHotelForm);
+      setSavedHotelForm(nextHotelForm);
     }
   }, [user]);
 
@@ -330,7 +341,22 @@ export default function SettingsPage() {
           (updatedHotel.currency ?? previousHotel.currency) !== previousHotel.currency
       );
 
-      toast.success('Hotel settings updated');
+      setSavedHotelForm({ ...hotelForm });
+      appendAuditLog({
+        action: 'HOTEL_INFO_UPDATED',
+        actorId: user?.id,
+        actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
+        targetId: updatedHotel.id,
+        targetLabel: updatedHotel.name,
+        details: {
+          city: updatedHotel.city,
+          country: updatedHotel.country,
+          currency: updatedHotel.currency,
+          timezone: updatedHotel.timezone,
+        },
+      });
+      refreshAuditLogs();
+      toast.success('Hotel information updated successfully.');
       if (user) {
         setUser({ ...user, hotel: { ...user.hotel, ...updatedHotel } });
       }
@@ -351,7 +377,7 @@ export default function SettingsPage() {
       }
     },
     onError: () => {
-      toast.error('Failed to update hotel settings');
+      toast.error('Hotel information could not be updated. Please try again.');
     },
   });
   const updateRoomTypeMutation = useMutation({
@@ -855,160 +881,28 @@ export default function SettingsPage() {
         <div className="min-w-0 flex-1">
           {/* Hotel Info */}
           {activeTab === 'hotel' && (
-            <div className="card">
-              <h2 className="text-lg font-semibold text-slate-900">Hotel Information</h2>
-              <p className="text-sm text-slate-500">Update your hotel's basic information</p>
-
-              <form
-                className="mt-6 space-y-4"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const payload = {
-                    name: hotelForm.name,
-                    currency: hotelForm.currency,
-                    timezone: hotelForm.timezone,
-                    ...(hotelForm.address.trim() ? { address: hotelForm.address.trim() } : {}),
-                    ...(hotelForm.addressLine1.trim() ? { addressLine1: hotelForm.addressLine1.trim() } : {}),
-                    ...(hotelForm.city.trim() ? { city: hotelForm.city.trim() } : {}),
-                    ...(hotelForm.country.trim() ? { country: hotelForm.country.trim() } : {}),
-                  };
-                  updateHotelMutation.mutate({
-                    ...payload,
-                  });
-                }}
-              >
-                <div>
-                  <label className="label">Hotel Name</label>
-                  <input
-                    type="text"
-                    value={hotelForm.name}
-                    onChange={(e) => setHotelForm((prev) => ({ ...prev, name: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="label">City</label>
-                    <input
-                      type="text"
-                      value={hotelForm.city}
-                      onChange={(e) => setHotelForm((prev) => ({ ...prev, city: e.target.value }))}
-                      className="input"
-                      placeholder="e.g. Lagos"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="label">Country</label>
-                    <input
-                      type="text"
-                      value={hotelForm.country}
-                      onChange={(e) => {
-                        const country = e.target.value;
-                        const inferredCurrency = currencyForCountry(country);
-                        setHotelForm((prev) => ({
-                          ...prev,
-                          country,
-                          currency: inferredCurrency || prev.currency,
-                        }));
-                      }}
-                      className="input"
-                      placeholder="e.g. Nigeria"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="label">Mailing / full address (optional)</label>
-                    <input
-                      type="text"
-                      value={hotelForm.address}
-                      onChange={(e) => setHotelForm((prev) => ({ ...prev, address: e.target.value }))}
-                      className="input"
-                      placeholder="Full address"
-                    />
-                  </div>
-                  <div>
-                    <label className="label">Street / building (optional)</label>
-                    <input
-                      type="text"
-                      value={hotelForm.addressLine1}
-                      onChange={(e) => setHotelForm((prev) => ({ ...prev, addressLine1: e.target.value }))}
-                      className="input"
-                      placeholder="Street / building"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="label">Currency</label>
-                    <select
-                      value={hotelForm.currency}
-                      onChange={(e) => setHotelForm((prev) => ({ ...prev, currency: e.target.value }))}
-                      className="input"
-                      disabled={Boolean(currencyForCountry(hotelForm.country))}
-                    >
-                      {currencyOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {currencyForCountry(hotelForm.country)
-                        ? `Automatically set from ${hotelForm.country}.`
-                        : 'Select a currency because this country is not in the automatic mapping.'}{' '}
-                      Existing monetary values are not converted automatically.
-                    </p>
-                  </div>
-                  <div>
-                    <label className="label">Timezone</label>
-                    <select
-                      value={hotelForm.timezone}
-                      onChange={(e) => setHotelForm((prev) => ({ ...prev, timezone: e.target.value }))}
-                      className="input"
-                    >
-                      {timezoneOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="pt-4">
-                  <button type="submit" className="btn-primary" disabled={updateHotelMutation.isPending}>
-                    {updateHotelMutation.isPending ? 'Saving...' : 'Save Changes'}
-                  </button>
-                </div>
-              </form>
-
-              {Boolean(user) && (
-                <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900">Operational Forecast Signals</div>
-                      <div className="mt-1 text-sm text-slate-600">
-                        Weather signals are used in Operations Center for advisories, demand tracking, and task creation.
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => navigate('/operations')}
-                      className="btn-outline whitespace-nowrap"
-                    >
-                      Open Operations Center
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <HotelInfoPanel
+              values={hotelForm}
+              savedValues={savedHotelForm}
+              currencyOptions={currencyOptions}
+              timezoneOptions={timezoneOptions}
+              canEdit={isAdmin}
+              saving={updateHotelMutation.isPending}
+              onChange={setHotelForm}
+              onReset={() => setHotelForm({ ...savedHotelForm })}
+              onSave={async () => {
+                await updateHotelMutation.mutateAsync({
+                  name: hotelForm.name.trim(),
+                  currency: hotelForm.currency,
+                  timezone: hotelForm.timezone,
+                  ...(hotelForm.address.trim() ? { address: hotelForm.address.trim() } : {}),
+                  ...(hotelForm.addressLine1.trim() ? { addressLine1: hotelForm.addressLine1.trim() } : {}),
+                  city: hotelForm.city.trim(),
+                  country: hotelForm.country.trim(),
+                });
+              }}
+              onOpenOperations={() => navigate('/operations')}
+            />
           )}
 
           {/* Room Types */}
