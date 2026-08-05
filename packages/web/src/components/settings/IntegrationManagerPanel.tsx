@@ -9,12 +9,16 @@ import {
   ClipboardList,
   Database,
   FileText,
+  FilterX,
   Layers,
+  Link2,
+  Plus,
   PlugZap,
   RefreshCcw,
   Router,
   Search,
   ShieldCheck,
+  X,
 } from 'lucide-react';
 import HardwareIntegrationPanel from '@/components/hardware/HardwareIntegrationPanel';
 import { getApiError, integrationManagerService } from '@/services';
@@ -25,6 +29,8 @@ import type {
   IntegrationManagerLog,
   IntegrationManagerProvider,
 } from '@/services/integrationManager';
+import { useAuthStore } from '@/stores/authStore';
+import { appendAuditLog } from '@/utils/auditLog';
 
 const categoryLabels: Record<IntegrationManagerCategory, string> = {
   CCTV: 'CCTV',
@@ -44,43 +50,59 @@ const statusClass = (status: string) => {
   if (status === 'Connected' || status === 'HEALTHY' || status === 'AVAILABLE') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
   if (status === 'Requires Attention' || status === 'WARNING') return 'border-amber-200 bg-amber-50 text-amber-700';
   if (status === 'Sync Failed' || status === 'Credentials Expired' || status === 'CRITICAL') return 'border-rose-200 bg-rose-50 text-rose-700';
+  if (status === 'Coming Soon' || status === 'FUTURE') return 'border-violet-200 bg-violet-50 text-violet-700';
+  if (status === 'Demo / Simulation') return 'border-blue-200 bg-blue-50 text-blue-700';
   return 'border-slate-200 bg-slate-50 text-slate-600';
 };
 
 const formatDate = (value?: string | null) => value ? new Date(value).toLocaleString() : 'Never';
 const labelize = (value: string) => value.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 
-function CategoryCard({ card, active, onClick }: { card: IntegrationCategoryCard; active: boolean; onClick: () => void }) {
+function CategoryCard({
+  card,
+  onPrimary,
+  onSecondary,
+  canManage,
+  provider,
+}: {
+  card: IntegrationCategoryCard;
+  onPrimary: () => void;
+  onSecondary: () => void;
+  canManage: boolean;
+  provider?: IntegrationManagerProvider;
+}) {
+  const connected = card.connectionStatus === 'Connected';
+  const needsAttention = ['Requires Attention', 'Sync Failed', 'Credentials Expired'].includes(card.connectionStatus);
+  const comingSoon = provider?.status === 'FUTURE';
+  const demo = /demo|simulation/i.test(provider?.providerType || '');
+  const primaryLabel = comingSoon ? 'View details' : demo ? 'View demo' : connected ? 'Manage' : needsAttention ? 'Review issue' : 'Configure';
+  const secondaryLabel = connected || needsAttention ? 'View logs' : 'View providers';
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-2xl border p-4 text-left shadow-sm transition-colors ${
-        active ? 'border-primary-300 bg-primary-50/60' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-      }`}
-    >
+    <article className="rounded-2xl border border-border bg-card p-4 shadow-sm transition hover:border-primary-200 hover:shadow-md">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-sm font-bold text-slate-950">{card.label}</div>
-          <div className="mt-1 text-xs text-slate-500">{card.providerName}</div>
+          <div className="text-sm font-bold text-text-main">{card.label}</div>
+          <div className="mt-1 text-xs text-text-muted">{card.providerName}</div>
         </div>
-        <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClass(card.connectionStatus)}`}>
-          {card.connectionStatus}
-        </span>
+        <div className="flex flex-col items-end gap-1"><span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClass(card.connectionStatus)}`}>{card.connectionStatus}</span>{comingSoon || demo ? <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClass(comingSoon ? 'Coming Soon' : 'Demo / Simulation')}`}>{comingSoon ? 'Coming Soon' : 'Demo / Simulation'}</span> : null}</div>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-        <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-          <span className="block text-slate-500">Connected</span>
-          <span className="mt-1 block font-semibold text-slate-900">{card.connectedCount}</span>
+      <div className="mt-3 grid grid-cols-3 divide-x divide-border rounded-xl border border-border bg-bg/40 text-xs">
+        <div className="px-3 py-2">
+          <span className="block text-text-muted">Connected</span>
+          <span className="mt-1 block font-semibold text-text-main">{card.connectedCount}</span>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-          <span className="block text-slate-500">Errors</span>
-          <span className={card.errorCount > 0 ? 'mt-1 block font-semibold text-rose-700' : 'mt-1 block font-semibold text-slate-900'}>{card.errorCount}</span>
+        <div className="px-3 py-2">
+          <span className="block text-text-muted">Errors</span>
+          <span className={card.errorCount > 0 ? 'mt-1 block font-semibold text-rose-700' : 'mt-1 block font-semibold text-text-main'}>{card.errorCount}</span>
         </div>
+        <div className="px-3 py-2"><span className="block text-text-muted">Health</span><span className="mt-1 block truncate font-semibold text-text-main">{labelize(card.healthStatus)}</span></div>
       </div>
-      <div className="mt-3 text-xs text-slate-500">Last sync: {formatDate(card.lastSyncAt)}</div>
-      <div className="mt-3 border-t border-slate-200 pt-3 text-xs font-semibold text-primary-700">Open category details</div>
-    </button>
+      <div className="mt-3 flex items-center justify-between gap-2 text-xs text-text-muted"><span>Last sync</span><span className="truncate font-medium text-text-main">{formatDate(card.lastSyncAt)}</span></div>
+      <div className="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
+        <button type="button" className={canManage && !comingSoon ? 'btn-primary h-9 px-3 text-xs' : 'btn-outline h-9 px-3 text-xs'} onClick={onPrimary}>{canManage ? primaryLabel : 'View details'}</button>
+        {!comingSoon ? <button type="button" className="btn-outline h-9 px-3 text-xs" onClick={onSecondary}>{secondaryLabel}</button> : null}
+      </div>
+    </article>
   );
 }
 
@@ -182,8 +204,19 @@ function DeviceMappingTable({ devices }: { devices: IntegrationManagerDevice[] }
 
 export default function IntegrationManagerPanel() {
   const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
+  const canManage = user?.role === 'ADMIN';
   const [activeCategory, setActiveCategory] = useState<IntegrationManagerCategory>('CCTV');
   const [activeView, setActiveView] = useState<'dashboard' | 'setup' | 'logs' | 'devices'>('dashboard');
+  const [tab, setTab] = useState<'ALL' | 'CONNECTED' | 'ATTENTION' | 'HARDWARE' | 'CLOUD' | 'COMING_SOON'>('ALL');
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [providerFilter, setProviderFilter] = useState('ALL');
+  const [typeFilter, setTypeFilter] = useState('ALL');
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [setupStep, setSetupStep] = useState(1);
 
   const overviewQuery = useQuery({
     queryKey: ['integration-manager', 'overview'],
@@ -203,6 +236,14 @@ export default function IntegrationManagerPanel() {
     },
     onError: (error) => toast.error(getApiError(error).message),
   });
+  const actionMutation = useMutation({
+    mutationFn: (eventType: string) => integrationManagerService.publishEvent(eventType, activeCategory, { category: activeCategory }),
+    onSuccess: async (_result, eventType) => {
+      toast.success(eventType === 'integration.connection.tested' ? 'Connection test requested' : 'Integration action requested');
+      await queryClient.invalidateQueries({ queryKey: ['integration-manager'] });
+    },
+    onError: (error) => toast.error(getApiError(error).message),
+  });
 
   const overview = overviewQuery.data;
   const selectedCard = overview?.categories.find((card) => card.category === activeCategory);
@@ -211,6 +252,40 @@ export default function IntegrationManagerPanel() {
   const devices = devicesQuery.data || [];
   const hardwareMode = activeCategory === 'CCTV' ? 'cctv' : 'smart-building';
   const supportsHardwareSetup = ['CCTV', 'SMART_LOCKS', 'SENSORS', 'HVAC', 'ENERGY_METERS', 'OTHER_PROVIDERS'].includes(activeCategory);
+  const hardwareCategories: IntegrationManagerCategory[] = ['CCTV', 'SMART_LOCKS', 'SENSORS', 'HVAC', 'ENERGY_METERS'];
+  const latestSync = useMemo(() => (overview?.categories || [])
+    .map((card) => card.lastSyncAt).filter(Boolean).sort().at(-1) || null, [overview?.categories]);
+  const providerNames = useMemo(() => Array.from(new Set(providers.map((provider) => provider.name))).sort(), [providers]);
+  const visibleCards = useMemo(() => (overview?.categories || []).filter((card) => {
+    const provider = providers.find((item) => item.category === card.category);
+    const haystack = `${card.label} ${card.providerName}`.toLowerCase();
+    const attention = ['Requires Attention', 'Sync Failed', 'Credentials Expired'].includes(card.connectionStatus);
+    const tabMatch = tab === 'ALL'
+      || (tab === 'CONNECTED' && card.connectionStatus === 'Connected')
+      || (tab === 'ATTENTION' && attention)
+      || (tab === 'HARDWARE' && hardwareCategories.includes(card.category))
+      || (tab === 'CLOUD' && !hardwareCategories.includes(card.category))
+      || (tab === 'COMING_SOON' && provider?.status === 'FUTURE');
+    return tabMatch
+      && (!search.trim() || haystack.includes(search.trim().toLowerCase()))
+      && (categoryFilter === 'ALL' || card.category === categoryFilter)
+      && (statusFilter === 'ALL' || card.connectionStatus === statusFilter)
+      && (providerFilter === 'ALL' || card.providerName === providerFilter)
+      && (typeFilter === 'ALL' || (provider?.providerType || '') === typeFilter);
+  }), [categoryFilter, overview?.categories, providerFilter, providers, search, statusFilter, tab, typeFilter]);
+  const hasFilters = Boolean(search || categoryFilter !== 'ALL' || statusFilter !== 'ALL' || providerFilter !== 'ALL' || typeFilter !== 'ALL');
+  const recordAction = (action: string, card: IntegrationCategoryCard) => appendAuditLog({
+    action,
+    actorId: user?.id,
+    actorName: user?.email || 'Integration administrator',
+    targetId: card.category,
+    targetLabel: `${card.label} / ${card.providerName}`,
+    details: { category: card.category, provider: card.providerName, status: card.connectionStatus },
+  });
+  const selectCard = (card: IntegrationCategoryCard, view: typeof activeView) => {
+    setActiveCategory(card.category);
+    setActiveView(view);
+  };
 
   if (overviewQuery.isLoading) {
     return (
@@ -232,72 +307,81 @@ export default function IntegrationManagerPanel() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="card">
+    <div className="space-y-4">
+      <section className="space-y-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-white">
-              <PlugZap className="h-5 w-5" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-700 ring-1 ring-primary-100">
+              <Link2 className="h-6 w-6" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">Integration Manager</h2>
-              <p className="mt-1 max-w-3xl text-sm text-slate-600">
-                Central configuration for external systems, hardware, devices, credentials, provider health, and Platform Core integration events.
+              <h2 className="text-2xl font-bold tracking-tight text-text-main">Integration Manager</h2>
+              <p className="mt-1 max-w-4xl text-sm text-text-muted">
+                Centrally configure external systems, hardware, providers, credentials, sync status, and platform integration events.
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => overviewQuery.refetch()}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            <RefreshCcw className="h-4 w-4" />
-            Refresh
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => overviewQuery.refetch()} className="btn-outline"><RefreshCcw className={`h-4 w-4 ${overviewQuery.isFetching ? 'animate-spin' : ''}`} />Refresh</button>
+            {canManage ? <button type="button" onClick={() => { setSetupOpen(true); setSetupStep(1); }} className="btn-primary"><Plus className="h-4 w-4" />Add integration</button> : null}
+          </div>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
             <Database className="h-5 w-5 text-slate-500" />
-            <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Categories</p>
-            <p className="mt-1 text-2xl font-bold text-slate-950">{overview?.categories.length || 0}</p>
+            <p className="mt-2 text-xs font-semibold text-text-muted">Categories</p><p className="mt-1 text-xl font-bold text-text-main">{overview?.categories.length || 0}</p><p className="text-xs text-text-muted">Integration groups available</p>
           </div>
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
             <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-            <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">Connected</p>
-            <p className="mt-1 text-2xl font-bold text-slate-950">{overview?.categories.filter((card) => card.connectionStatus === 'Connected').length || 0}</p>
+            <p className="mt-2 text-xs font-semibold text-text-muted">Connected</p><p className="mt-1 text-xl font-bold text-text-main">{overview?.categories.filter((card) => card.connectionStatus === 'Connected').length || 0}</p><p className="text-xs text-text-muted">Active provider connections</p>
           </div>
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
             <AlertTriangle className="h-5 w-5 text-amber-600" />
-            <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-amber-700">Not configured</p>
-            <p className="mt-1 text-2xl font-bold text-slate-950">{overview?.categories.filter((card) => card.connectionStatus !== 'Connected').length || 0}</p>
+            <p className="mt-2 text-xs font-semibold text-text-muted">Needs Attention</p><p className="mt-1 text-xl font-bold text-text-main">{overview?.categories.filter((card) => ['Requires Attention', 'Sync Failed', 'Credentials Expired'].includes(card.connectionStatus)).length || 0}</p><p className="text-xs text-text-muted">Issues requiring action</p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
             <Layers className="h-5 w-5 text-slate-500" />
-            <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Providers</p>
-            <p className="mt-1 text-2xl font-bold text-slate-950">{providers.length}</p>
+            <p className="mt-2 text-xs font-semibold text-text-muted">Providers</p><p className="mt-1 text-xl font-bold text-text-main">{providers.length}</p><p className="text-xs text-text-muted">Supported provider options</p>
           </div>
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:col-span-2 lg:col-span-1"><RefreshCcw className="h-5 w-5 text-blue-600" /><p className="mt-2 text-xs font-semibold text-text-muted">Last Sync</p><p className="mt-1 text-xl font-bold text-text-main">{latestSync ? new Date(latestSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Never'}</p><p className="text-xs text-text-muted">Most recent integration update</p></div>
         </div>
-      </div>
+      </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {(overview?.categories || []).map((card) => (
-          <CategoryCard
+      <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <div className="flex flex-wrap border-b border-border px-3 pt-2" role="tablist" aria-label="Integration groups">
+          {([['ALL', 'All'], ['CONNECTED', 'Connected'], ['ATTENTION', 'Needs Attention'], ['HARDWARE', 'Hardware'], ['CLOUD', 'Cloud Services'], ['COMING_SOON', 'Coming Soon']] as const).map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={tab === value} onClick={() => setTab(value)} className={`border-b-2 px-4 py-2.5 text-sm font-medium ${tab === value ? 'border-primary-600 text-primary-700' : 'border-transparent text-text-muted hover:text-text-main'}`}>{label}</button>)}
+        </div>
+        <div className="grid gap-2.5 border-b border-border p-3 md:grid-cols-2 xl:grid-cols-[1.3fr_repeat(4,1fr)_auto]">
+          <label className="relative"><span className="sr-only">Search integrations</span><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-text-muted" /><input className="input h-10 pl-9" placeholder="Search integrations..." value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+          <select aria-label="Category filter" className="input h-10" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}><option value="ALL">All categories</option>{Object.entries(categoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+          <select aria-label="Status filter" className="input h-10" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="ALL">All statuses</option>{['Connected', 'Not Connected', 'Requires Attention', 'Sync Failed', 'Credentials Expired', 'Disabled'].map((value) => <option key={value}>{value}</option>)}</select>
+          <select aria-label="Provider filter" className="input h-10" value={providerFilter} onChange={(event) => setProviderFilter(event.target.value)}><option value="ALL">All providers</option>{providerNames.map((value) => <option key={value}>{value}</option>)}</select>
+          <select aria-label="Type filter" className="input h-10" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="ALL">All types</option>{Array.from(new Set(providers.map((provider) => provider.providerType))).sort().map((value) => <option key={value} value={value}>{labelize(value)}</option>)}</select>
+          <button type="button" className="btn-ghost h-10 whitespace-nowrap px-3" disabled={!hasFilters} onClick={() => { setSearch(''); setCategoryFilter('ALL'); setStatusFilter('ALL'); setProviderFilter('ALL'); setTypeFilter('ALL'); }}><FilterX className="h-4 w-4" />Clear filters</button>
+        </div>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+        {visibleCards.map((card) => {
+          const cardProvider = providers.find((provider) => provider.category === card.category);
+          const providerUnavailable = cardProvider?.status === 'FUTURE';
+          return <CategoryCard
             key={card.category}
             card={card}
-            active={activeCategory === card.category}
-            onClick={() => {
-              setActiveCategory(card.category);
-              setActiveView('dashboard');
-            }}
+            canManage={canManage}
+            provider={cardProvider}
+            onPrimary={() => { selectCard(card, card.connectionStatus === 'Connected' || providerUnavailable ? 'dashboard' : 'setup'); recordAction(canManage && card.connectionStatus !== 'Connected' && !providerUnavailable ? 'INTEGRATION_SETUP_OPENED' : 'INTEGRATION_VIEWED', card); canManage && card.connectionStatus !== 'Connected' && !providerUnavailable ? setSetupOpen(true) : setDetailOpen(true); }}
+            onSecondary={() => { selectCard(card, card.connectionStatus === 'Connected' ? 'logs' : 'dashboard'); if (card.connectionStatus === 'Connected') setDetailOpen(true); }}
           />
-        ))}
+        })}
+        {!visibleCards.length ? <div className="col-span-full rounded-2xl border border-dashed border-border bg-card px-6 py-12 text-center"><PlugZap className="mx-auto h-8 w-8 text-text-muted" /><p className="mt-3 font-semibold text-text-main">No integrations match your filters.</p><button type="button" className="btn-ghost mt-2" onClick={() => { setSearch(''); setCategoryFilter('ALL'); setStatusFilter('ALL'); setProviderFilter('ALL'); setTypeFilter('ALL'); setTab('ALL'); }}>Clear filters</button></div> : null}
       </section>
 
       <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" aria-label="Integration Manager views">
         {[
           ['dashboard', 'Category Dashboard', Activity],
-          ['setup', 'Setup Flow', ClipboardList],
+          ...(canManage ? [['setup', 'Setup Flow', ClipboardList] as const] : []),
           ['devices', 'Devices & Mapping', Search],
           ['logs', 'Logs', FileText],
         ].map(([id, label, Icon]) => (
@@ -353,7 +437,7 @@ export default function IntegrationManagerPanel() {
             </div>
           </div>
           {supportsHardwareSetup ? (
-            <HardwareIntegrationPanel mode={hardwareMode} canManage surface="manager" />
+            <HardwareIntegrationPanel mode={hardwareMode} canManage={canManage} surface="manager" />
           ) : (
             <div className="card">
               <Cable className="h-5 w-5 text-slate-500" />
@@ -374,7 +458,7 @@ export default function IntegrationManagerPanel() {
                 <h3 className="text-base font-semibold text-slate-900">Device import and hotel-area mapping</h3>
                 <p className="mt-1 text-sm text-slate-500">Imported devices are mapped to floors, rooms, areas, and module entities from this central manager.</p>
               </div>
-              <button
+              {canManage ? <button
                 type="button"
                 onClick={() => publishMutation.mutate()}
                 disabled={publishMutation.isPending}
@@ -382,7 +466,7 @@ export default function IntegrationManagerPanel() {
               >
                 <PlugZap className="h-4 w-4" />
                 Publish import event
-              </button>
+              </button> : null}
             </div>
           </div>
           <DeviceMappingTable devices={devices} />
@@ -395,6 +479,48 @@ export default function IntegrationManagerPanel() {
           <p className="mt-1 text-sm text-slate-500">Setup, test, connection, import, and sync events for {categoryLabels[activeCategory]}.</p>
           <div className="mt-4">
             <LogsDrawer logs={logs} />
+          </div>
+        </div>
+      ) : null}
+
+      {detailOpen && selectedCard ? (
+        <div className="fixed inset-0 z-[70] flex justify-end bg-slate-950/40" role="dialog" aria-modal="true" aria-labelledby="integration-detail-title">
+          <div className="flex h-full w-full max-w-xl flex-col border-l border-border bg-card shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-border p-5">
+              <div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Integration details</p><h3 id="integration-detail-title" className="mt-1 text-xl font-bold text-text-main">{selectedCard.label}</h3><p className="mt-1 text-sm text-text-muted">{selectedCard.providerName}</p></div>
+              <button type="button" className="btn-ghost h-9 w-9 p-0" onClick={() => setDetailOpen(false)} aria-label="Close integration details"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="flex-1 space-y-5 overflow-y-auto p-5">
+              <div className="grid grid-cols-2 gap-3">
+                {[['Status', selectedCard.connectionStatus], ['Health', labelize(selectedCard.healthStatus)], ['Connected', String(selectedCard.connectedCount)], ['Errors', String(selectedCard.errorCount)], ['Last sync', formatDate(selectedCard.lastSyncAt)], ['Credential', selectedCard.connectionStatus === 'Credentials Expired' ? 'Requires re-authentication' : selectedCard.connectionStatus === 'Connected' ? 'Credential stored' : 'Credential missing']].map(([label, value]) => <div key={label} className="rounded-xl border border-border bg-bg/40 p-3"><p className="text-xs text-text-muted">{label}</p><p className="mt-1 text-sm font-semibold text-text-main">{value}</p></div>)}
+              </div>
+              <div><h4 className="font-semibold text-text-main">Recent events</h4><div className="mt-3"><LogsDrawer logs={logs} /></div></div>
+              <div className="rounded-xl border border-border bg-bg/40 p-4"><ShieldCheck className="h-5 w-5 text-primary-700" /><p className="mt-2 text-sm font-semibold text-text-main">Credential security</p><p className="mt-1 text-sm text-text-muted">Only credential status and server-side references are shown. Raw secrets are never returned to this interface.</p></div>
+            </div>
+            <div className="flex flex-wrap gap-2 border-t border-border p-4">
+              {canManage ? <button type="button" className="btn-primary" disabled={actionMutation.isPending} onClick={() => { actionMutation.mutate('integration.connection.tested'); recordAction('INTEGRATION_CONNECTION_TESTED', selectedCard); }}>Test connection</button> : null}
+              <button type="button" className="btn-outline" onClick={() => setActiveView('logs')}>View logs</button>
+              {canManage ? <button type="button" className="btn-outline" onClick={() => { setDetailOpen(false); setSetupOpen(true); setSetupStep(1); }}>Edit configuration</button> : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {setupOpen ? (
+        <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-labelledby="integration-setup-title">
+          <div className="w-full max-w-3xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-border p-5"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Step {setupStep} of 7</p><h3 id="integration-setup-title" className="mt-1 text-xl font-bold text-text-main">Add integration</h3><p className="mt-1 text-sm text-text-muted">Configure a provider without exposing raw credentials.</p></div><button type="button" className="btn-ghost h-9 w-9 p-0" onClick={() => setSetupOpen(false)} aria-label="Close setup wizard"><X className="h-4 w-4" /></button></div>
+            <div className="grid grid-cols-7 gap-1 px-5 pt-5" aria-label="Setup progress">{Array.from({ length: 7 }, (_, index) => <span key={index} className={`h-1.5 rounded-full ${index + 1 <= setupStep ? 'bg-primary-600' : 'bg-border'}`} />)}</div>
+            <div className="min-h-64 p-5">
+              {setupStep === 1 ? <div><h4 className="font-semibold text-text-main">Select category</h4><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{Object.entries(categoryLabels).map(([value, label]) => <button key={value} type="button" onClick={() => setActiveCategory(value as IntegrationManagerCategory)} className={`rounded-xl border p-3 text-left text-sm font-medium ${activeCategory === value ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-border text-text-main hover:bg-bg'}`}>{label}</button>)}</div></div> : null}
+              {setupStep === 2 ? <div><h4 className="font-semibold text-text-main">Select provider</h4><div className="mt-3"><ProviderRegistry providers={providers} category={activeCategory} /></div></div> : null}
+              {setupStep === 3 ? <div><h4 className="font-semibold text-text-main">Connection details</h4><p className="mt-1 text-sm text-text-muted">Secrets are sent securely and are not retained in frontend state.</p><div className="mt-4 grid gap-3 sm:grid-cols-2"><label><span className="label">Endpoint or tenant</span><input className="input" autoComplete="off" /></label><label><span className="label">Credential</span><input type="password" className="input" autoComplete="new-password" placeholder="••••••••••••" /></label></div></div> : null}
+              {setupStep === 4 ? <div className="text-center"><CheckCircle2 className="mx-auto h-10 w-10 text-primary-600" /><h4 className="mt-3 font-semibold text-text-main">Test connection</h4><p className="mt-1 text-sm text-text-muted">Verify provider access before discovery.</p><button type="button" className="btn-primary mt-4" onClick={() => actionMutation.mutate('integration.connection.tested')}>Run connection test</button></div> : null}
+              {setupStep === 5 ? <div><h4 className="font-semibold text-text-main">Discover services or devices</h4><p className="mt-2 text-sm text-text-muted">Discovery becomes available after a successful connection. Unsupported providers remain clearly marked as coming soon or environment configured.</p></div> : null}
+              {setupStep === 6 ? <div><h4 className="font-semibold text-text-main">Map services</h4><p className="mt-2 text-sm text-text-muted">Map discovered devices or services to hotel floors, rooms, areas, and consuming modules.</p></div> : null}
+              {setupStep === 7 ? <div><h4 className="font-semibold text-text-main">Review and save</h4><div className="mt-3 rounded-xl border border-border bg-bg/40 p-4 text-sm text-text-muted"><p><strong className="text-text-main">Category:</strong> {categoryLabels[activeCategory]}</p><p className="mt-2"><strong className="text-text-main">Credential:</strong> Stored securely after save; raw value will not be displayed.</p></div></div> : null}
+            </div>
+            <div className="flex items-center justify-between border-t border-border p-4"><button type="button" className="btn-outline" disabled={setupStep === 1} onClick={() => setSetupStep((step) => Math.max(1, step - 1))}>Back</button>{setupStep < 7 ? <button type="button" className="btn-primary" onClick={() => setSetupStep((step) => Math.min(7, step + 1))}>Continue</button> : <button type="button" className="btn-primary" onClick={() => { const card = overview?.categories.find((item) => item.category === activeCategory); if (card) recordAction('INTEGRATION_CONFIGURATION_SAVED', card); actionMutation.mutate('integration.updated'); setSetupOpen(false); }}>Save integration</button>}</div>
           </div>
         </div>
       ) : null}

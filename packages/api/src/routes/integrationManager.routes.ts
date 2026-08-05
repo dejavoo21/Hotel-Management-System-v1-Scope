@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate, requireModuleAccess } from '../middleware/auth.js';
+import { authenticate, requireAdmin, requireModuleAccess } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import * as controller from '../controllers/integrationManager.controller.js';
 
@@ -29,6 +29,6 @@ router.get('/overview', controller.getOverview);
 router.get('/registry', controller.getRegistry);
 router.get('/logs', controller.getLogs);
 router.get('/devices', controller.getDevices);
-router.post('/events', validate(eventSchema), controller.publishSetupEvent);
+router.post('/events', requireAdmin, validate(eventSchema), controller.publishSetupEvent);
 
 export default router;
