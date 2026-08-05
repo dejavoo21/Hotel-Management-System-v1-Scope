@@ -72,6 +72,7 @@ export default function SettingsPage() {
     readAppearancePreferences()
   );
   const [auditSettings, setAuditSettings] = useState(getAuditSettings());
+  const [savedAuditSettings, setSavedAuditSettings] = useState(getAuditSettings());
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const { user, setUser } = useAuthStore();
   const isAdmin = user?.role === 'ADMIN';
@@ -138,7 +139,13 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setAuditLogs(getAuditLogs());
-    setAuditSettings(getAuditSettings());
+    const storedAuditSettings = getAuditSettings();
+    const normalizedAuditSettings = {
+      ...storedAuditSettings,
+      forwardingEnabled: storedAuditSettings.forwardingEnabled && Boolean(storedAuditSettings.forwardingUrl?.trim()),
+    };
+    setAuditSettings(normalizedAuditSettings);
+    setSavedAuditSettings(normalizedAuditSettings);
   }, []);
 
   useEffect(() => {
@@ -654,6 +661,7 @@ export default function SettingsPage() {
       return;
     }
     saveAuditSettings(auditSettings);
+    setSavedAuditSettings({ ...auditSettings });
     appendAuditLog({
       action: 'AUDIT_SETTINGS_UPDATED',
       actorId: user?.id,
@@ -1075,6 +1083,7 @@ export default function SettingsPage() {
           {activeTab === 'audit-trail' && (
             <AuditTrailPanel
               settings={auditSettings}
+              savedSettings={savedAuditSettings}
               logs={auditLogs}
               onSettingsChange={setAuditSettings}
               onSave={saveAuditPrefs}

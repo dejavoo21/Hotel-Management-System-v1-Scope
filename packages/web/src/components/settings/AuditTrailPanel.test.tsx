@@ -46,6 +46,7 @@ const logs: AuditLogEntry[] = [
 function renderPanel(overrides: Partial<React.ComponentProps<typeof AuditTrailPanel>> = {}) {
   const props: React.ComponentProps<typeof AuditTrailPanel> = {
     settings,
+    savedSettings: settings,
     logs,
     onSettingsChange: vi.fn(),
     onSave: vi.fn(),
@@ -71,13 +72,20 @@ describe('AuditTrailPanel', () => {
     expect(screen.getByText('Access Request Approved')).toBeInTheDocument();
   });
 
-  it('supports retention presets, forwarding toggle, save, exports, and compliance report actions', async () => {
-    const props = renderPanel();
+  it('supports retention presets, destination-first forwarding, save, exports, and compliance report actions', async () => {
+    const props = renderPanel({ settings: { ...settings, retentionDays: 180 }, savedSettings: settings });
 
-    fireEvent.click(screen.getByRole('button', { name: '180 days' }));
-    expect(props.onSettingsChange).toHaveBeenCalledWith(expect.objectContaining({ retentionDays: 180 }));
+    fireEvent.click(screen.getByRole('button', { name: '365 days' }));
+    expect(props.onSettingsChange).toHaveBeenCalledWith(expect.objectContaining({ retentionDays: 365 }));
     fireEvent.click(screen.getByRole('switch', { name: 'External log forwarding' }));
-    expect(props.onSettingsChange).toHaveBeenCalledWith(expect.objectContaining({ forwardingEnabled: true }));
+    expect(screen.getByRole('dialog', { name: 'External log destination' })).toBeInTheDocument();
+    expect(props.onSettingsChange).not.toHaveBeenCalledWith(expect.objectContaining({ forwardingEnabled: true }));
+    fireEvent.change(screen.getByLabelText('Destination URL'), { target: { value: 'http://insecure.example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save and activate' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('valid HTTPS');
+    fireEvent.change(screen.getByLabelText('Destination URL'), { target: { value: 'https://logs.example.com/ingest' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save and activate' }));
+    expect(props.onSettingsChange).toHaveBeenCalledWith(expect.objectContaining({ forwardingEnabled: true, forwardingUrl: 'https://logs.example.com/ingest' }));
     fireEvent.click(screen.getByRole('button', { name: /save audit settings/i }));
     fireEvent.click(screen.getByRole('button', { name: /export json/i }));
     fireEvent.click(screen.getByRole('button', { name: /export csv/i }));
@@ -129,11 +137,21 @@ describe('AuditTrailPanel', () => {
   });
 
   it('opens the destination editor without collecting credentials in the browser', () => {
-    renderPanel({ settings: { ...settings, forwardingEnabled: true } });
+    renderPanel({ settings: { ...settings, forwardingEnabled: true, forwardingUrl: 'https://logs.example.com/ingest' }, savedSettings: settings });
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     expect(screen.getByLabelText('Destination URL')).toBeInTheDocument();
     expect(screen.queryByLabelText('API key')).not.toBeInTheDocument();
     expect(screen.getByText(/Credentials are not collected/)).toBeInTheDocument();
+  });
+
+  it('uses consistent forwarding states and disables save until settings change', () => {
+    const { rerender } = render(<AuditTrailPanel settings={settings} savedSettings={settings} logs={logs} onSettingsChange={vi.fn()} onSave={vi.fn()} onExportJson={vi.fn()} onExportCsv={vi.fn()} onGenerateReport={vi.fn()} />);
+    expect(screen.getAllByText('Needs configuration').length).toBeGreaterThan(0);
+    expect(screen.getByRole('switch', { name: 'External log forwarding' })).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('button', { name: /save audit settings/i })).toBeDisabled();
+    const configured = { ...settings, forwardingUrl: 'https://logs.example.com/ingest' };
+    rerender(<AuditTrailPanel settings={configured} savedSettings={settings} logs={logs} onSettingsChange={vi.fn()} onSave={vi.fn()} onExportJson={vi.fn()} onExportCsv={vi.fn()} onGenerateReport={vi.fn()} />);
+    expect(screen.getByRole('button', { name: /save audit settings/i })).toBeEnabled();
   });
 
   it('renders a clear empty state', () => {

@@ -161,6 +161,8 @@ function describeError(error: unknown) {
 export default function AppChatbot() {
   const navigate = useNavigate();
   const location = useLocation();
+  const compactAuditLauncher = location.pathname === '/settings'
+    && new URLSearchParams(location.search).get('tab') === 'audit-trail';
   const { user } = useAuthStore();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<AssistantMode>('general');
@@ -487,8 +489,8 @@ export default function AppChatbot() {
           </div>
         </section>
       ) : (
-        <button ref={launcherRef} type='button' onClick={() => setOpen(true)} className='flex items-center gap-2 rounded-full bg-teal-700 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:bg-teal-800' aria-label='Open LaFlo Assistant'>
-          <MessageCircle className='h-5 w-5' /><span className='hidden sm:inline'>Ask LaFlo</span>
+        <button ref={launcherRef} type='button' onClick={() => setOpen(true)} className={compactAuditLauncher ? 'grid h-12 w-12 place-items-center rounded-full bg-teal-700 text-white shadow-lg hover:bg-teal-800' : 'flex items-center gap-2 rounded-full bg-teal-700 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:bg-teal-800'} aria-label='Open LaFlo Assistant'>
+          <MessageCircle className='h-5 w-5' /><span className={compactAuditLauncher ? 'sr-only' : 'hidden sm:inline'}>Ask LaFlo</span>
         </button>
       )}
     </div>

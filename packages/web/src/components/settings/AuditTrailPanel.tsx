@@ -27,6 +27,7 @@ import { sanitizeAuditEntry } from '@/utils/auditLog';
 
 type AuditTrailPanelProps = {
   settings: AuditSettings;
+  savedSettings: AuditSettings;
   logs: AuditLogEntry[];
   onSettingsChange: (settings: AuditSettings) => void;
   onSave: () => void;
@@ -211,6 +212,7 @@ function AuditDetails({ entry }: { entry: AuditLogEntry }) {
 
 export default function AuditTrailPanel({
   settings,
+  savedSettings,
   logs,
   onSettingsChange,
   onSave,
@@ -227,6 +229,8 @@ export default function AuditTrailPanel({
   const [dateTo, setDateTo] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [destinationEditorOpen, setDestinationEditorOpen] = useState(false);
+  const [destinationDraft, setDestinationDraft] = useState('');
+  const [destinationError, setDestinationError] = useState('');
   const [page, setPage] = useState(1);
 
   const actors = useMemo(
@@ -275,6 +279,29 @@ export default function AuditTrailPanel({
   const lastResult = Math.min(safePage * PAGE_SIZE, filteredLogs.length);
   const hasFilters = Boolean(search || category !== 'ALL' || actor !== 'ALL' || severity !== 'ALL' || dateFrom || dateTo);
   const forwardingConnected = settings.forwardingEnabled && Boolean(settings.forwardingUrl?.trim());
+  const forwardingConfigured = Boolean(settings.forwardingUrl?.trim());
+  const settingsDirty = settings.retentionDays !== savedSettings.retentionDays
+    || settings.forwardingEnabled !== savedSettings.forwardingEnabled
+    || (settings.forwardingUrl || '').trim() !== (savedSettings.forwardingUrl || '').trim();
+
+  const openDestinationEditor = () => {
+    setDestinationDraft(settings.forwardingUrl || '');
+    setDestinationError('');
+    setDestinationEditorOpen(true);
+  };
+
+  const saveDestination = () => {
+    const destination = destinationDraft.trim();
+    try {
+      const parsed = new URL(destination);
+      if (parsed.protocol !== 'https:') throw new Error('HTTPS required');
+    } catch {
+      setDestinationError('Enter a valid HTTPS destination URL.');
+      return;
+    }
+    onSettingsChange({ ...settings, forwardingUrl: destination, forwardingEnabled: true });
+    setDestinationEditorOpen(false);
+  };
 
   const updateFilter = (setter: (value: string) => void, value: string) => {
     setter(value);
@@ -292,7 +319,7 @@ export default function AuditTrailPanel({
   };
 
   return (
-    <section className="space-y-3.5 pb-12" aria-labelledby="audit-trail-title">
+    <section className="space-y-3.5 pb-24 sm:pb-28" aria-labelledby="audit-trail-title">
       <header className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-center gap-4">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
@@ -310,7 +337,7 @@ export default function AuditTrailPanel({
           </div>
           <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5 shadow-sm">
             <CloudUpload className="h-5 w-5 text-emerald-600" aria-hidden="true" />
-            <div><p className="text-xs text-text-muted">Log forwarding</p><p className="flex items-center gap-1.5 text-sm font-semibold text-text-main">{forwardingConnected ? 'Enabled' : settings.forwardingEnabled ? 'Not connected' : 'Disabled'}<span className={`h-1.5 w-1.5 rounded-full ${forwardingConnected ? 'bg-emerald-500' : settings.forwardingEnabled ? 'bg-amber-500' : 'bg-slate-400'}`} /></p></div>
+            <div><p className="text-xs text-text-muted">Log forwarding</p><p className="flex items-center gap-1.5 text-sm font-semibold text-text-main">{forwardingConnected ? 'Active' : forwardingConfigured ? 'Disabled' : 'Needs configuration'}<span className={`h-1.5 w-1.5 rounded-full ${forwardingConnected ? 'bg-emerald-500' : forwardingConfigured ? 'bg-slate-400' : 'bg-amber-500'}`} /></p></div>
           </div>
         </div>
       </header>
@@ -321,7 +348,7 @@ export default function AuditTrailPanel({
         <SummaryCard icon={AlertTriangle} value={summary.highImpact.toLocaleString()} label="High-impact changes" supporting="Require attention" tone="bg-orange-50 text-orange-600" />
         <SummaryCard icon={KeyRound} value={summary.accessEvents.toLocaleString()} label="Access events" supporting="User and role activity" tone="bg-violet-50 text-violet-600" />
         <SummaryCard icon={Download} value={summary.exports.toLocaleString()} label="Exports generated" supporting="Recorded exports" tone="bg-cyan-50 text-cyan-600" />
-        <SummaryCard icon={CloudUpload} value={forwardingConnected ? 'Enabled' : settings.forwardingEnabled ? 'Setup needed' : 'Disabled'} label="Log forwarding" supporting="External destination" tone="bg-sky-50 text-sky-600" />
+        <SummaryCard icon={CloudUpload} value={forwardingConnected ? 'Active' : forwardingConfigured ? 'Disabled' : 'Needs configuration'} label="Log forwarding" supporting="External destination" tone="bg-sky-50 text-sky-600" />
       </div>
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm" aria-labelledby="audit-configuration-title">
@@ -366,28 +393,32 @@ export default function AuditTrailPanel({
               <button
                 type="button"
                 role="switch"
-                aria-checked={settings.forwardingEnabled}
+                aria-checked={forwardingConnected}
                 aria-label="External log forwarding"
-                onClick={() => onSettingsChange({ ...settings, forwardingEnabled: !settings.forwardingEnabled })}
-                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${settings.forwardingEnabled ? 'bg-primary-600' : 'bg-slate-300'}`}
+                onClick={() => forwardingConnected
+                  ? onSettingsChange({ ...settings, forwardingEnabled: false })
+                  : forwardingConfigured
+                    ? onSettingsChange({ ...settings, forwardingEnabled: true })
+                    : openDestinationEditor()}
+                className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${forwardingConnected ? 'border-primary-700 bg-primary-600' : 'border-slate-300 bg-slate-300'}`}
               >
-                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${settings.forwardingEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                <span className={`absolute left-0.5 top-[3px] h-5 w-5 rounded-full bg-white shadow ring-1 ring-slate-900/10 transition-transform ${forwardingConnected ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
             </div>
             <div className="mt-3 rounded-xl border border-border bg-bg/50 p-3.5">
-              <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${forwardingConnected ? 'bg-emerald-100 text-emerald-700' : settings.forwardingEnabled ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-700'}`}>{forwardingConnected ? 'Enabled' : settings.forwardingEnabled ? 'Not connected' : 'Disabled'}</span>
-              {settings.forwardingEnabled ? (
+              <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${forwardingConnected ? 'bg-emerald-100 text-emerald-700' : forwardingConfigured ? 'bg-slate-200 text-slate-700' : 'bg-amber-100 text-amber-800'}`}>{forwardingConnected ? 'Active' : forwardingConfigured ? 'Disabled' : 'Needs configuration'}</span>
+              {forwardingConfigured ? (
                 <div className="mt-3 flex items-end justify-between gap-4">
-                  <div className="min-w-0"><p className="text-xs text-text-muted">Destination</p><p className="truncate text-sm font-semibold text-text-main">{settings.forwardingUrl || 'No destination configured'}</p></div>
-                  <button type="button" className="btn-outline h-9 px-3 text-xs" onClick={() => setDestinationEditorOpen(true)}>Edit</button>
+                  <div className="min-w-0"><p className="text-xs text-text-muted">Destination</p><p className="truncate text-sm font-semibold text-text-main">{settings.forwardingUrl}</p></div>
+                  <button type="button" className="btn-outline h-9 px-3 text-xs" onClick={openDestinationEditor}>Edit</button>
                 </div>
-              ) : <p className="mt-3 text-sm text-text-muted">Enable forwarding to configure an external destination.</p>}
+              ) : <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-text-muted">Add a secure HTTPS destination before forwarding can be activated.</p><button type="button" className="btn-outline h-9 shrink-0 px-3 text-xs" onClick={openDestinationEditor}>Configure destination</button></div>}
             </div>
           </div>
         </div>
         <div className="flex flex-col gap-2.5 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn-primary" onClick={onSave}><ClipboardCheck className="h-4 w-4" aria-hidden="true" />Save Audit Settings</button>
+            <button type="button" className="btn-primary" onClick={onSave} disabled={!settingsDirty}><ClipboardCheck className="h-4 w-4" aria-hidden="true" />Save Audit Settings</button>
             <button type="button" className="btn-outline" onClick={() => onExportJson(filteredLogs)}><FileJson className="h-4 w-4" aria-hidden="true" />Export JSON</button>
             <button type="button" className="btn-outline" onClick={() => onExportCsv(filteredLogs)}><FileSpreadsheet className="h-4 w-4" aria-hidden="true" />Export CSV</button>
           </div>
@@ -395,7 +426,7 @@ export default function AuditTrailPanel({
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm" aria-labelledby="recent-activity-title">
+      <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:mr-16" aria-labelledby="recent-activity-title">
         <div className="border-b border-border p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -409,7 +440,7 @@ export default function AuditTrailPanel({
               Workspace audit cache
             </span>
           </div>
-          <div className="mt-3 grid items-center gap-2.5 md:grid-cols-2 xl:grid-cols-[minmax(14rem,1.4fr)_minmax(9rem,1fr)_minmax(9rem,1fr)_minmax(9rem,1fr)_minmax(14rem,1.15fr)_auto]">
+          <div className="mt-3 grid items-center gap-2.5 md:grid-cols-2 2xl:grid-cols-[minmax(14rem,1.4fr)_minmax(9rem,1fr)_minmax(9rem,1fr)_minmax(9rem,1fr)_minmax(16rem,1.2fr)_auto]">
             <label className="relative block">
               <span className="sr-only">Search audit events</span>
               <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-text-muted" aria-hidden="true" />
@@ -422,7 +453,7 @@ export default function AuditTrailPanel({
               <label><span className="sr-only">From date</span><input type="date" aria-label="From date" className="input h-10 px-2 text-xs" value={dateFrom} onChange={(event) => updateFilter(setDateFrom, event.target.value)} /></label>
               <label><span className="sr-only">To date</span><input type="date" aria-label="To date" className="input h-10 px-2 text-xs" value={dateTo} onChange={(event) => updateFilter(setDateTo, event.target.value)} /></label>
             </div>
-            <button type="button" className="btn-ghost h-10 whitespace-nowrap px-3" onClick={clearFilters} disabled={!hasFilters}><FilterX className="h-4 w-4" aria-hidden="true" />Clear filters</button>
+            <button type="button" className={`btn-ghost h-10 whitespace-nowrap px-3 ${hasFilters ? 'text-primary-700' : 'text-text-muted opacity-50'}`} onClick={clearFilters} disabled={!hasFilters}><FilterX className="h-4 w-4" aria-hidden="true" />Clear filters</button>
           </div>
         </div>
 
@@ -481,12 +512,13 @@ export default function AuditTrailPanel({
           <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-5 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div><h3 id="forwarding-editor-title" className="text-lg font-semibold text-text-main">External log destination</h3><p className="mt-1 text-sm text-text-muted">Configure the HTTPS endpoint supplied by your monitoring provider.</p></div>
-              <button type="button" className="btn-ghost h-9 w-9 p-0" onClick={() => setDestinationEditorOpen(false)} aria-label="Close destination editor"><X className="h-4 w-4" /></button>
+              <button type="button" className="btn-ghost h-9 w-9 p-0" onClick={() => { setDestinationEditorOpen(false); setDestinationError(''); }} aria-label="Close destination editor"><X className="h-4 w-4" /></button>
             </div>
             <label htmlFor="forwarding-url" className="label mt-5">Destination URL</label>
-            <input id="forwarding-url" type="url" className="input" placeholder="https://logs.example.com/ingest" value={settings.forwardingUrl || ''} onChange={(event) => onSettingsChange({ ...settings, forwardingUrl: event.target.value })} />
+            <input id="forwarding-url" type="url" aria-invalid={Boolean(destinationError)} className="input" placeholder="https://logs.example.com/ingest" value={destinationDraft} onChange={(event) => { setDestinationDraft(event.target.value); setDestinationError(''); }} />
+            {destinationError ? <p className="mt-1.5 text-xs font-medium text-rose-700" role="alert">{destinationError}</p> : null}
             <p className="mt-3 text-xs text-text-muted">Credentials are not collected in this browser. Secure authentication requires the production forwarding service.</p>
-            <div className="mt-5 flex justify-end"><button type="button" className="btn-primary" onClick={() => setDestinationEditorOpen(false)}>Done</button></div>
+            <div className="mt-5 flex justify-end gap-2"><button type="button" className="btn-outline" onClick={() => { setDestinationEditorOpen(false); setDestinationError(''); }}>Cancel</button><button type="button" className="btn-primary" onClick={saveDestination}>Save and activate</button></div>
           </div>
         </div>
       ) : null}
