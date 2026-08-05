@@ -90,6 +90,7 @@ export interface RoomType {
   baseRate: number;
   maxGuests: number;
   amenities: string[];
+  images?: string[];
   isActive: boolean;
 }
 

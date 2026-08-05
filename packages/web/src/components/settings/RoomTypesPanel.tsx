@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Bath,
   BedDouble,
@@ -14,6 +14,8 @@ import {
   SlidersHorizontal,
   Snowflake,
   Sparkles,
+  ImagePlus,
+  Trash2,
   Tv,
   Users,
   WalletCards,
@@ -22,7 +24,7 @@ import {
 } from 'lucide-react';
 import type { RoomType } from '@/types';
 
-type RoomTypeInput = Pick<RoomType, 'name' | 'description' | 'baseRate' | 'maxGuests' | 'amenities' | 'isActive'>;
+type RoomTypeInput = Pick<RoomType, 'name' | 'description' | 'baseRate' | 'maxGuests' | 'amenities' | 'images' | 'isActive'>;
 
 function formatCurrency(value: number, currency: string) {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: currency || 'USD', maximumFractionDigits: 0 }).format(value);
@@ -39,8 +41,10 @@ const roomImages: Record<string, string> = {
   suite: '/assets/rooms/suite-room.jpg',
 };
 
-function roomImage(name: string) {
-  const normalized = name.trim().toLowerCase();
+function roomImage(roomType: RoomType) {
+  const preferredImage = roomType.images?.find(Boolean);
+  if (preferredImage) return preferredImage;
+  const normalized = roomType.name.trim().toLowerCase();
   return roomImages[normalized] || roomImages[Object.keys(roomImages).find((key) => normalized.includes(key)) || 'standard'];
 }
 
@@ -116,7 +120,7 @@ export default function RoomTypesPanel({ roomTypes, roomCounts = {}, currency, l
       {!roomTypes.length ? <div className="border-t border-border px-6 py-14 text-center"><BedDouble className="mx-auto h-9 w-9 text-text-muted" /><p className="mt-3 font-semibold text-text-main">No room types configured yet.</p><p className="mt-1 text-sm text-text-muted">Add your first room type to start managing room categories.</p>{canEdit ? <button type="button" className="btn-primary mt-4" onClick={() => setEditing('NEW')}>Add Room Type</button> : null}</div> : visible.length ? <>
         <div className="hidden grid-cols-[minmax(18rem,2.4fr)_0.8fr_0.65fr_0.6fr_1fr_0.65fr_0.7fr] gap-3 border-b border-border bg-bg/50 px-5 py-3 text-[11px] font-semibold uppercase tracking-wide text-text-muted lg:grid"><span>Room Type</span><span>Base Rate</span><span>Max Guests</span><span>Rooms</span><span>Amenities</span><span>Status</span><span className="text-right">Actions</span></div>
         <div className="divide-y divide-border">{pagedRoomTypes.map((item) => <article key={item.id} className="relative grid gap-4 px-4 py-3 transition hover:bg-bg/40 lg:grid-cols-[minmax(18rem,2.4fr)_0.8fr_0.65fr_0.6fr_1fr_0.65fr_0.7fr] lg:items-center lg:px-5">
-          <div className="flex min-w-0 items-center gap-3"><img src={roomImage(item.name)} alt={`${item.name} room`} className="h-16 w-20 shrink-0 rounded-xl object-cover ring-1 ring-border" /><RoomTypeBadge name={item.name} /><div className="min-w-0"><h3 className="font-semibold text-text-main">{item.name}</h3><p className="mt-1 line-clamp-2 text-sm text-text-muted">{item.description || 'No description provided.'}</p></div></div>
+          <div className="flex min-w-0 items-center gap-3"><img src={roomImage(item)} alt={`${item.name} room`} className="h-16 w-20 shrink-0 rounded-xl object-cover ring-1 ring-border" /><RoomTypeBadge name={item.name} /><div className="min-w-0"><h3 className="font-semibold text-text-main">{item.name}</h3><p className="mt-1 line-clamp-2 text-sm text-text-muted">{item.description || 'No description provided.'}</p></div></div>
           <div><span className="text-xs font-semibold uppercase text-text-muted lg:hidden">Base rate </span><p className="font-semibold text-text-main">{formatCurrency(Number(item.baseRate), currency)}</p><p className="text-xs text-text-muted">per night</p></div>
           <div className="flex items-center gap-2 text-sm text-text-main"><Users className="h-4 w-4 text-text-muted" /><span>{item.maxGuests}</span></div>
           <div><p className="font-semibold text-text-main">{roomCounts[item.id] ?? 0}</p><p className="text-xs text-text-muted">Rooms</p></div>
@@ -135,5 +139,25 @@ export default function RoomTypesPanel({ roomTypes, roomCounts = {}, currency, l
 
 function RoomTypeForm({ roomType, existing, currency, saving, onClose, onSubmit }: { roomType: RoomType | null; existing: RoomType[]; currency: string; saving: boolean; onClose: () => void; onSubmit: (input: RoomTypeInput) => Promise<void> }) {
   const [error, setError] = useState('');
-  return <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-labelledby="room-type-form-title"><div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl"><div className="flex items-start justify-between border-b border-border p-5"><div><h3 id="room-type-form-title" className="text-xl font-bold text-text-main">{roomType ? 'Edit Room Type' : 'Add Room Type'}</h3><p className="mt-1 text-sm text-text-muted">Configure pricing, occupancy, amenities, and availability.</p></div><button type="button" className="btn-ghost h-9 w-9 p-0" onClick={onClose} aria-label="Close room type form"><X className="h-4 w-4" /></button></div><form className="space-y-4 p-5" onSubmit={async (event) => { event.preventDefault(); setError(''); const data = new FormData(event.currentTarget); const name = String(data.get('name') || '').trim(); if (existing.some((item) => item.id !== roomType?.id && item.name.toLowerCase() === name.toLowerCase())) { setError('A room type with this name already exists.'); return; } await onSubmit({ name, description: String(data.get('description') || '').trim() || undefined, baseRate: Number(data.get('baseRate')), maxGuests: Number(data.get('maxGuests')), amenities: String(data.get('amenities') || '').split(',').map((item) => item.trim()).filter(Boolean), isActive: data.get('isActive') === 'on' }); }}><label><span className="label">Room type name *</span><input name="name" className="input" required maxLength={50} defaultValue={roomType?.name || ''} /></label><label><span className="label">Description</span><textarea name="description" className="input" rows={3} maxLength={240} defaultValue={roomType?.description || ''} /></label><div className="grid gap-4 sm:grid-cols-2"><label><span className="label">Base rate ({currency}) *</span><input name="baseRate" type="number" min="0.01" step="0.01" className="input" required defaultValue={roomType?.baseRate || ''} /></label><label><span className="label">Max guests *</span><input name="maxGuests" type="number" min="1" max="10" className="input" required defaultValue={roomType?.maxGuests || 2} /></label></div><label><span className="label">Amenities</span><input name="amenities" className="input" placeholder="Wi-Fi, TV, Air conditioning" defaultValue={roomType?.amenities?.join(', ') || ''} /><span className="mt-1 block text-xs text-text-muted">Separate amenities with commas.</span></label><label className="flex items-center gap-3 rounded-xl border border-border p-3"><input name="isActive" type="checkbox" defaultChecked={roomType?.isActive ?? true} className="h-5 w-5 rounded border-border text-primary-600" /><span><span className="block text-sm font-semibold text-text-main">Active room type</span><span className="text-xs text-text-muted">Available for new room assignments and bookings.</span></span></label>{error ? <p role="alert" className="text-sm text-rose-700">{error}</p> : null}<div className="flex justify-end gap-2 border-t border-border pt-4"><button type="button" className="btn-outline" onClick={onClose}>Cancel</button><button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save Room Type'}</button></div></form></div></div>;
+  const [image, setImage] = useState(roomType?.images?.[0] || '');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const selectImage = (file?: File) => {
+    setError('');
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setError('Choose a JPG, PNG, or WebP image.');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Room images must be 2 MB or smaller.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setImage(typeof reader.result === 'string' ? reader.result : '');
+    reader.onerror = () => setError('The image could not be read. Please choose another file.');
+    reader.readAsDataURL(file);
+  };
+
+  return <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-labelledby="room-type-form-title"><div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl"><div className="flex items-start justify-between border-b border-border p-5"><div><h3 id="room-type-form-title" className="text-xl font-bold text-text-main">{roomType ? 'Edit Room Type' : 'Add Room Type'}</h3><p className="mt-1 text-sm text-text-muted">Configure pricing, occupancy, amenities, image, and availability.</p></div><button type="button" className="btn-ghost h-9 w-9 p-0" onClick={onClose} aria-label="Close room type form"><X className="h-4 w-4" /></button></div><form className="space-y-4 p-5" onSubmit={async (event) => { event.preventDefault(); setError(''); const data = new FormData(event.currentTarget); const name = String(data.get('name') || '').trim(); if (existing.some((item) => item.id !== roomType?.id && item.name.toLowerCase() === name.toLowerCase())) { setError('A room type with this name already exists.'); return; } await onSubmit({ name, description: String(data.get('description') || '').trim() || undefined, baseRate: Number(data.get('baseRate')), maxGuests: Number(data.get('maxGuests')), amenities: String(data.get('amenities') || '').split(',').map((item) => item.trim()).filter(Boolean), images: image ? [image] : [], isActive: data.get('isActive') === 'on' }); }}><label><span className="label">Room type name *</span><input name="name" className="input" required maxLength={50} defaultValue={roomType?.name || ''} /></label><label><span className="label">Description</span><textarea name="description" className="input" rows={3} maxLength={240} defaultValue={roomType?.description || ''} /></label><div><span className="label">Preferred room image</span><div className="flex flex-col gap-3 rounded-xl border border-dashed border-border bg-bg/40 p-3 sm:flex-row sm:items-center">{image ? <img src={image} alt="Selected room preview" className="h-24 w-full rounded-lg object-cover ring-1 ring-border sm:w-36" /> : <span className="grid h-24 w-full shrink-0 place-items-center rounded-lg bg-card text-text-muted ring-1 ring-border sm:w-36"><ImagePlus className="h-7 w-7" /></span>}<div className="flex-1"><p className="text-sm font-semibold text-text-main">{image ? 'Preferred image selected' : 'Upload a room image'}</p><p className="mt-1 text-xs leading-5 text-text-muted">JPG, PNG, or WebP. Maximum 2 MB. The image is cropped to fit room thumbnails.</p><div className="mt-3 flex flex-wrap gap-2"><input ref={fileInputRef} id="room-image" type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => selectImage(event.target.files?.[0])} /><button type="button" className="btn-outline h-9 px-3 text-xs" onClick={() => fileInputRef.current?.click()}><ImagePlus className="h-4 w-4" />{image ? 'Replace image' : 'Choose image'}</button>{image ? <button type="button" className="btn-ghost h-9 px-3 text-xs text-danger hover:bg-danger/10" onClick={() => { setImage(''); if (fileInputRef.current) fileInputRef.current.value = ''; }}><Trash2 className="h-4 w-4" />Remove</button> : null}</div></div></div></div><div className="grid gap-4 sm:grid-cols-2"><label><span className="label">Base rate ({currency}) *</span><input name="baseRate" type="number" min="0.01" step="0.01" className="input" required defaultValue={roomType?.baseRate || ''} /></label><label><span className="label">Max guests *</span><input name="maxGuests" type="number" min="1" max="10" className="input" required defaultValue={roomType?.maxGuests || 2} /></label></div><label><span className="label">Amenities</span><input name="amenities" className="input" placeholder="Wi-Fi, TV, Air conditioning" defaultValue={roomType?.amenities?.join(', ') || ''} /><span className="mt-1 block text-xs text-text-muted">Separate amenities with commas.</span></label><label className="flex items-center gap-3 rounded-xl border border-border p-3"><input name="isActive" type="checkbox" defaultChecked={roomType?.isActive ?? true} className="h-5 w-5 rounded border-border text-primary-600" /><span><span className="block text-sm font-semibold text-text-main">Active room type</span><span className="text-xs text-text-muted">Available for new room assignments and bookings.</span></span></label>{error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}<div className="flex justify-end gap-2 border-t border-border pt-4"><button type="button" className="btn-outline" onClick={onClose}>Cancel</button><button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save Room Type'}</button></div></form></div></div>;
 }

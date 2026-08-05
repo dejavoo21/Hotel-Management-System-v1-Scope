@@ -61,6 +61,38 @@ describe('RoomTypesPanel', () => {
     expect(screen.getByLabelText('Room type name *')).toHaveValue('Standard');
   });
 
+  it('uploads, previews, persists, replaces, and removes a preferred room image', async () => {
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    const { rerender } = render(<RoomTypesPanel {...defaults} onCreate={onCreate} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add Room Type' }));
+    const fileInput = document.querySelector('#room-image') as HTMLInputElement;
+    const imageFile = new File(['room-photo'], 'suite.webp', { type: 'image/webp' });
+    fireEvent.change(fileInput, { target: { files: [imageFile] } });
+    const preview = await screen.findByRole('img', { name: 'Selected room preview' });
+    expect(preview.getAttribute('src')).toMatch(/^data:image\/webp;base64,/);
+    fireEvent.change(screen.getByLabelText('Room type name *'), { target: { value: 'Garden Suite' } });
+    fireEvent.change(screen.getByLabelText('Base rate (ZAR) *'), { target: { value: '220' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Room Type' }));
+    await waitFor(() => expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({ images: [expect.stringMatching(/^data:image\/webp;base64,/)] })));
+
+    rerender(<RoomTypesPanel {...defaults} roomTypes={[{ ...roomTypes[0], images: ['data:image/png;base64,cHJlZmVycmVk'] }]} />);
+    expect(screen.getByRole('img', { name: 'Standard room' })).toHaveAttribute('src', 'data:image/png;base64,cHJlZmVycmVk');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(screen.getByRole('img', { name: 'Selected room preview' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    expect(screen.queryByRole('img', { name: 'Selected room preview' })).not.toBeInTheDocument();
+  });
+
+  it('rejects unsupported or oversized room images', () => {
+    render(<RoomTypesPanel {...defaults} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add Room Type' }));
+    const fileInput = document.querySelector('#room-image') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [new File(['not-an-image'], 'room.txt', { type: 'text/plain' })] } });
+    expect(screen.getByRole('alert')).toHaveTextContent(/JPG, PNG, or WebP/i);
+    fireEvent.change(fileInput, { target: { files: [new File([new Uint8Array(2 * 1024 * 1024 + 1)], 'large.jpg', { type: 'image/jpeg' })] } });
+    expect(screen.getByRole('alert')).toHaveTextContent(/2 MB or smaller/i);
+  });
+
   it('requires confirmation before disabling and enforces read-only access', async () => {
     const onUpdate = vi.fn().mockResolvedValue(undefined);
     const { rerender } = render(<RoomTypesPanel {...defaults} onUpdate={onUpdate} />);

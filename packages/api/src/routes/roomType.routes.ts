@@ -4,6 +4,15 @@ import { validate } from '../middleware/validate.js';
 import { authenticate, requireAdmin } from '../middleware/auth.js';
 import * as roomTypeController from '../controllers/roomType.controller.js';
 
+const roomImageSchema = z.string().max(3_000_000, 'Room image is too large').refine((value) => {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:' || (parsed.protocol === 'data:' && /^data:image\/(?:jpeg|png|webp);base64,/i.test(value));
+  } catch {
+    return false;
+  }
+}, 'Room image must be a valid image URL or upload');
+
 const router = Router();
 
 // Validation schemas
@@ -14,7 +23,7 @@ const createRoomTypeSchema = z.object({
   maxGuests: z.number().int().min(1).max(10).default(2),
   maxChildren: z.number().int().min(0).max(10).default(0),
   amenities: z.array(z.string()).default([]),
-  images: z.array(z.string().url()).default([]),
+  images: z.array(roomImageSchema).max(1, 'Only one preferred room image is supported').default([]),
 });
 
 const updateRoomTypeSchema = z.object({
@@ -24,7 +33,7 @@ const updateRoomTypeSchema = z.object({
   maxGuests: z.number().int().min(1).max(10).optional(),
   maxChildren: z.number().int().min(0).max(10).optional(),
   amenities: z.array(z.string()).optional(),
-  images: z.array(z.string().url()).optional(),
+  images: z.array(roomImageSchema).max(1, 'Only one preferred room image is supported').optional(),
   isActive: z.boolean().optional(),
 });
 
