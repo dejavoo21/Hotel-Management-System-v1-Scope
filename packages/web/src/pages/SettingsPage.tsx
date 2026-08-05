@@ -27,6 +27,7 @@ import {
 import IntegrationManagerPanel from '@/components/settings/IntegrationManagerPanel';
 import AccessRequestsPanel from '@/components/settings/AccessRequestsPanel';
 import AuditTrailPanel from '@/components/settings/AuditTrailPanel';
+import NotificationPreferencesPanel, { DEFAULT_NOTIFICATION_PREFERENCES, type NotificationPreferences } from '@/components/settings/NotificationPreferencesPanel';
 import { currencyForCountry } from '@/utils/countryCurrency';
 
 type SettingsTab =
@@ -62,12 +63,8 @@ export default function SettingsPage() {
   } | null>(null);
   const [, setReplyLoading] = useState(false);
   const [actionSubmitting, setActionSubmitting] = useState(false);
-  const [notificationPrefs, setNotificationPrefs] = useState({
-    newBookings: true,
-    checkIns: true,
-    housekeepingUpdates: false,
-    dailyReports: true,
-  });
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
+  const [savedNotificationPrefs, setSavedNotificationPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
   const [appearancePrefs, setAppearancePrefs] = useState<AppearancePreferences>(() =>
     readAppearancePreferences()
   );
@@ -128,7 +125,9 @@ export default function SettingsPage() {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        setNotificationPrefs((prev) => ({ ...prev, ...parsed }));
+        const next = { ...DEFAULT_NOTIFICATION_PREFERENCES, ...parsed };
+        setNotificationPrefs(next);
+        setSavedNotificationPrefs(next);
       } catch {
         // Ignore malformed values.
       }
@@ -572,15 +571,21 @@ export default function SettingsPage() {
   };
 
   const saveNotificationPrefs = () => {
-    localStorage.setItem('laflo:notificationPrefs', JSON.stringify(notificationPrefs));
-    appendAuditLog({
-      action: 'NOTIFICATION_PREFS_UPDATED',
-      actorId: user?.id,
-      actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
-      details: notificationPrefs,
-    });
-    refreshAuditLogs();
-    toast.success('Preferences saved');
+    if (!isAdmin) return;
+    try {
+      localStorage.setItem('laflo:notificationPrefs', JSON.stringify(notificationPrefs));
+      setSavedNotificationPrefs({ ...notificationPrefs });
+      appendAuditLog({
+        action: 'NOTIFICATION_PREFS_UPDATED',
+        actorId: user?.id,
+        actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
+        details: notificationPrefs,
+      });
+      refreshAuditLogs();
+      toast.success('Preferences saved');
+    } catch {
+      toast.error('Notification preferences could not be saved. Please try again.');
+    }
   };
 
   const saveAppearancePrefs = () => {
@@ -1189,98 +1194,7 @@ export default function SettingsPage() {
 
           {/* Notifications */}
           {activeTab === 'notifications' && (
-            <div className="card">
-              <h2 className="text-lg font-semibold text-slate-900">Notification Preferences</h2>
-              <p className="text-sm text-slate-500">Choose what notifications you receive</p>
-
-              <div className="mt-6 space-y-4">
-                  <label className={`flex cursor-pointer items-center justify-between rounded-xl border p-4 transition-colors ${notificationPrefs.newBookings ? 'border-primary-200 bg-primary-50/40' : 'border-border bg-card hover:bg-bg/60'}`}>
-                    <div>
-                      <p className="font-medium text-slate-900">New Bookings</p>
-                      <p className="text-sm text-slate-500">
-                        Get notified when a new booking is made
-                      </p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={notificationPrefs.newBookings}
-                      onChange={(event) =>
-                        setNotificationPrefs((prev) => ({
-                          ...prev,
-                          newBookings: event.target.checked,
-                        }))
-                      }
-                      className="h-6 w-6 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                    />
-                  </label>
-
-                  <label className={`flex cursor-pointer items-center justify-between rounded-xl border p-4 transition-colors ${notificationPrefs.checkIns ? 'border-primary-200 bg-primary-50/40' : 'border-border bg-card hover:bg-bg/60'}`}>
-                    <div>
-                      <p className="font-medium text-slate-900">Check-ins</p>
-                      <p className="text-sm text-slate-500">
-                        Get notified when guests check in
-                      </p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={notificationPrefs.checkIns}
-                      onChange={(event) =>
-                        setNotificationPrefs((prev) => ({
-                          ...prev,
-                          checkIns: event.target.checked,
-                        }))
-                      }
-                      className="h-6 w-6 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                    />
-                  </label>
-
-                  <label className={`flex cursor-pointer items-center justify-between rounded-xl border p-4 transition-colors ${notificationPrefs.housekeepingUpdates ? 'border-primary-200 bg-primary-50/40' : 'border-border bg-card hover:bg-bg/60'}`}>
-                    <div>
-                      <p className="font-medium text-slate-900">Housekeeping Updates</p>
-                      <p className="text-sm text-slate-500">
-                        Get notified when room status changes
-                      </p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={notificationPrefs.housekeepingUpdates}
-                      onChange={(event) =>
-                        setNotificationPrefs((prev) => ({
-                          ...prev,
-                          housekeepingUpdates: event.target.checked,
-                        }))
-                      }
-                      className="h-6 w-6 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                    />
-                  </label>
-
-                  <label className={`flex cursor-pointer items-center justify-between rounded-xl border p-4 transition-colors ${notificationPrefs.dailyReports ? 'border-primary-200 bg-primary-50/40' : 'border-border bg-card hover:bg-bg/60'}`}>
-                    <div>
-                      <p className="font-medium text-slate-900">Daily Reports</p>
-                      <p className="text-sm text-slate-500">
-                        Receive daily summary reports via email
-                      </p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={notificationPrefs.dailyReports}
-                      onChange={(event) =>
-                        setNotificationPrefs((prev) => ({
-                          ...prev,
-                          dailyReports: event.target.checked,
-                        }))
-                      }
-                      className="h-6 w-6 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                    />
-                  </label>
-                </div>
-
-                <div className="mt-6">
-                  <button className="btn-primary" onClick={saveNotificationPrefs}>
-                    Save Preferences
-                  </button>
-                </div>
-              </div>
+            <NotificationPreferencesPanel values={notificationPrefs} savedValues={savedNotificationPrefs} canEdit={isAdmin} onChange={setNotificationPrefs} onSave={saveNotificationPrefs} onReset={() => setNotificationPrefs({ ...savedNotificationPrefs })} />
             )}
 
           {/* Appearance */}
