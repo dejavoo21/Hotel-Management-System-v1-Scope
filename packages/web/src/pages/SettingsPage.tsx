@@ -30,6 +30,7 @@ import AuditTrailPanel from '@/components/settings/AuditTrailPanel';
 import NotificationPreferencesPanel, { DEFAULT_NOTIFICATION_PREFERENCES, type NotificationPreferences } from '@/components/settings/NotificationPreferencesPanel';
 import RoomTypesPanel from '@/components/settings/RoomTypesPanel';
 import HotelInfoPanel, { type HotelInfoForm } from '@/components/settings/HotelInfoPanel';
+import SecurityPanel from '@/components/settings/SecurityPanel';
 
 type SettingsTab =
   | 'hotel'
@@ -399,6 +400,27 @@ export default function SettingsPage() {
     },
     onError: () => {
       toast.error('Hotel information could not be updated. Please try again.');
+    },
+  });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) =>
+      authService.changePassword(currentPassword, newPassword),
+    onSuccess: () => {
+      appendAuditLog({
+        action: 'PASSWORD_CHANGED',
+        actorId: user?.id,
+        actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
+        targetId: user?.id,
+        targetLabel: 'Account security',
+        details: { source: 'Settings > Security' },
+      });
+      refreshAuditLogs();
+      toast.success('Password updated successfully');
+    },
+    onError: (error) => {
+      const message = (error as any)?.response?.data?.error || 'Password could not be updated. Please try again.';
+      toast.error(message);
     },
   });
   const updateRoomTypeMutation = useMutation({
@@ -934,135 +956,15 @@ export default function SettingsPage() {
 
           {/* Security */}
           {activeTab === 'security' && (
-            <div className="space-y-6">
-              {/* Change Password */}
-              <div className="card">
-                <h2 className="text-lg font-semibold text-slate-900">Change Password</h2>
-                <p className="text-sm text-slate-500">Update your account password</p>
-
-                <form className="mt-6 space-y-4">
-                  <div>
-                    <label className="label">Current Password</label>
-                    <input type="password" className="input" />
-                  </div>
-                  <div>
-                    <label className="label">New Password</label>
-                    <input type="password" className="input" />
-                  </div>
-                  <div>
-                    <label className="label">Confirm New Password</label>
-                    <input type="password" className="input" />
-                  </div>
-                  <div className="pt-2">
-                    <button type="submit" className="btn-primary">
-                      Update Password
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-              {/* Two-Factor Authentication */}
-              <div className="card">
-                <h2 className="text-lg font-semibold text-slate-900">Two-Factor Authentication</h2>
-                <p className="text-sm text-slate-500">
-                  Add an extra layer of security to your account
-                </p>
-
-                <div className="mt-6">
-                  {user?.twoFactorEnabled ? (
-                    <div className="flex items-center justify-between rounded-lg bg-emerald-50 p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-                          <svg
-                            className="h-5 w-5 text-emerald-600"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                            />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="font-medium text-emerald-900">2FA is enabled</p>
-                          <p className="text-sm text-emerald-700">
-                            Your account is protected with two-factor authentication
-                          </p>
-                        </div>
-                      </div>
-                      <button className="btn-outline text-sm">Disable</button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between rounded-lg bg-amber-50 p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
-                          <svg
-                            className="h-5 w-5 text-amber-600"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                            />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="font-medium text-amber-900">2FA is not enabled</p>
-                          <p className="text-sm text-amber-700">
-                            Enable two-factor authentication for better security
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setup2FAMutation.mutate()}
-                        disabled={setup2FAMutation.isPending}
-                        className="btn-primary text-sm"
-                      >
-                        {setup2FAMutation.isPending ? 'Setting up...' : 'Enable 2FA'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Authentication Options (Roadmap) */}
-              <div className="card">
-                <h2 className="text-lg font-semibold text-slate-900">Authentication Options</h2>
-                <p className="text-sm text-slate-500">
-                  Additional sign-in methods (biometric/passphrase) can be added after 2FA is stable.
-                </p>
-
-                <div className="mt-6 space-y-3">
-                  <div className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
-                    <div>
-                      <p className="font-medium text-slate-900">Passkey (biometric)</p>
-                      <p className="text-sm text-slate-500">Sign in with Face ID / Touch ID (WebAuthn).</p>
-                    </div>
-                    <button type="button" className="btn-outline text-sm" disabled>
-                      Coming soon
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
-                    <div>
-                      <p className="font-medium text-slate-900">Passphrase sign-in</p>
-                      <p className="text-sm text-slate-500">Use a human-friendly passphrase instead of a password.</p>
-                    </div>
-                    <button type="button" className="btn-outline text-sm" disabled>
-                      Coming soon
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <SecurityPanel
+              twoFactorEnabled={Boolean(user?.twoFactorEnabled)}
+              passwordLoading={changePasswordMutation.isPending}
+              twoFactorLoading={setup2FAMutation.isPending}
+              onPasswordChange={async (currentPassword, newPassword) => {
+                await changePasswordMutation.mutateAsync({ currentPassword, newPassword });
+              }}
+              onEnableTwoFactor={() => setup2FAMutation.mutate()}
+            />
           )}
 
           {/* Notifications */}
