@@ -10,6 +10,7 @@ const overview: IntegrationManagerOverview = {
   categories: [
     { category: 'CCTV', label: 'CCTV', providerName: 'Hikvision', connectionStatus: 'Not Connected', connectedCount: 0, totalConfigured: 0, lastSyncAt: null, healthStatus: 'UNKNOWN', errorCount: 0, action: 'Configure' },
     { category: 'WEATHER', label: 'Weather', providerName: 'OpenWeather', connectionStatus: 'Connected', connectedCount: 1, totalConfigured: 1, lastSyncAt: '2026-08-05T08:09:00.000Z', healthStatus: 'HEALTHY', errorCount: 0, action: 'Manage' },
+    { category: 'PAYMENTS', label: 'Payments', providerName: 'Stripe', connectionStatus: 'Not Connected', connectedCount: 0, totalConfigured: 0, lastSyncAt: null, healthStatus: 'UNKNOWN', errorCount: 0, action: 'Configure' },
   ],
   registry: [
     { id: 'hikvision', category: 'CCTV', name: 'Hikvision', providerType: 'HARDWARE', connectionMethods: ['Gateway'], credentialFields: [{ key: 'apiKey', label: 'API key', secret: true, required: true }], status: 'AVAILABLE' },
@@ -63,6 +64,7 @@ describe('IntegrationManagerPanel', () => {
     expect(openWeatherIcons.length).toBeGreaterThan(0);
     expect(openWeatherIcons.some((icon) => icon.className.includes('ring-emerald-400'))).toBe(true);
     expect(openWeatherIcons[0].querySelector('img')).toHaveAttribute('src', '/assets/integration-providers/openweather.svg');
+    expect(screen.getAllByRole('img', { name: 'Stripe integration icon' })[0].querySelector('img')).toHaveAttribute('src', '/assets/integration-providers/stripe.png');
   });
 
   it('filters integrations and opens the setup wizard without exposing a raw credential', async () => {

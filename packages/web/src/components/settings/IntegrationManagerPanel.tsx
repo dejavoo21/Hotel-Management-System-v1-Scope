@@ -103,7 +103,7 @@ const providerBrandAssets = [
   { match: 'hikvision', src: '/assets/integration-providers/hikvision.ico' },
   { match: 'ttlock', src: '/assets/integration-providers/ttlock.png' },
   { match: 'twilio', src: '/assets/integration-providers/twilio.png' },
-  { match: 'stripe', src: '/assets/integration-providers/stripe.svg' },
+  { match: 'stripe', src: '/assets/integration-providers/stripe.png' },
   { match: 'openai', src: '/assets/integration-providers/openai.svg' },
 ] as const;
 
