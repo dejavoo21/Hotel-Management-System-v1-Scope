@@ -31,6 +31,7 @@ import NotificationPreferencesPanel, { DEFAULT_NOTIFICATION_PREFERENCES, type No
 import RoomTypesPanel from '@/components/settings/RoomTypesPanel';
 import HotelInfoPanel, { type HotelInfoForm } from '@/components/settings/HotelInfoPanel';
 import SecurityPanel from '@/components/settings/SecurityPanel';
+import { currencyForCountry } from '@/utils/countryCurrency';
 
 type SettingsTab =
   | 'hotel'
@@ -116,7 +117,7 @@ export default function SettingsPage() {
         addressLine1: user.hotel.addressLine1 || '',
         city: user.hotel.city || '',
         country: user.hotel.country || '',
-        currency: user.hotel.currency || 'USD',
+        currency: currencyForCountry(user.hotel.country) || user.hotel.currency || 'USD',
         timezone: user.hotel.timezone || 'UTC',
       };
       setHotelForm(nextHotelForm);
@@ -975,7 +976,7 @@ export default function SettingsPage() {
 
           {/* Room Types */}
           {activeTab === 'room-types' && (
-            <RoomTypesPanel roomTypes={roomTypes || []} roomCounts={roomCounts} currency={hotelForm.currency || 'USD'} loading={roomTypesLoading} error={roomTypesError} canEdit={isAdmin} saving={createRoomTypeMutation.isPending || updateRoomTypeMutation.isPending} onRetry={() => { void refetchRoomTypes(); }} onCreate={async (input) => { await createRoomTypeMutation.mutateAsync(input); }} onUpdate={async (id, input) => { await updateRoomTypeMutation.mutateAsync({ id, data: input }); }} />
+            <RoomTypesPanel roomTypes={roomTypes || []} roomCounts={roomCounts} currency={currencyForCountry(hotelForm.country) || hotelForm.currency || 'USD'} loading={roomTypesLoading} error={roomTypesError} canEdit={isAdmin} saving={createRoomTypeMutation.isPending || updateRoomTypeMutation.isPending} onRetry={() => { void refetchRoomTypes(); }} onCreate={async (input) => { await createRoomTypeMutation.mutateAsync(input); }} onUpdate={async (id, input) => { await updateRoomTypeMutation.mutateAsync({ id, data: input }); }} />
           )}
 
           {/* Security */}
