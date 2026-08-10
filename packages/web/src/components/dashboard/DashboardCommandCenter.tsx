@@ -66,15 +66,15 @@ type AttentionItem = {
 };
 
 const toneStyles: Record<Tone, { icon: string; value: string; trend: string }> = {
-  teal: { icon: 'bg-emerald-50 text-emerald-700', value: 'text-slate-950', trend: 'text-emerald-700' },
-  blue: { icon: 'bg-sky-50 text-sky-700', value: 'text-slate-950', trend: 'text-sky-700' },
+  teal: { icon: 'theme-kpi-icon', value: 'text-text-main', trend: 'theme-link' },
+  blue: { icon: 'theme-kpi-icon', value: 'text-text-main', trend: 'theme-link' },
   amber: { icon: 'bg-amber-50 text-amber-700', value: 'text-slate-950', trend: 'text-amber-700' },
   rose: { icon: 'bg-rose-50 text-rose-700', value: 'text-slate-950', trend: 'text-rose-700' },
-  slate: { icon: 'bg-slate-100 text-slate-700', value: 'text-slate-950', trend: 'text-slate-600' },
+  slate: { icon: 'theme-kpi-icon', value: 'text-text-main', trend: 'text-text-muted' },
 };
 
 function Surface({ children, className = '', testId }: { children: React.ReactNode; className?: string; testId?: string }) {
-  return <section data-testid={testId} className={`rounded-xl border border-slate-200/90 bg-white shadow-[0_3px_14px_rgba(15,23,42,0.035)] ${className}`}>{children}</section>;
+  return <section data-testid={testId} className={`theme-card rounded-xl border ${className}`}>{children}</section>;
 }
 
 function PanelHeader({ title, subtitle, action, onAction }: { title: string; subtitle?: string; action?: string; onAction?: () => void }) {
@@ -84,7 +84,7 @@ function PanelHeader({ title, subtitle, action, onAction }: { title: string; sub
         <h2 className="text-sm font-bold text-slate-950">{title}</h2>
         {subtitle ? <p className="mt-0.5 text-[11px] text-slate-500">{subtitle}</p> : null}
       </div>
-      {action && onAction ? <button type="button" onClick={onAction} className="shrink-0 text-[11px] font-semibold text-teal-700 hover:text-teal-900">{action}</button> : null}
+      {action && onAction ? <button type="button" onClick={onAction} className="theme-link shrink-0 text-[11px] font-semibold">{action}</button> : null}
     </div>
   );
 }
@@ -104,7 +104,7 @@ function SmartAction({ icon: Icon, title, description, cta, status, tone, onClic
           <p className="mt-1 line-clamp-2 min-h-8 text-[10px] leading-4 text-slate-500">{description}</p>
         </div>
       </div>
-      <button type="button" onClick={onClick} className="mt-3 flex min-h-8 w-full items-center justify-between rounded-lg border border-slate-200 px-2.5 text-[10px] font-semibold text-slate-700 hover:border-teal-200 hover:bg-teal-50">
+      <button type="button" onClick={onClick} className="mt-3 flex min-h-8 w-full items-center justify-between rounded-lg border border-border px-2.5 text-[10px] font-semibold text-text-main hover:border-primary-300 hover:bg-primary-50">
         {cta}<ArrowRightIcon className="h-3.5 w-3.5" aria-hidden="true" />
       </button>
     </Surface>
@@ -114,7 +114,7 @@ function SmartAction({ icon: Icon, title, description, cta, status, tone, onClic
 function KpiCard({ label, value, trend, tone, icon: Icon, onClick }: { label: string; value: string | number; trend: string; tone: Tone; icon: React.ElementType; onClick: () => void }) {
   const styles = toneStyles[tone];
   return (
-    <button type="button" onClick={onClick} aria-label={`${label}: ${value}. ${trend}`} className="min-w-0 rounded-xl border border-slate-200/90 bg-white p-3 text-left shadow-[0_3px_14px_rgba(15,23,42,0.035)] transition hover:border-teal-200 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+    <button type="button" onClick={onClick} aria-label={`${label}: ${value}. ${trend}`} className="theme-kpi min-w-0 rounded-xl border p-3 text-left transition focus:outline-none focus:ring-2 focus:ring-primary-500">
       <div className="flex items-center gap-2"><span className={`flex h-7 w-7 items-center justify-center rounded-lg ${styles.icon}`}><Icon className="h-4 w-4" aria-hidden="true" /></span><span className="truncate text-xs font-semibold text-slate-600">{label}</span></div>
       <p className={`mt-2 text-xl font-extrabold tracking-tight ${styles.value}`}>{value}</p>
       <p className={`mt-1 truncate text-[10px] font-semibold ${styles.trend}`}>{trend}</p>
@@ -127,7 +127,7 @@ function Metric({ label, value, color }: { label: string; value: number; color: 
 }
 
 function EmptyState({ label, action, onAction }: { label: string; action?: string; onAction?: () => void }) {
-  return <div className="px-4 py-7 text-center text-xs text-slate-500"><p>{label}</p>{action && onAction ? <button type="button" onClick={onAction} className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-teal-700 hover:bg-teal-50">{action}</button> : null}</div>;
+  return <div className="px-4 py-7 text-center text-xs text-slate-500"><p>{label}</p>{action && onAction ? <button type="button" onClick={onAction} className="theme-link mt-3 rounded-lg border border-border bg-card px-3 py-2 text-[11px] font-bold hover:bg-primary-50">{action}</button> : null}</div>;
 }
 
 function statusClass(status: string) {
@@ -339,7 +339,6 @@ export default function DashboardCommandCenter() {
   }), [recentBookings]);
   const hasMonthBookingMix = Boolean(bookingMixQuery.data?.length);
   const bookingSources = useMemo(() => {
-    const palette = ['#2fbf9f', '#75d8ca', '#9db9f5', '#f8cf69', '#f39a96', '#cbd5e1'];
     const monthlyMix = bookingMixQuery.data ?? [];
     const fallbackMix = Array.from(recentBookings.reduce((counts, booking) => {
       counts.set(booking.source, (counts.get(booking.source) ?? 0) + 1);
@@ -349,6 +348,14 @@ export default function DashboardCommandCenter() {
       count,
       percentage: recentBookings.length ? Math.round((count / recentBookings.length) * 100) : 0,
     }));
+    const palette = [
+      'rgb(var(--laflo-chart-primary))',
+      'rgb(var(--laflo-chart-secondary))',
+      'rgb(var(--laflo-chart-tertiary))',
+      'rgb(var(--laflo-chart-quaternary))',
+      'rgb(var(--laflo-accent))',
+      'rgb(var(--laflo-text-muted))',
+    ];
     return (monthlyMix.length ? monthlyMix : fallbackMix).map((item, index) => ({
       name: item.source.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase()),
       value: item.percentage,
@@ -367,7 +374,7 @@ export default function DashboardCommandCenter() {
   const bookingRows = filteredBookings.slice((bookingPage - 1) * pageSize, bookingPage * pageSize);
 
   return (
-    <div data-dashboard-view={roleView} className="min-h-full bg-[#f8faf9]">
+    <div data-dashboard-view={roleView} className="min-h-full bg-transparent">
       <div className="mx-auto w-full max-w-[2200px] space-y-3">
         <header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -381,7 +388,7 @@ export default function DashboardCommandCenter() {
               onClick={() => navigate('/operations-center/weather')}
               aria-label={`Weather for ${propertyCity}. Local time ${propertyTime}. ${weatherTemperatureLabel}. ${weatherSummary}. ${weatherRisk} risk. ${weatherFreshness}.`}
               title={`${propertyCity} · ${propertyTime} · ${weatherSummary}`}
-              className={`inline-flex h-10 max-w-[310px] items-center gap-2 rounded-lg border bg-white px-3 text-left transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 ${weatherRisk === 'high' ? 'border-rose-200' : weather?.stale ? 'border-amber-200' : 'border-slate-200'}`}
+              className={`inline-flex h-10 max-w-[310px] items-center gap-2 rounded-lg border bg-white px-3 text-left transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary-500 ${weatherRisk === 'high' ? 'border-rose-200' : weather?.stale ? 'border-amber-200' : 'border-slate-200'}`}
             >
               <CloudIcon className={`h-4 w-4 shrink-0 ${weatherRisk === 'high' ? 'text-rose-600' : weather?.stale ? 'text-amber-600' : 'text-sky-600'}`} aria-hidden="true" />
               <span className="min-w-0">
@@ -389,7 +396,7 @@ export default function DashboardCommandCenter() {
                 <span className="block truncate text-[9px] text-slate-500">{weatherTemperatureLabel} · {weatherSummary} · {weatherFreshness}</span>
               </span>
             </button> : null}
-            {can('bookings') ? <button type="button" onClick={() => navigate('/bookings?action=new')} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#087f72] px-3 text-xs font-bold text-white hover:bg-[#06695f]"><PlusIcon className="h-4 w-4" />New booking</button> : null}
+            {can('bookings') ? <button type="button" onClick={() => navigate('/bookings?action=new')} className="btn-primary h-9 px-3 text-xs font-bold"><PlusIcon className="h-4 w-4" />New booking</button> : null}
             {can('guests') ? <button type="button" onClick={() => navigate('/guests?action=add')} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50"><PlusIcon className="h-4 w-4" />Add guest</button> : null}
           </div>
         </header>
@@ -405,7 +412,7 @@ export default function DashboardCommandCenter() {
 
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div><h2 className="text-sm font-bold text-slate-950">Today’s operations</h2><p className="text-[10px] text-slate-500">Property-local activity for {dateLabel}</p></div>
-          <span className="rounded-full border border-teal-200 bg-teal-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-teal-700">Today</span>
+          <span className="theme-chip rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide">Today</span>
         </div>
         <div className="grid grid-cols-2 gap-2.5 sm:[grid-template-columns:repeat(auto-fit,minmax(170px,1fr))]" data-testid="dashboard-kpi-row">
           {canViewBookings ? <KpiCard label="Bookings created" value={summary.todayBookings} trend="Created today" tone="teal" icon={CalendarDaysIcon} onClick={() => navigate('/bookings')} /> : null}
@@ -462,13 +469,13 @@ export default function DashboardCommandCenter() {
                 <div className={hasRevenueTrend ? 'h-56 px-2 pb-3' : 'h-44 px-2 pb-3'}>
                   <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 500, height: 224 }}>
                     <AreaChart data={revenueTrend} margin={{ top: 8, right: 10, left: -12, bottom: 0 }}>
-                      <defs><linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#0f9f8f" stopOpacity={0.24} /><stop offset="100%" stopColor="#0f9f8f" stopOpacity={0.02} /></linearGradient><linearGradient id="bookedValueFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3b82f6" stopOpacity={0.18} /><stop offset="100%" stopColor="#3b82f6" stopOpacity={0.01} /></linearGradient></defs>
-                      <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#64748b' }} />
-                      <YAxis domain={hasRevenueTrend ? [0, 'auto'] : [0, 1]} ticks={hasRevenueTrend ? undefined : [0]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#64748b' }} tickFormatter={(value) => currencyFormatter.format(Number(value))} />
-                      <Tooltip formatter={(value, name) => [currencyFormatter.format(Number(value)), name === 'bookedValue' ? 'Booked stay value' : 'Posted revenue']} />
-                      <Area type="monotone" dataKey="bookedValue" name="Booked stay value" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 4" fill="url(#bookedValueFill)" />
-                      <Area type="monotone" dataKey="postedValue" name="Posted revenue" stroke="#0f9f8f" strokeWidth={2.5} fill="url(#revenueFill)" />
+                      <defs><linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="rgb(var(--laflo-chart-primary))" stopOpacity={0.24} /><stop offset="100%" stopColor="rgb(var(--laflo-chart-primary))" stopOpacity={0.02} /></linearGradient><linearGradient id="bookedValueFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="rgb(var(--laflo-chart-secondary))" stopOpacity={0.18} /><stop offset="100%" stopColor="rgb(var(--laflo-chart-secondary))" stopOpacity={0.01} /></linearGradient></defs>
+                      <CartesianGrid stroke="rgb(var(--laflo-border))" strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'rgb(var(--laflo-text-muted))' }} />
+                      <YAxis domain={hasRevenueTrend ? [0, 'auto'] : [0, 1]} ticks={hasRevenueTrend ? undefined : [0]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'rgb(var(--laflo-text-muted))' }} tickFormatter={(value) => currencyFormatter.format(Number(value))} />
+                      <Tooltip contentStyle={{ borderColor: 'rgb(var(--laflo-card-accent) / 0.35)', borderRadius: '0.75rem', background: 'rgb(var(--laflo-surface))', color: 'rgb(var(--laflo-text))' }} itemStyle={{ color: 'rgb(var(--laflo-text))' }} formatter={(value, name) => [currencyFormatter.format(Number(value)), name === 'bookedValue' ? 'Booked stay value' : 'Posted revenue']} />
+                      <Area type="monotone" dataKey="bookedValue" name="Booked stay value" stroke="rgb(var(--laflo-chart-secondary))" strokeWidth={2} strokeDasharray="5 4" fill="url(#bookedValueFill)" />
+                      <Area type="monotone" dataKey="postedValue" name="Posted revenue" stroke="rgb(var(--laflo-chart-primary))" strokeWidth={2.5} fill="url(#revenueFill)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
@@ -477,10 +484,10 @@ export default function DashboardCommandCenter() {
               {canViewReviews ? <Surface testId="guest-experience-panel">
                 <PanelHeader title="Guest experience" subtitle={reviews.length ? `${reviews.length} live reviews` : 'No live review data'} action="View reviews" onAction={() => navigate('/reviews')} />
                 <div className="px-4 pb-4">
-                  {reviews.length ? <><div className="flex items-end gap-3"><span className="rounded-lg bg-lime-200 px-2 py-1 text-2xl font-extrabold text-slate-950">{averageRating.toFixed(1)}</span><div className="pb-1"><p className="text-xs font-bold text-slate-900">{reviews.length < 5 ? 'Early signal' : averageRating >= 4 ? 'Impressive' : averageRating >= 3 ? 'Stable' : 'Needs attention'}</p><p className="text-[10px] text-slate-500">{reviews.length} live reviews</p></div></div>
+                  {reviews.length ? <><div className="flex items-end gap-3"><span className="theme-chip rounded-lg border px-2 py-1 text-2xl font-extrabold">{averageRating.toFixed(1)}</span><div className="pb-1"><p className="text-xs font-bold text-slate-900">{reviews.length < 5 ? 'Early signal' : averageRating >= 4 ? 'Impressive' : averageRating >= 3 ? 'Stable' : 'Needs attention'}</p><p className="text-[10px] text-slate-500">{reviews.length} live reviews</p></div></div>
                   {reviews.length < 5 ? <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-[10px] font-medium text-amber-800">Limited sample: treat this score as directional until more guest reviews arrive.</p> : null}
                   <div className="mt-4 space-y-2">
-                    {ratingBreakdown.map((item) => <div key={item.rating} className="grid grid-cols-[70px_1fr_24px] items-center gap-2 text-[9px]"><span className="text-slate-500">{item.rating} star</span><div className="h-1.5 rounded-full bg-slate-100"><div className="h-full rounded-full bg-lime-300" style={{ width: `${item.percentage}%` }} /></div><strong className="text-right text-slate-700">{item.count}</strong></div>)}
+                    {ratingBreakdown.map((item) => <div key={item.rating} className="grid grid-cols-[70px_1fr_24px] items-center gap-2 text-[9px]"><span className="text-slate-500">{item.rating} star</span><div className="h-1.5 rounded-full bg-slate-100"><div className="h-full rounded-full bg-primary-solid" style={{ width: `${item.percentage}%` }} /></div><strong className="text-right text-slate-700">{item.count}</strong></div>)}
                   </div>
                   <div className="mt-4 grid grid-cols-3 gap-1.5 text-center text-[9px]"><div className="rounded-lg bg-emerald-50 p-2 text-emerald-700"><strong className="block text-sm">{positive}</strong>Positive</div><div className="rounded-lg bg-sky-50 p-2 text-sky-700"><strong className="block text-sm">{neutral}</strong>Neutral</div><div className="rounded-lg bg-rose-50 p-2 text-rose-700"><strong className="block text-sm">{negative}</strong>Negative</div></div>
                   <div className="mt-2 text-[10px] text-slate-500">{negative} low-rating reviews</div></> : <EmptyState label="No live guest reviews are available." action="Open reviews" onAction={() => navigate('/reviews')} />}
@@ -528,7 +535,7 @@ export default function DashboardCommandCenter() {
                 {bookingSources.length ? <><div className="grid flex-1 items-center gap-2 px-3 pb-3 sm:grid-cols-[180px_1fr]">
                   <div className="h-44">
                     <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 180, height: 176 }}>
-                      <PieChart><Pie data={bookingSources} dataKey="value" nameKey="name" innerRadius={44} outerRadius={68} paddingAngle={1}>{bookingSources.map((source) => <Cell key={source.name} fill={source.color} />)}</Pie><Tooltip formatter={(value) => `${value}%`} /></PieChart>
+                      <PieChart><Pie data={bookingSources} dataKey="value" nameKey="name" innerRadius={44} outerRadius={68} paddingAngle={1}>{bookingSources.map((source) => <Cell key={source.name} fill={source.color} />)}</Pie><Tooltip contentStyle={{ borderColor: 'rgb(var(--laflo-card-accent) / 0.35)', borderRadius: '0.75rem', background: 'rgb(var(--laflo-surface))', color: 'rgb(var(--laflo-text))' }} itemStyle={{ color: 'rgb(var(--laflo-text))' }} formatter={(value) => `${value}%`} /></PieChart>
                     </ResponsiveContainer>
                   </div>
                   <div className="space-y-1.5">{bookingSources.map((source) => <div key={source.name} className="flex items-center justify-between gap-2 text-[9px]"><span className="flex items-center gap-2 text-slate-600"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: source.color }} />{source.name}</span><strong>{source.value}%</strong></div>)}</div>
@@ -575,13 +582,13 @@ export default function DashboardCommandCenter() {
               <PanelHeader title="Tasks" subtitle="Operational task service" action="Open tasks" onAction={() => navigate('/operations-center/tasks')} />
               <div className="px-4 pb-5"><div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center"><p className="text-xs font-semibold text-slate-800">Task service is not connected</p><p className="mt-1 text-[11px] leading-4 text-slate-500">Connect the task service to show assigned work. Sample tasks are hidden in production.</p></div></div>
             </Surface> : null}
-            <Surface className="overflow-hidden border-teal-200">
-              <div className="bg-teal-950 px-4 py-3 text-white"><div className="flex items-center gap-2"><SparklesIcon className="h-4 w-4 text-teal-200" /><h2 className="text-xs font-bold">Operational attention</h2></div><p className="mt-1 text-[9px] text-teal-100/70">Authorised live priorities and Hotel Brain guidance</p></div>
-              <div className="divide-y divide-slate-100">{attentionItems.length ? attentionItems.map((item, index) => <button key={`${item.title}-${index}`} type="button" onClick={() => navigate(item.route)} className="w-full px-4 py-3 text-left hover:bg-slate-50"><div className="flex items-start justify-between gap-2"><p className="text-[11px] font-bold text-slate-900">{item.title}</p><span className={`shrink-0 rounded-full px-2 py-0.5 text-[8px] font-bold uppercase ${item.severity === 'CRITICAL' || item.severity === 'HIGH' ? 'bg-rose-50 text-rose-700' : item.severity === 'MEDIUM' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>{item.severity}</span></div><p className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-600">{item.detail}</p>{item.owner ? <p className="mt-1 text-[9px] font-semibold text-teal-700">Owner: {item.owner}</p> : null}</button>) : <EmptyState label="No operational priorities require attention." />}</div>
+            <Surface className="overflow-hidden">
+              <div className="theme-widget-header px-4 py-3"><div className="flex items-center gap-2"><SparklesIcon className="h-4 w-4 opacity-80" /><h2 className="text-xs font-bold">Operational attention</h2></div><p className="mt-1 text-[9px] opacity-70">Authorised live priorities and Hotel Brain guidance</p></div>
+              <div className="divide-y divide-slate-100">{attentionItems.length ? attentionItems.map((item, index) => <button key={`${item.title}-${index}`} type="button" onClick={() => navigate(item.route)} className="w-full px-4 py-3 text-left hover:bg-slate-50"><div className="flex items-start justify-between gap-2"><p className="text-[11px] font-bold text-slate-900">{item.title}</p><span className={`shrink-0 rounded-full px-2 py-0.5 text-[8px] font-bold uppercase ${item.severity === 'CRITICAL' || item.severity === 'HIGH' ? 'bg-rose-50 text-rose-700' : item.severity === 'MEDIUM' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>{item.severity}</span></div><p className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-600">{item.detail}</p>{item.owner ? <p className="theme-link mt-1 text-[9px] font-semibold">Owner: {item.owner}</p> : null}</button>) : <EmptyState label="No operational priorities require attention." />}</div>
             </Surface>
             <Surface>
               <PanelHeader title="Recent activities" subtitle="Latest unique operational changes" action="View all" onAction={() => navigate('/settings?tab=audit-trail')} />
-              <div className="px-3 pb-2">{recentTimeline.length ? recentTimeline.map((event) => <div key={event.id} className="relative border-l border-teal-200 py-2 pl-4"><span className="absolute -left-1 top-3 h-2 w-2 rounded-full bg-teal-500 ring-2 ring-white" /><p className="text-[10px] font-bold text-slate-900">{event.summary}</p><p className="mt-1 text-[9px] text-slate-500">{event.module} · {new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date(event.timestamp))}</p></div>) : <EmptyState label="No live activity is available yet." />}</div>
+              <div className="px-3 pb-2">{recentTimeline.length ? recentTimeline.map((event) => <div key={event.id} className="relative border-l border-primary-200 py-2 pl-4"><span className="absolute -left-1 top-3 h-2 w-2 rounded-full bg-primary-solid ring-2 ring-card" /><p className="text-[10px] font-bold text-slate-900">{event.summary}</p><p className="mt-1 text-[9px] text-slate-500">{event.module} · {new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date(event.timestamp))}</p></div>) : <EmptyState label="No live activity is available yet." />}</div>
             </Surface>
           </aside>
         </div>

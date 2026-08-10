@@ -148,7 +148,7 @@ function SummaryCard({
   tone: string;
 }) {
   return (
-    <article className="flex min-w-0 items-center gap-3 rounded-2xl border border-border bg-card p-3.5 shadow-sm">
+    <article className="theme-kpi flex min-w-0 items-center gap-3 rounded-2xl border p-3.5">
       <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${tone}`}>
         <Icon className="h-5 w-5" aria-hidden="true" />
       </span>

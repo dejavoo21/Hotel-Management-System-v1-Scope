@@ -397,7 +397,7 @@ export default function IntegrationManagerPanel() {
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+        <div className="theme-kpi-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
           <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
             <Database className="h-5 w-5 text-slate-500" />
             <p className="mt-2 text-xs font-semibold text-text-muted">Categories</p><p className="mt-1 text-xl font-bold text-text-main">{overview?.categories.length || 0}</p><p className="text-xs text-text-muted">Integration groups available</p>

@@ -180,7 +180,9 @@ describe('route smoke tests', () => {
     await waitFor(() => {
       expect(screen.getByTestId('dashboard-smart-actions')).toBeInTheDocument();
       expect(screen.getByTestId('dashboard-kpi-row')).toBeInTheDocument();
+      expect(screen.getByTestId('dashboard-kpi-row').querySelector('.theme-kpi')).toBeInTheDocument();
       expect(screen.getByTestId('room-readiness-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('room-readiness-panel')).toHaveClass('theme-card');
       expect(screen.getByTestId('revenue-panel')).toBeInTheDocument();
       expect(screen.getByTestId('guest-experience-panel')).toBeInTheDocument();
       expect(screen.getByTestId('booking-platform-panel')).toBeInTheDocument();

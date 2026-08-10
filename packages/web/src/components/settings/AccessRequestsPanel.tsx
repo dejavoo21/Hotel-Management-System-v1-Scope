@@ -195,7 +195,7 @@ function SummaryCard({
     sky: 'bg-sky-100 text-sky-600',
   };
   return (
-    <article className="flex min-w-0 items-center gap-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+    <article className="theme-kpi flex min-w-0 items-center gap-4 rounded-xl border p-4">
       <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tones[tone]}`}>
         <Icon className="h-5 w-5" aria-hidden="true" />
       </span>

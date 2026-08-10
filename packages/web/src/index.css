@@ -60,7 +60,7 @@
   --color-warning: 217 119 6;
   --color-danger: 220 38 38;
   --color-info: 14 165 233;
-  --color-accent: 132 204 22;
+  --color-accent: 20 184 166;
 
   --color-primary-50: 247 254 231;
   --color-primary-100: 236 252 203;
@@ -89,6 +89,7 @@
   --color-warning: 217 119 6;
   --color-danger: 220 38 38;
   --color-info: 14 165 233;
+  --color-accent: 20 184 166;
 
   --color-primary-50: 240 249 255;
   --color-primary-100: 224 242 254;
@@ -117,6 +118,7 @@
   --color-warning: 217 119 6;
   --color-danger: 220 38 38;
   --color-info: 2 132 199;
+  --color-accent: 249 115 22;
 
   --color-primary-50: 255 251 235;
   --color-primary-100: 254 243 199;
@@ -145,6 +147,7 @@
   --color-warning: 251 191 36;
   --color-danger: 248 113 113;
   --color-info: 56 189 248;
+  --color-accent: 56 189 248;
   color-scheme: dark;
 
   --color-primary-50: 33 48 12;
@@ -167,8 +170,11 @@
 :root {
   --laflo-primary: var(--color-primary);
   --laflo-primary-hover: var(--color-primary-hover);
+  --laflo-primary-soft: var(--color-primary-50);
+  --laflo-primary-strong: var(--color-primary-700);
   --laflo-on-primary: var(--color-on-primary);
   --laflo-accent: var(--color-accent);
+  --laflo-accent-soft: var(--color-primary-100);
   --laflo-bg: var(--color-bg);
   --laflo-surface: var(--color-bg-card);
   --laflo-surface-muted: var(--color-surface-muted);
@@ -181,10 +187,44 @@
   --laflo-info: var(--color-info);
   --laflo-card-shadow: var(--shadow-card);
   --laflo-focus-ring: var(--color-primary-500);
+  --laflo-kpi-icon-bg: var(--color-primary-50);
+  --laflo-kpi-icon-fg: var(--color-primary-700);
+  --laflo-card-accent: var(--color-primary-500);
+  --laflo-card-accent-soft: var(--color-primary-100);
+  --laflo-chart-primary: var(--color-primary);
+  --laflo-chart-secondary: var(--color-info);
+  --laflo-chart-tertiary: var(--color-primary-300);
+  --laflo-chart-quaternary: var(--color-primary-800);
+  --laflo-chip-bg: var(--color-primary-50);
+  --laflo-chip-text: var(--color-primary-700);
+  --laflo-link-accent: var(--color-primary-700);
+  --laflo-widget-highlight: var(--color-primary-50);
+}
+
+[data-theme='laflo-green'] {
+  --laflo-chart-secondary: 13 148 136;
+  --laflo-chart-tertiary: 45 212 191;
+  --laflo-chart-quaternary: 63 98 18;
+}
+
+[data-theme='ocean-blue'] {
+  --laflo-chart-secondary: 20 184 166;
+  --laflo-chart-tertiary: 125 211 252;
+  --laflo-chart-quaternary: 3 105 161;
+}
+
+[data-theme='amber-sunset'] {
+  --laflo-chart-secondary: 249 115 22;
+  --laflo-chart-tertiary: 252 211 77;
+  --laflo-chart-quaternary: 146 64 14;
 }
 
 [data-theme='dark-mode'] {
   --shadow-card: 0 14px 30px rgb(2 6 23 / 0.34);
+  --laflo-kpi-icon-fg: var(--color-primary-300);
+  --laflo-chart-secondary: 56 189 248;
+  --laflo-chart-tertiary: 45 212 191;
+  --laflo-chart-quaternary: 216 180 254;
 }
 
 /* Custom base styles */
@@ -405,6 +445,89 @@
   color: rgb(var(--laflo-text));
 }
 
+.theme-card {
+  position: relative;
+  border-color: rgb(var(--laflo-border));
+  background-color: rgb(var(--laflo-surface));
+  box-shadow: var(--laflo-card-shadow);
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.theme-card::before {
+  position: absolute;
+  inset: 0.45rem auto 0.45rem 0;
+  width: 2px;
+  border-radius: 999px;
+  background: rgb(var(--laflo-card-accent) / 0.72);
+  content: '';
+}
+
+.theme-card:hover {
+  border-color: rgb(var(--laflo-card-accent) / 0.5);
+  box-shadow: 0 14px 30px rgb(var(--laflo-card-accent) / 0.1);
+}
+
+.theme-kpi,
+[aria-label='Notification summary'] > article,
+.theme-kpi-grid > * {
+  position: relative;
+  overflow: hidden;
+  border-color: rgb(var(--laflo-card-accent) / 0.28);
+  background: linear-gradient(145deg, rgb(var(--laflo-surface)) 54%, rgb(var(--laflo-widget-highlight) / 0.68));
+  box-shadow: var(--laflo-card-shadow);
+}
+
+.theme-kpi::after,
+[aria-label='Notification summary'] > article::after,
+.theme-kpi-grid > *::after {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, rgb(var(--laflo-card-accent)), rgb(var(--laflo-card-accent) / 0.08));
+  content: '';
+}
+
+.theme-kpi:hover,
+[aria-label='Notification summary'] > article:hover,
+.theme-kpi-grid > *:hover {
+  border-color: rgb(var(--laflo-card-accent) / 0.62);
+  box-shadow: 0 14px 28px rgb(var(--laflo-card-accent) / 0.14);
+  transform: translateY(-1px);
+}
+
+.theme-kpi-icon {
+  background-color: rgb(var(--laflo-kpi-icon-bg));
+  color: rgb(var(--laflo-kpi-icon-fg));
+  box-shadow: inset 0 0 0 1px rgb(var(--laflo-card-accent) / 0.13);
+}
+
+.theme-chip {
+  border-color: rgb(var(--laflo-card-accent) / 0.34);
+  background-color: rgb(var(--laflo-chip-bg));
+  color: rgb(var(--laflo-chip-text));
+}
+
+.theme-link {
+  color: rgb(var(--laflo-link-accent));
+}
+
+.theme-link:hover {
+  color: rgb(var(--laflo-primary-hover));
+}
+
+.theme-widget-header {
+  background: linear-gradient(115deg, rgb(var(--laflo-primary-strong)), rgb(var(--laflo-primary)));
+  color: rgb(var(--laflo-on-primary));
+}
+
+.theme-chart-tooltip {
+  border: 1px solid rgb(var(--laflo-card-accent) / 0.35) !important;
+  border-radius: 0.75rem !important;
+  background: rgb(var(--laflo-surface) / 0.96) !important;
+  color: rgb(var(--laflo-text)) !important;
+  box-shadow: var(--laflo-card-shadow) !important;
+}
+
 /* Laflo-style scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
@@ -427,6 +550,7 @@
 @layer components {
   .card {
     @apply rounded-xl bg-card p-4 shadow-card ring-1 ring-border;
+    border-top: 2px solid rgb(var(--laflo-card-accent) / 0.58);
   }
 
   .card-hover {
