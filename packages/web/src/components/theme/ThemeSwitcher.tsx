@@ -1,10 +1,13 @@
 import { useTheme, type ThemeName } from '@/theme/ThemeProvider';
 
 const THEME_LABELS: Record<ThemeName, string> = {
-  'laflo-green': 'LaFlo Green',
+  'laflo-professional': 'LaFlo Professional',
   'ocean-blue': 'Ocean Blue',
   'amber-sunset': 'Amber Sunset',
-  'dark-mode': 'Dark Mode',
+  'forest-green': 'Forest Green',
+  'slate-purple': 'Slate Purple',
+  'midnight-dark': 'Midnight Dark',
+  'warm-charcoal': 'Warm Charcoal',
 };
 
 export default function ThemeSwitcher() {

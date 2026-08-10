@@ -121,7 +121,7 @@ export const SidebarFlyout = memo(function SidebarFlyout({
           focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400
           ${nested ? 'px-3 py-2 pl-8' : 'px-3 py-2.5'}
           ${isActive
-            ? 'bg-slate-800 text-white shadow-sm'
+            ? 'app-sidebar-nav-active shadow-sm'
             : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
           }
         `}
@@ -188,7 +188,7 @@ export const SidebarFlyout = memo(function SidebarFlyout({
           transition-all duration-150
           focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400
           ${groupIsActive
-            ? 'bg-slate-800 text-white shadow-sm'
+            ? 'app-sidebar-nav-active shadow-sm'
             : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
           }
         `}
@@ -203,8 +203,8 @@ export const SidebarFlyout = memo(function SidebarFlyout({
     <div
       ref={flyoutRef}
       className={`
-        absolute left-[68px] top-0 h-full w-72 bg-white
-        border-r border-slate-200/80
+        app-sidebar absolute left-[68px] top-0 h-full w-72
+        border-r
         shadow-xl shadow-slate-200/50
         transform transition-transform duration-200 ease-out
         ${openSection ? 'translate-x-0' : '-translate-x-full'}

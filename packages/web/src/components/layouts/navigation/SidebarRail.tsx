@@ -109,12 +109,12 @@ export const SidebarRail = memo(function SidebarRail({
         className={`
           relative flex items-center justify-center w-11 h-11 rounded-xl
           transition-all duration-200 ease-out
-          focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
+          focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2
           ${isActive || isLocked
-            ? 'bg-slate-800 text-white shadow-lg scale-105'
+            ? 'app-sidebar-nav-active shadow-lg scale-105'
             : hasActiveRoute
-            ? 'bg-slate-100 text-slate-700'
-            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+            ? 'app-sidebar-nav-current'
+            : 'app-sidebar-nav-idle'
           }
         `}
         onMouseEnter={() => onIconHover(section.id)}
@@ -149,7 +149,7 @@ export const SidebarRail = memo(function SidebarRail({
   };
 
   return (
-    <div className="flex flex-col h-full w-[68px] bg-white border-r border-slate-200/80 shrink-0">
+    <div className="app-sidebar flex flex-col h-full w-[68px] border-r shrink-0">
       {/* Logo */}
       <div className="flex items-center justify-center h-16 border-b border-slate-100">
         <img 

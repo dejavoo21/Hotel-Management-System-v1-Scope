@@ -45,7 +45,8 @@
   --color-primary-950: 8 47 73;
 }
 
-[data-theme='laflo-green'] {
+[data-theme='laflo-green'],
+[data-theme='laflo-professional'] {
   /* LaFlo theme retains lime green as the main brand color */
   --color-primary: 101 163 13;
   --color-primary-hover: 77 124 15;
@@ -163,6 +164,120 @@
   --color-primary-950: 26 46 5;
 }
 
+[data-theme='forest-green'] {
+  --color-primary: 22 101 52;
+  --color-primary-hover: 20 83 45;
+  --color-on-primary: 255 255 255;
+  --color-bg: 246 250 247;
+  --color-bg-card: 255 255 255;
+  --color-surface-muted: 236 253 245;
+  --color-text-main: 20 47 35;
+  --color-text-muted: 82 112 96;
+  --color-border: 209 229 217;
+  --color-success: 22 163 74;
+  --color-warning: 217 119 6;
+  --color-danger: 220 38 38;
+  --color-info: 2 132 199;
+  --color-accent: 13 148 136;
+  --color-primary-50: 240 253 244;
+  --color-primary-100: 220 252 231;
+  --color-primary-200: 187 247 208;
+  --color-primary-300: 134 239 172;
+  --color-primary-400: 74 222 128;
+  --color-primary-500: 34 197 94;
+  --color-primary-600: 22 163 74;
+  --color-primary-700: 21 128 61;
+  --color-primary-800: 22 101 52;
+  --color-primary-900: 20 83 45;
+  --color-primary-950: 5 46 22;
+}
+
+[data-theme='slate-purple'] {
+  --color-primary: 109 40 217;
+  --color-primary-hover: 91 33 182;
+  --color-on-primary: 255 255 255;
+  --color-bg: 249 248 252;
+  --color-bg-card: 255 255 255;
+  --color-surface-muted: 245 243 255;
+  --color-text-main: 30 27 75;
+  --color-text-muted: 100 92 128;
+  --color-border: 226 221 238;
+  --color-success: 5 150 105;
+  --color-warning: 217 119 6;
+  --color-danger: 220 38 38;
+  --color-info: 2 132 199;
+  --color-accent: 139 92 246;
+  --color-primary-50: 245 243 255;
+  --color-primary-100: 237 233 254;
+  --color-primary-200: 221 214 254;
+  --color-primary-300: 196 181 253;
+  --color-primary-400: 167 139 250;
+  --color-primary-500: 139 92 246;
+  --color-primary-600: 124 58 237;
+  --color-primary-700: 109 40 217;
+  --color-primary-800: 91 33 182;
+  --color-primary-900: 76 29 149;
+  --color-primary-950: 46 16 101;
+}
+
+[data-theme='midnight-dark'] {
+  --color-primary: 34 211 238;
+  --color-primary-hover: 6 182 212;
+  --color-on-primary: 8 47 73;
+  --color-bg: 2 6 23;
+  --color-bg-card: 15 23 42;
+  --color-surface-muted: 17 30 51;
+  --color-text-main: 241 245 249;
+  --color-text-muted: 148 163 184;
+  --color-border: 45 60 82;
+  --color-success: 52 211 153;
+  --color-warning: 251 191 36;
+  --color-danger: 248 113 113;
+  --color-info: 56 189 248;
+  --color-accent: 45 212 191;
+  --color-primary-50: 8 51 68;
+  --color-primary-100: 14 70 86;
+  --color-primary-200: 21 94 109;
+  --color-primary-300: 34 211 238;
+  --color-primary-400: 34 211 238;
+  --color-primary-500: 6 182 212;
+  --color-primary-600: 8 145 178;
+  --color-primary-700: 14 116 144;
+  --color-primary-800: 21 94 117;
+  --color-primary-900: 22 78 99;
+  --color-primary-950: 8 51 68;
+  color-scheme: dark;
+}
+
+[data-theme='warm-charcoal'] {
+  --color-primary: 245 158 11;
+  --color-primary-hover: 217 119 6;
+  --color-on-primary: 28 25 23;
+  --color-bg: 28 25 23;
+  --color-bg-card: 41 37 36;
+  --color-surface-muted: 49 44 42;
+  --color-text-main: 250 250 249;
+  --color-text-muted: 168 162 158;
+  --color-border: 87 83 78;
+  --color-success: 74 222 128;
+  --color-warning: 251 191 36;
+  --color-danger: 248 113 113;
+  --color-info: 56 189 248;
+  --color-accent: 251 146 60;
+  --color-primary-50: 69 45 12;
+  --color-primary-100: 82 55 17;
+  --color-primary-200: 120 72 16;
+  --color-primary-300: 252 211 77;
+  --color-primary-400: 251 191 36;
+  --color-primary-500: 245 158 11;
+  --color-primary-600: 217 119 6;
+  --color-primary-700: 180 83 9;
+  --color-primary-800: 146 64 14;
+  --color-primary-900: 120 53 15;
+  --color-primary-950: 69 26 3;
+  color-scheme: dark;
+}
+
 /*
  * Public LaFlo design-token contract. Shared components should prefer these
  * aliases; they intentionally resolve through the active data-theme values.
@@ -175,12 +290,17 @@
   --laflo-on-primary: var(--color-on-primary);
   --laflo-accent: var(--color-accent);
   --laflo-accent-soft: var(--color-primary-100);
+  --laflo-accent-strong: var(--color-primary-700);
   --laflo-bg: var(--color-bg);
+  --laflo-app-bg: var(--color-bg);
   --laflo-surface: var(--color-bg-card);
   --laflo-surface-muted: var(--color-surface-muted);
+  --laflo-card-bg: var(--color-bg-card);
+  --laflo-card-border: var(--color-border);
   --laflo-border: var(--color-border);
   --laflo-text: var(--color-text-main);
   --laflo-text-muted: var(--color-text-muted);
+  --laflo-text-soft: var(--color-text-muted);
   --laflo-success: var(--color-success);
   --laflo-warning: var(--color-warning);
   --laflo-danger: var(--color-danger);
@@ -189,6 +309,9 @@
   --laflo-focus-ring: var(--color-primary-500);
   --laflo-kpi-icon-bg: var(--color-primary-50);
   --laflo-kpi-icon-fg: var(--color-primary-700);
+  --laflo-kpi-icon-text: var(--laflo-kpi-icon-fg);
+  --laflo-kpi-accent: var(--color-primary-500);
+  --laflo-kpi-border: var(--color-primary-200);
   --laflo-card-accent: var(--color-primary-500);
   --laflo-card-accent-soft: var(--color-primary-100);
   --laflo-chart-primary: var(--color-primary);
@@ -199,9 +322,27 @@
   --laflo-chip-text: var(--color-primary-700);
   --laflo-link-accent: var(--color-primary-700);
   --laflo-widget-highlight: var(--color-primary-50);
+  --laflo-widget-accent: var(--color-primary-500);
+  --laflo-widget-accent-soft: var(--color-primary-50);
+  --laflo-chart-grid: var(--color-border);
+  --laflo-chart-tooltip-bg: var(--color-bg-card);
+  --laflo-button-primary-bg: var(--color-primary);
+  --laflo-button-primary-text: var(--color-on-primary);
+  --laflo-button-secondary-bg: var(--color-bg-card);
+  --laflo-button-secondary-text: var(--color-text-main);
+  --laflo-sidebar-bg: var(--color-bg-card);
+  --laflo-sidebar-text: var(--color-text-main);
+  --laflo-sidebar-muted: var(--color-text-muted);
+  --laflo-sidebar-active-bg: var(--color-primary);
+  --laflo-sidebar-active-text: var(--color-on-primary);
+  --laflo-sidebar-border: var(--color-border);
+  --laflo-header-bg: var(--color-bg-card);
+  --laflo-header-border: var(--color-border);
+  --laflo-header-text: var(--color-text-main);
 }
 
-[data-theme='laflo-green'] {
+[data-theme='laflo-green'],
+[data-theme='laflo-professional'] {
   --laflo-chart-secondary: 13 148 136;
   --laflo-chart-tertiary: 45 212 191;
   --laflo-chart-quaternary: 63 98 18;
@@ -225,6 +366,34 @@
   --laflo-chart-secondary: 56 189 248;
   --laflo-chart-tertiary: 45 212 191;
   --laflo-chart-quaternary: 216 180 254;
+}
+
+[data-theme='forest-green'] {
+  --laflo-chart-secondary: 13 148 136;
+  --laflo-chart-tertiary: 74 222 128;
+  --laflo-chart-quaternary: 20 83 45;
+}
+
+[data-theme='slate-purple'] {
+  --laflo-chart-secondary: 14 165 233;
+  --laflo-chart-tertiary: 196 181 253;
+  --laflo-chart-quaternary: 76 29 149;
+}
+
+[data-theme='midnight-dark'] {
+  --shadow-card: 0 16px 34px rgb(0 0 0 / 0.38);
+  --laflo-kpi-icon-fg: 103 232 249;
+  --laflo-chart-secondary: 45 212 191;
+  --laflo-chart-tertiary: 96 165 250;
+  --laflo-chart-quaternary: 192 132 252;
+}
+
+[data-theme='warm-charcoal'] {
+  --shadow-card: 0 16px 34px rgb(0 0 0 / 0.34);
+  --laflo-kpi-icon-fg: 252 211 77;
+  --laflo-chart-secondary: 251 146 60;
+  --laflo-chart-tertiary: 253 186 116;
+  --laflo-chart-quaternary: 168 85 247;
 }
 
 /* Custom base styles */
@@ -273,19 +442,19 @@
     --app-background-image: repeating-radial-gradient(ellipse at 10% 125%, transparent 0 34px, rgb(var(--color-info) / 0.1) 35px 36px, transparent 37px 58px);
   }
 
-  [data-theme='dark-mode'][data-background='mist-gradient'] {
+  :is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal'])[data-background='mist-gradient'] {
     --app-background-image: radial-gradient(circle at top left, rgb(var(--color-primary-50) / 0.82) 0%, rgb(var(--color-bg)) 48%, rgb(var(--color-info) / 0.12) 100%);
   }
 
-  [data-theme='dark-mode'][data-background='soft-glow'] {
+  :is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal'])[data-background='soft-glow'] {
     --app-background-image: radial-gradient(circle at 28% 12%, rgb(192 132 252 / 0.14), transparent 40%), radial-gradient(circle at 82% 8%, rgb(var(--color-info) / 0.16), transparent 42%);
   }
 
-  [data-theme='dark-mode'][data-background='dusk-horizon'] {
+  :is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal'])[data-background='dusk-horizon'] {
     --app-background-image: linear-gradient(155deg, rgb(88 28 135 / 0.24), rgb(var(--color-bg)) 48%, rgb(49 46 129 / 0.3));
   }
 
-  [data-theme='dark-mode'][data-background='sand-wash'] {
+  :is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal'])[data-background='sand-wash'] {
     --app-background-image: radial-gradient(circle at 18% 18%, rgb(251 191 36 / 0.08), transparent 28%), radial-gradient(circle at 72% 65%, rgb(180 83 9 / 0.12), transparent 38%), linear-gradient(145deg, rgb(120 53 15 / 0.08), transparent 55%);
   }
 
@@ -442,6 +611,70 @@
 [data-theme] input,
 [data-theme] select,
 [data-theme] textarea {
+  color: rgb(var(--laflo-text));
+  border-color: rgb(var(--laflo-border));
+  background-color: rgb(var(--laflo-surface));
+}
+
+[data-theme] input:focus,
+[data-theme] select:focus,
+[data-theme] textarea:focus {
+  border-color: rgb(var(--laflo-primary));
+  box-shadow: 0 0 0 3px rgb(var(--laflo-focus-ring) / 0.16);
+}
+
+.app-sidebar {
+  border-color: rgb(var(--laflo-sidebar-border));
+  background: linear-gradient(180deg, rgb(var(--laflo-sidebar-bg)), rgb(var(--laflo-sidebar-bg) / 0.96));
+  color: rgb(var(--laflo-sidebar-text));
+}
+
+.app-sidebar-nav-active {
+  background: linear-gradient(135deg, rgb(var(--laflo-sidebar-active-bg)), rgb(var(--laflo-accent)));
+  color: rgb(var(--laflo-sidebar-active-text));
+}
+
+.app-sidebar-nav-current {
+  background-color: rgb(var(--laflo-sidebar-active-bg) / 0.12);
+  color: rgb(var(--laflo-sidebar-active-bg));
+}
+
+.app-sidebar-nav-idle {
+  color: rgb(var(--laflo-sidebar-muted));
+}
+
+.app-sidebar-nav-idle:hover {
+  background-color: rgb(var(--laflo-sidebar-active-bg) / 0.09);
+  color: rgb(var(--laflo-sidebar-text));
+}
+
+.app-header {
+  border-color: rgb(var(--laflo-header-border));
+  background-color: rgb(var(--laflo-header-bg) / 0.94);
+  color: rgb(var(--laflo-header-text));
+  box-shadow: 0 1px 0 rgb(var(--laflo-primary) / 0.05);
+  backdrop-filter: blur(14px);
+}
+
+[data-theme] table thead,
+[data-theme] [role='table'] [role='rowgroup']:first-child {
+  background-color: rgb(var(--laflo-primary-soft) / 0.72);
+  color: rgb(var(--laflo-text));
+}
+
+[data-theme] table tbody tr,
+[data-theme] [role='row'] {
+  border-color: rgb(var(--laflo-border));
+}
+
+[data-theme] table tbody tr:hover {
+  background-color: rgb(var(--laflo-widget-highlight) / 0.72);
+}
+
+[data-theme] dialog,
+[data-theme] [role='dialog'] {
+  border-color: rgb(var(--laflo-border));
+  background-color: rgb(var(--laflo-surface));
   color: rgb(var(--laflo-text));
 }
 
@@ -763,66 +996,66 @@
 }
 
 /* Authentication theme surfaces intentionally use a restrained dark treatment. */
-[data-theme='dark-mode'] .auth-panel {
+:is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal']) .auth-panel {
   color-scheme: dark;
 }
 
-[data-theme='dark-mode'] .auth-login-heading,
-[data-theme='dark-mode'] .auth-login-label {
+:is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal']) .auth-login-heading,
+:is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal']) .auth-login-label {
   color: #f8fafc;
 }
 
-[data-theme='dark-mode'] .auth-login-subtitle,
-[data-theme='dark-mode'] .auth-login-muted {
+:is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal']) .auth-login-subtitle,
+:is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal']) .auth-login-muted {
   color: #cbd5e1;
 }
 
-[data-theme='dark-mode'] .auth-login-input {
+:is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal']) .auth-login-input {
   border-color: #3b5563;
   background: #142a35;
   color: #f8fafc;
 }
 
-[data-theme='dark-mode'] .auth-login-input::placeholder {
+:is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal']) .auth-login-input::placeholder {
   color: #94a3b8;
 }
 
-[data-theme='dark-mode'] .auth-login-input-icon,
-[data-theme='dark-mode'] .auth-login-password-toggle {
+:is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal']) .auth-login-input-icon,
+:is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal']) .auth-login-password-toggle {
   color: #a8bdc8;
 }
 
-[data-theme='dark-mode'] .auth-login-password-toggle:hover {
+:is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal']) .auth-login-password-toggle:hover {
   color: #f8fafc;
 }
 
-[data-theme='dark-mode'] .auth-login-checkbox {
+:is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal']) .auth-login-checkbox {
   border-color: #526d79;
   background: #142a35;
 }
 
-[data-theme='dark-mode'] .auth-login-link {
+:is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal']) .auth-login-link {
   color: #5eead4;
 }
 
-[data-theme='dark-mode'] .auth-login-link:hover {
+:is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal']) .auth-login-link:hover {
   color: #99f6e4;
 }
 
-[data-theme='dark-mode'] .auth-access-card {
+:is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal']) .auth-access-card {
   border-color: rgb(45 212 191 / 0.25);
   background: linear-gradient(90deg, #102b33, #14363b);
 }
 
-[data-theme='dark-mode'] .auth-access-card > div > span {
+:is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal']) .auth-access-card > div > span {
   background: #16433f;
   color: #5eead4;
 }
 
-[data-theme='dark-mode'] .auth-access-title {
+:is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal']) .auth-access-title {
   color: #ccfbf1;
 }
 
-[data-theme='dark-mode'] .auth-access-description {
+:is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal']) .auth-access-description {
   color: #b6c8d1;
 }

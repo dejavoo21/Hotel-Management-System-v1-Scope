@@ -28,7 +28,7 @@ export default function AuthLayout() {
   });
   const { theme, setTheme } = useTheme();
   const languageSelectorRef = useRef<HTMLDivElement>(null);
-  const isDark = theme === 'dark-mode';
+  const isDark = theme === 'midnight-dark' || theme === 'warm-charcoal';
 
   const isFrench = language === 'fr-FR';
   const languageLabel = isFrench ? 'Français' : 'English (UK)';
@@ -204,7 +204,7 @@ export default function AuthLayout() {
             </div>
             <button
               type="button"
-              onClick={() => setTheme(isDark ? 'laflo-green' : 'dark-mode')}
+              onClick={() => setTheme(isDark ? 'laflo-professional' : 'midnight-dark')}
               aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
               aria-pressed={isDark}
               className={`flex h-11 w-11 items-center justify-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-[#079887] ${

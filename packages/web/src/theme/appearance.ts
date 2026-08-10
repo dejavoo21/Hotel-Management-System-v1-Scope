@@ -1,5 +1,13 @@
 export const APPEARANCE_STORAGE_KEY = 'laflo:appearance';
-export const THEMES = ['laflo-green', 'ocean-blue', 'amber-sunset', 'dark-mode'] as const;
+export const THEMES = [
+  'laflo-professional',
+  'ocean-blue',
+  'amber-sunset',
+  'forest-green',
+  'slate-purple',
+  'midnight-dark',
+  'warm-charcoal',
+] as const;
 export const BACKGROUNDS = ['mist-gradient', 'linen-pattern', 'soft-glow', 'dusk-horizon', 'sand-wash', 'tide-lines'] as const;
 
 export type ThemeName = (typeof THEMES)[number];
@@ -11,15 +19,17 @@ export type AppearancePreferences = {
 };
 
 export const DEFAULT_APPEARANCE: AppearancePreferences = {
-  theme: 'laflo-green',
+  theme: 'laflo-professional',
   background: 'mist-gradient',
 };
 
 const LEGACY_THEMES: Record<string, ThemeName> = {
-  laflo: 'laflo-green',
+  laflo: 'laflo-professional',
+  'laflo-green': 'laflo-professional',
   ocean: 'ocean-blue',
   amber: 'amber-sunset',
-  dark: 'dark-mode',
+  dark: 'midnight-dark',
+  'dark-mode': 'midnight-dark',
 };
 
 const LEGACY_BACKGROUNDS: Record<string, BackgroundName> = {
@@ -55,11 +65,12 @@ export function readAppearancePreferences(): AppearancePreferences {
       theme?: unknown;
       background?: unknown;
     };
-    const legacyTheme = window.localStorage.getItem('laflo:theme');
+    const legacyTheme = window.localStorage.getItem('laflo-theme') ?? window.localStorage.getItem('laflo:theme');
+    const legacyBackground = window.localStorage.getItem('laflo-background');
 
     return {
       theme: normalizeTheme(parsed.theme) ?? normalizeTheme(legacyTheme) ?? DEFAULT_APPEARANCE.theme,
-      background: normalizeBackground(parsed.background) ?? DEFAULT_APPEARANCE.background,
+      background: normalizeBackground(parsed.background) ?? normalizeBackground(legacyBackground) ?? DEFAULT_APPEARANCE.background,
     };
   } catch {
     return DEFAULT_APPEARANCE;
@@ -71,4 +82,6 @@ export function saveAppearancePreferences(preferences: AppearancePreferences) {
     APPEARANCE_STORAGE_KEY,
     JSON.stringify({ version: 1, ...preferences })
   );
+  window.localStorage.setItem('laflo-theme', preferences.theme);
+  window.localStorage.setItem('laflo-background', preferences.background);
 }

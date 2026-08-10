@@ -46,10 +46,10 @@ describe('AppearancePanel', () => {
   it('updates the summary and dirty state when a choice changes', () => {
     render(<StatefulPanel />);
 
-    fireEvent.click(screen.getByRole('radio', { name: /LaFlo Green/ }));
+    fireEvent.click(screen.getByRole('radio', { name: /LaFlo Professional/ }));
     fireEvent.click(screen.getByRole('radio', { name: /Tide Lines/ }));
 
-    expect(screen.getByText('LaFlo Green + Tide Lines')).toBeInTheDocument();
+    expect(screen.getByText('LaFlo Professional + Tide Lines')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Save appearance/i })).toBeEnabled();
   });
 

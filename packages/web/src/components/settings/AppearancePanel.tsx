@@ -19,10 +19,10 @@ const themeOptions: Array<{
   colors: string[];
 }> = [
   {
-    value: 'laflo-green',
-    label: 'LaFlo Green',
-    description: 'Fresh, clean and balanced.',
-    colors: ['#075e54', '#0f8f7d', '#54b897', '#b9ddcf', '#e8f4ef'],
+    value: 'laflo-professional',
+    label: 'LaFlo Professional',
+    description: 'Clean, balanced hotel operations.',
+    colors: ['#075e54', '#0f8f7d', '#14b8a6', '#b9ddcf', '#e8f4ef'],
   },
   {
     value: 'ocean-blue',
@@ -37,10 +37,28 @@ const themeOptions: Array<{
     colors: ['#9a4b08', '#d97706', '#f59e0b', '#f8c477', '#f7e5cf'],
   },
   {
-    value: 'dark-mode',
-    label: 'Dark Mode',
-    description: 'Sleek, modern and easy on the eyes.',
-    colors: ['#05080d', '#111827', '#374151', '#6b7280', '#b5bbc3'],
+    value: 'forest-green',
+    label: 'Forest Green',
+    description: 'Deep, focused and operational.',
+    colors: ['#12372a', '#166534', '#22c55e', '#86efac', '#dcfce7'],
+  },
+  {
+    value: 'slate-purple',
+    label: 'Slate Purple',
+    description: 'Modern, composed and executive.',
+    colors: ['#312e81', '#6d28d9', '#8b5cf6', '#c4b5fd', '#f3e8ff'],
+  },
+  {
+    value: 'midnight-dark',
+    label: 'Midnight Dark',
+    description: 'Dark navy with crisp teal contrast.',
+    colors: ['#020617', '#0f172a', '#22d3ee', '#334155', '#cbd5e1'],
+  },
+  {
+    value: 'warm-charcoal',
+    label: 'Warm Charcoal',
+    description: 'Soft charcoal with warm copper accents.',
+    colors: ['#1c1917', '#292524', '#f59e0b', '#57534e', '#d6d3d1'],
   },
 ];
 
@@ -129,7 +147,7 @@ export default function AppearancePanel({
         <div className="mt-8">
           <h3 className="text-lg font-semibold text-text-main">Theme</h3>
           <p className="mt-1 text-sm text-text-muted">Choose a color theme for your workspace.</p>
-          <div className="mt-5 grid gap-4 md:grid-cols-2 2xl:grid-cols-4" role="radiogroup" aria-label="Color theme">
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" role="radiogroup" aria-label="Color theme">
             {themeOptions.map((option) => {
               const selected = theme === option.value;
               return (
@@ -150,7 +168,7 @@ export default function AppearancePanel({
                       <Check className="h-4 w-4" strokeWidth={3} aria-hidden="true" />
                     </span>
                   )}
-                  <ThemePreview colors={option.colors} dark={option.value === 'dark-mode'} />
+                  <ThemePreview colors={option.colors} dark={option.value === 'midnight-dark' || option.value === 'warm-charcoal'} />
                   <div className="mt-4 flex gap-2" aria-hidden="true">
                     {option.colors.map((color) => (
                       <span key={color} className="h-4 w-4 rounded-full ring-1 ring-black/5" style={{ backgroundColor: color }} />

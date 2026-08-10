@@ -39,6 +39,16 @@ describe('appearance preferences', () => {
     expect(readAppearancePreferences()).toEqual({ theme: 'ocean-blue', background: 'sand-wash' });
   });
 
+  it('migrates the previous production theme identifiers', () => {
+    vi.mocked(localStorage.getItem).mockImplementation((key) =>
+      key === 'laflo:appearance'
+        ? JSON.stringify({ version: 1, theme: 'dark-mode', background: 'mist-gradient' })
+        : null
+    );
+
+    expect(readAppearancePreferences()).toEqual({ theme: 'midnight-dark', background: 'mist-gradient' });
+  });
+
   it('stores a versioned preference payload', () => {
     saveAppearancePreferences({ theme: 'amber-sunset', background: 'dusk-horizon' });
 
@@ -46,5 +56,7 @@ describe('appearance preferences', () => {
       'laflo:appearance',
       JSON.stringify({ version: 1, theme: 'amber-sunset', background: 'dusk-horizon' })
     );
+    expect(localStorage.setItem).toHaveBeenCalledWith('laflo-theme', 'amber-sunset');
+    expect(localStorage.setItem).toHaveBeenCalledWith('laflo-background', 'dusk-horizon');
   });
 });

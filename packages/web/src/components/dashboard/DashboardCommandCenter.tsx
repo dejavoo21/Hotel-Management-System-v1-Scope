@@ -577,7 +577,7 @@ export default function DashboardCommandCenter() {
             </div> : null}
           </div>
 
-          <aside className="min-w-0 space-y-3" data-testid="dashboard-right-rail">
+          <aside className="flex min-w-0 flex-col gap-3" data-testid="dashboard-right-rail">
             {canViewBookings ? <Surface>
               <PanelHeader title="Tasks" subtitle="Operational task service" action="Open tasks" onAction={() => navigate('/operations-center/tasks')} />
               <div className="px-4 pb-5"><div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center"><p className="text-xs font-semibold text-slate-800">Task service is not connected</p><p className="mt-1 text-[11px] leading-4 text-slate-500">Connect the task service to show assigned work. Sample tasks are hidden in production.</p></div></div>
@@ -586,9 +586,9 @@ export default function DashboardCommandCenter() {
               <div className="theme-widget-header px-4 py-3"><div className="flex items-center gap-2"><SparklesIcon className="h-4 w-4 opacity-80" /><h2 className="text-xs font-bold">Operational attention</h2></div><p className="mt-1 text-[9px] opacity-70">Authorised live priorities and Hotel Brain guidance</p></div>
               <div className="divide-y divide-slate-100">{attentionItems.length ? attentionItems.map((item, index) => <button key={`${item.title}-${index}`} type="button" onClick={() => navigate(item.route)} className="w-full px-4 py-3 text-left hover:bg-slate-50"><div className="flex items-start justify-between gap-2"><p className="text-[11px] font-bold text-slate-900">{item.title}</p><span className={`shrink-0 rounded-full px-2 py-0.5 text-[8px] font-bold uppercase ${item.severity === 'CRITICAL' || item.severity === 'HIGH' ? 'bg-rose-50 text-rose-700' : item.severity === 'MEDIUM' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>{item.severity}</span></div><p className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-600">{item.detail}</p>{item.owner ? <p className="theme-link mt-1 text-[9px] font-semibold">Owner: {item.owner}</p> : null}</button>) : <EmptyState label="No operational priorities require attention." />}</div>
             </Surface>
-            <Surface>
+            <Surface className="flex min-h-[180px] flex-1 flex-col">
               <PanelHeader title="Recent activities" subtitle="Latest unique operational changes" action="View all" onAction={() => navigate('/settings?tab=audit-trail')} />
-              <div className="px-3 pb-2">{recentTimeline.length ? recentTimeline.map((event) => <div key={event.id} className="relative border-l border-primary-200 py-2 pl-4"><span className="absolute -left-1 top-3 h-2 w-2 rounded-full bg-primary-solid ring-2 ring-card" /><p className="text-[10px] font-bold text-slate-900">{event.summary}</p><p className="mt-1 text-[9px] text-slate-500">{event.module} · {new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date(event.timestamp))}</p></div>) : <EmptyState label="No live activity is available yet." />}</div>
+              <div className="flex-1 px-3 pb-20">{recentTimeline.length ? recentTimeline.map((event) => <div key={event.id} className="relative border-l border-primary-200 py-2 pl-4"><span className="absolute -left-1 top-3 h-2 w-2 rounded-full bg-primary-solid ring-2 ring-card" /><p className="text-[10px] font-bold text-slate-900">{event.summary}</p><p className="mt-1 text-[9px] text-slate-500">{event.module} · {new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date(event.timestamp))}</p></div>) : <EmptyState label="No live activity is available yet." />}</div>
             </Surface>
           </aside>
         </div>

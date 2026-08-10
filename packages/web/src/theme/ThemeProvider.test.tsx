@@ -9,7 +9,7 @@ function ThemeHarness() {
     <div>
       <span>{theme}</span>
       <span>{background}</span>
-      <button type="button" onClick={() => setTheme('dark-mode')}>Use dark mode</button>
+      <button type="button" onClick={() => setTheme('midnight-dark')}>Use dark mode</button>
       <button type="button" onClick={() => setBackground('tide-lines')}>Use tide lines</button>
       {THEMES.map((value) => (
         <button type="button" key={value} onClick={() => setTheme(value)}>
@@ -50,7 +50,7 @@ describe('ThemeProvider', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Use tide lines' }));
 
     await waitFor(() => {
-      expect(document.documentElement).toHaveAttribute('data-theme', 'dark-mode');
+      expect(document.documentElement).toHaveAttribute('data-theme', 'midnight-dark');
       expect(document.documentElement).toHaveAttribute('data-background', 'tide-lines');
       expect(document.body).toHaveAttribute('data-background', 'tide-lines');
     });

@@ -635,7 +635,7 @@ export default function DashboardLayout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 bg-white border-b border-slate-200" role="banner">
+        <header className="app-header sticky top-0 z-30 border-b" role="banner">
           <div className="mx-auto grid h-16 w-full max-w-none grid-cols-[auto_1fr_auto] items-center gap-3 px-4 lg:px-6">
             <div className="flex items-center">
               <button
