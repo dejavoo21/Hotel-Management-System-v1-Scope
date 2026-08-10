@@ -160,6 +160,33 @@
   --color-primary-950: 26 46 5;
 }
 
+/*
+ * Public LaFlo design-token contract. Shared components should prefer these
+ * aliases; they intentionally resolve through the active data-theme values.
+ */
+:root {
+  --laflo-primary: var(--color-primary);
+  --laflo-primary-hover: var(--color-primary-hover);
+  --laflo-on-primary: var(--color-on-primary);
+  --laflo-accent: var(--color-accent);
+  --laflo-bg: var(--color-bg);
+  --laflo-surface: var(--color-bg-card);
+  --laflo-surface-muted: var(--color-surface-muted);
+  --laflo-border: var(--color-border);
+  --laflo-text: var(--color-text-main);
+  --laflo-text-muted: var(--color-text-muted);
+  --laflo-success: var(--color-success);
+  --laflo-warning: var(--color-warning);
+  --laflo-danger: var(--color-danger);
+  --laflo-info: var(--color-info);
+  --laflo-card-shadow: var(--shadow-card);
+  --laflo-focus-ring: var(--color-primary-500);
+}
+
+[data-theme='dark-mode'] {
+  --shadow-card: 0 14px 30px rgb(2 6 23 / 0.34);
+}
+
 /* Custom base styles */
 @layer base {
   html {
@@ -204,6 +231,22 @@
 
   [data-background='tide-lines'] {
     --app-background-image: repeating-radial-gradient(ellipse at 10% 125%, transparent 0 34px, rgb(var(--color-info) / 0.1) 35px 36px, transparent 37px 58px);
+  }
+
+  [data-theme='dark-mode'][data-background='mist-gradient'] {
+    --app-background-image: radial-gradient(circle at top left, rgb(var(--color-primary-50) / 0.82) 0%, rgb(var(--color-bg)) 48%, rgb(var(--color-info) / 0.12) 100%);
+  }
+
+  [data-theme='dark-mode'][data-background='soft-glow'] {
+    --app-background-image: radial-gradient(circle at 28% 12%, rgb(192 132 252 / 0.14), transparent 40%), radial-gradient(circle at 82% 8%, rgb(var(--color-info) / 0.16), transparent 42%);
+  }
+
+  [data-theme='dark-mode'][data-background='dusk-horizon'] {
+    --app-background-image: linear-gradient(155deg, rgb(88 28 135 / 0.24), rgb(var(--color-bg)) 48%, rgb(49 46 129 / 0.3));
+  }
+
+  [data-theme='dark-mode'][data-background='sand-wash'] {
+    --app-background-image: radial-gradient(circle at 18% 18%, rgb(251 191 36 / 0.08), transparent 28%), radial-gradient(circle at 72% 65%, rgb(180 83 9 / 0.12), transparent 38%), linear-gradient(145deg, rgb(120 53 15 / 0.08), transparent 55%);
   }
 
   .app-workspace-background {
@@ -267,6 +310,99 @@
   :focus-visible {
     @apply outline-none ring-2 ring-primary-500 ring-offset-2;
   }
+}
+
+/*
+ * Theme bridge for established screens that still use neutral Tailwind
+ * utilities. The selectors are scoped to the themed document and only map
+ * neutral UI surfaces; semantic success/warning/danger colours stay intact.
+ */
+[data-theme] .bg-white {
+  background-color: rgb(var(--laflo-surface));
+}
+
+[data-theme] .bg-slate-50,
+[data-theme] .bg-slate-100,
+[data-theme] .bg-gray-50,
+[data-theme] .bg-gray-100 {
+  background-color: rgb(var(--laflo-surface-muted));
+}
+
+[data-theme] .bg-slate-200,
+[data-theme] .bg-gray-200 {
+  background-color: rgb(var(--laflo-border));
+}
+
+[data-theme] .text-slate-950,
+[data-theme] .text-slate-900,
+[data-theme] .text-slate-800,
+[data-theme] .text-slate-700,
+[data-theme] .text-gray-950,
+[data-theme] .text-gray-900,
+[data-theme] .text-gray-800,
+[data-theme] .text-gray-700 {
+  color: rgb(var(--laflo-text));
+}
+
+[data-theme] .text-slate-600,
+[data-theme] .text-slate-500,
+[data-theme] .text-slate-400,
+[data-theme] .text-gray-600,
+[data-theme] .text-gray-500,
+[data-theme] .text-gray-400 {
+  color: rgb(var(--laflo-text-muted));
+}
+
+[data-theme] .border-slate-100,
+[data-theme] .border-slate-200,
+[data-theme] .border-slate-300,
+[data-theme] .border-gray-100,
+[data-theme] .border-gray-200,
+[data-theme] .border-gray-300 {
+  border-color: rgb(var(--laflo-border));
+}
+
+[data-theme] .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+[data-theme] .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+[data-theme] .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+[data-theme] .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgb(var(--laflo-border));
+}
+
+[data-theme] .ring-slate-100,
+[data-theme] .ring-slate-200,
+[data-theme] .ring-slate-300,
+[data-theme] .ring-gray-100,
+[data-theme] .ring-gray-200,
+[data-theme] .ring-gray-300 {
+  --tw-ring-color: rgb(var(--laflo-border));
+}
+
+[data-theme] .placeholder-slate-400::placeholder,
+[data-theme] .placeholder-slate-500::placeholder,
+[data-theme] .placeholder-gray-400::placeholder,
+[data-theme] .placeholder-gray-500::placeholder {
+  color: rgb(var(--laflo-text-muted));
+}
+
+[data-theme] .hover\:bg-slate-50:hover,
+[data-theme] .hover\:bg-slate-100:hover,
+[data-theme] .hover\:bg-gray-50:hover,
+[data-theme] .hover\:bg-gray-100:hover {
+  background-color: rgb(var(--laflo-surface-muted));
+}
+
+[data-theme] .hover\:text-slate-900:hover,
+[data-theme] .hover\:text-slate-800:hover,
+[data-theme] .hover\:text-gray-900:hover,
+[data-theme] .hover\:text-gray-800:hover {
+  color: rgb(var(--laflo-text));
+}
+
+[data-theme] input,
+[data-theme] select,
+[data-theme] textarea {
+  color: rgb(var(--laflo-text));
 }
 
 /* Laflo-style scrollbar */

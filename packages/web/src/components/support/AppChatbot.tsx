@@ -344,7 +344,7 @@ export default function AppChatbot() {
     <div className='fixed bottom-3 right-3 z-50 sm:bottom-5 sm:right-5'>
       {open ? (
         <section role='dialog' aria-label='LaFlo Assistant' className='flex h-[min(680px,calc(100vh-1.5rem))] w-[min(430px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl'>
-          <header className='flex items-center justify-between gap-3 bg-gradient-to-r from-emerald-950 to-teal-800 px-4 py-3 text-white'>
+          <header className='flex items-center justify-between gap-3 bg-gradient-to-r from-primary-800 to-primary-600 px-4 py-3 text-primary-contrast'>
             <div className='flex min-w-0 items-center gap-3'>
               <span className='grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/15'>
                 <Sparkles className='h-5 w-5' />
@@ -376,7 +376,7 @@ export default function AppChatbot() {
             {messages.map((message) => (
               <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className='max-w-[88%]'>
-                  <div className={`whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${message.role === 'user' ? 'rounded-br-md bg-teal-700 text-white' : 'rounded-bl-md border border-slate-200 bg-white text-slate-700 shadow-sm'}`}>
+                  <div className={`whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${message.role === 'user' ? 'rounded-br-md bg-primary-solid text-primary-contrast' : 'rounded-bl-md border border-border bg-card text-text-main shadow-sm'}`}>
                     {message.text}
                   </div>
                   {message.actions?.length ? (
@@ -413,7 +413,7 @@ export default function AppChatbot() {
                           ));
                           void requestHumanHandoff(message.supportSummary);
                         }}
-                        className='rounded-lg bg-teal-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-800'
+                        className='rounded-lg bg-primary-solid px-3 py-1.5 text-xs font-semibold text-primary-contrast hover:bg-primary-hover'
                       >
                         Yes, contact support
                       </button>
@@ -465,7 +465,7 @@ export default function AppChatbot() {
               <label htmlFor='laflo-assistant-input' className='sr-only'>Ask anything about LaFlo</label>
               <div className='flex items-center gap-2 rounded-xl border border-slate-300 bg-white p-1.5 focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-100'>
                 <input ref={inputRef} id='laflo-assistant-input' value={input} onChange={(event) => setInput(event.target.value)} className='min-w-0 flex-1 border-0 bg-transparent px-2 text-sm outline-none' placeholder='Ask anything about LaFlo…' disabled={isSending} />
-                <button type='submit' disabled={isSending || !input.trim()} className='grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-teal-700 text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300' aria-label='Send message'>
+                <button type='submit' disabled={isSending || !input.trim()} className='grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary-solid text-primary-contrast hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-border' aria-label='Send message'>
                   <Send className='h-4 w-4' />
                 </button>
               </div>
@@ -489,7 +489,7 @@ export default function AppChatbot() {
           </div>
         </section>
       ) : (
-        <button ref={launcherRef} type='button' onClick={() => setOpen(true)} className={compactAuditLauncher ? 'grid h-12 w-12 place-items-center rounded-full bg-teal-700 text-white shadow-lg hover:bg-teal-800' : 'flex items-center gap-2 rounded-full bg-teal-700 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:bg-teal-800'} aria-label='Open LaFlo Assistant'>
+        <button ref={launcherRef} type='button' onClick={() => setOpen(true)} className={compactAuditLauncher ? 'grid h-12 w-12 place-items-center rounded-full bg-primary-solid text-primary-contrast shadow-lg hover:bg-primary-hover' : 'flex items-center gap-2 rounded-full bg-primary-solid px-4 py-3 text-sm font-semibold text-primary-contrast shadow-lg hover:bg-primary-hover'} aria-label='Open LaFlo Assistant'>
           <MessageCircle className='h-5 w-5' /><span className={compactAuditLauncher ? 'sr-only' : 'hidden sm:inline'}>Ask LaFlo</span>
         </button>
       )}

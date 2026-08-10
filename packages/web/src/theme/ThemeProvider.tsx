@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   BACKGROUNDS,
   THEMES,
@@ -33,12 +33,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     readAppearancePreferences().background
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     window.localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.documentElement.setAttribute('data-background', background);
     document.body.dataset.background = background;
   }, [background]);
