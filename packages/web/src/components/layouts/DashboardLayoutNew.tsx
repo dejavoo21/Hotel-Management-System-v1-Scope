@@ -1095,7 +1095,7 @@ export default function DashboardLayout() {
         </header>
 
         {/* Page content */}
-        <main id="main-content" className="min-w-0 flex-1 overflow-x-auto p-4 pb-36 lg:p-6 lg:pb-36" tabIndex={-1}>
+        <main id="main-content" className="app-workspace-background min-w-0 flex-1 overflow-x-auto p-4 pb-24 lg:p-5 lg:pb-24" tabIndex={-1}>
           <Outlet />
         </main>
       </div>

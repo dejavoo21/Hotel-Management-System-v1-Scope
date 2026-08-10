@@ -917,7 +917,7 @@ export default function SettingsPage() {
   const visibleTabs = isAdmin ? tabs : tabs.filter((tab) => tab.id !== 'access-requests');
 
   return (
-    <div className="space-y-4">
+    <div className="min-h-[calc(100vh-7rem)] space-y-4">
       {/* Page header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Settings</h1>
@@ -926,7 +926,7 @@ export default function SettingsPage() {
 
       <div className="flex flex-col gap-4 lg:flex-row">
         {/* Sidebar */}
-        <div className="w-full shrink-0 lg:w-64">
+        <div className="w-full shrink-0 lg:sticky lg:top-20 lg:h-fit lg:w-60">
           <nav className="space-y-1 rounded-2xl border border-border bg-card p-3 shadow-sm" aria-label="Settings sections">
               {visibleTabs.map((tab) => (
                 <button
