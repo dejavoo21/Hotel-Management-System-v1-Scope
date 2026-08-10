@@ -31,8 +31,8 @@ describe('SecurityPanel', () => {
     expect(screen.getByRole('heading', { name: 'Change Password' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Two-Factor Authentication' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Authentication Options' })).toBeInTheDocument();
-    expect(screen.getByText('Passkey / Biometric')).toBeInTheDocument();
-    expect(screen.getByText('Sign in with Face ID, Touch ID, Windows Hello, or a supported device passkey.')).toBeInTheDocument();
+    expect(screen.getByText('Passkey')).toBeInTheDocument();
+    expect(screen.getByText('Sign in using a passkey secured by Face ID, Touch ID, Windows Hello, or your device PIN.')).toBeInTheDocument();
     expect(screen.getByText('Passphrase')).toBeInTheDocument();
     expect(screen.getByText('Use a memorable security phrase as an additional verification method where supported.')).toBeInTheDocument();
     expect(screen.getAllByText('Coming soon')).toHaveLength(2);

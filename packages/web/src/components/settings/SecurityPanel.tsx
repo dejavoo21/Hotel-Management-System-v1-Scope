@@ -228,8 +228,8 @@ export default function SecurityPanel({ twoFactorEnabled, passwordLoading, twoFa
           <div className="mt-5 space-y-3">
             <AuthenticationOptionRow
               icon={<Fingerprint className="h-5 w-5" />}
-              title="Passkey / Biometric"
-              description="Sign in with Face ID, Touch ID, Windows Hello, or a supported device passkey."
+              title="Passkey"
+              description="Sign in using a passkey secured by Face ID, Touch ID, Windows Hello, or your device PIN."
               note="Passkeys will be available after 2FA is enabled."
             />
             <AuthenticationOptionRow
