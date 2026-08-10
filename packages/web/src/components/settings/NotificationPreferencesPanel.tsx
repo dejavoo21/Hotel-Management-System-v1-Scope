@@ -159,7 +159,7 @@ export default function NotificationPreferencesPanel({ values, savedValues, canE
     setEnabledOnly(false);
   };
 
-  return <div className="space-y-3 pb-24" data-notification-preferences>
+  return <div className="space-y-3 pb-1" data-notification-preferences>
     <header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex items-start gap-4"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-primary-50 text-primary-700 ring-1 ring-primary-100"><Bell className="h-6 w-6" /></span><div><h2 className="text-2xl font-bold tracking-tight text-text-main">Notification Preferences</h2><p className="mt-1 text-sm text-text-muted">Choose which operational alerts, reminders, and reports you want to receive.</p></div></div>
       <span className="inline-flex w-fit items-center gap-2 rounded-full border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-700"><CheckCircle2 className="h-4 w-4" />{enabledCount} active preferences</span>
