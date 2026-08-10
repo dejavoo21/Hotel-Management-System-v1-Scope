@@ -214,45 +214,54 @@
   }
 
   .appearance-background-preview {
-    @apply block h-24 w-full overflow-hidden rounded-xl border border-white/70 shadow-inner;
+    @apply relative isolate block h-24 w-full overflow-hidden rounded-xl border border-white/80 shadow-inner;
+    background-size: cover;
   }
 
   .appearance-background-preview--mist-gradient {
-    background: linear-gradient(160deg, #f8fafc 15%, #d9eef0 58%, #a7d5d2 100%);
+    background:
+      radial-gradient(circle at 18% 22%, rgb(255 255 255 / 0.98) 0 12%, transparent 38%),
+      radial-gradient(circle at 82% 74%, rgb(99 196 190 / 0.38) 0 10%, transparent 42%),
+      linear-gradient(155deg, #f8fbfc 5%, #dceff0 50%, #8fcac7 100%);
   }
 
   .appearance-background-preview--linen-pattern {
-    background-color: #f5eee6;
+    background-color: #f4eadf;
     background-image:
-      linear-gradient(90deg, rgb(120 93 72 / 0.07) 1px, transparent 1px),
-      linear-gradient(rgb(120 93 72 / 0.06) 1px, transparent 1px);
-    background-size: 5px 5px;
+      repeating-linear-gradient(92deg, rgb(112 82 62 / 0.13) 0 1px, transparent 1px 5px),
+      repeating-linear-gradient(2deg, rgb(255 255 255 / 0.72) 0 1px, transparent 1px 4px),
+      linear-gradient(145deg, rgb(255 255 255 / 0.45), rgb(197 166 138 / 0.2));
   }
 
   .appearance-background-preview--soft-glow {
     background:
-      radial-gradient(circle at 70% 25%, rgb(255 255 255 / 0.85), transparent 35%),
-      linear-gradient(145deg, #d8d9ff, #f4badd 55%, #c3e9ff);
+      radial-gradient(circle at 68% 28%, rgb(255 255 255 / 0.96) 0 8%, rgb(255 255 255 / 0.48) 20%, transparent 43%),
+      radial-gradient(circle at 22% 78%, rgb(118 218 230 / 0.55), transparent 38%),
+      linear-gradient(135deg, #c8c9fb 0%, #efafd4 52%, #a8dcf5 100%);
   }
 
   .appearance-background-preview--dusk-horizon {
     background:
-      linear-gradient(155deg, transparent 52%, rgb(84 58 120 / 0.5) 53%, transparent 70%),
-      linear-gradient(165deg, transparent 60%, rgb(63 47 95 / 0.65) 61%, transparent 76%),
-      linear-gradient(180deg, #f5c6c9 0%, #b894c2 55%, #624d85 100%);
+      linear-gradient(155deg, transparent 52%, rgb(91 62 128 / 0.64) 53%, transparent 70%),
+      linear-gradient(165deg, transparent 60%, rgb(48 36 79 / 0.8) 61%, transparent 78%),
+      radial-gradient(circle at 72% 30%, rgb(255 216 184 / 0.8) 0 7%, transparent 30%),
+      linear-gradient(180deg, #f3b5ba 0%, #a47db4 54%, #493567 100%);
   }
 
   .appearance-background-preview--sand-wash {
     background:
-      radial-gradient(circle at 25% 25%, rgb(255 255 255 / 0.8), transparent 28%),
-      radial-gradient(circle at 72% 65%, rgb(234 199 142 / 0.45), transparent 35%),
-      linear-gradient(145deg, #fffaf0, #edd9ba 52%, #f7eee0);
+      repeating-radial-gradient(ellipse at 12% 22%, transparent 0 11px, rgb(174 125 65 / 0.08) 12px 13px, transparent 14px 27px),
+      radial-gradient(circle at 25% 25%, rgb(255 255 255 / 0.9), transparent 28%),
+      radial-gradient(circle at 72% 65%, rgb(213 166 96 / 0.48), transparent 38%),
+      linear-gradient(145deg, #fff9ed, #e8cfaa 52%, #f4e7d2);
   }
 
   .appearance-background-preview--tide-lines {
-    background-color: #eaf8fc;
+    background-color: #dcf5f7;
     background-image:
-      repeating-radial-gradient(ellipse at 20% 140%, transparent 0 12px, rgb(56 189 248 / 0.2) 13px 14px, transparent 15px 24px);
+      repeating-radial-gradient(ellipse at 12% 142%, transparent 0 11px, rgb(13 148 136 / 0.34) 12px 13px, transparent 14px 24px),
+      repeating-radial-gradient(ellipse at 96% -36%, transparent 0 15px, rgb(14 165 233 / 0.24) 16px 17px, transparent 18px 31px),
+      linear-gradient(145deg, rgb(255 255 255 / 0.65), transparent 58%);
   }
 
   :focus-visible {

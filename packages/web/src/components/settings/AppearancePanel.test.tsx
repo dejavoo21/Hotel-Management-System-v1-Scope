@@ -29,7 +29,18 @@ describe('AppearancePanel', () => {
     expect(screen.getByText('Ocean Blue + Sand Wash')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /Ocean Blue/ })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('radio', { name: /Sand Wash/ })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: /Ocean Blue/ })).toHaveClass('border-primary-500');
+    expect(screen.getByRole('radio', { name: /Sand Wash/ })).toHaveClass('border-primary-500');
+    expect(document.querySelectorAll('.appearance-background-preview')).toHaveLength(6);
+    expect(document.querySelector('.appearance-background-preview--mist-gradient')).toBeInTheDocument();
+    expect(document.querySelector('.appearance-background-preview--linen-pattern')).toBeInTheDocument();
+    expect(document.querySelector('.appearance-background-preview--soft-glow')).toBeInTheDocument();
+    expect(document.querySelector('.appearance-background-preview--dusk-horizon')).toBeInTheDocument();
+    expect(document.querySelector('.appearance-background-preview--sand-wash')).toBeInTheDocument();
+    expect(document.querySelector('.appearance-background-preview--tide-lines')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Save appearance/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Save appearance/i })).toHaveClass('w-full');
+    expect(screen.getByRole('button', { name: /Reset to default/i })).toHaveClass('w-full');
   });
 
   it('updates the summary and dirty state when a choice changes', () => {

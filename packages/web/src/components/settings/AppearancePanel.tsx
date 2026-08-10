@@ -126,7 +126,7 @@ export default function AppearancePanel({
           </div>
         </div>
 
-        <div className="mt-10">
+        <div className="mt-8">
           <h3 className="text-lg font-semibold text-text-main">Theme</h3>
           <p className="mt-1 text-sm text-text-muted">Choose a color theme for your workspace.</p>
           <div className="mt-5 grid gap-4 md:grid-cols-2 2xl:grid-cols-4" role="radiogroup" aria-label="Color theme">
@@ -164,7 +164,7 @@ export default function AppearancePanel({
           </div>
         </div>
 
-        <div className="mt-10">
+        <div className="mt-8">
           <h3 className="text-lg font-semibold text-text-main">Background</h3>
           <p className="mt-1 text-sm text-text-muted">Choose a background style for your workspace.</p>
           <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-3 2xl:grid-cols-6" role="radiogroup" aria-label="Workspace background">
@@ -179,12 +179,12 @@ export default function AppearancePanel({
                   onClick={() => onBackgroundChange(option.value)}
                   className={`group relative rounded-2xl border p-3 text-left transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                     selected
-                      ? 'border-primary-600 bg-primary-50/40 shadow-sm ring-1 ring-primary-500/20'
+                      ? 'border-primary-500 bg-primary-50/40 shadow-sm ring-1 ring-primary-500/20'
                       : 'border-border bg-card hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md'
                   }`}
                 >
                   {selected && (
-                    <span className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-primary-700 text-white shadow-sm">
+                    <span className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-primary-solid text-white shadow-sm">
                       <Check className="h-4 w-4" strokeWidth={3} aria-hidden="true" />
                     </span>
                   )}
@@ -197,12 +197,12 @@ export default function AppearancePanel({
         </div>
       </div>
 
-      <div className="flex flex-col-reverse gap-3 border-t border-border bg-bg/60 px-5 py-4 sm:flex-row sm:items-center sm:px-7 lg:px-8">
-        <button type="button" className="btn-primary min-h-11 sm:min-w-44" onClick={onSave} disabled={!isDirty}>
+      <div className="relative z-10 flex flex-col-reverse gap-3 border-t border-border bg-bg/60 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:flex-wrap sm:items-center sm:px-7 lg:px-8">
+        <button type="button" className="btn-primary min-h-11 w-full sm:w-auto sm:min-w-44" onClick={onSave} disabled={!isDirty}>
           <Save className="h-4 w-4" aria-hidden="true" />
           Save appearance
         </button>
-        <button type="button" className="btn-secondary min-h-11 sm:min-w-40" onClick={onReset}>
+        <button type="button" className="btn-secondary min-h-11 w-full sm:w-auto sm:min-w-40" onClick={onReset}>
           <RotateCcw className="h-4 w-4" aria-hidden="true" />
           Reset to default
         </button>
