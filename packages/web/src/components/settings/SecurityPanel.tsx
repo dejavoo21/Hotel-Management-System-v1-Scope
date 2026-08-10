@@ -225,12 +225,20 @@ export default function SecurityPanel({ twoFactorEnabled, passwordLoading, twoFa
       <div className="grid items-stretch gap-4 xl:grid-cols-[minmax(20rem,.8fr)_minmax(32rem,1.2fr)]">
         <section className="rounded-2xl border border-border bg-card p-5 shadow-card" aria-labelledby="authentication-options-title">
           <CardHeading icon={<Fingerprint className="h-5 w-5" />} title="Authentication Options" subtitle="Additional sign-in methods to make access easier and more secure." id="authentication-options-title" />
-          <div className="mt-5 flex items-center gap-3 rounded-xl border border-dashed border-border p-4">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-bg text-text-muted"><Fingerprint className="h-5 w-5" /></span>
-            <div className="min-w-0 flex-1"><p className="font-semibold text-text-main">Passkey (Biometric)</p><p className="mt-0.5 text-sm text-text-muted">Sign in with Face ID, Touch ID, or Windows Hello.</p></div>
-            <span className="shrink-0 rounded-full border border-primary-200 bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700">Coming soon</span>
+          <div className="mt-5 space-y-3">
+            <AuthenticationOptionRow
+              icon={<Fingerprint className="h-5 w-5" />}
+              title="Passkey / Biometric"
+              description="Sign in with Face ID, Touch ID, Windows Hello, or a supported device passkey."
+              note="Passkeys will be available after 2FA is enabled."
+            />
+            <AuthenticationOptionRow
+              icon={<KeyRound className="h-5 w-5" />}
+              title="Passphrase"
+              description="Use a memorable security phrase as an additional verification method where supported."
+              note="Passphrase support will be available after 2FA is enabled."
+            />
           </div>
-          <p className="mt-4 flex items-start gap-2 text-xs text-text-muted"><Shield className="mt-0.5 h-4 w-4 shrink-0" /> Passkeys will be available after 2FA is enabled.</p>
         </section>
 
         <section className="rounded-2xl border border-border bg-card p-5 shadow-card" aria-labelledby="session-security-title">
@@ -295,4 +303,18 @@ function CardHeading({ icon, title, subtitle, id }: { icon: React.ReactNode; tit
 
 function Feature({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
   return <article className="flex gap-3 border-border p-2 md:border-r md:last:border-r-0"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-50 text-primary-700">{icon}</span><div><h4 className="text-sm font-semibold text-text-main">{title}</h4><p className="mt-1 text-xs leading-5 text-text-muted">{text}</p></div></article>;
+}
+
+function AuthenticationOptionRow({ icon, title, description, note }: { icon: React.ReactNode; title: string; description: string; note: string }) {
+  return (
+    <article aria-disabled="true" className="flex items-start gap-3 rounded-xl border border-dashed border-border bg-bg/40 p-4">
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-card text-text-muted shadow-sm">{icon}</span>
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold text-text-main">{title}</p>
+        <p className="mt-0.5 text-sm leading-5 text-text-muted">{description}</p>
+        <p className="mt-2 flex items-start gap-1.5 text-xs text-text-muted"><Shield className="mt-0.5 h-3.5 w-3.5 shrink-0" />{note}</p>
+      </div>
+      <span className="shrink-0 rounded-full border border-primary-200 bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700">Coming soon</span>
+    </article>
+  );
 }
