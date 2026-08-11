@@ -280,6 +280,8 @@ export default function AuditTrailPanel({
   const hasFilters = Boolean(search || category !== 'ALL' || actor !== 'ALL' || severity !== 'ALL' || dateFrom || dateTo);
   const forwardingConnected = settings.forwardingEnabled && Boolean(settings.forwardingUrl?.trim());
   const forwardingConfigured = Boolean(settings.forwardingUrl?.trim());
+  const savedForwardingConfigured = Boolean(savedSettings.forwardingUrl?.trim());
+  const savedForwardingConnected = savedSettings.forwardingEnabled && savedForwardingConfigured;
   const settingsDirty = settings.retentionDays !== savedSettings.retentionDays
     || settings.forwardingEnabled !== savedSettings.forwardingEnabled
     || (settings.forwardingUrl || '').trim() !== (savedSettings.forwardingUrl || '').trim();
@@ -320,8 +322,8 @@ export default function AuditTrailPanel({
 
   return (
     <section className="space-y-3.5 pb-24 sm:pb-28" aria-labelledby="audit-trail-title">
-      <header className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex items-center gap-4">
+      <header className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <div className="flex items-center gap-4 sm:col-span-2 xl:col-span-4">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
             <History className="h-6 w-6" aria-hidden="true" />
           </span>
@@ -330,14 +332,14 @@ export default function AuditTrailPanel({
             <p className="mt-1 text-sm text-text-muted">Track critical changes, monitor system activity, and manage audit retention.</p>
           </div>
         </div>
-        <div className="grid w-full grid-cols-2 gap-2 sm:w-auto sm:grid-cols-[136px_184px]">
+        <div className="contents">
           <div className="flex h-16 min-w-0 items-center gap-2.5 rounded-xl border border-border bg-card px-3 shadow-sm">
             <span className="theme-kpi-icon grid h-9 w-9 shrink-0 place-items-center rounded-lg"><CalendarDays className="h-5 w-5" aria-hidden="true" /></span>
-            <div className="min-w-0"><p className="truncate text-[11px] text-text-muted">Retention</p><p className="truncate text-sm font-semibold text-text-main">{settings.retentionDays} days</p></div>
+            <div className="min-w-0"><p className="truncate text-[11px] text-text-muted">Retention</p><p className="truncate text-sm font-semibold text-text-main">{savedSettings.retentionDays} days</p></div>
           </div>
           <div className="flex h-16 min-w-0 items-center gap-2.5 rounded-xl border border-border bg-card px-3 shadow-sm">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-emerald-50 text-emerald-600"><CloudUpload className="h-5 w-5" aria-hidden="true" /></span>
-            <div className="min-w-0"><p className="truncate text-[11px] text-text-muted">Log forwarding</p><p className="flex min-w-0 items-center gap-1 text-xs font-semibold leading-4 text-text-main"><span>{forwardingConnected ? 'Active' : forwardingConfigured ? 'Disabled' : 'Needs configuration'}</span><span className={`h-1.5 w-1.5 shrink-0 rounded-full ${forwardingConnected ? 'bg-emerald-500' : forwardingConfigured ? 'bg-slate-400' : 'bg-amber-500'}`} /></p></div>
+            <div className="min-w-0"><p className="truncate text-[11px] text-text-muted">Log forwarding</p><p className="flex min-w-0 items-center gap-1 text-xs font-semibold leading-4 text-text-main"><span>{savedForwardingConnected ? 'Active' : savedForwardingConfigured ? 'Disabled' : 'Needs configuration'}</span><span className={`h-1.5 w-1.5 shrink-0 rounded-full ${savedForwardingConnected ? 'bg-emerald-500' : savedForwardingConfigured ? 'bg-slate-400' : 'bg-amber-500'}`} /></p></div>
           </div>
         </div>
       </header>
@@ -348,7 +350,7 @@ export default function AuditTrailPanel({
         <SummaryCard icon={AlertTriangle} value={summary.highImpact.toLocaleString()} label="High-impact changes" supporting="Require attention" tone="bg-orange-50 text-orange-600" />
         <SummaryCard icon={KeyRound} value={summary.accessEvents.toLocaleString()} label="Access events" supporting="User and role activity" tone="bg-violet-50 text-violet-600" />
         <SummaryCard icon={Download} value={summary.exports.toLocaleString()} label="Exports generated" supporting="Recorded exports" tone="bg-cyan-50 text-cyan-600" />
-        <SummaryCard icon={CloudUpload} value={forwardingConnected ? 'Active' : forwardingConfigured ? 'Disabled' : 'Setup needed'} label="Log forwarding" supporting="External destination" tone="bg-sky-50 text-sky-600" />
+        <SummaryCard icon={CloudUpload} value={savedForwardingConnected ? 'Active' : savedForwardingConfigured ? 'Disabled' : 'Setup needed'} label="Log forwarding" supporting="External destination" tone="bg-sky-50 text-sky-600" />
       </div>
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm" aria-labelledby="audit-configuration-title">
