@@ -67,6 +67,9 @@ describe('OperationsCenterPage', () => {
     expect(await screen.findByText('Today’s Operational Focus')).toBeInTheDocument();
     expect(screen.getByText('Department Snapshot')).toBeInTheDocument();
     expect(screen.getByText('Operational Indicators')).toBeInTheDocument();
+    expect(screen.getByText('Operations Quick Actions')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Review tasks and advisories/ })).toHaveAttribute('href', '/operations-center/tasks');
+    expect(screen.queryByPlaceholderText('Ask an operational question...')).not.toBeInTheDocument();
     expect(screen.getByText('AI Recommendation Governance')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Review queue/ })).toHaveAttribute('href', '/operations-center/ai');
     expect(screen.queryByText('Detailed governance queue')).not.toBeInTheDocument();
