@@ -62,7 +62,7 @@ const PAGE_FOCUS_PROMPTS: Record<string, string> = {
   '/concierge': 'What concierge requests are urgent?',
   '/messages': 'How does live support work?',
   '/calls': 'Explain the active call controls',
-  '/operations-center': 'Which Operations workspace should I use?',
+  '/operations-center': 'What needs attention today?',
   '/operations-center/search': 'What can Enterprise Search find?',
   '/ai/hotel-brain': 'What can I ask Hotel Brain?',
   '/operations-center/weather': 'What weather actions should we take today?',
@@ -245,9 +245,11 @@ export default function AppChatbot() {
     setIsSending(true);
     try {
       const routeParts = location.pathname.split('/').filter(Boolean);
+      const operationsRoute = location.pathname === '/operations-center' || location.pathname.startsWith('/operations-center/');
+      const effectiveMode: AssistantMode = operationsRoute && mode === 'general' ? 'operations' : mode;
       const response = await assistantService.chat({
         message: value,
-        mode,
+        mode: effectiveMode,
         conversationId,
         context: {
           route: currentRoute,

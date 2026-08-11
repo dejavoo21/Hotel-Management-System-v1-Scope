@@ -14,7 +14,7 @@ const router = Router();
 router.use(authenticate);
 router.use(requireModuleAccess('bookings'));
 
-type OpsChatMode = 'general' | 'operations' | 'pricing' | 'weather';
+type OpsChatMode = 'general' | 'operations' | 'pricing' | 'weather' | 'tasks';
 
 type OpsChatBody = {
   message: string;
@@ -64,6 +64,12 @@ async function generateOpsAssistantReply(args: {
       return `Weather outlook: ${w?.next24h?.summary || 'No summary available'} (Rain risk: ${w?.next24h?.rainRisk || 'unknown'}).`;
     }
 
+    if (mode === 'tasks') {
+      return top
+        ? `Create or assign work from these current advisories:\n${top}`
+        : 'There are no current advisories to turn into tasks.';
+    }
+
     if (!hasContext) {
       return 'Load Operations Center context first for richer answers.';
     }
@@ -89,7 +95,18 @@ const handleOpsChat = async (req: AuthenticatedRequest, res: Response, next: Nex
     const body = (req.body ?? {}) as OpsChatBody;
     const message = asString(body.message).trim();
     const mode: OpsChatMode = body.mode ?? 'operations';
-    const context = body.context ?? null;
+    const suppliedContext = body.context ?? null;
+    const hasLiveOperationsContext = Boolean(
+      suppliedContext
+      && typeof suppliedContext === 'object'
+      && ('ops' in suppliedContext || 'weather' in suppliedContext || 'advisories' in suppliedContext)
+    );
+    const liveOperationsContext = hasLiveOperationsContext
+      ? suppliedContext
+      : await getOperationsContext(hotelId);
+    const context = suppliedContext && !hasLiveOperationsContext
+      ? { ...liveOperationsContext, pageContext: suppliedContext }
+      : liveOperationsContext;
     const incomingConversationId = body.conversationId ? asString(body.conversationId) : null;
 
     if (!message) {
@@ -158,6 +175,15 @@ const handleOpsChat = async (req: AuthenticatedRequest, res: Response, next: Nex
         mode,
         generatedAtUtc: new Date().toISOString(),
         conversationId,
+        needsHumanSupport: false,
+        supportReason: null,
+        suggestedPrompts: mode === 'pricing'
+          ? ['What is driving demand?', 'Which nights need pricing action?', 'Summarize market coverage.']
+          : mode === 'weather'
+            ? ['What weather risks need action?', 'Is the forecast current?', 'What should Front Desk prepare?']
+            : mode === 'tasks'
+              ? ['What should be assigned first?', 'Summarize overdue work.', 'Which department needs help?']
+              : ['What needs attention today?', 'Summarize risks by department.', 'What should I assign first?'],
       },
     });
   } catch (error) {
