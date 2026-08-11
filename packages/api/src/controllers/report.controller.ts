@@ -18,69 +18,51 @@ export async function getRevenueReport(
     const start = new Date(startDate as string);
     const end = new Date(endDate as string);
 
-    const payments = await prisma.payment.findMany({
-      where: {
-        booking: { hotelId },
-        status: 'COMPLETED',
-        processedAt: { gte: startOfDay(start), lte: endOfDay(end) },
-      },
-      select: {
-        amount: true,
-        method: true,
-        processedAt: true,
-      },
-    });
-
-    const bookings = payments.length === 0
-      ? await prisma.booking.findMany({
-          where: {
-            hotelId,
-            checkInDate: { gte: startOfDay(start), lte: endOfDay(end) },
-          },
-          select: {
-            totalAmount: true,
-            paymentMethod: true,
-            checkInDate: true,
-          },
-        })
-      : [];
-
-    const revenueEvents = payments.length > 0
-      ? payments.map((payment) => ({
-          amount: Number(payment.amount),
-          method: payment.method,
-          date: payment.processedAt,
-        }))
-      : bookings.map((booking) => ({
-          amount: Number(booking.totalAmount),
-          method: booking.paymentMethod || 'UNKNOWN',
-          date: booking.checkInDate,
-        }));
+    const [payments, bookings] = await Promise.all([
+      prisma.payment.findMany({
+        where: { booking: { hotelId }, status: 'COMPLETED', processedAt: { gte: startOfDay(start), lte: endOfDay(end) } },
+        select: { amount: true, method: true, processedAt: true },
+      }),
+      prisma.booking.findMany({
+        where: { hotelId, checkInDate: { gte: startOfDay(start), lte: endOfDay(end) }, status: { not: 'CANCELLED' } },
+        select: { totalAmount: true, paidAmount: true, checkInDate: true },
+      }),
+    ]);
 
     const dates = getDateRange(start, end);
     const breakdown = dates.map((date) => {
       const dateStart = startOfDay(date);
       const dateEnd = endOfDay(date);
-      const dayPayments = revenueEvents.filter(
-        (p) => p.date >= dateStart && p.date <= dateEnd
+      const dayPayments = payments.filter(
+        (p) => p.processedAt >= dateStart && p.processedAt <= dateEnd
       );
+      const dayBookings = bookings.filter((booking) => booking.checkInDate >= dateStart && booking.checkInDate <= dateEnd);
+      const bookedValue = dayBookings.reduce((sum, booking) => sum + Number(booking.totalAmount), 0);
+      const paid = dayBookings.reduce((sum, booking) => sum + Number(booking.paidAmount), 0);
       return {
         date: date.toISOString().split('T')[0],
-        revenue: dayPayments.reduce((sum, p) => sum + p.amount, 0),
-        bookings: dayPayments.length,
+        revenue: dayPayments.reduce((sum, p) => sum + Number(p.amount), 0),
+        bookedValue,
+        paid,
+        outstanding: Math.max(0, bookedValue - paid),
+        bookings: dayBookings.length,
       };
     });
 
-    const total = revenueEvents.reduce((sum, p) => sum + p.amount, 0);
-    const byMethod = revenueEvents.reduce((acc, p) => {
+    const total = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const bookedValue = bookings.reduce((sum, booking) => sum + Number(booking.totalAmount), 0);
+    const paidBookingValue = bookings.reduce((sum, booking) => sum + Number(booking.paidAmount), 0);
+    const paidRevenue = total;
+    const outstandingBalance = Math.max(0, bookedValue - paidBookingValue);
+    const byMethod = payments.reduce((acc, p) => {
       const method = p.method || 'UNKNOWN';
-      acc[method] = (acc[method] || 0) + p.amount;
+      acc[method] = (acc[method] || 0) + Number(p.amount);
       return acc;
     }, {} as Record<string, number>);
 
     res.json({
       success: true,
-      data: { total, byMethod, transactionCount: revenueEvents.length, breakdown },
+      data: { total, bookedValue, paidRevenue, outstandingBalance, byMethod, transactionCount: payments.length, bookingCount: bookings.length, breakdown },
     });
   } catch (error) {
     next(error);
