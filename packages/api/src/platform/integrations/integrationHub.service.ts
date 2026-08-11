@@ -5,6 +5,7 @@ export type IntegrationCategory =
   | 'COMMUNICATIONS'
   | 'PAYMENTS'
   | 'OTA'
+  | 'REVIEWS'
   | 'PRODUCTIVITY'
   | 'SMART_LOCKS'
   | 'CCTV'
@@ -19,6 +20,8 @@ export type IntegrationCapability =
   | 'payment.intent'
   | 'payment.refund'
   | 'booking.sync'
+  | 'review.sync'
+  | 'review.reply'
   | 'calendar.sync'
   | 'workspace.sync'
   | 'chat.notify'
@@ -193,6 +196,22 @@ function baseProvider(input: Omit<IntegrationProvider, 'health' | 'version' | 'l
     ...input,
   };
 }
+
+registerIntegration(baseProvider({
+  id: 'google-business-profile',
+  name: 'Google Business Profile',
+  category: 'REVIEWS',
+  capabilities: ['review.sync', 'review.reply'],
+  status: process.env.GOOGLE_BUSINESS_CLIENT_ID && process.env.GOOGLE_BUSINESS_CLIENT_SECRET ? 'PARTIAL' : 'NOT_CONFIGURED',
+  configuration: [
+    { key: 'GOOGLE_BUSINESS_CLIENT_ID', label: 'OAuth client ID', type: 'text', required: true },
+    { key: 'GOOGLE_BUSINESS_CLIENT_SECRET', label: 'OAuth client secret', type: 'password', required: true, secret: true },
+    { key: 'GOOGLE_BUSINESS_REDIRECT_URI', label: 'OAuth redirect URI', type: 'url', required: false },
+  ],
+  docsUrl: 'https://developers.google.com/my-business/content/implement-oauth',
+  extractionReady: true,
+  notes: 'OAuth approval and a selected Business Profile location are required before review sync becomes connected.',
+}));
 
 registerIntegration(baseProvider({
   id: 'openweather',

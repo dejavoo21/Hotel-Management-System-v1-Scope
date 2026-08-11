@@ -19,6 +19,7 @@ import {
   Link2,
   LockKeyhole,
   Mail,
+  MessageSquareText,
   Plus,
   PlugZap,
   RadioTower,
@@ -51,6 +52,7 @@ const categoryLabels: Record<IntegrationManagerCategory, string> = {
   WEATHER: 'Weather',
   PAYMENTS: 'Payments',
   BOOKING_CHANNELS: 'Booking Channels',
+  REVIEW_PLATFORMS: 'Review Platforms',
   MICROSOFT_365: 'Microsoft 365',
   AI_PROVIDERS: 'OpenAI / AI Providers',
   OTHER_PROVIDERS: 'Other Providers',
@@ -77,6 +79,7 @@ const providerIconClasses: Record<IntegrationManagerCategory, string> = {
   WEATHER: 'bg-sky-50 text-sky-700',
   PAYMENTS: 'bg-indigo-50 text-indigo-700',
   BOOKING_CHANNELS: 'bg-blue-50 text-blue-700',
+  REVIEW_PLATFORMS: 'bg-amber-50 text-amber-700',
   MICROSOFT_365: 'bg-cyan-50 text-cyan-700',
   AI_PROVIDERS: 'bg-slate-100 text-slate-800',
   OTHER_PROVIDERS: 'bg-rose-50 text-rose-700',
@@ -91,6 +94,7 @@ const categoryIcons: Record<IntegrationManagerCategory, typeof Cable> = {
   WEATHER: CloudSun,
   PAYMENTS: CreditCard,
   BOOKING_CHANNELS: Building2,
+  REVIEW_PLATFORMS: MessageSquareText,
   MICROSOFT_365: Mail,
   AI_PROVIDERS: BrainCircuit,
   OTHER_PROVIDERS: PlugZap,
@@ -293,6 +297,11 @@ export default function IntegrationManagerPanel() {
     queryFn: integrationManagerService.overview,
     staleTime: 30_000,
   });
+  const reviewConnectorQuery = useQuery({
+    queryKey: ['integration-manager', 'review-platforms'],
+    queryFn: integrationManagerService.reviewConnectorStatus,
+    staleTime: 15_000,
+  });
   const devicesQuery = useQuery({
     queryKey: ['integration-manager', 'devices', activeCategory],
     queryFn: () => integrationManagerService.devices(activeCategory),
@@ -311,6 +320,22 @@ export default function IntegrationManagerPanel() {
     onSuccess: async (_result, eventType) => {
       toast.success(eventType === 'integration.connection.tested' ? 'Connection test requested' : 'Integration action requested');
       await queryClient.invalidateQueries({ queryKey: ['integration-manager'] });
+    },
+    onError: (error) => toast.error(getApiError(error).message),
+  });
+  const connectGoogleMutation = useMutation({
+    mutationFn: integrationManagerService.connectGoogleReviews,
+    onSuccess: ({ authorizationUrl }) => { window.location.assign(authorizationUrl); },
+    onError: (error) => toast.error(getApiError(error).message),
+  });
+  const syncGoogleMutation = useMutation({
+    mutationFn: integrationManagerService.syncGoogleReviews,
+    onSuccess: async ({ imported }) => {
+      toast.success(`${imported} Google review${imported === 1 ? '' : 's'} synchronized`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['integration-manager'] }),
+        queryClient.invalidateQueries({ queryKey: ['reviews'] }),
+      ]);
     },
     onError: (error) => toast.error(getApiError(error).message),
   });
@@ -508,6 +533,32 @@ export default function IntegrationManagerPanel() {
           </div>
           {supportsHardwareSetup ? (
             <HardwareIntegrationPanel mode={hardwareMode} canManage={canManage} surface="manager" />
+          ) : activeCategory === 'REVIEW_PLATFORMS' ? (
+            <div className="card">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex items-start gap-3">
+                  <ProviderIcon providerName="Google Business Profile" category="REVIEW_PLATFORMS" />
+                  <div>
+                    <h3 className="text-base font-semibold text-text-main">Google Business Profile reviews</h3>
+                    <p className="mt-1 max-w-2xl text-sm text-text-muted">{reviewConnectorQuery.data?.google.setupMessage || 'Checking Google connector configuration...'}</p>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                      <span className={`rounded-full border px-2.5 py-1 font-semibold ${statusClass(reviewConnectorQuery.data?.google.status || 'Not Connected')}`}>{labelize(reviewConnectorQuery.data?.google.status || 'NOT_CONNECTED')}</span>
+                      {reviewConnectorQuery.data?.google.lastSyncAt ? <span className="rounded-full border border-border bg-bg px-2.5 py-1 text-text-muted">Last sync {formatDate(reviewConnectorQuery.data.google.lastSyncAt)}</span> : null}
+                    </div>
+                  </div>
+                </div>
+                {canManage ? <div className="flex shrink-0 flex-wrap gap-2">
+                  {reviewConnectorQuery.data?.google.status === 'CONNECTED'
+                    ? <button type="button" className="btn-primary" disabled={syncGoogleMutation.isPending} onClick={() => syncGoogleMutation.mutate()}><RefreshCcw className={`h-4 w-4 ${syncGoogleMutation.isPending ? 'animate-spin' : ''}`} />Sync reviews</button>
+                    : <button type="button" className="btn-primary" disabled={!reviewConnectorQuery.data?.google.credentialsConfigured || connectGoogleMutation.isPending} onClick={() => connectGoogleMutation.mutate()}><Link2 className="h-4 w-4" />Connect Google</button>}
+                </div> : null}
+              </div>
+              <div className="mt-4 rounded-xl border border-border bg-bg/40 p-4 text-xs text-text-muted">
+                <p className="font-semibold text-text-main">OAuth redirect URI</p>
+                <code className="mt-1 block break-all">{reviewConnectorQuery.data?.google.redirectUri || 'Loading...'}</code>
+                <p className="mt-2">Register this exact HTTPS URI in Google Cloud. If the public URL changes, update GOOGLE_BUSINESS_REDIRECT_URI in Railway and the matching authorized redirect URI in Google Cloud.</p>
+              </div>
+            </div>
           ) : (
             <div className="card">
               <Cable className="h-5 w-5 text-slate-500" />

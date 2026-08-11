@@ -124,6 +124,7 @@ model Hotel {
   inventoryItems    InventoryItem[]
   calendarEvents    CalendarEvent[]
   reviews           Review[]
+  reviewProviderConnections ReviewProviderConnection[]
   guestJourneys     GuestJourney[]
   guestJourneyEvents GuestJourneyEvent[]
   conciergeRequests ConciergeRequest[]
@@ -1895,6 +1896,10 @@ model Review {
   rating      Int
   source      ReviewSource @default(DIRECT)
   comment     String?
+  externalId  String?
+  reviewerName String?
+  reviewerCountry String?
+  providerMetadata Json?
   response    String?
   respondedAt DateTime?
   createdAt   DateTime     @default(now())
@@ -1904,6 +1909,28 @@ model Review {
   @@index([rating])
   @@index([source])
   @@index([createdAt])
+  @@unique([hotelId, source, externalId])
+}
+
+model ReviewProviderConnection {
+  id                     String   @id @default(cuid())
+  hotelId                String
+  hotel                  Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  provider               String
+  status                 String   @default("PENDING")
+  accessTokenCiphertext  String?
+  refreshTokenCiphertext String?
+  tokenExpiresAt         DateTime?
+  accountName            String?
+  locationName           String?
+  lastSyncAt             DateTime?
+  lastError              String?
+  metadata               Json?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@unique([hotelId, provider])
+  @@index([provider, status])
 }
 
 enum ReviewSource {

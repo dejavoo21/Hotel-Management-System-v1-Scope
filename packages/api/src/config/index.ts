@@ -10,6 +10,13 @@ export const config = {
   port: parseInt(process.env.PORT || '4010', 10),
   apiUrl: process.env.API_URL || 'http://localhost:4010',
   appUrl: process.env.APP_URL || 'http://localhost:4212',
+  reviewIntegrations: {
+    google: {
+      clientId: process.env.GOOGLE_BUSINESS_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_BUSINESS_CLIENT_SECRET || '',
+      redirectUri: process.env.GOOGLE_BUSINESS_REDIRECT_URI || '',
+    },
+  },
   // Demo mode is permanently disabled; all environments use real data.
   demoMode: false,
 

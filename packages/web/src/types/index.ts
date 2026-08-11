@@ -232,6 +232,9 @@ export interface Review {
   rating: number;
   source: 'DIRECT' | 'BOOKING_COM' | 'EXPEDIA' | 'AIRBNB' | 'GOOGLE' | 'TRIPADVISOR' | 'OTHER';
   comment?: string;
+  externalId?: string;
+  reviewerName?: string;
+  reviewerCountry?: string;
   response?: string;
   respondedAt?: string;
   createdAt: string;

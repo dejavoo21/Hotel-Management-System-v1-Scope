@@ -18,8 +18,8 @@ vi.mock('@/data/dataSource', () => ({
   })),
   getReviewsByCountry: vi.fn(async () => [{ country: 'South Africa', count: 2, pct: 100 }]),
   getReviewsList: vi.fn(async () => [
-    { id: 'r1', guest: 'Ava Stone', country: 'South Africa', rating: 5, date: '2026-08-10', comment: 'Wonderful stay and service.', responded: true },
-    { id: 'r2', guest: 'Noah Reed', country: 'South Africa', rating: 2, date: '2026-08-09', comment: 'The room was not ready.', responded: false },
+    { id: 'r1', guest: 'Ava Stone', country: 'South Africa', rating: 5, date: '2026-08-10', comment: 'Wonderful stay and service.', responded: true, source: 'Google' },
+    { id: 'r2', guest: 'Noah Reed', country: 'South Africa', rating: 2, date: '2026-08-09', comment: 'The room was not ready.', responded: false, source: 'Direct' },
   ]),
 }));
 

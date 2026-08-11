@@ -16,6 +16,7 @@ export type IntegrationManagerCategory =
   | 'WEATHER'
   | 'PAYMENTS'
   | 'BOOKING_CHANNELS'
+  | 'REVIEW_PLATFORMS'
   | 'MICROSOFT_365'
   | 'AI_PROVIDERS'
   | 'OTHER_PROVIDERS';
@@ -42,6 +43,15 @@ const setupSteps = [
 ];
 
 export const providerRegistry: ProviderRegistryItem[] = [
+  { id: 'google-business-profile', category: 'REVIEW_PLATFORMS', name: 'Google Business Profile', providerType: 'GOOGLE_BUSINESS_PROFILE', connectionMethods: ['OAUTH_2', 'REST_API'], credentialFields: [{ key: 'clientId', label: 'Google OAuth client ID', required: true }, { key: 'clientSecret', label: 'Google OAuth client secret', secret: true, required: true }], status: process.env.GOOGLE_BUSINESS_CLIENT_ID && process.env.GOOGLE_BUSINESS_CLIENT_SECRET ? 'ENVIRONMENT_CONFIGURED' : 'AVAILABLE' },
+  { id: 'booking-com-reviews', category: 'REVIEW_PLATFORMS', name: 'Booking.com Reviews', providerType: 'BOOKING_COM_REVIEWS', connectionMethods: ['PARTNER_API'], credentialFields: [{ key: 'partnerId', label: 'Booking.com partner ID', required: true }, { key: 'apiKey', label: 'Partner API credential', secret: true, required: true }], status: 'FUTURE' },
+  { id: 'expedia-reviews', category: 'REVIEW_PLATFORMS', name: 'Expedia Reviews', providerType: 'EXPEDIA_REVIEWS', connectionMethods: ['PARTNER_API'], credentialFields: [{ key: 'partnerId', label: 'Expedia partner ID', required: true }, { key: 'apiKey', label: 'Partner API credential', secret: true, required: true }], status: 'FUTURE' },
+  { id: 'tripadvisor-reviews', category: 'REVIEW_PLATFORMS', name: 'Tripadvisor Reviews', providerType: 'TRIPADVISOR_REVIEWS', connectionMethods: ['CONTENT_API'], credentialFields: [{ key: 'apiKey', label: 'Tripadvisor API key', secret: true, required: true }, { key: 'locationId', label: 'Tripadvisor location ID', required: true }], status: 'FUTURE' },
+  { id: 'airbnb-reviews', category: 'REVIEW_PLATFORMS', name: 'Airbnb Reviews', providerType: 'AIRBNB_REVIEWS', connectionMethods: ['PARTNER_API'], credentialFields: [{ key: 'clientId', label: 'Airbnb partner client ID', required: true }, { key: 'clientSecret', label: 'Airbnb partner secret', secret: true, required: true }], status: 'FUTURE' },
+  { id: 'trustyou', category: 'REVIEW_PLATFORMS', name: 'TrustYou', providerType: 'TRUSTYOU', connectionMethods: ['REST_API'], credentialFields: cloudCredentialFields(), status: 'AVAILABLE' },
+  { id: 'reviewpro', category: 'REVIEW_PLATFORMS', name: 'ReviewPro', providerType: 'REVIEWPRO', connectionMethods: ['REST_API'], credentialFields: cloudCredentialFields(), status: 'AVAILABLE' },
+  { id: 'revinate', category: 'REVIEW_PLATFORMS', name: 'Revinate', providerType: 'REVINATE', connectionMethods: ['REST_API'], credentialFields: cloudCredentialFields(), status: 'AVAILABLE' },
+  { id: 'medallia', category: 'REVIEW_PLATFORMS', name: 'Medallia', providerType: 'MEDALLIA', connectionMethods: ['REST_API'], credentialFields: cloudCredentialFields(), status: 'AVAILABLE' },
   { id: 'usb-local-camera', category: 'CCTV', name: 'USB / Local Camera', providerType: 'USB_LOCAL', connectionMethods: ['BROWSER_CAMERA'], credentialFields: [], status: 'AVAILABLE' },
   { id: 'onvif-ip-camera', category: 'CCTV', name: 'ONVIF IP Camera', providerType: 'ONVIF', connectionMethods: ['ONVIF'], credentialFields: endpointCredentialFields(), status: 'AVAILABLE' },
   { id: 'manual-rtsp-camera', category: 'CCTV', name: 'Manual RTSP Camera', providerType: 'GENERIC_RTSP', connectionMethods: ['RTSP'], credentialFields: endpointCredentialFields(), status: 'AVAILABLE' },
@@ -96,6 +106,7 @@ function categoryForHardware(item: HardwareIntegration): IntegrationManagerCateg
 }
 
 function categoryForProvider(provider: IntegrationProvider): IntegrationManagerCategory {
+  if (provider.category === 'REVIEWS') return 'REVIEW_PLATFORMS';
   if (provider.category === 'WEATHER') return 'WEATHER';
   if (provider.category === 'PAYMENTS') return 'PAYMENTS';
   if (provider.category === 'OTA') return 'BOOKING_CHANNELS';

@@ -24,6 +24,9 @@ const serviceMocks = vi.hoisted(() => ({
   overview: vi.fn(),
   devices: vi.fn(),
   publishEvent: vi.fn(),
+  reviewConnectorStatus: vi.fn(),
+  connectGoogleReviews: vi.fn(),
+  syncGoogleReviews: vi.fn(),
 }));
 
 vi.mock('@/services', async () => {
@@ -34,6 +37,9 @@ vi.mock('@/services', async () => {
       overview: serviceMocks.overview,
       devices: serviceMocks.devices,
       publishEvent: serviceMocks.publishEvent,
+      reviewConnectorStatus: serviceMocks.reviewConnectorStatus,
+      connectGoogleReviews: serviceMocks.connectGoogleReviews,
+      syncGoogleReviews: serviceMocks.syncGoogleReviews,
     },
   };
 });
@@ -51,6 +57,7 @@ describe('IntegrationManagerPanel', () => {
     serviceMocks.overview.mockResolvedValue(overview);
     serviceMocks.devices.mockResolvedValue([]);
     serviceMocks.publishEvent.mockResolvedValue({ accepted: true });
+    serviceMocks.reviewConnectorStatus.mockResolvedValue({ google: { provider: 'GOOGLE_BUSINESS_PROFILE', credentialsConfigured: false, redirectUri: 'https://api.example.com/api/integration-manager/review-platforms/google/callback', requiredScope: 'business.manage', setupMessage: 'Add Google credentials.', status: 'NOT_CONNECTED' } });
   });
 
   it('renders enterprise metrics, tabs, filters, and status-aware cards', async () => {
