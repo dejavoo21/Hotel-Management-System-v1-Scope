@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { ArrowRight, Bot, Headphones, MessageCircle, Plus, Send, Sparkles, X } from 'lucide-react';
+import { ArrowRight, Bot, Download, Headphones, Mail, MessageCircle, Plus, Send, Sparkles, X } from 'lucide-react';
 import { assistantService, conciergeService, messageService } from '@/services';
 import type { AssistantMode } from '@/services/assistant';
 import { useAuthStore } from '@/stores/authStore';
@@ -487,6 +487,26 @@ export default function AppChatbot() {
                 }
               }} className='text-xs text-slate-500 hover:text-teal-700'>Open support messages</button>
             </div>
+            {conversationId ? (
+              <div className='mt-2 flex items-center gap-2 border-t border-slate-100 pt-2'>
+                <button type='button' onClick={() => void assistantService.downloadTranscript(conversationId).catch(() => toast.error('Transcript download failed.'))} className='inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-teal-700'>
+                  <Download className='h-3.5 w-3.5' />Download transcript
+                </button>
+                <span className='text-slate-200'>|</span>
+                <button type='button' onClick={async () => {
+                  const to = window.prompt('Send transcript to email:', user?.email || '');
+                  if (!to?.trim()) return;
+                  try {
+                    await assistantService.emailTranscript({ conversationId, to: to.trim() });
+                    toast.success('Transcript sent');
+                  } catch {
+                    toast.error('Transcript email failed.');
+                  }
+                }} className='inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-teal-700'>
+                  <Mail className='h-3.5 w-3.5' />Email transcript
+                </button>
+              </div>
+            ) : null}
             <p className='mt-2 text-center text-[10px] text-slate-400'>Answers respect your LaFlo access permissions. Confirm important operational decisions.</p>
           </div>
         </section>
