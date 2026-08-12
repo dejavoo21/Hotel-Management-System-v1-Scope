@@ -53,12 +53,14 @@ export default function AICopilotPanel({
   linkedEntityType,
   linkedEntityId,
   compact = false,
+  workspace = false,
 }: {
   title?: string;
   contextScope?: AICopilotContextSection[];
   linkedEntityType?: string;
   linkedEntityId?: string;
   compact?: boolean;
+  workspace?: boolean;
 }) {
   const [question, setQuestion] = useState('');
   const [lastPayload, setLastPayload] = useState<AICopilotAskPayload | null>(null);
@@ -104,18 +106,18 @@ export default function AICopilotPanel({
   );
 
   return (
-    <section className={`rounded-3xl border border-slate-200 bg-white shadow-sm ${compact ? 'p-4' : 'p-5'}`}>
+    <section className={`rounded-2xl border shadow-sm ${workspace ? 'border-slate-700 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-white' : 'border-border bg-card text-text-main'} ${compact ? 'p-4' : 'p-5'}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-white">
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${workspace ? 'bg-blue-500/20 text-blue-200 ring-1 ring-blue-400/30' : 'bg-slate-900 text-white'}`}>
             <BrainCircuit className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-            <p className="mt-1 text-sm text-slate-600">
+            <h2 className={`text-base font-semibold ${workspace ? 'text-white' : 'text-text-main'}`}>{title}</h2>
+            <p className={`mt-1 text-sm ${workspace ? 'text-blue-100/80' : 'text-text-muted'}`}>
               Ask operational questions using only context this role can access.
             </p>
-            <p className="mt-1 text-xs text-slate-400">{scopeLabel}</p>
+            <p className={`mt-1 text-xs ${workspace ? 'text-blue-200/60' : 'text-text-muted'}`}>{scopeLabel}</p>
           </div>
         </div>
         {response ? (
@@ -132,7 +134,7 @@ export default function AICopilotPanel({
             type="button"
             onClick={() => submitQuestion(prompt)}
             disabled={askMutation.isPending}
-            className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium disabled:opacity-60 ${workspace ? 'border-blue-300/20 bg-white/5 text-blue-100 hover:bg-white/10' : 'border-border bg-card text-text-muted hover:bg-bg'}`}
           >
             {prompt}
           </button>
@@ -149,13 +151,13 @@ export default function AICopilotPanel({
         <input
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
-          className="min-w-0 flex-1 rounded-2xl border border-slate-200 px-3 py-2 text-sm focus:border-primary-500 focus:ring-primary-500"
+          className={`min-w-0 flex-1 rounded-xl border px-3 py-3 text-sm focus:border-primary-500 focus:ring-primary-500 ${workspace ? 'border-blue-300/30 bg-white/10 text-white placeholder:text-blue-100/50' : 'border-border bg-card text-text-main'}`}
           placeholder="Ask an operational question..."
         />
         <button
           type="submit"
           disabled={askMutation.isPending || !question.trim()}
-          className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+          className={`inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-semibold text-white disabled:opacity-60 ${workspace ? 'bg-blue-600 hover:bg-blue-500' : 'bg-slate-900 hover:bg-slate-800'}`}
         >
           {askMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           Ask
@@ -223,7 +225,7 @@ export default function AICopilotPanel({
             ) : null}
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+          <div className={`rounded-xl border border-dashed p-4 text-sm ${workspace ? 'border-blue-300/20 bg-white/5 text-blue-100/70' : 'border-border bg-bg text-text-muted'}`}>
             Ask a question to generate a role-aware operational answer.
           </div>
         )}

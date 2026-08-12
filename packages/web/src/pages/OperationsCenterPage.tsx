@@ -8,7 +8,6 @@ import {
   TrendingUp, UsersRound, Wrench,
 } from 'lucide-react';
 import OpsAdvisories from '@/components/operations/advisories/OpsAdvisories';
-import AssistantDock from '@/components/operations/assistant/AssistantDock';
 import PricingCalendarCard from '@/components/operations/pricing/PricingCalendarCard';
 import MarketIntelligenceCard from '@/components/operations/pricing/MarketIntelligenceCard';
 import SignalsGrid from '@/components/operations/SignalsGrid';
@@ -19,6 +18,7 @@ import WeatherSignalCard from '@/components/operations/signals/WeatherSignalCard
 import DepartmentIntelligenceCard from '@/components/operations/DepartmentIntelligenceCard';
 import AIRecommendationGovernancePanel from '@/components/operations/AIRecommendationGovernancePanel';
 import AICopilotPanel from '@/components/ai/AICopilotPanel';
+import ContextPreview from '@/components/operations/assistant/ContextPreview';
 import OperationalTimeline from '@/components/timeline/OperationalTimeline';
 import CollaborationHeader from '@/components/collaboration/CollaborationHeader';
 import { aiBriefingService, aiRecommendationsService, operationsService, weatherSignalsService } from '@/services';
@@ -134,7 +134,45 @@ function FocusedWorkspace({ focus, context, isRefreshing, onRefreshWeather }: { 
   if (focus === 'revenue') return <div className="space-y-5"><DepartmentIntelligenceCard department="revenue" /><div className="grid gap-4 lg:grid-cols-2"><DemandSignalCard context={context} /><PricingSignalCard context={context} /></div>{revenue}</div>;
   if (focus === 'market-intelligence') return <div className="grid gap-5 xl:grid-cols-2"><div className="space-y-5"><MarketIntelligenceCard /><div className="grid gap-4 lg:grid-cols-2"><DemandSignalCard context={context} /><PricingSignalCard context={context} /></div></div><div className="space-y-5"><DepartmentIntelligenceCard department="revenue" compact />{revenue}</div></div>;
   if (focus === 'tasks') return <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]"><div className="space-y-5"><OpsAdvisories context={context} /><OperationalTimeline /></div><div className="space-y-5"><ArrivalsSignalCard context={context} /><DepartmentIntelligenceCard department="front-desk" compact /><DepartmentIntelligenceCard department="housekeeping" compact /></div></div>;
-  return <div className="grid gap-5 xl:grid-cols-2"><div className="space-y-5"><AICopilotPanel title="Operations Copilot" contextScope={['hotelProfile', 'occupancy', 'weather', 'bookings', 'guests', 'housekeeping', 'maintenance', 'security', 'smartBuilding', 'incidents', 'tasks', 'messages', 'financialSummary']} /><AIRecommendationGovernancePanel /></div><div className="space-y-5"><AssistantDock context={context} /><DepartmentIntelligenceCard department="front-desk" compact /><DepartmentIntelligenceCard department="guest-experience" compact /></div></div>;
+  return <OperationsAIWorkspace context={context} />;
+}
+
+function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
+  const pendingQuery = useQuery({ queryKey: ['ai-recommendations', 'PENDING'], queryFn: () => aiRecommendationsService.list('PENDING'), staleTime: 60 * 1000, refetchOnWindowFocus: false });
+  const pending = pendingQuery.data || [];
+  const highPriority = pending.filter((item) => item.priority === 'HIGH' || item.priority === 'CRITICAL').length;
+  const contextSources = [context?.weather, context?.ops, context?.pricingSignal, context?.pricingCalendar, context?.advisories].filter(Boolean).length;
+  const syncTime = context?.generatedAtUtc ? new Date(context.generatedAtUtc) : null;
+  const departments = [
+    { name: 'Front Desk', value: context?.ops?.arrivalsNext24h || 0, unit: 'arrivals', status: 'Live', tone: 'text-blue-600' },
+    { name: 'Housekeeping', value: context?.ops?.departuresNext24h || 0, unit: 'departures', status: 'Live', tone: 'text-emerald-600' },
+    { name: 'Security', value: pending.filter((item) => item.department.toLowerCase().includes('security')).length, unit: 'recommendations', status: highPriority ? 'Attention' : 'Stable', tone: 'text-violet-600' },
+    { name: 'Revenue', value: context?.pricingSignal?.opportunityPct || 0, unit: '% opportunity', status: context?.pricingSignal?.demandTrend || 'Stable', tone: 'text-amber-600' },
+  ];
+  return <div className="space-y-3 pb-20">
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <AIStat icon={Gauge} label="Pending Recommendations" value={pending.length} detail="Governance review queue" />
+      <AIStat icon={AlertTriangle} label="High Priority" value={highPriority} detail="Needs attention" semantic="risk" />
+      <AIStat icon={Activity} label="Connected Contexts" value={contextSources} detail="Live operational sources" />
+      <AIStat icon={RefreshCcw} label="Last Sync" value={syncTime ? syncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'} detail={syncTime ? 'Context is current' : 'Awaiting context'} />
+    </section>
+    <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_330px]">
+      <div className="space-y-3">
+        <AICopilotPanel title="AI Assistant" contextScope={['hotelProfile', 'occupancy', 'weather', 'bookings', 'guests', 'housekeeping', 'maintenance', 'security', 'smartBuilding', 'incidents', 'tasks', 'messages', 'financialSummary']} workspace />
+        <AIRecommendationGovernancePanel compact />
+      </div>
+      <aside className="space-y-3">
+        <ContextPreview context={context} />
+        <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm"><div className="border-b border-border px-4 py-3"><h2 className="font-semibold text-text-main">Department Intelligence</h2><p className="mt-1 text-xs text-text-muted">Compact operational focus by department.</p></div><div className="grid grid-cols-2">{departments.map((item) => <div key={item.name} className="border-b border-r border-border p-4 even:border-r-0"><div className="flex items-center justify-between gap-2"><p className="text-sm font-semibold text-text-main">{item.name}</p><span className="rounded-full bg-bg px-2 py-0.5 text-[9px] font-semibold text-text-muted">{item.status}</span></div><p className={`mt-4 text-2xl font-bold ${item.tone}`}>{item.value}</p><p className="mt-1 text-[10px] text-text-muted">{item.unit}</p></div>)}</div></section>
+        <section className="rounded-2xl border border-border bg-card p-4 shadow-sm"><div className="flex items-center justify-between"><h2 className="font-semibold text-text-main">Recent AI Activity</h2><Link to="/operations-center/tasks" className="text-xs font-semibold text-primary-600">View all</Link></div><div className="mt-3 divide-y divide-border">{pending.slice(0,4).map((item) => <div key={item.id} className="py-3"><p className="text-xs font-semibold text-text-main">{item.title}</p><p className="mt-1 text-[10px] text-text-muted">{item.department} · {new Date(item.createdAt).toLocaleString()}</p></div>)}{!pending.length && <p className="py-5 text-xs text-text-muted">No recent governed AI activity.</p>}</div></section>
+        <div className="rounded-2xl border border-border bg-card p-4 text-xs leading-5 text-text-muted">AI insights may contain errors. Review context, rationale, confidence, and permissions before taking action.</div>
+      </aside>
+    </div>
+  </div>;
+}
+
+function AIStat({ icon: Icon, label, value, detail, semantic }: { icon: typeof Activity; label: string; value: string | number; detail: string; semantic?: 'risk' }) {
+  return <article className="theme-stat-card flex min-h-24 items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm"><span className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${semantic === 'risk' ? 'bg-rose-50 text-rose-600' : 'theme-kpi-icon'}`}><Icon className="h-5 w-5" /></span><div><p className="text-xs text-text-muted">{label}</p><p className="mt-1 text-xl font-bold text-text-main">{value}</p><p className="mt-1 text-[10px] text-text-muted">{detail}</p></div></article>;
 }
 
 const toneClass = { good: 'border-emerald-200 bg-emerald-50/40 text-emerald-700', warn: 'border-amber-200 bg-amber-50/40 text-amber-700', risk: 'border-rose-200 bg-rose-50/40 text-rose-700', info: 'border-sky-200 bg-sky-50/40 text-sky-700' };
