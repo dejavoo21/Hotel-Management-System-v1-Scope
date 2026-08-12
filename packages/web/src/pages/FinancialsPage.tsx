@@ -6,7 +6,6 @@ import toast from 'react-hot-toast';
 import api from '@/services/api';
 import { reportService } from '@/services';
 import { useAuthStore } from '@/stores/authStore';
-import DepartmentIntelligenceCard from '@/components/operations/DepartmentIntelligenceCard';
 import { appendAuditLog } from '@/utils/auditLog';
 import { formatEnumLabel } from '@/utils';
 
@@ -86,7 +85,7 @@ export default function FinancialsPage() {
       <div className="flex flex-wrap items-center gap-2"><div className="flex flex-wrap rounded-xl border border-border bg-card p-1">{periods.map((item) => <button key={item.value} type="button" onClick={() => setPeriod(item.value)} aria-pressed={period === item.value} className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${period === item.value ? 'bg-primary-600 text-white' : 'text-text-muted hover:bg-bg hover:text-text-main'}`}>{item.label}</button>)}</div><button className="btn-outline" onClick={refresh}><RefreshCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />Refresh</button><button className="btn-outline" onClick={() => exportReport('csv')}><Download className="h-4 w-4" />Export</button><a className="btn-primary" href="/reports"><FileBarChart className="h-4 w-4" />Financial reports</a></div>
     </header>
 
-    <DepartmentIntelligenceCard department="revenue" />
+    <RevenueIntelligence report={report} occupancy={avgOccupancy} money={money} loading={loading} onRefresh={refresh} />
 
     {error ? <ErrorState onRetry={refresh} /> : null}
     <section aria-label="Financial summary" className="theme-kpi-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
@@ -109,6 +108,13 @@ export default function FinancialsPage() {
     <section className="grid gap-4 xl:grid-cols-[1.4fr_1fr]"><GuestPanel data={guestsQuery.data} money={money} /><ExportPanel onExport={exportReport} /></section>
   </div>;
 }
+
+function RevenueIntelligence({ report, occupancy, money, loading, onRefresh }: { report?: RevenueReport; occupancy: number; money: (value: number) => string; loading: boolean; onRefresh: () => void }) {
+  const outstanding = report?.outstandingBalance || 0;
+  const risk = occupancy < 20 ? 'High' : occupancy < 50 ? 'Medium' : 'Low';
+  return <section className="rounded-2xl border border-border bg-card p-4 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><h2 className="text-lg font-semibold text-text-main">Revenue Intelligence</h2><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${risk === 'High' ? 'bg-rose-50 text-rose-700' : risk === 'Medium' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{risk} risk</span><span className="rounded-full bg-bg px-2 py-0.5 text-[10px] font-semibold text-text-muted">Rules fallback</span></div><p className="mt-1 text-sm text-text-muted">Collections, demand, and pricing guidance from authorised financial data.</p></div><button type="button" onClick={onRefresh} disabled={loading} className="btn-outline"><RefreshCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />Refresh insight</button></div><div className="mt-4 grid gap-3 md:grid-cols-3"><Insight title="Top Priority" badge={outstanding ? 'Collections' : 'Monitor'} text={outstanding ? `${money(outstanding)} in outstanding balances needs collection.` : 'No outstanding balances currently require action.'} tone="good" /><Insight title="Top Risk" badge={risk} text={occupancy < 20 ? `Soft demand: average occupancy is ${occupancy.toFixed(1)}%. Consider tactical offers and channel mix.` : `Average occupancy is ${occupancy.toFixed(1)}%; continue monitoring demand and booking pace.`} tone="risk" /><Insight title="Recommended Action" badge="Review" text="Review pricing, collections, demand, and connected market signals before changing rates." tone="warn" /></div></section>;
+}
+function Insight({ title, badge, text, tone }: { title: string; badge: string; text: string; tone: 'good' | 'risk' | 'warn' }) { const style = tone === 'risk' ? 'border-rose-200 bg-rose-50/40' : tone === 'warn' ? 'border-amber-200 bg-amber-50/40' : 'border-emerald-200 bg-emerald-50/40'; return <article className={`rounded-xl border p-4 ${style}`}><div className="flex items-center justify-between gap-2"><h3 className="text-sm font-semibold text-text-main">{title}</h3><span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-text-muted">{badge}</span></div><p className="mt-3 text-sm leading-5 text-text-muted">{text}</p></article>; }
 
 function FinancialFilters({ source, roomType, metric, sources, roomTypes, onSource, onRoomType, onMetric }: { source: string; roomType: string; metric: RevenueMetric; sources: Array<{ source: string }>; roomTypes: Array<{ name: string }>; onSource: (value: string) => void; onRoomType: (value: string) => void; onMetric: (value: RevenueMetric) => void }) {
   const active = source !== 'ALL' || roomType !== 'ALL' || metric !== 'revenue';
