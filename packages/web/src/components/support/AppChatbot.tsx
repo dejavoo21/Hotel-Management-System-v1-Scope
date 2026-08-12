@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { ArrowRight, Bot, Download, Headphones, Mail, MessageCircle, Plus, Send, Sparkles, X } from 'lucide-react';
+import { ArrowRight, Bot, Download, Headphones, Mail, Plus, Send, X } from 'lucide-react';
 import { assistantService, conciergeService, messageService } from '@/services';
 import type { AssistantMode } from '@/services/assistant';
 import { useAuthStore } from '@/stores/authStore';
@@ -348,9 +348,7 @@ export default function AppChatbot() {
         <section role='dialog' aria-label='LaFlo Assistant' className='flex h-[min(680px,calc(100vh-1.5rem))] w-[min(430px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl'>
           <header className='flex items-center justify-between gap-3 bg-gradient-to-r from-primary-800 to-primary-600 px-4 py-3 text-primary-contrast'>
             <div className='flex min-w-0 items-center gap-3'>
-              <span className='grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/15'>
-                <Sparkles className='h-5 w-5' />
-              </span>
+              <img src='/assets/laflo-ai-agent.png' alt='LaFlo AI Agent' className='h-10 w-10 shrink-0 rounded-xl object-cover shadow-sm ring-1 ring-white/20' />
               <div className='min-w-0'>
                 <h2 className='truncate text-sm font-semibold'>LaFlo Assistant</h2>
                 <p className='flex items-center gap-1.5 text-xs text-emerald-50/80'>
@@ -511,8 +509,8 @@ export default function AppChatbot() {
           </div>
         </section>
       ) : (
-        <button ref={launcherRef} type='button' onClick={() => setOpen(true)} className={compactAuditLauncher ? 'grid h-12 w-12 place-items-center rounded-full bg-primary-solid text-primary-contrast shadow-lg hover:bg-primary-hover' : 'flex items-center gap-2 rounded-full bg-primary-solid px-4 py-3 text-sm font-semibold text-primary-contrast shadow-lg hover:bg-primary-hover'} aria-label='Open LaFlo Assistant'>
-          <MessageCircle className='h-5 w-5' /><span className={compactAuditLauncher ? 'sr-only' : 'hidden sm:inline'}>Ask LaFlo</span>
+        <button ref={launcherRef} type='button' onClick={() => setOpen(true)} className={compactAuditLauncher ? 'grid h-14 w-14 place-items-center overflow-hidden rounded-2xl bg-slate-950 shadow-lg transition-transform hover:scale-105' : 'flex items-center gap-2 rounded-2xl bg-slate-950 py-2 pl-2 pr-4 text-sm font-semibold text-white shadow-lg transition-transform hover:scale-[1.02]'} aria-label='Open LaFlo Assistant'>
+          <img src='/assets/laflo-ai-agent.png' alt='' aria-hidden='true' className={compactAuditLauncher ? 'h-full w-full object-cover' : 'h-10 w-10 rounded-xl object-cover'} /><span className={compactAuditLauncher ? 'sr-only' : 'hidden sm:inline'}>Ask LaFlo</span>
         </button>
       )}
     </div>
