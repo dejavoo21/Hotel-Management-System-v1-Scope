@@ -512,7 +512,7 @@ export default function AppChatbot() {
         </section>
       ) : (
         <button ref={launcherRef} type='button' onClick={() => setOpen(true)} className={compactAuditLauncher ? 'grid h-11 w-11 place-items-center overflow-hidden rounded-xl bg-primary-solid text-primary-contrast shadow-md transition-transform hover:scale-105 hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2' : 'flex items-center gap-1.5 rounded-xl bg-primary-solid py-1.5 pl-1.5 pr-3 text-xs font-semibold text-primary-contrast shadow-md transition-transform hover:scale-[1.02] hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2'} aria-label='Open LaFlo Assistant'>
-          <span className={compactAuditLauncher ? 'h-8 w-8' : 'h-7 w-7'}><img src='/assets/laflo-ai-agent-transparent.png' alt='' aria-hidden='true' className='h-full w-full object-contain' /></span><span className={compactAuditLauncher ? 'sr-only' : 'hidden sm:inline'}>Ask LaFlo</span>
+          <span className={compactAuditLauncher ? 'h-9 w-9' : 'h-9 w-9'}><img src='/assets/laflo-ai-agent-transparent.png' alt='' aria-hidden='true' className='h-full w-full object-contain' /></span><span className={compactAuditLauncher ? 'sr-only' : 'hidden sm:inline'}>Ask LaFlo</span>
         </button>
       )}
     </div>
