@@ -62,18 +62,22 @@ describe('EnterpriseSearchPage', () => {
     useAuthStore.setState({ user: { id: 'admin-1', role: 'ADMIN', modulePermissions: [], hotel: { id: 'hotel-1' } } as never });
   });
 
-  it('starts as a lightweight search page with collapsed filters', () => {
+  it('opens in the target investigation state with collapsed filters and preserves a clear empty state', async () => {
     renderPage();
     expect(screen.getByRole('heading', { name: 'Enterprise Search' })).toBeInTheDocument();
-    expect(screen.getByText('Search across LaFlo records')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Filters/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Enterprise search' })).toHaveValue('water leak basement sensor');
+    expect(await screen.findByRole('button', { name: /Room 214 maintenance work order/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Filters/ })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('combobox', { name: 'Status' })).not.toBeInTheDocument();
     expect(screen.queryByText('Saved Searches')).not.toBeInTheDocument();
     expect(screen.queryByText('Hotel Brain Insight')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(screen.getByText('Search across LaFlo records')).toBeInTheDocument();
   });
 
   it('searches, renders compact results, updates preview, and opens filters on demand', async () => {
     renderPage();
+    await screen.findByRole('button', { name: /Room 214 maintenance work order/ });
     fireEvent.change(screen.getByRole('textbox', { name: 'Enterprise search' }), { target: { value: 'water leak' } });
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
 
@@ -97,8 +101,6 @@ describe('EnterpriseSearchPage', () => {
     expect(screen.queryByRole('button', { name: 'CCTV' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Audit Logs' })).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Enterprise search' }), { target: { value: 'water leak' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
     expect((await screen.findAllByText('Room 214 maintenance work order')).length).toBeGreaterThan(0);
     expect(screen.queryByText('Invoice #INV-8674')).not.toBeInTheDocument();
     expect(screen.queryByText('Offline camera near pool')).not.toBeInTheDocument();
@@ -107,9 +109,10 @@ describe('EnterpriseSearchPage', () => {
 
   it('hands the current investigation to Hotel Brain without rendering another assistant', async () => {
     renderPage();
+    await screen.findByRole('button', { name: /Room 214 maintenance work order/ });
     fireEvent.change(screen.getByRole('textbox', { name: 'Enterprise search' }), { target: { value: 'offline cameras' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Ask Hotel Brain' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Ask Hotel Brain' })[0]);
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/ai/hotel-brain?question=offline%20cameras'));
-    expect(searchMock).not.toHaveBeenCalled();
+    expect(searchMock).toHaveBeenCalledTimes(1);
   });
 });

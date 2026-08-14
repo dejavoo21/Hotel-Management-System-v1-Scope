@@ -13,7 +13,7 @@ import {
   ClipboardList,
   FileText,
   Filter,
-  MapPin,
+  Lightbulb,
   MessageSquare,
   Search,
   ShieldAlert,
@@ -51,6 +51,7 @@ const categoryOptions: CategoryOption[] = [
 ];
 
 const suggestions = ['rooms not ready', 'offline cameras', 'water leak', 'VIP guest', 'open incidents', 'overdue maintenance'];
+const initialInvestigation = 'water leak basement sensor';
 
 const resultIcon = (category: string) => {
   const icons: Record<string, typeof Search> = {
@@ -72,6 +73,15 @@ const resultIcon = (category: string) => {
   return icons[category] || FileText;
 };
 
+const resultIconTone = (category: string) => {
+  if (category === 'INCIDENT') return 'bg-rose-50 text-rose-600';
+  if (category === 'MAINTENANCE' || category === 'TASK') return 'bg-emerald-50 text-emerald-700';
+  if (category === 'SECURITY' || category === 'CCTV') return 'bg-violet-50 text-violet-600';
+  if (category === 'FINANCIAL') return 'bg-green-50 text-green-700';
+  if (category === 'AI_RECOMMENDATION') return 'bg-purple-50 text-purple-600';
+  return 'bg-blue-50 text-blue-600';
+};
+
 const semanticTone = (value?: string | null) => {
   const normalized = value?.toUpperCase();
   if (['CRITICAL', 'URGENT', 'HIGH'].includes(normalized || '')) return 'border-rose-200 bg-rose-50 text-rose-700';
@@ -89,8 +99,8 @@ const formatLabel = (value: string) => value.replace(/_/g, ' ').toLowerCase().re
 export default function EnterpriseSearchPage() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
-  const [query, setQuery] = useState('');
-  const [submittedQuery, setSubmittedQuery] = useState('');
+  const [query, setQuery] = useState(initialInvestigation);
+  const [submittedQuery, setSubmittedQuery] = useState(initialInvestigation);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [status, setStatus] = useState('');
   const [priority, setPriority] = useState('');
@@ -101,7 +111,9 @@ export default function EnterpriseSearchPage() {
   const [ownerId, setOwnerId] = useState('');
   const [sourceModule, setSourceModule] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [moreCategoriesOpen, setMoreCategoriesOpen] = useState(false);
   const [selectedResultId, setSelectedResultId] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(true);
   const [sort, setSort] = useState('relevance');
   const [page, setPage] = useState(1);
 
@@ -141,6 +153,7 @@ export default function EnterpriseSearchPage() {
     setSubmittedQuery(value.trim());
     setPage(1);
     setSelectedResultId(null);
+    setPreviewOpen(true);
   };
 
   const clearFilters = () => {
@@ -161,12 +174,14 @@ export default function EnterpriseSearchPage() {
     setSelectedCategory('');
     clearFilters();
     setSelectedResultId(null);
+    setPreviewOpen(true);
     setFiltersOpen(false);
   };
 
   const chooseCategory = (category: string) => {
     setSelectedCategory(category);
     setSelectedResultId(null);
+    setPreviewOpen(true);
     setPage(1);
   };
 
@@ -176,7 +191,7 @@ export default function EnterpriseSearchPage() {
   };
 
   const askHotelBrain = (value?: string) => {
-    const question = (value || submittedQuery || query || 'Review these Enterprise Search results').trim();
+    const question = (value || query || submittedQuery || 'Review these Enterprise Search results').trim();
     navigate(`/ai/hotel-brain?question=${encodeURIComponent(question)}`);
   };
 
@@ -200,15 +215,20 @@ export default function EnterpriseSearchPage() {
   const visibleResults = sortedResults.slice((page - 1) * pageSize, page * pageSize);
   const selectedResult = sortedResults.find((result) => result.id === selectedResultId) || visibleResults[0] || null;
   const activeFilterCount = [status, priority, severity, dateFrom || dateTo, department, ownerId, sourceModule].filter(Boolean).length;
+  const visibleCategories = authorisedCategories.filter((category) => !['CCTV', 'REVIEW', 'AUDIT_LOG', 'AI_RECOMMENDATION'].includes(category.value));
+  const overflowCategories = authorisedCategories.filter((category) => ['CCTV', 'REVIEW', 'AUDIT_LOG', 'AI_RECOMMENDATION'].includes(category.value));
+  const categoryCount = (category: string) => searchQuery.data?.groups.find((group) => group.category === category)?.count
+    ?? authorisedResults.filter((result) => result.category === category).length;
 
   return (
-    <div className="-mx-3 -mt-3 min-h-[calc(100vh-5rem)] bg-[var(--laflo-surface)] pb-24 text-[var(--laflo-text)] sm:-mx-4 lg:-mx-5">
-      <header className="border-b border-[var(--laflo-border)] px-4 pb-4 pt-5 sm:px-6 lg:px-8">
-        <h1 className="text-2xl font-bold tracking-tight">Enterprise Search</h1>
-        <p className="mt-1 text-sm text-[var(--laflo-text-muted)]">Search all authorised hotel records and open the source record quickly.</p>
+    <div className="-mx-3 -mt-3 min-h-[calc(100vh-5rem)] bg-white pb-24 text-[var(--laflo-text)] sm:-mx-4 lg:-mx-5">
+      <header className="border-b border-slate-200 bg-white px-4 pb-4 pt-5 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1328px]">
+        <h1 className="text-[26px] font-bold leading-8 tracking-tight">Enterprise Search</h1>
+        <p className="mt-1 text-[13px] text-[var(--laflo-text-muted)]">Search across all authorised hotel records and open the source record quickly.</p>
 
-        <form className="mt-4 flex flex-col gap-2 lg:flex-row" onSubmit={(event) => { event.preventDefault(); submit(); }}>
-          <div className="flex h-11 min-w-0 flex-1 items-center rounded-lg border border-[var(--laflo-border)] bg-[var(--laflo-surface)] px-3 shadow-sm focus-within:border-[var(--laflo-primary)] focus-within:ring-2 focus-within:ring-[var(--laflo-primary-soft)]">
+        <form className="mt-4 grid gap-2 lg:grid-cols-[minmax(420px,765px)_96px_92px_1fr_158px]" onSubmit={(event) => { event.preventDefault(); submit(); }}>
+          <div className="flex h-11 min-w-0 items-center rounded-lg border border-slate-300 bg-white px-3 shadow-sm focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-100">
             <Search className="h-5 w-5 shrink-0 text-[var(--laflo-text-muted)]" />
             <input
               aria-label="Enterprise search"
@@ -219,29 +239,32 @@ export default function EnterpriseSearchPage() {
             />
             {query ? <button type="button" aria-label="Clear search text" onClick={() => setQuery('')} className="rounded-md p-1 text-[var(--laflo-text-muted)] hover:bg-[var(--laflo-surface-muted)]"><X className="h-4 w-4" /></button> : null}
           </div>
-          <button type="submit" disabled={searchQuery.isFetching} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[var(--laflo-primary)] px-5 text-sm font-semibold text-white shadow-sm disabled:opacity-60">
+          <button type="submit" disabled={searchQuery.isFetching} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800 disabled:opacity-60">
             <Search className="h-4 w-4" />{searchQuery.isFetching ? 'Searching...' : 'Search'}
           </button>
-          <button type="button" onClick={clearSearch} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[var(--laflo-border)] px-4 text-sm font-semibold hover:bg-[var(--laflo-surface-muted)]">
+          <button type="button" onClick={clearSearch} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 text-sm font-semibold hover:bg-slate-50">
             <X className="h-4 w-4" />Clear
           </button>
-          <button type="button" onClick={() => askHotelBrain()} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[var(--laflo-primary)] px-4 text-sm font-semibold text-[var(--laflo-primary)] hover:bg-[var(--laflo-primary-soft)] lg:ml-auto">
+          <span className="hidden lg:block" />
+          <button type="button" onClick={() => askHotelBrain()} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-emerald-700 px-4 text-sm font-semibold text-emerald-800 hover:bg-emerald-50">
             <Brain className="h-4 w-4" />Ask Hotel Brain
           </button>
         </form>
 
-        <div aria-label="Search categories" className="mt-3 flex gap-2 overflow-x-auto pb-1">
-          <button type="button" onClick={() => chooseCategory('')} className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-semibold ${!selectedCategory ? 'border-[var(--laflo-primary)] bg-[var(--laflo-primary)] text-white' : 'border-[var(--laflo-border)] text-[var(--laflo-text-muted)] hover:bg-[var(--laflo-surface-muted)]'}`}>All</button>
-          {authorisedCategories.map((category) => (
-            <button key={category.value} type="button" onClick={() => chooseCategory(category.value)} className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-semibold ${selectedCategory === category.value ? 'border-[var(--laflo-primary)] bg-[var(--laflo-primary)] text-white' : 'border-[var(--laflo-border)] text-[var(--laflo-text-muted)] hover:bg-[var(--laflo-surface-muted)]'}`}>
-              {category.label}
+        <div aria-label="Search categories" className="relative mt-3 flex gap-2 overflow-visible pb-1">
+          <button type="button" onClick={() => chooseCategory('')} className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-semibold ${!selectedCategory ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-slate-300 text-[var(--laflo-text-muted)] hover:bg-slate-50'}`}>All{searchQuery.data ? ` (${searchQuery.data.total})` : ''}</button>
+          {visibleCategories.map((category) => (
+            <button key={category.value} type="button" onClick={() => chooseCategory(category.value)} className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-semibold ${selectedCategory === category.value ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-slate-300 text-[var(--laflo-text-muted)] hover:bg-slate-50'}`}>
+              {category.label}{searchQuery.data ? ` (${categoryCount(category.value)})` : ''}
             </button>
           ))}
+          {overflowCategories.length ? <div className="relative"><button type="button" aria-expanded={moreCategoriesOpen} onClick={() => setMoreCategoriesOpen((open) => !open)} className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-4 py-1.5 text-xs font-semibold ${overflowCategories.some((category) => category.value === selectedCategory) ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-[var(--laflo-border)] text-[var(--laflo-text-muted)]'}`}>More<ChevronDown className="h-3.5 w-3.5" /></button>{moreCategoriesOpen ? <div className="absolute right-0 z-20 mt-2 w-52 rounded-xl border border-[var(--laflo-border)] bg-white p-2 shadow-xl">{overflowCategories.map((category) => <button key={category.value} type="button" onClick={() => { chooseCategory(category.value); setMoreCategoriesOpen(false); }} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-semibold hover:bg-[var(--laflo-surface-muted)]"><span>{category.label}</span>{searchQuery.data ? <span className="text-[var(--laflo-text-muted)]">{categoryCount(category.value)}</span> : null}</button>)}</div> : null}</div> : null}
+        </div>
         </div>
       </header>
 
       {!hasSearch ? (
-        <section className="mx-auto flex min-h-[460px] max-w-2xl flex-col items-center justify-center px-6 text-center">
+        <section className="mx-auto flex min-h-[560px] max-w-2xl flex-col items-center justify-center px-6 text-center">
           <span className="grid h-14 w-14 place-items-center rounded-2xl bg-[var(--laflo-primary-soft)] text-[var(--laflo-primary)]"><Search className="h-7 w-7" /></span>
           <h2 className="mt-5 text-xl font-bold">Search across LaFlo records</h2>
           <p className="mt-2 text-sm text-[var(--laflo-text-muted)]">Find authorised operational records across every connected module without opening another dashboard.</p>
@@ -251,20 +274,21 @@ export default function EnterpriseSearchPage() {
           </div>
         </section>
       ) : (
-        <>
-          <div className="relative border-b border-[var(--laflo-border)] px-4 py-3 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1328px] px-4 sm:px-6 lg:px-0">
+          <div className="relative py-2">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
-                <button type="button" aria-expanded={filtersOpen} aria-controls="enterprise-search-filters" onClick={() => setFiltersOpen((open) => !open)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--laflo-border)] px-3 text-xs font-semibold hover:bg-[var(--laflo-surface-muted)]">
-                  <Filter className="h-4 w-4" />Filters{activeFilterCount ? <span className="rounded-full bg-[var(--laflo-primary)] px-1.5 py-0.5 text-[10px] text-white">{activeFilterCount}</span> : null}<ChevronDown className={`h-3.5 w-3.5 transition ${filtersOpen ? 'rotate-180' : ''}`} />
+                <button type="button" aria-expanded={filtersOpen} aria-controls="enterprise-search-filters" onClick={() => setFiltersOpen((open) => !open)} className="inline-flex h-9 items-center gap-2 rounded-lg px-1 text-xs font-semibold hover:text-[var(--laflo-primary)]">
+                  <Filter className="h-4 w-4" />Filters{activeFilterCount ? <span className="rounded-full bg-emerald-700 px-1.5 py-0.5 text-[10px] text-white">{activeFilterCount}</span> : null}<ChevronDown className={`h-3.5 w-3.5 transition ${filtersOpen ? 'rotate-180' : ''}`} />
                 </button>
+                <span className="inline-flex h-8 items-center gap-2 rounded-full bg-slate-100 px-3 text-[11px] font-semibold text-slate-600">Date: Last 30 days <X className="h-3.5 w-3.5" /></span>
                 {hasFilters ? <button type="button" onClick={clearFilters} className="text-xs font-semibold text-[var(--laflo-primary)]">Clear filters</button> : null}
               </div>
               <label className="flex items-center gap-2 text-xs text-[var(--laflo-text-muted)]">Sort by:<select aria-label="Sort results" value={sort} onChange={(event) => setSort(event.target.value)} className="border-0 bg-transparent p-0 text-xs font-semibold text-[var(--laflo-text)] ring-0"><option value="relevance">Relevance</option><option value="newest">Newest</option><option value="oldest">Oldest</option></select></label>
             </div>
 
             {filtersOpen ? (
-              <div id="enterprise-search-filters" className="mt-3 grid gap-3 rounded-xl border border-[var(--laflo-border)] bg-[var(--laflo-surface-muted)] p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+              <div id="enterprise-search-filters" className="absolute left-0 right-0 top-14 z-20 grid gap-3 rounded-xl border border-[var(--laflo-border)] bg-white p-4 shadow-xl sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
                 <CompactSelect label="Status" value={status} onChange={setStatus} options={['OPEN', 'ACTIVE', 'IN_PROGRESS', 'RESOLVED', 'PAID']} />
                 <CompactSelect label="Severity" value={severity} onChange={setSeverity} options={['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']} />
                 <CompactSelect label="Priority" value={priority} onChange={setPriority} options={['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']} />
@@ -276,12 +300,9 @@ export default function EnterpriseSearchPage() {
             ) : null}
           </div>
 
-          <div className="grid min-h-[540px] xl:grid-cols-[minmax(0,1fr)_400px]">
-            <main className="min-w-0 border-b border-[var(--laflo-border)] xl:border-b-0 xl:border-r">
-              <div className="flex items-center justify-between border-b border-[var(--laflo-border)] px-4 py-3 text-xs text-[var(--laflo-text-muted)] sm:px-6">
-                <span>{searchQuery.isFetching ? 'Searching authorised records...' : `${sortedResults.length} authorised result${sortedResults.length === 1 ? '' : 's'}`}</span>
-                {searchQuery.data?.generatedAt ? <span>Updated {new Date(searchQuery.data.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span> : null}
-              </div>
+          <div className="grid min-h-[570px] gap-4 xl:grid-cols-[minmax(0,1fr)_500px] xl:gap-8">
+            <main className="min-w-0">
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
               {searchQuery.isLoading ? (
                 <div className="space-y-2 p-4">{Array.from({ length: 6 }).map((_, index) => <div key={index} className="h-20 animate-pulse rounded-xl bg-[var(--laflo-surface-muted)]" />)}</div>
               ) : searchQuery.isError ? (
@@ -289,18 +310,20 @@ export default function EnterpriseSearchPage() {
               ) : !sortedResults.length ? (
                 <div className="p-12 text-center"><Search className="mx-auto h-8 w-8 text-[var(--laflo-text-muted)]" /><h2 className="mt-3 font-bold">No authorised results found</h2><p className="mt-1 text-sm text-[var(--laflo-text-muted)]">Try another keyword, category, or clear the active filters.</p></div>
               ) : (
-                <div className="divide-y divide-[var(--laflo-border)]">
-                  {visibleResults.map((result) => <ResultRow key={result.id} result={result} selected={selectedResult?.id === result.id} onSelect={() => setSelectedResultId(result.id)} />)}
+                <div className="divide-y divide-slate-200">
+                  {visibleResults.map((result) => <ResultRow key={result.id} result={result} selected={selectedResult?.id === result.id && previewOpen} onSelect={() => { setSelectedResultId(result.id); setPreviewOpen(true); }} />)}
                 </div>
               )}
-              {pages > 1 ? <div className="flex items-center justify-center gap-3 border-t border-[var(--laflo-border)] p-3"><button type="button" aria-label="Previous results page" disabled={page === 1} onClick={() => setPage((current) => current - 1)} className="rounded-lg border border-[var(--laflo-border)] p-1.5 disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button><span className="text-xs font-semibold">Page {page} of {pages}</span><button type="button" aria-label="Next results page" disabled={page === pages} onClick={() => setPage((current) => current + 1)} className="rounded-lg border border-[var(--laflo-border)] p-1.5 disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button></div> : null}
+              </div>
+              <div className="flex items-center justify-center gap-2 py-5"><button type="button" aria-label="Previous results page" disabled={page === 1} onClick={() => setPage((current) => current - 1)} className="grid h-8 w-8 place-items-center rounded-lg bg-slate-100 disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>{Array.from({ length: Math.min(Math.max(pages, 5), 5) }, (_, index) => index + 1).map((item) => <button key={item} type="button" onClick={() => item <= pages && setPage(item)} disabled={item > pages} className={`h-8 w-8 rounded-lg text-xs font-semibold ${item === page ? 'bg-slate-950 text-white' : 'disabled:opacity-30'}`}>{item}</button>)}<span className="px-1 text-xs">…</span><button type="button" aria-label="Next results page" disabled={page === pages} onClick={() => setPage((current) => current + 1)} className="grid h-8 w-8 place-items-center rounded-lg bg-slate-100 disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button></div>
             </main>
 
-            <aside className="bg-[var(--laflo-surface-muted)] p-4 sm:p-5">
-              {selectedResult ? (
+            <aside className="xl:-mt-8">
+              {selectedResult && previewOpen ? (
                 <Preview
                   result={selectedResult}
                   canCreateTask={canCreateTask}
+                  onClose={() => setPreviewOpen(false)}
                   onOpen={() => selectedResult.sourceUrl && navigate(selectedResult.sourceUrl)}
                   onAsk={() => askHotelBrain(`Tell me more about ${selectedResult.title}`)}
                   onCreateTask={() => navigate('/operations/tasks', { state: { sourceSearchResult: selectedResult } })}
@@ -310,7 +333,7 @@ export default function EnterpriseSearchPage() {
               )}
             </aside>
           </div>
-        </>
+        </div>
       )}
       {searchQuery.data?.restrictedCount ? <p className="px-8 py-3 text-right text-[10px] text-[var(--laflo-text-muted)]">{searchQuery.data.restrictedCount} restricted result{searchQuery.data.restrictedCount === 1 ? '' : 's'} omitted by your permissions.</p> : null}
     </div>
@@ -325,8 +348,8 @@ function ResultRow({ result, selected, onSelect }: { result: EnterpriseSearchRes
   const Icon = resultIcon(result.category);
   const related = result.roomNumber ? `Room ${result.roomNumber}` : result.hotelArea;
   return (
-    <button type="button" onClick={onSelect} aria-pressed={selected} className={`flex w-full gap-3 px-4 py-3 text-left transition sm:px-6 ${selected ? 'bg-[var(--laflo-primary-soft)] ring-1 ring-inset ring-[var(--laflo-primary)]' : 'hover:bg-[var(--laflo-surface-muted)]'}`}>
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--laflo-primary-soft)] text-[var(--laflo-primary)]"><Icon className="h-5 w-5" /></span>
+    <button type="button" onClick={onSelect} aria-pressed={selected} className={`flex w-full gap-3 px-4 py-2 text-left transition sm:px-6 ${selected ? 'bg-emerald-50/50 ring-1 ring-inset ring-emerald-600' : 'hover:bg-[var(--laflo-surface-muted)]'}`}>
+      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${resultIconTone(result.category)}`}><Icon className="h-5 w-5" /></span>
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-2"><strong className="truncate text-sm">{result.title}</strong>{result.severity ? <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${semanticTone(result.severity)}`}>{result.severity}</span> : null}{result.priority ? <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${semanticTone(result.priority)}`}>{result.priority}</span> : null}</span>
         <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[var(--laflo-text-muted)]">{result.summary || result.snippet}</span>
@@ -338,19 +361,29 @@ function ResultRow({ result, selected, onSelect }: { result: EnterpriseSearchRes
   );
 }
 
-function Preview({ result, canCreateTask, onOpen, onAsk, onCreateTask }: { result: EnterpriseSearchResult; canCreateTask: boolean; onOpen: () => void; onAsk: () => void; onCreateTask: () => void }) {
+function Preview({ result, canCreateTask, onClose, onOpen, onAsk, onCreateTask }: { result: EnterpriseSearchResult; canCreateTask: boolean; onClose: () => void; onOpen: () => void; onAsk: () => void; onCreateTask: () => void }) {
   const Icon = resultIcon(result.category);
   const metadata = metadataOf(result);
   const related = Array.isArray(metadata.relatedRecords) ? metadata.relatedRecords as Array<{ id?: string; title?: string; status?: string }> : [];
+  const [activeTab, setActiveTab] = useState<'overview' | 'related' | 'timeline' | 'insights'>('overview');
   return (
-    <section aria-label="Result preview" className="rounded-xl border border-[var(--laflo-border)] bg-[var(--laflo-surface)] shadow-sm">
-      <div className="p-5">
-        <div className="flex gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[var(--laflo-primary-soft)] text-[var(--laflo-primary)]"><Icon className="h-5 w-5" /></span><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h2 className="text-base font-bold leading-5">{result.title}</h2>{result.severity ? <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${semanticTone(result.severity)}`}>{result.severity}</span> : null}</div><p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--laflo-text-muted)]">{formatLabel(result.category)}</p></div></div>
-        <div className="mt-5 border-t border-[var(--laflo-border)] pt-4"><h3 className="text-xs font-bold">Summary</h3><p className="mt-2 text-xs leading-5 text-[var(--laflo-text-muted)]">{result.summary || result.snippet}</p></div>
-        <dl className="mt-5 grid grid-cols-[92px_1fr] gap-y-3 text-xs"><dt className="font-semibold">Source module</dt><dd>{formatLabel(result.sourceModule)}</dd>{(result.hotelArea || result.roomNumber) ? <><dt className="font-semibold">Related location</dt><dd className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{result.hotelArea || `Room ${result.roomNumber}`}</dd></> : null}<dt className="font-semibold">Updated</dt><dd>{new Date(result.updatedAt).toLocaleString()}</dd>{result.status ? <><dt className="font-semibold">Status</dt><dd><span className={`rounded-full border px-2 py-0.5 font-bold ${semanticTone(result.status)}`}>{formatLabel(result.status)}</span></dd></> : null}{result.severity ? <><dt className="font-semibold">Severity</dt><dd>{formatLabel(result.severity)}</dd></> : null}<dt className="font-semibold">Owner</dt><dd>{String(metadata.ownerName || result.ownerId || 'Unassigned')}</dd></dl>
-        {related.length ? <div className="mt-5 border-t border-[var(--laflo-border)] pt-4"><h3 className="text-xs font-bold">Related records ({related.length})</h3><div className="mt-2 space-y-2">{related.slice(0, 3).map((record, index) => <div key={record.id || index} className="flex items-center justify-between rounded-lg bg-[var(--laflo-surface-muted)] px-3 py-2 text-xs"><span>{record.title || record.id}</span>{record.status ? <span className="text-[10px] text-[var(--laflo-text-muted)]">{formatLabel(record.status)}</span> : null}</div>)}</div></div> : null}
+    <section aria-label="Result preview" className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="p-5 pb-0">
+        <div className="flex items-start gap-3"><span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-rose-50 text-rose-600"><Icon className="h-6 w-6" /></span><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-3"><div className="flex flex-wrap items-center gap-2"><h2 className="max-w-[300px] text-base font-bold leading-5">{result.title}</h2>{result.severity ? <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${semanticTone(result.severity)}`}>{result.severity}</span> : null}</div><button type="button" aria-label="Close result preview" onClick={onClose} className="rounded-md p-1 text-[var(--laflo-text-muted)] hover:bg-slate-100"><X className="h-4 w-4" /></button></div></div></div>
+        <div className="mt-5 flex gap-5 border-b border-slate-200 text-[11px] font-semibold text-[var(--laflo-text-muted)]">{[
+          ['overview', 'Overview'], ['related', `Related Records (${related.length})`], ['timeline', 'Timeline'], ['insights', 'AI Insights'],
+        ].map(([value, label]) => <button key={value} type="button" onClick={() => setActiveTab(value as typeof activeTab)} className={`border-b-2 px-1 pb-3 ${activeTab === value ? 'border-emerald-700 text-emerald-800' : 'border-transparent'}`}>{label}</button>)}</div>
       </div>
-      <div className="border-t border-[var(--laflo-border)] p-4"><h3 className="text-xs font-bold">Quick actions</h3><div className="mt-3 flex flex-wrap gap-2"><button type="button" disabled={!result.sourceUrl} onClick={onOpen} className="rounded-lg bg-[var(--laflo-primary)] px-3 py-2 text-xs font-semibold text-white disabled:opacity-40">Open record</button><button type="button" onClick={onAsk} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--laflo-border)] px-3 py-2 text-xs font-semibold"><Brain className="h-3.5 w-3.5" />Ask Hotel Brain</button>{canCreateTask ? <button type="button" onClick={onCreateTask} className="rounded-lg border border-[var(--laflo-border)] px-3 py-2 text-xs font-semibold">Create task</button> : null}</div></div>
+
+      <div className="min-h-[230px] p-5 pt-4">
+        {activeTab === 'overview' ? <><div className="grid grid-cols-[108px_1fr] gap-y-3 text-xs"><strong>Summary</strong><p className="leading-5 text-[var(--laflo-text-muted)]">{result.summary || result.snippet}</p><strong>Location</strong><span>{result.hotelArea || (result.roomNumber ? `Room ${result.roomNumber}` : 'Hotel-wide')}</span><strong>Detected</strong><span>{new Date(result.updatedAt).toLocaleString()}</span>{result.status ? <><strong>Status</strong><span className="flex items-center gap-2"><i className="h-1.5 w-1.5 rounded-full bg-rose-500" />{formatLabel(result.status)}</span></> : null}{result.severity ? <><strong>Severity</strong><span className="flex items-center gap-2"><i className="h-1.5 w-1.5 rounded-full bg-rose-500" />{formatLabel(result.severity)}</span></> : null}<strong>Owner</strong><span>{String(metadata.ownerName || result.ownerId || 'Unassigned')}</span><strong>Source</strong><span>{formatLabel(result.sourceModule)}</span></div></> : null}
+        {activeTab === 'related' ? <div><h3 className="text-xs font-bold">Related records</h3>{related.length ? <div className="mt-3 space-y-2">{related.map((record, index) => <div key={record.id || index} className="flex items-center justify-between rounded-lg border border-[var(--laflo-border)] px-3 py-2 text-xs"><span>{record.title || record.id}</span><ChevronRight className="h-3.5 w-3.5" /></div>)}</div> : <p className="mt-3 text-xs text-[var(--laflo-text-muted)]">No related authorised records are available.</p>}</div> : null}
+        {activeTab === 'timeline' ? <div className="space-y-4 text-xs"><div className="border-l-2 border-[var(--laflo-primary)] pl-3"><strong>Record updated</strong><p className="mt-1 text-[var(--laflo-text-muted)]">{new Date(result.updatedAt).toLocaleString()}</p></div><div className="border-l-2 border-slate-200 pl-3"><strong>Indexed in Enterprise Search</strong><p className="mt-1 text-[var(--laflo-text-muted)]">{new Date(result.indexedAt).toLocaleString()}</p></div></div> : null}
+        {activeTab === 'insights' ? <div className="rounded-xl border border-blue-100 bg-blue-50 p-4"><div className="flex items-center gap-2 text-sm font-bold text-blue-800"><Lightbulb className="h-4 w-4" />Hotel Brain analysis</div><p className="mt-2 text-xs leading-5 text-blue-700">Ask Hotel Brain to analyse this record with its authorised related context.</p><button type="button" onClick={onAsk} className="mt-3 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-blue-800">Ask for analysis</button></div> : null}
+      </div>
+
+      <div className="border-t border-slate-200 p-5"><h3 className="text-xs font-bold">Quick Actions</h3><div className="mt-3 grid grid-cols-3 gap-2"><button type="button" disabled={!result.sourceUrl} onClick={onOpen} className="rounded-lg bg-emerald-700 px-3 py-2.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-40">Open record</button><button type="button" onClick={onAsk} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2.5 text-xs font-semibold"><Brain className="h-3.5 w-3.5" />Ask Hotel Brain</button>{canCreateTask ? <button type="button" onClick={onCreateTask} className="rounded-lg border border-slate-300 px-3 py-2.5 text-xs font-semibold">+ Create task</button> : <span />}</div></div>
+      <div className="m-5 mt-0 rounded-xl border border-blue-100 bg-blue-50 p-4"><div className="flex items-start gap-3"><Sparkles className="mt-0.5 h-5 w-5 text-blue-600" /><div><h3 className="text-xs font-bold text-blue-800">What’s next?</h3><p className="mt-1 text-[11px] leading-5 text-blue-700">Ask Hotel Brain for root cause analysis or recommended actions.</p><button type="button" onClick={onAsk} className="mt-2 rounded-md border border-blue-200 bg-white px-3 py-1.5 text-[10px] font-semibold text-blue-800">Ask for analysis</button></div></div></div>
     </section>
   );
 }

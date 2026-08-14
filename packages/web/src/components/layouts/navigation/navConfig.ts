@@ -54,9 +54,9 @@ export const navSections: NavSection[] = [
         icon: 'gauge',
         badge: 'NEW',
         items: [
-          { id: 'operations-ai', label: 'AI', href: '/operations-center/ai', permission: 'bookings', icon: 'sparkles' },
-          { id: 'enterprise-search', label: 'Enterprise Search', href: '/operations-center/search', permission: 'bookings', icon: 'search' },
+          { id: 'operations-ai', label: 'AI Workspace', href: '/operations-center/ai', permission: 'bookings', icon: 'sparkles' },
           { id: 'hotel-brain', label: 'Hotel Brain', href: '/ai/hotel-brain', permission: 'bookings', icon: 'sparkles' },
+          { id: 'enterprise-search', label: 'Enterprise Search', href: '/operations-center/search', permission: 'bookings', icon: 'search' },
           { id: 'operations-revenue', label: 'Revenue', href: '/operations-center/revenue', permission: 'financials', icon: 'chart' },
           { id: 'operations-weather', label: 'Weather', href: '/operations-center/weather', permission: 'bookings', icon: 'calendar' },
           { id: 'operations-tasks', label: 'Tasks', href: '/operations-center/tasks', permission: 'bookings', icon: 'calendar-check' },
@@ -96,7 +96,7 @@ export const navSections: NavSection[] = [
         permission: 'smart_building',
         icon: 'building',
         items: [
-          { id: 'smart-building-doors', label: 'Doors', href: '/operations/smart-building/doors', permission: 'smart_building', icon: 'door' },
+          { id: 'smart-building-doors', label: 'Devices', href: '/operations/smart-building/doors', permission: 'smart_building', icon: 'door' },
           { id: 'smart-building-sensors', label: 'Sensors', href: '/operations/smart-building/sensors', permission: 'smart_building', icon: 'gauge' },
           { id: 'smart-building-energy', label: 'Energy', href: '/operations/smart-building/energy', permission: 'smart_building', icon: 'chart' },
           { id: 'smart-building-hvac', label: 'HVAC', href: '/operations/smart-building/hvac', permission: 'smart_building', icon: 'settings' },

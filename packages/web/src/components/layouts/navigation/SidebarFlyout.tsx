@@ -13,6 +13,7 @@ type SidebarFlyoutProps = {
   onItemClick: () => void;
   onClickOutside: () => void;
   accessRequestBadge?: number;
+  persistent?: boolean;
 };
 
 export const SidebarFlyout = memo(function SidebarFlyout({
@@ -23,6 +24,7 @@ export const SidebarFlyout = memo(function SidebarFlyout({
   onItemClick,
   onClickOutside,
   accessRequestBadge = 0,
+  persistent = false,
 }: SidebarFlyoutProps) {
   const { user } = useAuthStore();
   const location = useLocation();
@@ -72,7 +74,7 @@ export const SidebarFlyout = memo(function SidebarFlyout({
 
   // Click outside handler
   useEffect(() => {
-    if (!openSection || !isLocked) return;
+    if (!openSection || !isLocked || persistent) return;
 
 
     const handleClickOutside = (event: MouseEvent) => {
@@ -89,7 +91,7 @@ export const SidebarFlyout = memo(function SidebarFlyout({
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [openSection, isLocked, onClickOutside]);
+  }, [openSection, isLocked, onClickOutside, persistent]);
 
   if (!openSection || !currentSection) {
     return null;
@@ -119,7 +121,7 @@ export const SidebarFlyout = memo(function SidebarFlyout({
           text-sm font-medium
           transition-all duration-150
           focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400
-          ${nested ? 'px-3 py-2 pl-8' : 'px-3 py-2.5'}
+          ${persistent ? 'px-3 py-2' : nested ? 'px-3 py-2 pl-8' : 'px-3 py-2.5'}
           ${isActive
             ? 'app-sidebar-nav-active shadow-sm'
             : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -203,12 +205,12 @@ export const SidebarFlyout = memo(function SidebarFlyout({
     <div
       ref={flyoutRef}
       className={`
-        app-sidebar absolute left-[68px] top-0 h-full w-72
+        app-sidebar top-0 h-full
         border-r
-        shadow-xl shadow-slate-200/50
-        transform transition-transform duration-200 ease-out
-        ${openSection ? 'translate-x-0' : '-translate-x-full'}
-        z-40
+        ${persistent
+          ? 'sticky left-0 top-0 z-20 hidden h-screen w-[270px] shrink-0 flex-col overflow-hidden shadow-none lg:flex'
+          : `absolute left-[68px] z-40 w-72 shadow-xl shadow-slate-200/50 transform transition-transform duration-200 ease-out ${openSection ? 'translate-x-0' : '-translate-x-full'}`
+        }
       `}
       style={{
         backdropFilter: 'blur(8px)',
@@ -219,14 +221,20 @@ export const SidebarFlyout = memo(function SidebarFlyout({
       aria-label={`${currentSection.label} navigation`}
     >
       {/* Section header */}
-      <div className="flex items-center gap-3 h-16 px-5 border-b border-slate-100">
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 text-slate-600">
-          <NavIcon name={currentSection.icon} className="h-4 w-4" />
-        </div>
-        <h2 className="text-sm font-semibold text-slate-800 tracking-tight">
-          {currentSection.label}
-        </h2>
-        {isLocked && (
+      <div className={`flex items-center gap-3 h-16 border-b border-slate-100 ${persistent ? 'px-6' : 'px-5'}`}>
+        {persistent ? (
+          <img src="/laflo-logo.png" alt="LaFlo" className="h-9 w-auto object-contain" />
+        ) : (
+          <>
+            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 text-slate-600">
+              <NavIcon name={currentSection.icon} className="h-4 w-4" />
+            </div>
+            <h2 className="text-sm font-semibold text-slate-800 tracking-tight">
+              {currentSection.label}
+            </h2>
+          </>
+        )}
+        {isLocked && !persistent && (
           <span className="ml-auto px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 bg-emerald-50 rounded">
             Pinned
           </span>
@@ -234,14 +242,15 @@ export const SidebarFlyout = memo(function SidebarFlyout({
       </div>
 
       {/* Navigation items */}
-      <nav className="flex flex-col gap-0.5 overflow-y-auto p-3" aria-label={`${currentSection.label} menu`}>
+      <nav className={`flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto ${persistent ? 'px-3 py-4' : 'p-3'}`} aria-label={`${currentSection.label} menu`}>
         {visibleGroups.length > 0
           ? visibleGroups.map((group) => (
-              <div key={group.id} className="mb-2 last:mb-0">
-                {renderGroupHeader(group)}
+              <div key={group.id} className="mb-3 last:mb-0">
+                {persistent ? <p className="px-3 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">{group.id === 'operations-center' ? currentSection.label : group.label}</p> : null}
+                {!persistent || group.id === 'operations-center' ? renderGroupHeader(group) : null}
                 {group.items.length > 0 ? (
                   <div className="mt-1 space-y-0.5">
-                    {group.items.map((item) => renderNavItem(item, true))}
+                    {group.items.map((item) => renderNavItem(item, !persistent))}
                   </div>
                 ) : null}
               </div>
@@ -250,7 +259,7 @@ export const SidebarFlyout = memo(function SidebarFlyout({
       </nav>
 
       {/* Section-specific quick actions */}
-      {currentSection.id === 'operations' && (
+      {currentSection.id === 'operations' && !persistent && (
         <div className="mx-3 mt-2 p-3 rounded-lg bg-slate-50 border border-slate-100">
           <p className="text-xs font-medium text-slate-500 mb-2">Quick Stats</p>
           <div className="grid grid-cols-2 gap-2">
