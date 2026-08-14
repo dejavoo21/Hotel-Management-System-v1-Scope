@@ -11,10 +11,6 @@ node_modules
 *.log
 *.zip
 *.rar
-*.png
-*.jpg
-*.jpeg
-*.webp
 *.docx
 *.pdf
 deliverables
