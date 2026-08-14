@@ -17,7 +17,7 @@ import PricingSignalCard from '@/components/operations/signals/PricingSignalCard
 import WeatherSignalCard from '@/components/operations/signals/WeatherSignalCard';
 import DepartmentIntelligenceCard from '@/components/operations/DepartmentIntelligenceCard';
 import AIRecommendationGovernancePanel from '@/components/operations/AIRecommendationGovernancePanel';
-import AICopilotPanel from '@/components/ai/AICopilotPanel';
+import AIOperationalBriefing from '@/components/operations/AIOperationalBriefing';
 import ContextPreview from '@/components/operations/assistant/ContextPreview';
 import OperationalTimeline from '@/components/timeline/OperationalTimeline';
 import CollaborationHeader from '@/components/collaboration/CollaborationHeader';
@@ -29,7 +29,7 @@ import { useAuthStore } from '@/stores/authStore';
 type OperationsFocus = 'overview' | 'ai' | 'revenue' | 'weather' | 'tasks' | 'market-intelligence';
 const focusMeta: Record<OperationsFocus, { title: string; description: string }> = {
   overview: { title: 'Operations Center', description: 'Real-time operational visibility across your hotel. Make informed decisions with confidence.' },
-  ai: { title: 'Operations Concierge', description: 'Ask about operations, pricing, weather, context, and task execution.' },
+  ai: { title: 'Operations Concierge', description: 'Review AI-generated operational briefings, context, and governed recommendations.' },
   revenue: { title: 'Revenue Guidance', description: 'Review per-night recommendations, booking pace, and market-aware pricing.' },
   weather: { title: 'Weather & Forecast', description: 'Review forecast signals, guest readiness, and weather-driven actions.' },
   tasks: { title: 'Tasks & Advisories', description: 'Review operational actions, detailed advisories, and recent activity.' },
@@ -139,9 +139,10 @@ function FocusedWorkspace({ focus, context, isRefreshing, onRefreshWeather }: { 
 
 function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
   const pendingQuery = useQuery({ queryKey: ['ai-recommendations', 'PENDING'], queryFn: () => aiRecommendationsService.list('PENDING'), staleTime: 60 * 1000, refetchOnWindowFocus: false });
+  const briefingQuery = useQuery({ queryKey: ['dailyGMBriefing', 'operations-concierge'], queryFn: () => aiBriefingService.getDailyBriefing(), staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false });
   const pending = pendingQuery.data || [];
   const highPriority = pending.filter((item) => item.priority === 'HIGH' || item.priority === 'CRITICAL').length;
-  const contextSources = [context?.weather, context?.ops, context?.pricingSignal, context?.pricingCalendar, context?.advisories].filter(Boolean).length;
+  const contextSources = [context?.hotelId, context?.weather, context?.ops, context?.pricingSignal, context?.pricingCalendar?.length, context?.advisories?.length].filter(Boolean).length;
   const syncTime = context?.generatedAtUtc ? new Date(context.generatedAtUtc) : null;
   const departments = [
     { name: 'Front Desk', value: context?.ops?.arrivalsNext24h || 0, unit: 'arrivals', status: 'Live', tone: 'text-blue-600' },
@@ -156,12 +157,20 @@ function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
       <AIStat icon={Activity} label="Connected Contexts" value={contextSources} detail="Live operational sources" />
       <AIStat icon={RefreshCcw} label="Last Sync" value={syncTime ? syncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'} detail={syncTime ? 'Context is current' : 'Awaiting context'} />
     </section>
-    <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_330px]">
+    <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_390px]">
       <div className="space-y-3">
-        <AICopilotPanel title="AI Assistant" contextScope={['hotelProfile', 'occupancy', 'weather', 'bookings', 'guests', 'housekeeping', 'maintenance', 'security', 'smartBuilding', 'incidents', 'tasks', 'messages', 'financialSummary']} workspace />
-        <AIRecommendationGovernancePanel compact />
+        <AIOperationalBriefing
+          briefing={briefingQuery.data}
+          recommendations={pending}
+          contextSourceCount={contextSources}
+          contextGeneratedAt={context?.generatedAtUtc}
+          isLoading={briefingQuery.isLoading}
+          isRefreshing={briefingQuery.isFetching}
+          onRefresh={() => { void briefingQuery.refetch(); }}
+        />
+        <div id="ai-recommendation-governance" className="scroll-mt-24"><AIRecommendationGovernancePanel compact /></div>
       </div>
-      <aside className="space-y-3">
+      <aside className="space-y-3 xl:pr-[60px]">
         <ContextPreview context={context} />
         <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm"><div className="border-b border-border px-4 py-3"><h2 className="font-semibold text-text-main">Department Intelligence</h2><p className="mt-1 text-xs text-text-muted">Compact operational focus by department.</p></div><div className="grid grid-cols-2">{departments.map((item) => <div key={item.name} className="border-b border-r border-border p-4 even:border-r-0"><div className="flex items-center justify-between gap-2"><p className="text-sm font-semibold text-text-main">{item.name}</p><span className="rounded-full bg-bg px-2 py-0.5 text-[9px] font-semibold text-text-muted">{item.status}</span></div><p className={`mt-4 text-2xl font-bold ${item.tone}`}>{item.value}</p><p className="mt-1 text-[10px] text-text-muted">{item.unit}</p></div>)}</div></section>
         <section className="rounded-2xl border border-border bg-card p-4 shadow-sm"><div className="flex items-center justify-between"><h2 className="font-semibold text-text-main">Recent AI Activity</h2><Link to="/operations-center/tasks" className="text-xs font-semibold text-primary-600">View all</Link></div><div className="mt-3 divide-y divide-border">{pending.slice(0,4).map((item) => <div key={item.id} className="py-3"><p className="text-xs font-semibold text-text-main">{item.title}</p><p className="mt-1 text-[10px] text-text-muted">{item.department} · {new Date(item.createdAt).toLocaleString()}</p></div>)}{!pending.length && <p className="py-5 text-xs text-text-muted">No recent governed AI activity.</p>}</div></section>

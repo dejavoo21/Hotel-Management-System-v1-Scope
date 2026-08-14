@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -20,7 +20,6 @@ vi.mock('@/services', () => ({
 }));
 vi.mock('@/components/collaboration/CollaborationHeader', () => ({ default: ({ title }: { title: string }) => <header><h1>{title}</h1></header> }));
 vi.mock('@/components/operations/advisories/OpsAdvisories', () => ({ default: () => <div>Detailed advisories</div> }));
-vi.mock('@/components/operations/assistant/AssistantDock', () => ({ default: () => <div>Detailed concierge and context</div> }));
 vi.mock('@/components/operations/pricing/PricingCalendarCard', () => ({ default: () => <div>Detailed revenue guidance</div> }));
 vi.mock('@/components/operations/pricing/MarketIntelligenceCard', () => ({ default: () => <div>Detailed market intelligence</div> }));
 vi.mock('@/components/operations/SignalsGrid', () => ({ default: () => <div>Detailed signals</div> }));
@@ -30,7 +29,6 @@ vi.mock('@/components/operations/signals/PricingSignalCard', () => ({ default: (
 vi.mock('@/components/operations/signals/WeatherSignalCard', () => ({ default: () => <div>Weather details</div> }));
 vi.mock('@/components/operations/DepartmentIntelligenceCard', () => ({ default: () => <div>Department intelligence details</div> }));
 vi.mock('@/components/operations/AIRecommendationGovernancePanel', () => ({ default: () => <div>Detailed governance queue</div> }));
-vi.mock('@/components/ai/AICopilotPanel', () => ({ default: () => <div>Operations copilot details</div> }));
 vi.mock('@/components/timeline/OperationalTimeline', () => ({ default: () => <div>Detailed activity filters</div> }));
 
 const context = {
@@ -59,7 +57,10 @@ describe('OperationsCenterPage', () => {
     useAuthStore.setState({ user: { id: 'admin-1', role: 'ADMIN', hotel: { id: 'hotel-1' } } as never });
     serviceMocks.getContext.mockResolvedValue(context);
     serviceMocks.getBriefing.mockResolvedValue(briefing);
-    serviceMocks.listRecommendations.mockResolvedValue([{}, {}, {}]);
+    serviceMocks.listRecommendations.mockResolvedValue([
+      { id: 'rec-1', title: 'Assign overdue tasks', description: 'Assign owners to overdue operational work.', department: 'Security', priority: 'HIGH', confidence: 0.91, createdAt: '2026-08-11T12:00:00Z' },
+      { id: 'rec-2', title: 'Review arrivals', description: 'Confirm arrival readiness.', department: 'Front Desk', priority: 'MEDIUM', confidence: 0.83, createdAt: '2026-08-11T12:05:00Z' },
+    ]);
   });
 
   it('renders a summary-first command centre without mounting dense details', async () => {
@@ -76,11 +77,28 @@ describe('OperationsCenterPage', () => {
     expect(screen.queryByText('Detailed market intelligence')).not.toBeInTheDocument();
   });
 
-  it('keeps detailed concierge, context, governance, and department tools in the AI workspace', async () => {
+  it('replaces duplicate chat with an operational briefing while preserving governance and intelligence', async () => {
+    const openAssistant = vi.fn();
+    window.addEventListener('laflo:open-assistant', openAssistant);
     renderPage('/operations-center/ai');
     expect(await screen.findByText('Operations Concierge')).toBeInTheDocument();
-    expect(await screen.findByText('Detailed concierge and context')).toBeInTheDocument();
+    expect(await screen.findByText('AI Operational Briefing')).toBeInTheDocument();
+    expect(screen.getByText('Today’s key AI insight')).toBeInTheDocument();
+    expect(screen.getByText('Top operational risk')).toBeInTheDocument();
+    expect(screen.getByText('Recommended next action')).toBeInTheDocument();
+    expect(screen.getByText('87%')).toBeInTheDocument();
+    expect(screen.queryByText('AI Assistant')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Ask an operational question...')).not.toBeInTheDocument();
+    expect(screen.getByText('Context Preview')).toBeInTheDocument();
+    expect(screen.getByText('Department Intelligence')).toBeInTheDocument();
     expect(screen.getByText('Detailed governance queue')).toBeInTheDocument();
-    expect(screen.getAllByText('Department intelligence details').length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ask LaFlo for details' }));
+    expect(openAssistant).toHaveBeenCalledTimes(1);
+    expect((openAssistant.mock.calls[0][0] as CustomEvent).detail).toMatchObject({ mode: 'operations' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh briefing' }));
+    await waitFor(() => expect(serviceMocks.getBriefing).toHaveBeenCalledTimes(2));
+    window.removeEventListener('laflo:open-assistant', openAssistant);
   });
 });

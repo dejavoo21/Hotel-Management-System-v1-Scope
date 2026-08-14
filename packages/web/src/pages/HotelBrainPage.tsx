@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { Brain, CheckCircle2, ShieldCheck, Sparkles } from 'lucide-react';
 import enterpriseSearchService from '@/services/enterpriseSearch';
 import EnterpriseSearchResultCard from '@/components/search/EnterpriseSearchResultCard';
@@ -14,7 +15,8 @@ const prompts = [
 ];
 
 export default function HotelBrainPage() {
-  const [question, setQuestion] = useState('What should the GM pay attention to this morning?');
+  const [searchParams] = useSearchParams();
+  const [question, setQuestion] = useState(() => searchParams.get('question') || 'What should the GM pay attention to this morning?');
   const mutation = useMutation({
     mutationFn: enterpriseSearchService.askHotelBrain,
   });

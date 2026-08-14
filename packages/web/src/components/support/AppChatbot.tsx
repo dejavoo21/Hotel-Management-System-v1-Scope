@@ -6,6 +6,7 @@ import { ArrowRight, Bot, Download, Headphones, Mail, Plus, Send, X } from 'luci
 import { assistantService, conciergeService, messageService } from '@/services';
 import type { AssistantMode } from '@/services/assistant';
 import { useAuthStore } from '@/stores/authStore';
+import { OPEN_LAFLO_ASSISTANT_EVENT, type OpenLafloAssistantDetail } from '@/lib/assistantEvents';
 
 type ChatAction = { label: string; path: string };
 type ChatMessage = {
@@ -161,8 +162,8 @@ function describeError(error: unknown) {
 export default function AppChatbot() {
   const navigate = useNavigate();
   const location = useLocation();
-  const compactAuditLauncher = location.pathname === '/settings'
-    && new URLSearchParams(location.search).get('tab') === 'audit-trail';
+  const compactLauncher = location.pathname === '/operations-center/ai'
+    || (location.pathname === '/settings' && new URLSearchParams(location.search).get('tab') === 'audit-trail');
   const { user } = useAuthStore();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<AssistantMode>('general');
@@ -212,9 +213,22 @@ export default function AppChatbot() {
   }, []);
 
   useEffect(() => {
+    const openAssistant = (event: Event) => {
+      const detail = (event as CustomEvent<OpenLafloAssistantDetail>).detail;
+      if (detail?.mode) setMode(detail.mode);
+      if (detail?.prompt) setInput(detail.prompt);
+      setOpen(true);
+    };
+    window.addEventListener(OPEN_LAFLO_ASSISTANT_EVENT, openAssistant);
+    return () => window.removeEventListener(OPEN_LAFLO_ASSISTANT_EVENT, openAssistant);
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
     inputRef.current?.focus();
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
+    if (typeof listRef.current?.scrollTo === 'function') {
+      listRef.current.scrollTo({ top: listRef.current.scrollHeight });
+    }
   }, [open, messages, isSending]);
 
   useEffect(() => {
@@ -511,8 +525,8 @@ export default function AppChatbot() {
           </div>
         </section>
       ) : (
-        <button ref={launcherRef} type='button' onClick={() => setOpen(true)} className={compactAuditLauncher ? 'grid h-11 w-11 place-items-center overflow-hidden rounded-xl bg-primary-solid text-primary-contrast shadow-md transition-transform hover:scale-105 hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2' : 'flex items-center gap-1.5 rounded-xl bg-primary-solid py-1.5 pl-1.5 pr-3 text-xs font-semibold text-primary-contrast shadow-md transition-transform hover:scale-[1.02] hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2'} aria-label='Open LaFlo Assistant'>
-          <span className={compactAuditLauncher ? 'h-[30px] w-[30px]' : 'h-[30px] w-[30px]'}><img src='/assets/laflo-ai-agent-transparent.png' alt='' aria-hidden='true' className='h-full w-full object-contain' /></span><span className={compactAuditLauncher ? 'sr-only' : 'hidden sm:inline'}>Ask LaFlo</span>
+        <button ref={launcherRef} type='button' onClick={() => setOpen(true)} className={compactLauncher ? 'grid h-11 w-11 place-items-center overflow-hidden rounded-xl bg-primary-solid text-primary-contrast shadow-md transition-transform hover:scale-105 hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2' : 'flex items-center gap-1.5 rounded-xl bg-primary-solid py-1.5 pl-1.5 pr-3 text-xs font-semibold text-primary-contrast shadow-md transition-transform hover:scale-[1.02] hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2'} aria-label='Open LaFlo Assistant'>
+          <span className='h-[30px] w-[30px]'><img src='/assets/laflo-ai-agent-transparent.png' alt='' aria-hidden='true' className='h-full w-full object-contain' /></span><span className={compactLauncher ? 'sr-only' : 'hidden sm:inline'}>Ask LaFlo</span>
         </button>
       )}
     </div>
