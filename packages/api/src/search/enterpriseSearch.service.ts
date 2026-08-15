@@ -10,6 +10,7 @@ import type {
   HotelBrainAnswer,
   SearchIndexRecordInput,
 } from './enterpriseSearch.types.js';
+import { enterpriseSearchRelevance, enterpriseSearchSnippetNeedle, enterpriseSearchTextWhere } from './enterpriseSearch.query.js';
 
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 100;
@@ -60,8 +61,8 @@ function canRead(actor: EnterpriseSearchActor, accessScope: string[]) {
 
 function toResult(record: any, query = ''): EnterpriseSearchResult {
   const raw = String(record.searchableText || record.summary || record.title || '');
-  const normalized = query.trim().toLowerCase();
-  const index = normalized ? raw.toLowerCase().indexOf(normalized) : -1;
+  const needle = enterpriseSearchSnippetNeedle(query, raw);
+  const index = needle ? raw.toLowerCase().indexOf(needle) : -1;
   const start = index >= 0 ? Math.max(0, index - 60) : 0;
   const snippet = raw.slice(start, start + 180) || record.summary || record.title;
   return {
@@ -492,16 +493,8 @@ export async function searchEnterpriseIndex(hotelId: string, actor: EnterpriseSe
   const limit = Math.min(Math.max(filters.limit || DEFAULT_LIMIT, 1), MAX_LIMIT);
   const and: Prisma.SearchIndexWhereInput[] = [{ hotelId }];
 
-  if (query) {
-    and.push({
-      OR: [
-        { title: { contains: query, mode: 'insensitive' } },
-        { summary: { contains: query, mode: 'insensitive' } },
-        { searchableText: { contains: query, mode: 'insensitive' } },
-        { roomNumber: { contains: query, mode: 'insensitive' } },
-      ],
-    });
-  }
+  const textWhere = enterpriseSearchTextWhere(query);
+  if (textWhere) and.push(textWhere);
   if (filters.categories?.length) and.push({ entityType: { in: filters.categories } });
   if (filters.sourceModules?.length) and.push({ sourceModule: { in: filters.sourceModules } });
   if (filters.status) and.push({ status: filters.status });
@@ -517,13 +510,21 @@ export async function searchEnterpriseIndex(hotelId: string, actor: EnterpriseSe
     });
   }
 
+  const existingIndexCount = await prisma.searchIndex.count({ where: { hotelId } });
+  if (existingIndexCount === 0) {
+    await rebuildSearchIndex(hotelId, actor);
+  }
+
   const rows = await prisma.searchIndex.findMany({
     where: { AND: and },
     orderBy: [{ sourceUpdatedAt: 'desc' }, { indexedAt: 'desc' }],
     take: limit * 3,
   });
 
-  const allowed = rows.filter((row) => canRead(actor, row.accessScope));
+  const rankedRows = query
+    ? [...rows].sort((left, right) => enterpriseSearchRelevance(right, query) - enterpriseSearchRelevance(left, query))
+    : rows;
+  const allowed = rankedRows.filter((row) => canRead(actor, row.accessScope));
   const results = allowed.slice(0, limit).map((row) => toResult(row, query));
   const groups = Object.values(
     results.reduce<Record<string, { category: string; count: number; results: EnterpriseSearchResult[] }>>((acc, result) => {
