@@ -1,9 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuthStore } from '@/stores/authStore';
 import EnterpriseSearchPage from './EnterpriseSearchPage';
+import { OPEN_LAFLO_ASSISTANT_EVENT } from '@/lib/assistantEvents';
 
 const searchMock = vi.hoisted(() => vi.fn());
 
@@ -36,20 +37,12 @@ const results = [
 
 const response = { query: 'water leak', results, groups: [], total: 3, restrictedCount: 0, generatedAt: '2026-08-14T10:30:00Z' };
 
-function LocationProbe() {
-  const location = useLocation();
-  return <div data-testid="location">{location.pathname}{location.search}</div>;
-}
-
 const renderPage = () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={['/operations-center/search']}>
-        <Routes>
-          <Route path="/operations-center/search" element={<EnterpriseSearchPage />} />
-          <Route path="*" element={<LocationProbe />} />
-        </Routes>
+        <EnterpriseSearchPage />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -107,12 +100,32 @@ describe('EnterpriseSearchPage', () => {
     expect(screen.queryByRole('button', { name: 'Create task' })).not.toBeInTheDocument();
   });
 
-  it('hands the current investigation to Hotel Brain without rendering another assistant', async () => {
+  it('hands the current investigation to the global Ask LaFlo assistant', async () => {
+    const openAssistant = vi.fn();
+    window.addEventListener(OPEN_LAFLO_ASSISTANT_EVENT, openAssistant);
     renderPage();
     await screen.findByRole('button', { name: /Room 214 maintenance work order/ });
     fireEvent.change(screen.getByRole('textbox', { name: 'Enterprise search' }), { target: { value: 'offline cameras' } });
-    fireEvent.click(screen.getAllByRole('button', { name: 'Ask Hotel Brain' })[0]);
-    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/ai/hotel-brain?question=offline%20cameras'));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Ask LaFlo' })[0]);
+    await waitFor(() => expect(openAssistant).toHaveBeenCalledTimes(1));
+    const event = openAssistant.mock.calls[0][0] as CustomEvent;
+    expect(event.detail).toMatchObject({ mode: 'operations' });
+    expect(event.detail.prompt).toContain('offline cameras');
     expect(searchMock).toHaveBeenCalledTimes(1);
+    window.removeEventListener(OPEN_LAFLO_ASSISTANT_EVENT, openAssistant);
+  });
+
+  it('passes the selected result evidence into Ask LaFlo', async () => {
+    const openAssistant = vi.fn();
+    window.addEventListener(OPEN_LAFLO_ASSISTANT_EVENT, openAssistant);
+    renderPage();
+    await screen.findByRole('button', { name: /Room 214 maintenance work order/ });
+    fireEvent.click(screen.getByRole('button', { name: /Offline camera near pool/ }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Ask LaFlo' }).at(-1)!);
+    await waitFor(() => expect(openAssistant).toHaveBeenCalledTimes(1));
+    const event = openAssistant.mock.calls[0][0] as CustomEvent;
+    expect(event.detail.prompt).toContain('Offline camera near pool');
+    expect(event.detail.prompt).toContain('Security Center');
+    window.removeEventListener(OPEN_LAFLO_ASSISTANT_EVENT, openAssistant);
   });
 });

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
-  Brain,
+  Bot,
   Building2,
   CalendarDays,
   ChevronDown,
@@ -27,6 +27,7 @@ import enterpriseSearchService, { type EnterpriseSearchResult } from '@/services
 import { useAuthStore } from '@/stores/authStore';
 import { canAccess, canAccessRoute } from '@/lib/access';
 import type { PermissionId } from '@/utils/userAccess';
+import { openLafloAssistant } from '@/lib/assistantEvents';
 
 type CategoryOption = {
   value: string;
@@ -190,9 +191,9 @@ export default function EnterpriseSearchPage() {
     submit(value);
   };
 
-  const askHotelBrain = (value?: string) => {
+  const askLaflo = (value?: string) => {
     const question = (value || query || submittedQuery || 'Review these Enterprise Search results').trim();
-    navigate(`/ai/hotel-brain?question=${encodeURIComponent(question)}`);
+    openLafloAssistant({ mode: 'operations', prompt: question });
   };
 
   const authorisedResults = useMemo(
@@ -246,8 +247,8 @@ export default function EnterpriseSearchPage() {
             <X className="h-4 w-4" />Clear
           </button>
           <span className="hidden lg:block" />
-          <button type="button" onClick={() => askHotelBrain()} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-emerald-700 px-4 text-sm font-semibold text-emerald-800 hover:bg-emerald-50">
-            <Brain className="h-4 w-4" />Ask Hotel Brain
+          <button type="button" onClick={() => askLaflo(`Investigate this Enterprise Search query using authorised hotel context: ${query || submittedQuery}`)} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-emerald-700 px-4 text-sm font-semibold text-emerald-800 hover:bg-emerald-50">
+            <Bot className="h-4 w-4" />Ask LaFlo
           </button>
         </form>
 
@@ -325,7 +326,7 @@ export default function EnterpriseSearchPage() {
                   canCreateTask={canCreateTask}
                   onClose={() => setPreviewOpen(false)}
                   onOpen={() => selectedResult.sourceUrl && navigate(selectedResult.sourceUrl)}
-                  onAsk={() => askHotelBrain(`Tell me more about ${selectedResult.title}`)}
+                  onAsk={() => askLaflo(`Use this authorised Enterprise Search result as context. Title: ${selectedResult.title}. Type: ${formatLabel(selectedResult.category)}. Source: ${formatLabel(selectedResult.sourceModule)}. Summary: ${selectedResult.summary || selectedResult.snippet}`)}
                   onCreateTask={() => navigate('/operations/tasks', { state: { sourceSearchResult: selectedResult } })}
                 />
               ) : (
@@ -379,11 +380,11 @@ function Preview({ result, canCreateTask, onClose, onOpen, onAsk, onCreateTask }
         {activeTab === 'overview' ? <><div className="grid grid-cols-[108px_1fr] gap-y-3 text-xs"><strong>Summary</strong><p className="leading-5 text-[var(--laflo-text-muted)]">{result.summary || result.snippet}</p><strong>Location</strong><span>{result.hotelArea || (result.roomNumber ? `Room ${result.roomNumber}` : 'Hotel-wide')}</span><strong>Detected</strong><span>{new Date(result.updatedAt).toLocaleString()}</span>{result.status ? <><strong>Status</strong><span className="flex items-center gap-2"><i className="h-1.5 w-1.5 rounded-full bg-rose-500" />{formatLabel(result.status)}</span></> : null}{result.severity ? <><strong>Severity</strong><span className="flex items-center gap-2"><i className="h-1.5 w-1.5 rounded-full bg-rose-500" />{formatLabel(result.severity)}</span></> : null}<strong>Owner</strong><span>{String(metadata.ownerName || result.ownerId || 'Unassigned')}</span><strong>Source</strong><span>{formatLabel(result.sourceModule)}</span></div></> : null}
         {activeTab === 'related' ? <div><h3 className="text-xs font-bold">Related records</h3>{related.length ? <div className="mt-3 space-y-2">{related.map((record, index) => <div key={record.id || index} className="flex items-center justify-between rounded-lg border border-[var(--laflo-border)] px-3 py-2 text-xs"><span>{record.title || record.id}</span><ChevronRight className="h-3.5 w-3.5" /></div>)}</div> : <p className="mt-3 text-xs text-[var(--laflo-text-muted)]">No related authorised records are available.</p>}</div> : null}
         {activeTab === 'timeline' ? <div className="space-y-4 text-xs"><div className="border-l-2 border-[var(--laflo-primary)] pl-3"><strong>Record updated</strong><p className="mt-1 text-[var(--laflo-text-muted)]">{new Date(result.updatedAt).toLocaleString()}</p></div><div className="border-l-2 border-slate-200 pl-3"><strong>Indexed in Enterprise Search</strong><p className="mt-1 text-[var(--laflo-text-muted)]">{new Date(result.indexedAt).toLocaleString()}</p></div></div> : null}
-        {activeTab === 'insights' ? <div className="rounded-xl border border-blue-100 bg-blue-50 p-4"><div className="flex items-center gap-2 text-sm font-bold text-blue-800"><Lightbulb className="h-4 w-4" />Hotel Brain analysis</div><p className="mt-2 text-xs leading-5 text-blue-700">Ask Hotel Brain to analyse this record with its authorised related context.</p><button type="button" onClick={onAsk} className="mt-3 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-blue-800">Ask for analysis</button></div> : null}
+        {activeTab === 'insights' ? <div className="rounded-xl border border-blue-100 bg-blue-50 p-4"><div className="flex items-center gap-2 text-sm font-bold text-blue-800"><Lightbulb className="h-4 w-4" />AI evidence insight</div><p className="mt-2 text-xs leading-5 text-blue-700">Ask LaFlo to analyse this record with authorised context. Powered by Hotel Brain.</p><button type="button" onClick={onAsk} className="mt-3 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-blue-800">Ask LaFlo about this result</button></div> : null}
       </div>
 
-      <div className="border-t border-slate-200 p-5"><h3 className="text-xs font-bold">Quick Actions</h3><div className="mt-3 grid grid-cols-3 gap-2"><button type="button" disabled={!result.sourceUrl} onClick={onOpen} className="rounded-lg bg-emerald-700 px-3 py-2.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-40">Open record</button><button type="button" onClick={onAsk} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2.5 text-xs font-semibold"><Brain className="h-3.5 w-3.5" />Ask Hotel Brain</button>{canCreateTask ? <button type="button" onClick={onCreateTask} className="rounded-lg border border-slate-300 px-3 py-2.5 text-xs font-semibold">+ Create task</button> : <span />}</div></div>
-      <div className="m-5 mt-0 rounded-xl border border-blue-100 bg-blue-50 p-4"><div className="flex items-start gap-3"><Sparkles className="mt-0.5 h-5 w-5 text-blue-600" /><div><h3 className="text-xs font-bold text-blue-800">What’s next?</h3><p className="mt-1 text-[11px] leading-5 text-blue-700">Ask Hotel Brain for root cause analysis or recommended actions.</p><button type="button" onClick={onAsk} className="mt-2 rounded-md border border-blue-200 bg-white px-3 py-1.5 text-[10px] font-semibold text-blue-800">Ask for analysis</button></div></div></div>
+      <div className="border-t border-slate-200 p-5"><h3 className="text-xs font-bold">Quick Actions</h3><div className="mt-3 grid grid-cols-3 gap-2"><button type="button" disabled={!result.sourceUrl} onClick={onOpen} className="rounded-lg bg-emerald-700 px-3 py-2.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-40">Open record</button><button type="button" onClick={onAsk} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2.5 text-xs font-semibold"><Bot className="h-3.5 w-3.5" />Ask LaFlo</button>{canCreateTask ? <button type="button" onClick={onCreateTask} className="rounded-lg border border-slate-300 px-3 py-2.5 text-xs font-semibold">+ Create task</button> : <span />}</div></div>
+      <div className="m-5 mt-0 rounded-xl border border-blue-100 bg-blue-50 p-4"><div className="flex items-start gap-3"><Sparkles className="mt-0.5 h-5 w-5 text-blue-600" /><div><h3 className="text-xs font-bold text-blue-800">What’s next?</h3><p className="mt-1 text-[11px] leading-5 text-blue-700">Ask LaFlo for root-cause analysis or recommended actions using this evidence.</p><button type="button" onClick={onAsk} className="mt-2 rounded-md border border-blue-200 bg-white px-3 py-1.5 text-[10px] font-semibold text-blue-800">Ask LaFlo about this</button></div></div></div>
     </section>
   );
 }

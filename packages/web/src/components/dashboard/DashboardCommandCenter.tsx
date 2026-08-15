@@ -405,7 +405,7 @@ export default function DashboardCommandCenter() {
 
         <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]" data-testid="dashboard-smart-actions">
           {canViewBookings ? <SmartAction icon={MagnifyingGlassIcon} title="Enterprise Search" description="Guests, bookings, rooms, invoices, incidents, devices, messages and audit records." cta="Search everything" tone="teal" onClick={() => navigate('/operations-center/search')} /> : null}
-          {canViewBookings ? <SmartAction icon={SparklesIcon} title="Hotel Brain" description="Ask authorised operational questions and generate hotel insights." cta="Ask a question" tone="blue" onClick={() => navigate('/ai/hotel-brain')} /> : null}
+          {canViewBookings ? <SmartAction icon={SparklesIcon} title="Hotel Brain Intelligence" description="Review authorised evidence, connected context and governed AI recommendations." cta="View evidence" tone="blue" onClick={() => navigate('/ai/hotel-brain')} /> : null}
           {canViewIncidents ? <SmartAction icon={ExclamationTriangleIcon} title="Attention" description={`${attentionItems.length} operational issue${attentionItems.length === 1 ? '' : 's'} need review.`} cta="View alerts" status={`${incidents.critical} critical`} tone={attentionItems.length ? 'amber' : 'teal'} onClick={() => navigate('/incidents')} /> : null}
           {canViewSettings ? <SmartAction icon={BoltIcon} title="Integration Health" description="CCTV, Smart Building and provider connection health." cta="View integrations" status={failedIntegrations ? `${failedIntegrations} issues` : 'Operational'} tone={failedIntegrations ? 'rose' : 'teal'} onClick={() => navigate('/settings?tab=integration-manager')} /> : null}
         </div>
