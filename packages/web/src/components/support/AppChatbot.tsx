@@ -163,7 +163,6 @@ export default function AppChatbot() {
   const navigate = useNavigate();
   const location = useLocation();
   const compactLauncher = location.pathname === '/operations-center/ai'
-    || location.pathname === '/operations-center/search'
     || (location.pathname === '/settings' && new URLSearchParams(location.search).get('tab') === 'audit-trail');
   const { user } = useAuthStore();
   const [open, setOpen] = useState(false);
@@ -358,7 +357,7 @@ export default function AppChatbot() {
   };
 
   return (
-    <div className='fixed bottom-3 right-3 z-50 sm:bottom-5 sm:right-5'>
+    <div className='fixed bottom-4 right-4 z-[80] sm:bottom-6 sm:right-6'>
       {open ? (
         <section role='dialog' aria-label='LaFlo Assistant' className='flex h-[min(680px,calc(100vh-1.5rem))] w-[min(430px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl'>
           <header className='flex items-center justify-between gap-3 bg-gradient-to-r from-primary-800 to-primary-600 px-4 py-3 text-primary-contrast'>
@@ -526,8 +525,8 @@ export default function AppChatbot() {
           </div>
         </section>
       ) : (
-        <button ref={launcherRef} type='button' onClick={() => setOpen(true)} className={compactLauncher ? 'grid h-14 w-14 place-items-center overflow-hidden rounded-full bg-primary-solid text-primary-contrast shadow-lg transition-transform hover:scale-105 hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2' : 'flex items-center gap-1.5 rounded-xl bg-primary-solid py-1.5 pl-1.5 pr-3 text-xs font-semibold text-primary-contrast shadow-md transition-transform hover:scale-[1.02] hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2'} aria-label='Open LaFlo Assistant'>
-          {compactLauncher ? <MessageCircle className='h-6 w-6' aria-hidden='true' /> : <span className='h-[30px] w-[30px]'><img src='/assets/laflo-ai-agent-transparent.png' alt='' aria-hidden='true' className='h-full w-full object-contain' /></span>}<span className={compactLauncher ? 'sr-only' : 'hidden sm:inline'}>Ask LaFlo</span>
+        <button ref={launcherRef} type='button' onClick={() => setOpen(true)} className={compactLauncher ? 'grid h-14 w-14 place-items-center overflow-hidden rounded-full bg-primary-solid text-primary-contrast shadow-lg ring-1 ring-black/5 transition-transform hover:scale-105 hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2' : 'flex min-h-12 items-center gap-2 rounded-full bg-primary-solid py-1.5 pl-1.5 pr-4 text-xs font-semibold text-primary-contrast shadow-lg ring-1 ring-black/5 transition-transform hover:scale-[1.02] hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2'} aria-label='Open LaFlo Assistant'>
+          {compactLauncher ? <MessageCircle className='h-6 w-6' aria-hidden='true' /> : <span className='h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white/15 p-0.5'><img src='/assets/laflo-ai-agent-transparent.png' alt='' aria-hidden='true' className='h-full w-full object-contain' /></span>}<span className={compactLauncher ? 'sr-only' : 'whitespace-nowrap'}>Ask LaFlo</span>
         </button>
       )}
     </div>

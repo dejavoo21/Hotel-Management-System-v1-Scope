@@ -39,4 +39,13 @@ describe('AppChatbot', () => {
 
     expect(await screen.findByDisplayValue('Explain today’s AI operational briefing.')).toBeInTheDocument();
   });
+
+  it('shows the full Ask LaFlo launcher on Enterprise Search', () => {
+    render(<MemoryRouter initialEntries={['/operations-center/search']}><AppChatbot /></MemoryRouter>);
+
+    const launcher = screen.getByRole('button', { name: 'Open LaFlo Assistant' });
+    expect(launcher).toHaveTextContent('Ask LaFlo');
+    expect(launcher).toHaveClass('rounded-full');
+    expect(launcher).toHaveClass('min-h-12');
+  });
 });
