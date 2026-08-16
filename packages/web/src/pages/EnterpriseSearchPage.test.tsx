@@ -62,7 +62,7 @@ describe('EnterpriseSearchPage', () => {
     expect(await screen.findByRole('button', { name: /Room 214 maintenance work order/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Rebuild Index/i })).toBeInTheDocument();
     expect(screen.getByText('Saved Searches')).toBeInTheDocument();
-    expect(screen.getByText('Hotel Brain Insight')).toBeInTheDocument();
+    expect(screen.getByText('AI Insight')).toBeInTheDocument();
     expect(screen.getByText('Showing 1–3 of 3 results')).toBeInTheDocument();
   });
 
@@ -90,11 +90,25 @@ describe('EnterpriseSearchPage', () => {
     expect(screen.queryByRole('button', { name: 'Financial' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'CCTV' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Audit Log' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Rebuild Index/i })).not.toBeInTheDocument();
 
     expect((await screen.findAllByText('Room 214 maintenance work order')).length).toBeGreaterThan(0);
     expect(screen.queryByText('Invoice #INV-8674')).not.toBeInTheDocument();
     expect(screen.queryByText('Offline camera near pool')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Create task' })).not.toBeInTheDocument();
+    expect(screen.getByText('Results').closest('article')).toHaveTextContent('1');
+  });
+
+  it('shows a useful zero-result state without pagination and a connected preview state', async () => {
+    searchMock.mockResolvedValue({ ...response, results: [], groups: [], total: 0 });
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'No authorised results found' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Check spelling' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try broader terms' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Adjust filters' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Search all categories' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Next results page' })).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Result preview' })).toHaveTextContent('No result selected');
   });
 
   it('hands the current investigation to the global Ask LaFlo assistant', async () => {
@@ -118,7 +132,7 @@ describe('EnterpriseSearchPage', () => {
     renderPage();
     await screen.findByRole('button', { name: /Room 214 maintenance work order/ });
     fireEvent.click(screen.getByRole('button', { name: /Offline camera near pool/ }));
-    fireEvent.click(screen.getAllByRole('button', { name: 'Ask LaFlo' }).at(-1)!);
+    fireEvent.click(screen.getByRole('button', { name: 'Ask LaFlo about this result' }));
     await waitFor(() => expect(openAssistant).toHaveBeenCalledTimes(1));
     const event = openAssistant.mock.calls[0][0] as CustomEvent;
     expect(event.detail.prompt).toContain('Offline camera near pool');

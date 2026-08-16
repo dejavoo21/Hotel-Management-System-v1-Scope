@@ -83,6 +83,43 @@
 
 ---
 
+# Enterprise Search redesign — design QA
+
+**Source visual truth**
+- `C:\Users\walea\Downloads\ChatGPT Image Aug 16, 2026, 12_31_14 PM.png`
+
+**Implementation scope reviewed**
+- `packages/web/src/pages/EnterpriseSearchPage.tsx`
+- `packages/web/src/pages/EnterpriseSearchPage.test.tsx`
+- Existing shared rail/flyout shell in `packages/web/src/components/layouts/navigation/`
+
+## Implementation review
+
+- Layout: the search command panel, compact metric row, 250px filter column, fluid results area, and 360px preview rail follow the supplied investigation-page hierarchy.
+- Empty state: zero-result searches now show concise guidance and four useful recovery actions, without pagination.
+- Preview: the disconnected dashed placeholder was replaced by a connected card with a clear no-selection state; selected records expose permission-aware actions and related context.
+- AI naming: the page launches Ask LaFlo for conversational work and identifies Hotel Brain only as the permission-filtered evidence engine.
+- Permissions: categories and records are filtered before rendering, authorised totals are calculated from authorised results, task actions remain permission-gated, and index rebuild is administrator-only.
+- Responsiveness: filters and preview collapse into fixed drawers below their desktop breakpoints, with outside-click and Escape dismissal.
+- Theme: primary page surfaces, borders, text, controls, chips, selected rows, and empty states use shared appearance tokens; semantic alert colors remain explicit.
+
+## Automated validation
+
+- Enterprise Search component suite: 6 tests passed.
+- Application route smoke suite: 70 tests passed.
+- TypeScript and production Vite/PWA build passed.
+- `git diff --check` passed.
+
+## Visual/runtime verification constraint
+
+- A same-viewport browser screenshot comparison and runtime-console pass were not completed because the user explicitly requested that the app not be started or used locally on this computer.
+- No local app process was started by this task. The brief connection to an already-running local server was closed immediately after that instruction.
+- Visual and deployed-runtime verification should be completed against the Railway deployment after these changes are published.
+
+**final result: implementation passed; deployed visual/runtime verification pending**
+
+---
+
 # Weather & Forecast redesign — design QA
 
 **Source visual truth**
