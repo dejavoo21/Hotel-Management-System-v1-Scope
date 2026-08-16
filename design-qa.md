@@ -83,6 +83,30 @@
 
 ---
 
+# Market Intelligence redesign — design QA
+
+**Source visual truth**
+- `C:\Users\walea\Downloads\ChatGPT Image Aug 16, 2026, 03_58_42 PM.png`
+- `C:\Users\walea\.codex\attachments\f5bb556b-3dd7-4ad7-802f-a8953d8dc4d1\pasted-text.txt`
+
+## Implementation coverage
+
+- Preserves the shared LaFlo shell, global search, slim icon rail, page header, Operations workspace status, and forecast refresh action.
+- Adds the requested competitor-market and revenue-intelligence cards, three compact signal cards, 14-night guidance table, row expansion, task creation, and pricing advisory.
+- Uses the existing competitor APIs, Operations context, refresh workflow, and governed pricing-task service rather than introducing a parallel data path.
+- Responsive behavior stacks the decision cards and keeps the dense 14-night table inside its own horizontal scroll region.
+
+## Validation
+
+- Focused Vitest suites: 12 tests passed.
+- TypeScript and production Vite build passed.
+- React quality review completed for component boundaries, query-state handling, semantic controls, labels, disabled states, and responsive overflow.
+- Visual browser comparison and runtime-console verification were not run because the user explicitly instructed that the application must not be started locally on this PC.
+
+**final result: automated checks passed; visual comparison pending deployment/browser verification**
+
+---
+
 # Enterprise Search redesign — design QA
 
 **Source visual truth**

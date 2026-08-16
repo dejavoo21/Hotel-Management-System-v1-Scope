@@ -19,14 +19,10 @@ import {
   UsersRound,
   Wrench,
 } from "lucide-react";
-import PricingCalendarCard from "@/components/operations/pricing/PricingCalendarCard";
 import RevenueGuidanceWorkspace from "@/components/operations/revenue/RevenueGuidanceWorkspace";
 import TasksAdvisoriesWorkspace from "@/components/operations/tasks/TasksAdvisoriesWorkspace";
-import MarketIntelligenceCard from "@/components/operations/pricing/MarketIntelligenceCard";
-import DemandSignalCard from "@/components/operations/signals/DemandSignalCard";
-import PricingSignalCard from "@/components/operations/signals/PricingSignalCard";
+import MarketIntelligenceWorkspace from "@/components/operations/pricing/MarketIntelligenceWorkspace";
 import WeatherForecastWorkspace from "@/components/operations/weather/WeatherForecastWorkspace";
-import DepartmentIntelligenceCard from "@/components/operations/DepartmentIntelligenceCard";
 import AIRecommendationGovernancePanel from "@/components/operations/AIRecommendationGovernancePanel";
 import AIOperationalBriefing from "@/components/operations/AIOperationalBriefing";
 import ContextPreview from "@/components/operations/assistant/ContextPreview";
@@ -79,7 +75,8 @@ const focusMeta: Record<
   },
   "market-intelligence": {
     title: "Market Intelligence",
-    description: "Manage competitor context and market-rate inputs.",
+    description:
+      "Manage competitor context and market-rate inputs to support pricing decisions.",
   },
 };
 const getFocusFromPath = (pathname: string): OperationsFocus => {
@@ -606,34 +603,11 @@ function FocusedWorkspace({
   focus: Exclude<OperationsFocus, "overview">;
   context?: OperationsContext;
 }) {
-  const revenue = (
-    <PricingCalendarCard
-      pricingCalendar={context?.pricingCalendar}
-      pricingSummary={context?.pricingSignal}
-      snapshotMeta={context?.pricingSnapshotMeta}
-      title="Revenue Guidance (14 nights)"
-      subtitle="Per-night suggestions based on booking pace, weather signals, and market rates when available."
-    />
-  );
   if (focus === "weather") return null;
   if (focus === "revenue")
     return <RevenueGuidanceWorkspace context={context} />;
   if (focus === "market-intelligence")
-    return (
-      <div className="grid gap-5 xl:grid-cols-2">
-        <div className="space-y-5">
-          <MarketIntelligenceCard />
-          <div className="grid gap-4 lg:grid-cols-2">
-            <DemandSignalCard context={context} />
-            <PricingSignalCard context={context} />
-          </div>
-        </div>
-        <div className="space-y-5">
-          <DepartmentIntelligenceCard department="revenue" compact />
-          {revenue}
-        </div>
-      </div>
-    );
+    return <MarketIntelligenceWorkspace context={context} />;
   if (focus === "tasks") return null;
   return <OperationsAIWorkspace context={context} />;
 }

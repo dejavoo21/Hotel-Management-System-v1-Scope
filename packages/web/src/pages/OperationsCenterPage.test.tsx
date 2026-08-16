@@ -55,7 +55,7 @@ vi.mock("@/components/operations/advisories/OpsAdvisories", () => ({
 vi.mock("@/components/operations/pricing/PricingCalendarCard", () => ({
   default: () => <div>Detailed revenue guidance</div>,
 }));
-vi.mock("@/components/operations/pricing/MarketIntelligenceCard", () => ({
+vi.mock("@/components/operations/pricing/MarketIntelligenceWorkspace", () => ({
   default: () => <div>Detailed market intelligence</div>,
 }));
 vi.mock("@/components/operations/SignalsGrid", () => ({
@@ -356,6 +356,20 @@ describe("OperationsCenterPage", () => {
     expect(screen.getByText("Sat, Aug 15")).toBeInTheDocument();
     expect(screen.getByText("Sun, Aug 16")).toBeInTheDocument();
     expect(screen.queryByText("Mon, Aug 17")).not.toBeInTheDocument();
+  });
+
+  it("renders Market Intelligence as a dedicated pricing decision workspace", async () => {
+    renderPage("/operations-center/market-intelligence");
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Market Intelligence",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("Detailed market intelligence"),
+    ).toBeInTheDocument();
   });
 
   it("renders actionable weather intelligence with unit, filter, refresh, and task workflows", async () => {
