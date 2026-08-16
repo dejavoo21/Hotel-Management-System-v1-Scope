@@ -29,4 +29,12 @@ describe('LaFlo platform knowledge catalogue', () => {
     const ids = PLATFORM_INTERFACES.map((item) => item.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  it('describes Hotel Brain as Ask LaFlo intelligence instead of a competing assistant', () => {
+    const hotelBrain = PLATFORM_INTERFACES.find((item) => item.id === 'hotel-brain');
+    expect(hotelBrain?.purpose).toContain('powering Ask LaFlo');
+    const guidance = hotelBrain ? getPlatformInterfaceGuidance(hotelBrain) : null;
+    expect(guidance?.summary).toContain('behind Ask LaFlo');
+    expect(guidance?.followUpPrompts.join(' ')).not.toContain('ask Hotel Brain');
+  });
 });

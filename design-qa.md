@@ -1,47 +1,347 @@
-# LaFlo dashboard workspace correction — design QA
+# LaFlo login visual refinement — design QA
 
 **Source visual truth**
-- User-provided production dashboard screenshot at 1,906 × 912.
-- Reported defect: unused space beside the dashboard made the platform command centre feel constrained and unfinished.
+- User-provided LaFlo hotel login reference in the current conversation.
+- Requested adjustments: reduce the LaFlo logo and reduce the headline, especially `Simplified.`
 
 **Implementation screenshot**
-- `C:\Users\walea\playwright-agents\Hotel Management System v1 scope\laflo-dashboard-fluid-local-css-1906x912.png`
+- Not captured. The user explicitly requested that the application, build, preview server, and browser not run locally because of system performance impact.
 
 **Comparison viewport**
-- 1,906 × 912 CSS pixels.
-- Authenticated administrator dashboard using the clearly labelled demo fallback state where local APIs were intentionally unavailable.
+- Intended desktop split-screen authentication layout.
+- Pixel dimensions and density normalization: unavailable without a rendered capture.
 
-## Full-view comparison
+## Full-view comparison evidence
 
-- The command centre now fills the available application workspace from the content boundary to the right edge.
-- Smart actions and KPI cards expand evenly across the wider content surface.
-- The operational content column and right rail remain visually distinct without leaving an unused outer gutter.
-- Header, sidebar, cards, chart, task rail, and assistant control remain aligned without overlap.
+- Source direction uses a light mint/teal hotel-operations panel, dark headline copy, green emphasis, translucent operational cards, and the black/blue LaFlo mark.
+- The implementation preserves the live form and JSX operational cards while adopting those visual tokens.
+- A post-change rendered comparison is unavailable.
 
-## Focused comparison
+## Focused region comparison evidence
 
-### Workspace width
-- Removed the duplicate dashboard-level padding because the shared application shell already owns page padding.
-- Replaced the restrictive 1,720-pixel content cap with a fluid full-width container and a 2,200-pixel readability ceiling for ultra-wide displays.
+- Logo: changed from a 56–64px inverted mark to a transparent 36–40px black/blue mark.
+- Headline: changed from 36–50px white text to 32–41px dark text with green `Simplified.`
+- Cards: changed from dark-panel glass cards to light translucent operational cards with dark readable content.
+- Background: changed from dark teal to a light mint/teal direction.
 
-### Primary operational grid
-- The desktop command-centre grid now uses a responsive 300–340 pixel right rail.
-- Room readiness, Revenue, and Guest experience use guarded minimum widths so charts, metrics, and labels remain readable.
-- The wider Tasks panel provides stronger hierarchy and less cramped task metadata.
+## Findings
 
-### Responsive behavior
-- The side rail remains stacked below the primary content until the 1,536-pixel breakpoint, preventing horizontal overflow on smaller desktops.
-- Existing tablet and mobile column behavior is preserved.
-- Dashboard charts retain non-zero responsive container dimensions.
+- [P1] Post-change visual evidence is unavailable.
+  - Impact: static source inspection cannot confirm wrapping, vertical fit, or precise visual fidelity.
+  - Required verification: inspect the remotely deployed login page without running the application locally.
+
+## Required fidelity surfaces
+
+- Fonts and typography: scale and color updated; remote visual verification pending.
+- Spacing and layout rhythm: existing split-screen structure retained; remote visual verification pending.
+- Colors and visual tokens: updated to the reference mint/teal, slate, emerald, and blue direction.
+- Image quality and asset fidelity: official `/laflo-logo.png` retained; no replacement logo generated.
+- Copy and content: existing authentication copy and operational card content retained.
 
 ## Validation
 
-- [x] Source screenshot inspected.
-- [x] Implementation captured at the matching 1,906 × 912 viewport.
-- [x] Previous right-side void removed.
-- [x] Tasks and Recent Activities rail widened.
-- [x] Smart actions and KPI cards fill available width.
-- [x] No route, data-service, RBAC, or interaction logic changed.
-- [x] Local API failures were deliberately mocked for the visual fallback state and are not render/runtime failures.
+- Static diff check passed.
+- GitHub commit: `0e53b581`.
+- Local build and browser verification intentionally not run at the user’s request.
+
+**final result: blocked**
+
+---
+
+# Enterprise Search Image 2 alignment — design QA
+
+**Source visual truth**
+- `C:\Users\walea\Downloads\ChatGPT Image Aug 14, 2026, 08_46_36 PM.png`
+- Target state: populated `water leak basement sensor` investigation with expanded navigation, result list, preview panel, and floating Ask LaFlo.
+
+**Implementation screenshot**
+- `.artifacts/enterprise-search-target.png`
+
+**Comparison viewport**
+- 1680 × 943 CSS pixels at device scale factor 1.
+
+## Full-view comparison evidence
+
+- Reference and implementation were opened together after the final build.
+- The content start, 270px navigation, 1328px workspace, command bar, category row, 796px/500px result-preview split, preview top edge, and floating Ask LaFlo placement align with the target.
+- The page has no horizontal overflow (`bodyWidth: 1680`, `viewportWidth: 1680`).
+
+## Focused interaction evidence
+
+- Filters open and close from their collapsed default state.
+- Selecting `Related Records (7)` updates the preview, and returning to Overview works.
+- Search results, category controls, preview actions, pagination, and the global Ask LaFlo trigger render without overlap.
+- The only captured console message was the expected invalid-token socket rejection from the isolated mock-auth visual harness; no page exception or Enterprise Search runtime error occurred.
+
+## Validation
+
+- Focused Vitest suite: 7 tests passed.
+- TypeScript and production Vite build passed.
+- Final screenshot comparison passed for target geometry, hierarchy, navigation, active states, and responsive containment.
+
+**final result: passed**
+
+---
+
+# Weather & Forecast redesign — design QA
+
+**Source visual truth**
+- `C:\Users\walea\Downloads\ChatGPT Image Aug 16, 2026, 10_07_15 AM.png`
+
+**Implementation screenshots**
+- `.artifacts/weather-forecast-current.png`
+- `.artifacts/weather-forecast-tablet.png`
+
+**Viewport and normalization**
+- Source: 1672 × 941 pixels.
+- Desktop implementation: 1680 × 943 pixels, 1680 × 943 CSS viewport, device scale factor 1.
+- Tablet implementation: 1024 × 900 pixels, 1024 × 900 CSS viewport, device scale factor 1.
+- The source and desktop implementation were compared at effectively equivalent 16:9 density; the eight-pixel width and two-pixel height difference does not alter the page composition.
+- State: authenticated administrator, fresh connected forecast, low operational risk, one weather advisory, Celsius selected for visual comparison.
+
+## Full-view comparison evidence
+
+- The source and latest desktop implementation were opened together in the same comparison input.
+- The implementation preserves the target hierarchy: compact summary strip, four operational intelligence cards, 24-hour timeline, advisory queue, readiness overview, and condensed right-side quick panel.
+- The global shell remains unchanged and the floating Ask LaFlo control is the only assistant surface.
+- Desktop and tablet captures have no horizontal body overflow (`1680/1680` and `1024/1024`).
+
+## Focused region and interaction evidence
+
+- Forecast timeline: all twelve compact time slots render with icon, temperature, condition, precipitation, and wind values; °C/°F selection updates the displayed values.
+- Advisory queue: state, priority, and department controls operate; task creation changes the advisory status; assign and dismiss actions are available according to role.
+- Header: forecast refresh calls the connected sync action and exposes its loading state.
+- Responsive tablet capture confirms the summary cards wrap, the right rail stacks below the primary content, the timeline remains horizontally scrollable, and Ask LaFlo no longer overlaps the temperature unit control.
+- Loading, empty, error, and stale variants are covered by component branches and focused tests.
+- Browser verification completed with zero console errors and zero failed requests.
+
+## Required fidelity surfaces
+
+- Fonts and typography: existing LaFlo type family, compact operational labels, strong page title, readable small metrics, and consistent weights match the application shell and reference hierarchy.
+- Spacing and layout rhythm: card padding, grid gaps, border radii, section cadence, right-rail width, and responsive wrapping align with the reference without clipped content.
+- Colors and visual tokens: shared background, card, border, text, primary button, and chip tokens support all global themes; green, amber, red, blue, and neutral semantic states remain purposeful.
+- Image and icon fidelity: the existing LaFlo mark and Lucide icon system are used consistently; no placeholder graphics, emoji, handcrafted SVGs, or CSS-drawn assets were introduced.
+- Copy and content: page heading, operational explanations, provider/freshness labels, rule-based pricing language, readiness guidance, and advisory actions follow the supplied requirements without implying inactive ML capabilities.
+
+## Comparison history
+
+- Initial finding [P2]: at tablet width, the floating Ask LaFlo control sat too close to the °C/°F selector.
+- Fix: applied a breakpoint-specific right offset to the timeline selector while retaining natural mobile wrapping.
+- Post-fix evidence: `.artifacts/weather-forecast-tablet.png` shows clear horizontal and vertical separation between both persistent controls.
+- Initial finding [P3]: summary and outlook ranges rounded source values to whole degrees.
+- Fix: retained one-decimal precision for current and range values while keeping the compact timeline rounded.
+
+## Validation
+
+- Focused Operations Center Vitest suite: 6 tests passed.
+- TypeScript and production Vite build passed.
+- Browser workflow verified refresh, temperature toggle, task creation, assignment, Ask LaFlo availability, responsive widths, and absence of duplicate assistant UI.
+- Existing build-only chart measurement warnings in the revenue test environment are unrelated to the Weather & Forecast implementation.
+- No actionable P0/P1/P2 visual, interaction, responsive, or runtime findings remain.
+
+**final result: passed**
+
+---
+
+# Revenue Guidance redesign - design QA
+
+**Source visual truth**
+- `C:\Users\walea\Downloads\ChatGPT Image Aug 15, 2026, 04_18_59 PM.png`
+
+**Implementation screenshot**
+- `.artifacts/revenue-guidance-current.png`
+
+**Viewport and normalization**
+- Source image: 1680 x 943 pixels.
+- Implementation: 1680 x 943 pixels at a 1680 x 943 CSS viewport and device scale factor 1.
+- State: authenticated administrator with realistic 14-night internal pricing guidance, 5% average occupancy, 0% market coverage, and a -7% suggested adjustment.
+
+## Full-view comparison evidence
+
+- Source and implementation were opened together in the same comparison input.
+- Both retain the compact LaFlo rail, centered global search, flat revenue header, four summary cards, three actionable focus panels, pale green workspace, navy/teal/green accents, and a slim right utility rail.
+- The implementation intentionally follows the written requirement by giving Demand Forecast and Pricing Intelligence equal visual weight before the compact guidance list. This places the list just below the initial fold rather than beside the chart as in the reference.
+- No horizontal overflow was present (`bodyWidth: 1680`, `viewportWidth: 1680`).
+
+## Focused region and interaction evidence
+
+- Revenue filters: Weekend focus selected correctly and All nights restored correctly.
+- Night details: the first row expanded and collapsed with its evidence explanation.
+- Task workflow: Create task completed against an isolated mocked endpoint and displayed success feedback.
+- AI architecture: floating Ask LaFlo remained visible; no Ask Hotel Brain or duplicate assistant panel was rendered.
+- Runtime: no browser console errors, failed requests, or page exceptions.
+
+## Required fidelity surfaces
+
+- Fonts and typography: existing LaFlo typography, compact uppercase labels, strong navy headings, and readable table text match the reference hierarchy.
+- Spacing and layout rhythm: 16px section rhythm, compact rounded cards, aligned summary grid, and 300px utility rail preserve executive scanability without a spreadsheet-heavy screen.
+- Colors and visual tokens: existing LaFlo navy, emerald, pale-green, sky, violet, amber, and rose semantic tokens are used consistently.
+- Image and icon fidelity: no raster imagery is required; all interface symbols use the established application icon library and the official LaFlo shell assets.
+- Copy and content: required revenue intelligence, demand, pricing, coverage, priorities, risks, actions, source metadata, and 14-night labels are present.
+
+## Findings
+
+- No actionable P0, P1, or P2 visual or interaction findings remain.
+- P3: the 14-night table begins immediately below the initial 943px viewport because the written brief adds a second full visual insight card. This is an intentional hierarchy improvement and the table remains directly accessible by normal page scroll.
+
+## Comparison history
+
+- Initial implementation capture showed a 22% average occupancy because the visual fixture was too optimistic for the supplied state.
+- Fix: normalized the fixture to a 5% 14-night average, matching the requested Revenue Intelligence and risk copy.
+- Post-fix evidence: the latest screenshot shows 5% consistently in the summary, risk panel, and Pricing Intelligence metrics.
+
+## Validation
+
+- Operations Center focused Vitest suite: 3 tests passed.
+- Frontend TypeScript and production Vite build passed.
+- Browser interaction and same-viewport visual verification passed.
+
+**final result: passed**
+
+---
+
+# Enterprise Search Aug 15 target refresh — design QA
+
+**Source visual truth**
+- `C:\Users\walea\Downloads\ChatGPT Image Aug 15, 2026, 04_15_42 PM.png`
+
+**Implementation screenshot**
+- `.artifacts/enterprise-search-aug15.png`
+
+**Comparison viewport**
+- Source and implementation: 1908 × 1068 pixels at device scale factor 1.
+
+## Full-view comparison evidence
+
+- The reference and final implementation were opened at identical size and state.
+- The 68px icon rail, top command bar, page heading, action row, two-line category chips, five KPI cards, 250px filter/saved-search rail, six-row result list, 460px preview, Hotel Brain insight, and circular Ask LaFlo launcher align with the updated target hierarchy.
+- The floating and contextual conversational actions remain Ask LaFlo; Hotel Brain is retained as the evidence/insight engine.
+- No horizontal overflow was present (`bodyWidth: 1908`, `viewportWidth: 1908`).
+
+## Focused interaction evidence
+
+- Status filters expand from their collapsed default and close normally.
+- Selecting the CCTV result updates the preview to the selected camera record.
+- Search, category selection, index rebuild, result selection, pagination, task actions, and Ask LaFlo context handoff remain wired.
+- Browser capture completed with zero console errors and zero failed requests.
+
+## Validation
+
+- Focused Vitest suites: 6 tests passed.
+- TypeScript and production Vite build passed.
+- No actionable P0/P1/P2 visual or interaction findings remain.
+
+**final result: passed**
+
+---
+
+# Ask LaFlo / Hotel Brain unification — design QA
+
+**Source visual truth**
+- `C:\Users\walea\Downloads\ChatGPT Image Aug 14, 2026, 11_25_32 PM.png`
+- Product requirement overrides the source’s duplicate question input: preserve its evidence-console hierarchy while making Ask LaFlo the only conversational interface.
+
+**Implementation screenshot**
+- `.artifacts/hotel-brain-console.png`
+
+**Viewport and normalization**
+- Source: 1680 × 943 pixels.
+- Implementation: 1680 × 943 pixels, 1680 × 943 CSS viewport, device scale factor 1.
+- State: authenticated administrator, Hotel Brain intelligence console loaded, floating Ask LaFlo closed after successful handoff verification.
+
+## Full-view comparison evidence
+
+- Reference and implementation were opened together in one comparison input.
+- The implementation retains the dark evidence hero, readiness summaries, operational briefing, recommendation content, right-side evidence sources, slim global navigation, and floating Ask LaFlo placement.
+- The large duplicate question textarea and prompt-chip chat surface are intentionally replaced by a single `Open Ask LaFlo` action, matching the requested AI architecture.
+- No horizontal overflow was present (`bodyWidth: 1680`, `viewportWidth: 1680`).
+
+## Focused region and interaction evidence
+
+- Hero: `Open Ask LaFlo` opened the global LaFlo Assistant dialog and prepared the operations prompt; the dialog closed normally.
+- Enterprise Search behavior is covered by a focused test proving selected record title and source are passed through the global assistant event.
+- Context source availability, permission filtering, recent assistant history, saved prompts, briefing evidence, governance queue, readiness, and audit status remain visible without a second chat input.
+- The final isolated browser session completed with no console errors, failed requests, page exceptions, or component runtime errors.
+
+## Required fidelity surfaces
+
+- Fonts and typography: existing LaFlo application typography and target hierarchy retained.
+- Spacing and layout rhythm: hero, status row, primary briefing, and 330px evidence rail align without overlap at the target viewport.
+- Colors and tokens: target navy evidence header, white cards, pale mint workspace, and semantic green/blue/violet/amber states retained.
+- Image and icon fidelity: official LaFlo logo and existing application icon library used; no placeholder or handcrafted assets introduced.
+- Copy and content: conversational copy consistently names Ask LaFlo; Hotel Brain is described as the evidence and intelligence engine.
+
+## Comparison history
+
+- Initial requirement finding [P1]: the source contained a second large question input competing with the global assistant.
+- Fix: removed the page-owned question/mutation interface, routed questions and contextual prompts through `laflo:open-assistant`, and converted embedded copilots to Ask LaFlo launchers.
+- Post-fix evidence: browser capture shows one floating conversational entry point plus a non-chat Hotel Brain evidence console.
+
+## Validation
+
+- Focused web Vitest suite: 11 tests passed.
+- Focused API Vitest suite: 4 tests passed.
+- Frontend TypeScript check and production Vite build passed.
+- API TypeScript build passed.
+- No actionable P0/P1/P2 visual or interaction findings remain.
+
+**final result: passed**
+
+---
+
+# Tasks & Advisories redesign — design QA
+
+**Source visual truth**
+- `C:\Users\walea\Downloads\ChatGPT Image Aug 16, 2026, 10_07_58 AM.png`
+
+**Implementation screenshots**
+- `.artifacts/tasks-advisories-current.png`
+- `.artifacts/tasks-advisories-tablet.png`
+
+**Viewport and normalization**
+- Source: 1672 × 941 pixels.
+- Desktop implementation: 1680 × 943 pixels, 1680 × 943 CSS viewport, device scale factor 1.
+- Tablet implementation: 1024 × 900 pixels, 1024 × 900 CSS viewport, device scale factor 1.
+- Source and desktop implementation were compared at effectively equivalent density and crop; the eight-pixel width and two-pixel height difference does not alter the visible composition.
+- State: authenticated administrator, connected task service, four authorised operational advisories, three Event Bus records, global Ask LaFlo closed.
+
+## Full-view comparison evidence
+
+- The reference and latest desktop implementation were opened together in the same comparison input.
+- The implementation follows the target hierarchy: elevated page header, five compact KPI cards, dominant advisory action queue, structured recent activity, and a compact right intelligence rail.
+- The brief-requested fifth Unassigned Tasks KPI and four department intelligence summaries extend the reference without changing its visual system or turning the page into a duplicate governance dashboard.
+- Desktop and tablet captures have no horizontal body overflow (`1680/1680` and `1024/1024`).
+
+## Focused region and interaction evidence
+
+- Advisory queue: status tabs and priority/department filters update the visible rows; priority stripes and semantic badges remain consistent.
+- Create Task: opens an accessible modal with prefilled title, description, department, priority, due date, suggested routing, and source advisory context; successful creation reveals the real task reference.
+- Assign: shows the backend-routed owner when available and an honest unavailable state otherwise.
+- Dismiss: requires an explicit confirmation before moving the advisory into history and recording the local audit event.
+- Recent Activity: Event Bus rows render module, event, severity, department, time, and related entity context with four working filters and a clear action.
+- Responsive tablet evidence confirms KPI wrapping and readable advisory rows. The initial Ask LaFlo/action overlap was corrected before this pass.
+- Browser verification completed with zero console errors and zero failed requests.
+
+## Required fidelity surfaces
+
+- Fonts and typography: existing LaFlo font stack, title weights, compact labels, readable operational copy, controlled two-line descriptions, and small badge text match the reference hierarchy.
+- Spacing and layout rhythm: header elevation, card padding, KPI cadence, 1fr/420px desktop grid, row density, radii, borders, and tablet wrapping align without clipping.
+- Colors and visual tokens: page, card, border, text, primary control, and chip styling use shared theme tokens; semantic success, warning, danger, info, and disabled states remain explicit.
+- Image and icon fidelity: the existing LaFlo brand mark and application Lucide icon set are retained; no placeholder imagery, handcrafted SVGs, emoji, or CSS-drawn assets were introduced.
+- Copy and content: titles, helper text, source/department labels, task service messaging, governance links, operational metrics, and audit language follow the supplied requirements.
+
+## Comparison history
+
+- Initial finding [P2]: at 1024px, the floating Ask LaFlo button overlapped the third advisory row's assignment action.
+- Fix: reserved a breakpoint-specific right action margin while the right intelligence rail is stacked, returning to the full-width action alignment at desktop.
+- Post-fix evidence: `.artifacts/tasks-advisories-tablet.png` shows clear separation between Ask LaFlo and all visible task controls.
+
+## Validation
+
+- Focused Operations Center Vitest suite: 8 tests passed, including connected and blocked task-service states.
+- TypeScript and production Vite build passed.
+- Browser workflow verified task prefilling/creation, created reference, assigned owner, dismissal confirmation, refresh, responsive widths, Ask LaFlo availability, and absence of duplicated AI Governance content.
+- Existing build-only chart measurement warnings in the revenue test environment are unrelated to Tasks & Advisories.
+- No actionable P0/P1/P2 visual, interaction, responsive, security, or runtime findings remain.
 
 **final result: passed**

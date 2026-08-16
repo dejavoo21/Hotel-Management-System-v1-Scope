@@ -468,8 +468,6 @@ export default function DashboardLayout() {
   );
 
   const workspaceLabel = getWorkspaceLabel(user?.role);
-  const isEnterpriseSearch = location.pathname === '/operations-center/search';
-
   // Close flyout when navigating
   useEffect(() => {
     sidebarNav.closeFlyout();
@@ -487,7 +485,7 @@ export default function DashboardLayout() {
       )}
 
       {/* Sidebar Rail */}
-      <div className={`${isEnterpriseSearch ? 'hidden' : 'hidden lg:flex'}`} data-sidebar-rail>
+      <div className="hidden lg:flex" data-sidebar-rail>
         <SidebarRail
           openSection={sidebarNav.openSection}
           lockedSection={sidebarNav.lockedSection}
@@ -500,14 +498,12 @@ export default function DashboardLayout() {
 
       {/* Sidebar Flyout */}
       <SidebarFlyout
-        openSection={isEnterpriseSearch ? 'operations' : sidebarNav.openSection}
-        isLocked={isEnterpriseSearch || sidebarNav.isLocked}
+        openSection={sidebarNav.openSection}
         onFlyoutEnter={sidebarNav.handleFlyoutEnter}
         onFlyoutLeave={sidebarNav.handleFlyoutLeave}
-        onItemClick={isEnterpriseSearch ? () => undefined : sidebarNav.closeFlyout}
+        onItemClick={sidebarNav.closeFlyout}
         onClickOutside={sidebarNav.closeFlyout}
         accessRequestBadge={pendingAccessCount}
-        persistent={isEnterpriseSearch}
       />
 
       {/* Mobile Sidebar (slide-in drawer) */}

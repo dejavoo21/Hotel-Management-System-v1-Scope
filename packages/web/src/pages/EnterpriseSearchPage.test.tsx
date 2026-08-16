@@ -55,20 +55,18 @@ describe('EnterpriseSearchPage', () => {
     useAuthStore.setState({ user: { id: 'admin-1', role: 'ADMIN', modulePermissions: [], hotel: { id: 'hotel-1' } } as never });
   });
 
-  it('opens in the target investigation state with collapsed filters and preserves a clear empty state', async () => {
+  it('opens in the selected target investigation workspace', async () => {
     renderPage();
     expect(screen.getByRole('heading', { name: 'Enterprise Search' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Enterprise search' })).toHaveValue('water leak basement sensor');
     expect(await screen.findByRole('button', { name: /Room 214 maintenance work order/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Filters/ })).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByRole('combobox', { name: 'Status' })).not.toBeInTheDocument();
-    expect(screen.queryByText('Saved Searches')).not.toBeInTheDocument();
-    expect(screen.queryByText('Hotel Brain Insight')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
-    expect(screen.getByText('Search across LaFlo records')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Rebuild Index/i })).toBeInTheDocument();
+    expect(screen.getByText('Saved Searches')).toBeInTheDocument();
+    expect(screen.getByText('Hotel Brain Insight')).toBeInTheDocument();
+    expect(screen.getByText('Showing 1–3 of 3 results')).toBeInTheDocument();
   });
 
-  it('searches, renders compact results, updates preview, and opens filters on demand', async () => {
+  it('searches, renders compact results, updates preview, and keeps target filters available', async () => {
     renderPage();
     await screen.findByRole('button', { name: /Room 214 maintenance work order/ });
     fireEvent.change(screen.getByRole('textbox', { name: 'Enterprise search' }), { target: { value: 'water leak' } });
@@ -79,20 +77,19 @@ describe('EnterpriseSearchPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /Offline camera near pool/ }));
     expect(screen.getByRole('region', { name: 'Result preview' })).toHaveTextContent('Offline camera near pool');
 
-    fireEvent.click(screen.getByRole('button', { name: /Filters/ }));
-    expect(screen.getByRole('button', { name: /Filters/ })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('combobox', { name: 'Status' })).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Source module' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Status/ }));
+    expect(screen.getByRole('button', { name: /Source Type/ })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Filter option' })).toBeInTheDocument();
   });
 
   it('hides restricted categories and records even if an upstream response includes them', async () => {
     useAuthStore.setState({ user: { id: 'frontdesk-1', role: 'RECEPTIONIST', modulePermissions: ['rooms'] } as never });
     renderPage();
-    expect(screen.getByRole('button', { name: 'Rooms' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Bookings' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Room' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reservation' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Financial' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'CCTV' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Audit Logs' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Audit Log' })).not.toBeInTheDocument();
 
     expect((await screen.findAllByText('Room 214 maintenance work order')).length).toBeGreaterThan(0);
     expect(screen.queryByText('Invoice #INV-8674')).not.toBeInTheDocument();

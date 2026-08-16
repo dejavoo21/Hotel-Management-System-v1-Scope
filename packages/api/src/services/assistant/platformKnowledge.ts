@@ -23,7 +23,7 @@ export type PlatformInterfaceGuidance = {
 };
 
 export const PLATFORM_INTERFACES: PlatformInterface[] = [
-  { id: 'dashboard', name: 'Dashboard', route: '/', permission: 'dashboard', purpose: 'Hotel-wide operational overview and priorities.', tasks: ['Review KPIs and room readiness', 'Open alerts, tasks, integrations, search, or Hotel Brain'], keywords: ['dashboard', 'kpi', 'overview', 'attention'] },
+  { id: 'dashboard', name: 'Dashboard', route: '/', permission: 'dashboard', purpose: 'Hotel-wide operational overview and priorities.', tasks: ['Review KPIs and room readiness', 'Open alerts, tasks, integrations, search, or Ask LaFlo'], keywords: ['dashboard', 'kpi', 'overview', 'attention'] },
   { id: 'command-center', name: 'Enterprise Command Center', route: '/enterprise-command-center', permission: 'dashboard', purpose: 'Cross-property command view for enterprise operations.', tasks: ['Review property performance', 'Monitor enterprise operational exceptions'], keywords: ['command center', 'enterprise command', 'property performance'] },
   { id: 'bookings', name: 'Bookings', route: '/bookings', permission: 'bookings', purpose: 'Reservations, arrivals, departures, and stay management.', tasks: ['Find or create a booking', 'Assign rooms and complete check-in or check-out'], keywords: ['booking', 'reservation', 'arrival', 'departure', 'check-in', 'check out'] },
   { id: 'guests', name: 'Guests', route: '/guests', permission: 'guests', purpose: 'Guest profiles, preferences, history, and service context.', tasks: ['Find a guest profile', 'Review permitted guest history and preferences'], keywords: ['guest', 'profile', 'preference', 'guest history'] },
@@ -41,7 +41,7 @@ export const PLATFORM_INTERFACES: PlatformInterface[] = [
   { id: 'calls', name: 'Calls', route: '/calls', permission: 'messages', purpose: 'Voice/video calling and active communication sessions.', tasks: ['Start or join a permitted call', 'Use session controls during an active call'], keywords: ['call', 'phone', 'voice', 'video meeting'] },
   { id: 'operations', name: 'Operations Center', route: '/operations-center', permission: 'bookings', purpose: 'Operational intelligence, weather, tasks, revenue, and market views.', tasks: ['Choose an operations workspace', 'Review live priorities and available intelligence'], keywords: ['operations center', 'operations workspace'] },
   { id: 'search', name: 'Enterprise Search', route: '/operations-center/search', permission: 'bookings', purpose: 'Permission-aware search across hotel records.', tasks: ['Search by guest, booking, room, invoice, incident, device, or message', 'Open an authorised result'], keywords: ['enterprise search', 'global search', 'find record'] },
-  { id: 'hotel-brain', name: 'Hotel Brain', route: '/ai/hotel-brain', permission: 'bookings', purpose: 'Role-aware operational questions and hotel insights.', tasks: ['Ask an operational question', 'Review supporting authorised context before acting'], keywords: ['hotel brain', 'operational insight', 'ai insight'] },
+  { id: 'hotel-brain', name: 'Hotel Brain', route: '/ai/hotel-brain', permission: 'bookings', purpose: 'Intelligence and evidence console powering Ask LaFlo.', tasks: ['Review authorised AI context and evidence', 'Open Ask LaFlo with operational context'], keywords: ['hotel brain', 'operational insight', 'ai evidence'] },
   { id: 'weather', name: 'Weather', route: '/operations-center/weather', permission: 'bookings', purpose: 'Weather context for hotel operations and guest planning.', tasks: ['Review forecast and operational impact', 'Use weather context when planning arrivals or activities'], keywords: ['weather', 'forecast', 'temperature'] },
   { id: 'tasks', name: 'Tasks', route: '/operations-center/tasks', permission: 'bookings', purpose: 'Cross-department operational task tracking.', tasks: ['Review assigned and overdue work', 'Open or update a permitted task'], keywords: ['task', 'to-do', 'assigned work'] },
   { id: 'market-intelligence', name: 'Market Intelligence', route: '/operations-center/market-intelligence', permission: 'bookings', purpose: 'Market context supporting hotel planning.', tasks: ['Review available market indicators', 'Compare context with current hotel demand'], keywords: ['market intelligence', 'market demand', 'competitor'] },
@@ -240,14 +240,14 @@ const INTERFACE_GUIDANCE: Record<string, PlatformInterfaceGuidance> = {
     followUpPrompts: ['What can Enterprise Search find?', 'How do I narrow my search?', 'Why can’t I see a search result?'],
   },
   'hotel-brain': {
-    summary: 'Hotel Brain provides role-aware operational answers and insights using only the hotel context the user is authorised to access.',
+    summary: 'Hotel Brain is the intelligence engine behind Ask LaFlo, using only the hotel context the user is authorised to access.',
     keyAreas: [
-      { name: 'Operational questions', description: 'Ask about priorities, service risks, occupancy, departments, or other authorised hotel activity.' },
+      { name: 'Operational questions', description: 'Open Ask LaFlo to ask about priorities, service risks, occupancy, departments, or other authorised hotel activity.' },
       { name: 'Supporting context', description: 'Review the records, freshness, and limitations behind an answer.' },
       { name: 'Recommendations', description: 'Treat AI guidance as decision support and confirm important operational actions.' },
     ],
     priorities: ['Ask a specific question with the relevant property or time window.', 'Verify high-impact recommendations against source records.'],
-    followUpPrompts: ['What can I ask Hotel Brain?', 'What needs attention today?', 'How does Hotel Brain respect permissions?'],
+    followUpPrompts: ['What can I ask LaFlo?', 'What needs attention today?', 'How does Ask LaFlo use Hotel Brain while respecting permissions?'],
   },
   weather: {
     summary: 'Weather shows the forecast for the hotel location configured in Settings and connects conditions to operational planning.',
