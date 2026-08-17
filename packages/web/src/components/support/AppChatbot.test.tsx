@@ -31,6 +31,8 @@ describe('AppChatbot', () => {
     render(<MemoryRouter initialEntries={['/operations-center/ai']}><AppChatbot /></MemoryRouter>);
     const launcher = screen.getByRole('button', { name: 'Open LaFlo Assistant' });
     expect(launcher).toHaveTextContent('Ask LaFlo');
+    expect(launcher).toHaveClass('bg-primary-solid');
+    expect(launcher).not.toHaveClass('bg-slate-950');
     expect(launcher.querySelector('img')).toHaveAttribute('src', '/assets/laflo-ai-agent.png');
 
     fireEvent.click(launcher);
@@ -48,6 +50,7 @@ describe('AppChatbot', () => {
     const launcher = screen.getByRole('button', { name: 'Open LaFlo Assistant' });
     expect(launcher).toHaveTextContent('Ask LaFlo');
     expect(launcher).toHaveClass('rounded-2xl');
+    expect(launcher).toHaveClass('bg-primary-solid');
     expect(launcher.querySelector('img')).toHaveAttribute('src', '/assets/laflo-ai-agent.png');
   });
 });

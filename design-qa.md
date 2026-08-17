@@ -117,7 +117,7 @@
 
 - Aligns the desktop composition to the target: four compact action KPIs in the primary column, advisory queue and recent activity beneath, and a fixed-width intelligence rail containing arrival, Front Desk, Housekeeping, and Security context.
 - Adds Pending Assignment and Critical Items metrics, functional activity expansion, priority and department filtering coverage, and retains real task creation, assignment availability, dismissal confirmation, permission restrictions, audit logging, and the connected-service blocked state.
-- Restores the original branded Ask LaFlo launcher across applicable pages, using the navy surface, dedicated LaFlo AI Agent artwork, visible desktop label, compact mobile treatment, and corrected safe-area positioning.
+- Restores the original branded Ask LaFlo launcher across applicable pages, using the shared LaFlo green theme surface, dedicated LaFlo AI Agent artwork, visible desktop label, compact mobile treatment, and corrected safe-area positioning.
 - Uses existing LaFlo theme tokens, shared shell, slim icon rail, Lucide icon set, and responsive stacking behavior.
 
 ## Validation
