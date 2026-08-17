@@ -36,6 +36,8 @@ describe('AppChatbot', () => {
     expect(launcher.querySelector('img')).toHaveAttribute('src', '/laflo-logo.png');
     expect(launcher.querySelector('img')).not.toHaveClass('rounded-xl');
     expect(launcher).toHaveClass('min-h-11');
+    expect(launcher.parentElement).toHaveClass('bottom-2');
+    expect(launcher.parentElement).toHaveClass('sm:bottom-3');
 
     fireEvent.click(launcher);
     expect(screen.getByPlaceholderText('Ask anything about LaFlo…')).toBeInTheDocument();

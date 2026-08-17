@@ -355,7 +355,7 @@ export default function AppChatbot() {
   };
 
   return (
-    <div className='fixed bottom-4 right-4 z-[80] sm:bottom-6 sm:right-6'>
+    <div className='fixed bottom-2 right-4 z-[80] sm:bottom-3 sm:right-6'>
       {open ? (
         <section role='dialog' aria-label='LaFlo Assistant' className='flex h-[min(680px,calc(100vh-1.5rem))] w-[min(430px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl'>
           <header className='flex items-center justify-between gap-3 bg-gradient-to-r from-primary-800 to-primary-600 px-4 py-3 text-primary-contrast'>
