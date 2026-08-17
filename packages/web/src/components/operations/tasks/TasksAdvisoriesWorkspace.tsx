@@ -16,7 +16,6 @@ import {
   Sparkles,
   UserRoundCheck,
   UsersRound,
-  Wrench,
   X,
 } from "lucide-react";
 import { operationsService, timelineService } from "@/services";
@@ -119,15 +118,24 @@ function SummaryCard({
 
 function TasksLoadingState() {
   return (
-    <div className="space-y-4" aria-label="Loading tasks and advisories">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {Array.from({ length: 5 }, (_, index) => (
-          <div key={index} className="h-24 animate-shimmer rounded-2xl" />
-        ))}
+    <div
+      className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]"
+      aria-label="Loading tasks and advisories"
+    >
+      <div className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div key={index} className="h-24 animate-shimmer rounded-2xl" />
+          ))}
+        </div>
+        <div className="h-[390px] animate-shimmer rounded-2xl" />
+        <div className="h-[300px] animate-shimmer rounded-2xl" />
       </div>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="h-[560px] animate-shimmer rounded-2xl" />
-        <div className="h-[560px] animate-shimmer rounded-2xl" />
+      <div className="space-y-3">
+        <div className="h-36 animate-shimmer rounded-2xl" />
+        {Array.from({ length: 3 }, (_, index) => (
+          <div key={index} className="h-52 animate-shimmer rounded-2xl" />
+        ))}
       </div>
     </div>
   );
@@ -867,6 +875,21 @@ function RecentActivity() {
           </div>
         )}
       </div>
+      <div className="flex justify-center border-t border-border px-4 py-3">
+        <button
+          type="button"
+          onClick={() =>
+            setFilters((current) => ({
+              ...current,
+              limit: current.limit === 100 ? 24 : 100,
+            }))
+          }
+          className="inline-flex items-center gap-1 text-xs font-semibold text-primary-700"
+        >
+          {filters.limit === 100 ? "Show recent activity" : "View all activity"}
+          <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
     </section>
   );
 }
@@ -1012,109 +1035,88 @@ export default function TasksAdvisoriesWorkspace({
     );
   const advisories = context?.advisories || [];
   const created = advisories.filter((item) => item.createdTicket).length;
-  const high = advisories.filter((item) => item.priority === "high").length;
+  const pendingAssignment = advisories.filter(
+    (item) =>
+      item.createdTicket && !("assignedTo" in item.createdTicket),
+  ).length;
+  const critical = advisories.filter((item) => item.priority === "high").length;
   return (
-    <div className="space-y-4 pb-20">
-      <section
-        aria-label="Tasks and advisories summary"
-        className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
-      >
-        <SummaryCard
-          icon={ShieldCheck}
-          label="Open Advisories"
-          value={advisories.length}
-          detail="Recommendations needing review"
-        />
-        <SummaryCard
-          icon={ClipboardList}
-          label="Tasks Created"
-          value={created}
-          detail="Created from advisories"
-          tone="good"
-        />
-        <SummaryCard
-          icon={Flag}
-          label="High Priority"
-          value={high}
-          detail="Requires attention"
-          tone="risk"
-        />
-        <SummaryCard
-          icon={Activity}
-          label="Recent Events"
-          value={24}
-          detail="Latest Event Bus window"
-          tone="info"
-        />
-        <SummaryCard
-          icon={UserRoundCheck}
-          label="Unassigned Tasks"
-          value={
-            advisories.filter(
-              (item) =>
-                item.createdTicket && !("assignedTo" in item.createdTicket),
-            ).length
-          }
-          detail="Need owner assignment"
-        />
-      </section>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <main className="min-w-0 space-y-4">
-          <AdvisoryQueue context={context} canManage={canManage} />
-          <RecentActivity />
-        </main>
-        <aside className="space-y-3">
-          <ArrivalForecast
-            context={context}
-            onRefresh={onRefresh}
-            refreshing={isRefreshing}
-          />
-          <IntelligenceCard
-            name="Front Desk"
-            icon={UsersRound}
-            status={context?.ops?.arrivalsNext24h ? "Active" : "At risk"}
-            priority={
-              context?.ops?.arrivalsNext24h
-                ? "Coordinate arrivals"
-                : "No priority pressure"
-            }
-            risk="Payment or readiness issues"
-            action="Run pre-shift huddle"
-          />
-          <IntelligenceCard
-            name="Housekeeping"
-            icon={House}
-            status={
-              advisories.some((item) => item.department === "HOUSEKEEPING")
-                ? "Attention"
-                : "Stable"
-            }
-            priority="Room readiness"
-            risk="Out-of-service rooms"
-            action="Prioritise checkout rooms"
-          />
-          <IntelligenceCard
-            name="Maintenance"
-            icon={Wrench}
-            status={
-              advisories.some((item) => item.department === "MAINTENANCE")
-                ? "Attention"
-                : "Stable"
-            }
-            priority="Resolve active blockers"
-            risk="Delayed response"
-            action="Review maintenance queue"
-          />
-          <IntelligenceCard
-            name="Security"
+    <div className="grid gap-4 pb-20 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <main className="min-w-0 space-y-4">
+        <section
+          aria-label="Tasks and advisories summary"
+          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        >
+          <SummaryCard
             icon={ShieldCheck}
-            status="Stable"
-            priority="Monitor alerts"
-            risk="Unassigned incidents"
-            action="Review open alerts"
+            label="Open Advisories"
+            value={advisories.length}
+            detail="Operational recommendations requiring review"
           />
-        </aside>
-      </div>
+          <SummaryCard
+            icon={ClipboardList}
+            label="Tasks Created"
+            value={created}
+            detail="Created from advisories"
+            tone="good"
+          />
+          <SummaryCard
+            icon={UserRoundCheck}
+            label="Pending Assignment"
+            value={pendingAssignment}
+            detail="Need owner assignment"
+            tone="info"
+          />
+          <SummaryCard
+            icon={Flag}
+            label="Critical Items"
+            value={critical}
+            detail="Requires urgent attention"
+            tone="risk"
+          />
+        </section>
+        <AdvisoryQueue context={context} canManage={canManage} />
+        <RecentActivity />
+      </main>
+      <aside className="space-y-3">
+        <ArrivalForecast
+          context={context}
+          onRefresh={onRefresh}
+          refreshing={isRefreshing}
+        />
+        <IntelligenceCard
+          name="Front Desk"
+          icon={UsersRound}
+          status={context?.ops?.arrivalsNext24h ? "Active" : "At risk"}
+          priority={
+            context?.ops?.arrivalsNext24h
+              ? "Coordinate arrivals"
+              : "No priority pressure"
+          }
+          risk="Payment or readiness issues"
+          action="Run pre-shift huddle"
+        />
+        <IntelligenceCard
+          name="Housekeeping"
+          icon={House}
+          status={
+            advisories.some((item) => item.department === "HOUSEKEEPING")
+              ? "Attention"
+              : "Stable"
+          }
+          priority="Room readiness"
+          risk="Out-of-service rooms"
+          action="Prioritise checkout rooms"
+        />
+        <IntelligenceCard
+          name="Security"
+          icon={ShieldCheck}
+          status="Stable"
+          priority="Monitor alerts"
+          risk="Unassigned incidents"
+          action="Review open alerts"
+        />
+      </aside>
     </div>
   );
 }

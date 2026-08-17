@@ -29,9 +29,11 @@ describe('AppChatbot', () => {
 
   it('opens and prepares the global Ask LaFlo conversation from a page briefing action', async () => {
     render(<MemoryRouter initialEntries={['/operations-center/ai']}><AppChatbot /></MemoryRouter>);
-    expect(screen.getByRole('button', { name: 'Open LaFlo Assistant' })).toBeInTheDocument();
+    const launcher = screen.getByRole('button', { name: 'Open LaFlo Assistant' });
+    expect(launcher).toHaveTextContent('Ask LaFlo');
+    expect(launcher.querySelector('img')).toHaveAttribute('src', '/assets/laflo-ai-agent.png');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open LaFlo Assistant' }));
+    fireEvent.click(launcher);
     expect(screen.getByPlaceholderText('Ask anything about LaFlo…')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Close assistant' }));
@@ -40,12 +42,12 @@ describe('AppChatbot', () => {
     expect(await screen.findByDisplayValue('Explain today’s AI operational briefing.')).toBeInTheDocument();
   });
 
-  it('shows the full Ask LaFlo launcher on Enterprise Search', () => {
+  it('uses the original branded launcher consistently on Enterprise Search', () => {
     render(<MemoryRouter initialEntries={['/operations-center/search']}><AppChatbot /></MemoryRouter>);
 
     const launcher = screen.getByRole('button', { name: 'Open LaFlo Assistant' });
     expect(launcher).toHaveTextContent('Ask LaFlo');
-    expect(launcher).toHaveClass('rounded-full');
-    expect(launcher).toHaveClass('min-h-12');
+    expect(launcher).toHaveClass('rounded-2xl');
+    expect(launcher.querySelector('img')).toHaveAttribute('src', '/assets/laflo-ai-agent.png');
   });
 });

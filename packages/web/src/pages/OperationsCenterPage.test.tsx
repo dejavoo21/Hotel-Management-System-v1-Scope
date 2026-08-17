@@ -270,7 +270,11 @@ describe("OperationsCenterPage", () => {
     expect(screen.getByText("Operations Quick Actions")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /Review tasks and advisories/ }),
-    ).toHaveAttribute("href", "/operations-center/tasks");
+    ).toHaveAttribute("href", "/operations-center/tasks?status=open");
+    expect(screen.getByRole("link", { name: "Open Forecast Status details" })).toHaveAttribute("href", "/operations-center/weather");
+    expect(screen.getByRole("link", { name: "Open Demand Signal details" })).toHaveAttribute("href", "/operations-center/revenue");
+    expect(screen.getByRole("link", { name: "Open Active Alerts details" })).toHaveAttribute("href", "/security-center/alerts?status=active&severity=high");
+    expect(screen.getByRole("link", { name: "Open Open Tasks details" })).toHaveAttribute("href", "/operations-center/tasks?status=open");
     expect(
       screen.queryByPlaceholderText("Ask an operational question..."),
     ).not.toBeInTheDocument();
@@ -279,7 +283,7 @@ describe("OperationsCenterPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Review queue/ })).toHaveAttribute(
       "href",
-      "/operations-center/ai",
+      "/operations-center/ai#ai-recommendation-governance",
     );
     expect(
       screen.queryByText("Detailed governance queue"),
@@ -287,6 +291,12 @@ describe("OperationsCenterPage", () => {
     expect(
       screen.queryByText("Detailed market intelligence"),
     ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "View Front Desk details" })[0]);
+    expect(screen.getByRole("dialog", { name: "Front Desk Intelligence" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close Front Desk Intelligence" }));
+    fireEvent.click(screen.getByRole("button", { name: "View all activity" }));
+    expect(screen.getByRole("dialog", { name: "Recent Operational Activity" })).toBeInTheDocument();
   });
 
   it("replaces duplicate chat with an operational briefing while preserving governance and intelligence", async () => {
@@ -463,15 +473,52 @@ describe("OperationsCenterPage", () => {
       }),
     ).toBeInTheDocument();
     expect(await screen.findByText("Open Advisories")).toBeInTheDocument();
+    expect(screen.getByText("Pending Assignment")).toBeInTheDocument();
+    expect(screen.getByText("Critical Items")).toBeInTheDocument();
     expect(screen.getByText("Operations Advisory")).toBeInTheDocument();
     expect(screen.getByText("Recent Activity")).toBeInTheDocument();
     expect(screen.getByText("Front Desk Intelligence")).toBeInTheDocument();
+    expect(screen.getByText("Housekeeping Intelligence")).toBeInTheDocument();
+    expect(screen.getByText("Security Intelligence")).toBeInTheDocument();
     expect(screen.getByText("Arrival Forecast")).toBeInTheDocument();
+    expect(screen.queryByText("AI Recommendation Governance")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Not created" }));
     expect(
       screen.getByText("Proceed with standard operations plan"),
     ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Advisory priority"), {
+      target: { value: "high" },
+    });
+    expect(
+      screen.getByText("No advisories match the selected filters."),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Advisory priority"), {
+      target: { value: "low" },
+    });
+    fireEvent.change(screen.getByLabelText("Advisory department"), {
+      target: { value: "MAINTENANCE" },
+    });
+    expect(
+      screen.getByText("Proceed with standard operations plan"),
+    ).toBeInTheDocument();
+
+    await screen.findByRole("option", { name: "AI" });
+    fireEvent.change(screen.getByLabelText("Activity module"), {
+      target: { value: "AI" },
+    });
+    await waitFor(() =>
+      expect(serviceMocks.listTimeline).toHaveBeenLastCalledWith(
+        expect.objectContaining({ module: "AI" }),
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "View all activity" }));
+    await waitFor(() =>
+      expect(serviceMocks.listTimeline).toHaveBeenLastCalledWith(
+        expect.objectContaining({ limit: 100 }),
+      ),
+    );
+
     fireEvent.click(screen.getByRole("button", { name: "Create task" }));
     expect(
       screen.getByRole("dialog", { name: "Create task from advisory" }),

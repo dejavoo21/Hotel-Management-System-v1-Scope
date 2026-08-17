@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -118,12 +118,22 @@ export default function OperationsCenterPage() {
     refetchOnWindowFocus: false,
   });
   const refreshWeatherMutation = useMutation({
-    mutationFn: () => weatherSignalsService.sync(hotelId),
-    onSuccess: async (data) => {
-      toast.success(`Forecast refreshed (${data.daysStored} days stored)`);
-      await queryClient.invalidateQueries({
-        queryKey: ["operationsContext", hotelId],
-      });
+    mutationFn: async () => {
+      const weather = await weatherSignalsService.sync(hotelId);
+      const results = await Promise.allSettled([
+        operationsQuery.refetch(),
+        isOverview ? briefingQuery.refetch() : Promise.resolve(),
+        isOverview ? governanceQuery.refetch() : Promise.resolve(),
+        queryClient.invalidateQueries({ queryKey: ["operations-events"] }),
+      ]);
+      return { weather, partial: results.some((result) => result.status === "rejected") };
+    },
+    onSuccess: ({ weather, partial }) => {
+      toast.success(
+        partial
+          ? "Forecast refreshed. Some services are not connected."
+          : `Forecast refreshed (${weather.daysStored} days stored)`,
+      );
     },
     onError: (error) =>
       toast.error(
@@ -243,6 +253,11 @@ export default function OperationsCenterPage() {
       briefing={briefingQuery.data}
       briefingLoading={briefingQuery.isLoading}
       pendingGovernance={governanceQuery.data?.length || 0}
+      governanceItems={governanceQuery.data || []}
+      briefingError={briefingQuery.isError}
+      governanceError={governanceQuery.isError}
+      role={user?.role}
+      permissions={user?.modulePermissions || []}
     />
   ) : (
     <div className="space-y-4">
@@ -258,13 +273,30 @@ function CommandCenter({
   briefing,
   briefingLoading,
   pendingGovernance,
+  governanceItems,
+  briefingError,
+  governanceError,
+  role,
+  permissions,
 }: {
   header: React.ReactNode;
   context?: OperationsContext;
   briefing?: DailyGMBriefing;
   briefingLoading: boolean;
   pendingGovernance: number;
+  governanceItems: Array<{ priority?: string; createdAt?: string }>;
+  briefingError: boolean;
+  governanceError: boolean;
+  role?: string;
+  permissions: string[];
 }) {
+  const [departmentDetail, setDepartmentDetail] = useState<string | null>(null);
+  const [showActivity, setShowActivity] = useState(false);
+  const privileged = role === "ADMIN" || role === "MANAGER";
+  const canTasks = privileged || permissions.includes("bookings");
+  const canRevenue = privileged || permissions.includes("financials");
+  const canSecurity = privileged || permissions.includes("security_center");
+  const canGovernance = privileged || permissions.includes("settings") || permissions.includes("bookings");
   const risks = useMemo(
     () => [
       ...(briefing?.operationalRisks || []),
@@ -295,7 +327,7 @@ function CommandCenter({
       icon: CheckCircle2,
       count: briefing?.todayPriorities.length || 0,
       items: briefing?.todayPriorities || [],
-      href: "/operations-center/tasks",
+      href: "/operations-center/tasks?view=priorities",
       link: "View all priorities",
     },
     {
@@ -304,7 +336,7 @@ function CommandCenter({
       icon: AlertTriangle,
       count: risks.length,
       items: risks,
-      href: "/operations-center/weather",
+      href: canSecurity ? "/security-center/alerts?status=active&severity=high" : "",
       link: "View all risks",
     },
     {
@@ -316,7 +348,7 @@ function CommandCenter({
         title: item.title,
         detail: `${item.owner} · ${item.rationale}`,
       })),
-      href: "/operations-center/tasks",
+      href: "/operations-center/tasks?view=recommended",
       link: "View all actions",
     },
   ];
@@ -330,7 +362,7 @@ function CommandCenter({
         ["Departures", context?.ops?.departuresNext24h || 0],
         ["In house", context?.ops?.inhouseNow || 0],
       ],
-      href: "/operations-center/tasks",
+      href: "/operations-center/tasks?department=FRONT_DESK",
     },
     {
       name: "Housekeeping",
@@ -349,7 +381,7 @@ function CommandCenter({
           advisories.filter((x) => x.department === "HOUSEKEEPING").length,
         ],
       ],
-      href: "/operations-center/tasks",
+      href: "/operations-center/tasks?department=HOUSEKEEPING",
     },
     {
       name: "Maintenance",
@@ -367,7 +399,7 @@ function CommandCenter({
           advisories.filter((x) => x.department === "MAINTENANCE").length,
         ],
       ],
-      href: "/operations-center/tasks",
+      href: "/operations-center/tasks?department=MAINTENANCE",
     },
     {
       name: "Security",
@@ -382,12 +414,12 @@ function CommandCenter({
         ],
         ["Risks", criticalRisks.length],
       ],
-      href: "/operations-center/ai",
+      href: "/security-center/alerts?department=SECURITY",
     },
   ];
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
+    <div className="grid gap-4 pb-28 xl:grid-cols-[minmax(0,1fr)_420px]">
       <main className="min-w-0 space-y-4">
         {header}
         <section
@@ -404,6 +436,7 @@ function CommandCenter({
                 : "Forecast not synced"
             }
             tone={forecastFresh ? "good" : "warn"}
+            href="/operations-center/weather"
           />
           <StatusCard
             icon={demand === "down" ? TrendingDown : TrendingUp}
@@ -421,6 +454,8 @@ function CommandCenter({
               "Monitor booking pace"
             }
             tone={demand === "down" ? "warn" : "info"}
+            href={canRevenue ? "/operations-center/revenue" : ""}
+            restricted={!canRevenue}
           />
           <StatusCard
             icon={ShieldAlert}
@@ -428,6 +463,8 @@ function CommandCenter({
             value={String(criticalRisks.length)}
             sub={`${risks.filter((x) => x.severity === "CRITICAL").length} critical · ${risks.filter((x) => x.severity === "HIGH").length} high`}
             tone={criticalRisks.length ? "risk" : "good"}
+            href={canSecurity ? "/security-center/alerts?status=active&severity=high" : ""}
+            restricted={!canSecurity}
           />
           <StatusCard
             icon={ClipboardList}
@@ -435,6 +472,8 @@ function CommandCenter({
             value={String(advisories.length)}
             sub={`Across ${new Set(advisories.map((x) => x.department).filter(Boolean)).size || 0} departments`}
             tone="info"
+            href={canTasks ? "/operations-center/tasks?status=open" : ""}
+            restricted={!canTasks}
           />
         </section>
 
@@ -451,7 +490,7 @@ function CommandCenter({
           ) : (
             <div className="mt-3 grid gap-3 lg:grid-cols-3">
               {operationalFocus.map((item) => (
-                <FocusCard key={item.title} {...item} />
+                <FocusCard key={item.title} {...item} restricted={!canTasks || (item.title === "Active Risks" && !canSecurity)} />
               ))}
             </div>
           )}
@@ -471,7 +510,12 @@ function CommandCenter({
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {departments.map((department) => (
-              <DepartmentSnapshot key={department.name} {...department} />
+              <DepartmentSnapshot
+                key={department.name}
+                {...department}
+                restricted={(department.name === "Security" && !canSecurity) || (!canTasks && department.name !== "Security")}
+                onOpen={() => setDepartmentDetail(department.name)}
+              />
             ))}
           </div>
         </section>
@@ -484,12 +528,13 @@ function CommandCenter({
                 Latest operational signals and recommendations
               </p>
             </div>
-            <Link
+            <button
+              type="button"
               className="inline-flex items-center gap-1 text-sm font-semibold text-primary-600"
-              to="/operations-center/tasks"
+              onClick={() => setShowActivity(true)}
             >
               View all activity <ArrowRight className="h-4 w-4" />
-            </Link>
+            </button>
           </div>
           <div className="divide-y divide-border">
             {recentItems(briefing, context).map((item, index) => (
@@ -529,19 +574,22 @@ function CommandCenter({
               icon={ClipboardList}
               title="Review tasks and advisories"
               detail={`${advisories.length} open tasks`}
-              href="/operations-center/tasks"
+              href="/operations-center/tasks?status=open"
+              restricted={!canTasks}
             />
             <QuickAction
               icon={AlertTriangle}
               title="Review active risks"
               detail={`${criticalRisks.length} high-priority alerts`}
-              href="/operations-center/weather"
+              href="/security-center/alerts?status=active&severity=high"
+              restricted={!canSecurity}
             />
             <QuickAction
               icon={Gauge}
               title="Open revenue guidance"
               detail={`${context?.pricingSignal?.marketCoveragePct || 0}% market coverage`}
               href="/operations-center/revenue"
+              restricted={!canRevenue}
             />
           </div>
         </section>
@@ -567,6 +615,7 @@ function CommandCenter({
               label="Revenue Guidance"
               value={`${context?.pricingSignal?.marketCoveragePct || 0}% coverage`}
               href="/operations-center/revenue"
+              restricted={!canRevenue}
             />
           </div>
           <Link
@@ -581,17 +630,44 @@ function CommandCenter({
           title="AI Recommendation Governance"
           description="Keep AI recommendations accurate and aligned with operational goals."
           action="Review queue"
-          href="/operations-center/ai"
+          href="/operations-center/ai#ai-recommendation-governance"
+          restricted={!canGovernance}
           darkIcon
         >
-          <div className="flex items-end justify-between">
-            <span className="text-sm text-text-muted">Pending reviews</span>
-            <strong className="text-3xl text-text-main">
-              {pendingGovernance}
-            </strong>
-          </div>
+          {governanceError ? (
+            <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">AI governance queue is unavailable.</p>
+          ) : canGovernance ? (
+            <div className="grid grid-cols-2 gap-3">
+              <Metric label="Pending reviews" value={pendingGovernance} warning={pendingGovernance >= 25} />
+              <Metric label="High priority" value={governanceItems.filter((item) => item.priority === "HIGH" || item.priority === "CRITICAL").length} warning />
+              <Metric label="Tasks created" value={advisories.filter((item) => item.createdTicket).length} />
+              <Metric label="Last updated" value={context?.generatedAtUtc ? new Date(context.generatedAtUtc).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Awaiting data"} />
+            </div>
+          ) : (
+            <p className="rounded-xl bg-bg p-3 text-xs text-text-muted">Permission required to view AI governance.</p>
+          )}
         </SummaryPanel>
       </aside>
+      {departmentDetail ? (
+        <DetailDrawer title={`${departmentDetail} Intelligence`} onClose={() => setDepartmentDetail(null)}>
+          <p className="text-sm text-text-muted">Live department context from authorised operational records.</p>
+          <DetailRow label="Top priority" value={briefing?.todayPriorities.find((item) => item.department?.includes(departmentDetail.toUpperCase().replace(" ", "_")))?.title || "No active priorities."} />
+          <DetailRow label="Top risk" value={risks.find((item) => item.department?.includes(departmentDetail.toUpperCase().replace(" ", "_")))?.title || "No active risks."} />
+          <DetailRow label="Recommended action" value={briefing?.recommendedActions[0]?.title || "No recommended actions."} />
+          <Link className="btn-primary mt-4 inline-flex" to="/operations-center/tasks">Open related tasks</Link>
+          {canGovernance ? <Link className="btn-outline ml-2 mt-4 inline-flex" to="/operations-center/ai#ai-recommendation-governance">AI Governance</Link> : null}
+        </DetailDrawer>
+      ) : null}
+      {showActivity ? (
+        <DetailDrawer title="Recent Operational Activity" onClose={() => setShowActivity(false)}>
+          <div className="mb-4 grid gap-2 sm:grid-cols-2">
+            {['Module', 'Severity', 'Department', 'Date range'].map((label) => <button key={label} type="button" className="btn-outline justify-between">{label}: All</button>)}
+          </div>
+          <div className="divide-y divide-border">{recentItems(briefing, context).map((item, index) => <div key={`${item.title}-${index}`} className="py-3"><p className="text-sm font-semibold text-text-main">{item.title}</p><p className="mt-1 text-xs text-text-muted">{item.actor} · {item.detail}</p></div>)}</div>
+          {!recentItems(briefing, context).length ? <p className="text-sm text-text-muted">No recent operational activity.</p> : null}
+        </DetailDrawer>
+      ) : null}
+      {briefingError ? <span className="sr-only">Operations advisory service is not connected.</span> : null}
     </div>
   );
 }
@@ -1035,17 +1111,19 @@ function StatusCard({
   value,
   sub,
   tone,
+  href,
+  restricted = false,
 }: {
   icon: typeof Activity;
   label: string;
   value: string;
   sub: string;
   tone: keyof typeof toneClass;
+  href: string;
+  restricted?: boolean;
 }) {
-  return (
-    <article
-      className={`min-h-[116px] rounded-2xl border p-4 shadow-sm ${toneClass[tone]}`}
-    >
+  const content = (
+    <article className={`min-h-[116px] rounded-2xl border p-4 shadow-sm transition-transform ${restricted ? "cursor-not-allowed opacity-65" : "hover:-translate-y-0.5 hover:shadow-md"} ${toneClass[tone]}`}>
       <div className="flex items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/80">
           <Icon className="h-5 w-5" />
@@ -1056,8 +1134,10 @@ function StatusCard({
           <p className="mt-1 truncate text-xs text-text-muted">{sub}</p>
         </div>
       </div>
+      {restricted ? <span className="mt-2 block text-[10px] font-semibold">Permission required</span> : null}
     </article>
   );
+  return restricted ? <div title="Permission required">{content}</div> : <Link to={href} aria-label={`Open ${label} details`}>{content}</Link>;
 }
 function FocusCard({
   title,
@@ -1067,6 +1147,7 @@ function FocusCard({
   items,
   href,
   link,
+  restricted = false,
 }: {
   title: string;
   tone: "good" | "risk" | "warn";
@@ -1075,6 +1156,7 @@ function FocusCard({
   items: DailyBriefingItem[];
   href: string;
   link: string;
+  restricted?: boolean;
 }) {
   return (
     <article
@@ -1089,24 +1171,26 @@ function FocusCard({
       </div>
       <div className="mt-3 flex-1 space-y-1.5">
         {items.slice(0, 3).map((item, index) => (
-          <div
+          <Link
             key={`${item.title}-${index}`}
-            className="flex gap-2 text-xs text-text-muted"
+            to={restricted ? "#" : href}
+            onClick={(event) => restricted && event.preventDefault()}
+            className="flex gap-2 rounded-md text-xs text-text-muted hover:text-text-main"
           >
             <span aria-hidden>•</span>
             <span className="line-clamp-1">{item.title}</span>
-          </div>
+          </Link>
         ))}
         {!items.length ? (
-          <p className="text-xs text-text-muted">No current items.</p>
+          <p className="text-xs text-text-muted">No {title.toLowerCase()}.</p>
         ) : null}
       </div>
-      <Link
+      {restricted ? <span title="Permission required" className="mt-2 inline-flex cursor-not-allowed items-center gap-1 text-xs font-semibold text-text-muted">Permission required</span> : <Link
         className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary-700"
         to={href}
       >
         {link} <ArrowRight className="h-3.5 w-3.5" />
-      </Link>
+      </Link>}
     </article>
   );
 }
@@ -1115,13 +1199,15 @@ function DepartmentSnapshot({
   icon: Icon,
   status,
   metrics,
-  href,
+  restricted = false,
+  onOpen,
 }: {
   name: string;
   icon: typeof Activity;
   status: string;
   metrics: (string | number)[][];
-  href: string;
+  restricted?: boolean;
+  onOpen: () => void;
 }) {
   return (
     <article className="rounded-2xl border border-border bg-card p-3.5 shadow-sm">
@@ -1142,12 +1228,16 @@ function DepartmentSnapshot({
           </div>
         ))}
       </div>
-      <Link
+      <button
+        type="button"
         className="mt-3 flex items-center justify-center gap-1 border-t border-border pt-2.5 text-xs font-semibold text-primary-600"
-        to={href}
+        onClick={onOpen}
+        disabled={restricted}
+        title={restricted ? "Permission required" : `View ${name} details`}
+        aria-label={restricted ? `${name}: Permission required` : `View ${name} details`}
       >
-        View details <ArrowRight className="h-3.5 w-3.5" />
-      </Link>
+        {restricted ? "Permission required" : "View details"} <ArrowRight className="h-3.5 w-3.5" />
+      </button>
     </article>
   );
 }
@@ -1159,6 +1249,7 @@ function SummaryPanel({
   href,
   badge,
   darkIcon = false,
+  restricted = false,
   children,
 }: {
   icon: typeof Activity;
@@ -1168,6 +1259,7 @@ function SummaryPanel({
   href: string;
   badge?: string;
   darkIcon?: boolean;
+  restricted?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -1193,12 +1285,12 @@ function SummaryPanel({
         </div>
       </div>
       <div className="mt-3">{children}</div>
-      <Link
+      {restricted ? <span title="Permission required" className="mt-3 inline-flex cursor-not-allowed text-xs font-semibold text-text-muted">Permission required</span> : <Link
         className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary-600"
         to={href}
       >
         {action} <ArrowRight className="h-3.5 w-3.5" />
-      </Link>
+      </Link>}
     </section>
   );
 }
@@ -1207,12 +1299,15 @@ function QuickAction({
   title,
   detail,
   href,
+  restricted = false,
 }: {
   icon: typeof Activity;
   title: string;
   detail: string;
   href: string;
+  restricted?: boolean;
 }) {
+  if (restricted) return <div title="Permission required" aria-disabled="true" className="flex cursor-not-allowed items-center gap-3 rounded-xl border border-border p-3 opacity-60"><span className="theme-kpi-icon grid h-9 w-9 shrink-0 place-items-center rounded-xl"><Icon className="h-4 w-4" /></span><span><span className="block text-sm font-semibold text-text-main">{title}</span><span className="block text-xs text-text-muted">Permission required</span></span></div>;
   return (
     <Link
       to={href}
@@ -1236,12 +1331,15 @@ function Indicator({
   label,
   value,
   href,
+  restricted = false,
 }: {
   icon: typeof Activity;
   label: string;
   value: string;
   href: string;
+  restricted?: boolean;
 }) {
+  if (restricted) return <div title="Permission required" aria-disabled="true" className="flex cursor-not-allowed items-center gap-3 rounded-xl border border-border p-3 opacity-60"><span className="theme-kpi-icon grid h-9 w-9 place-items-center rounded-xl"><Icon className="h-4 w-4" /></span><span><span className="block text-sm font-semibold text-text-main">{label}</span><span className="block text-xs text-text-muted">Permission required</span></span></div>;
   return (
     <Link
       to={href}
@@ -1290,6 +1388,27 @@ function recentItems(briefing?: DailyGMBriefing, context?: OperationsContext) {
     },
   ];
   return result.slice(0, 3);
+}
+function Metric({ label, value, warning = false }: { label: string; value: string | number; warning?: boolean }) {
+  return (
+    <div className={`rounded-xl border p-3 ${warning ? "border-amber-200 bg-amber-50/60" : "border-border bg-bg/50"}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">{label}</p>
+      <p className={`mt-1 text-lg font-bold ${warning ? "text-amber-800" : "text-text-main"}`}>{value}</p>
+    </div>
+  );
+}
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return <div className="mt-4 rounded-xl border border-border bg-bg/50 p-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">{label}</p><p className="mt-1 text-sm font-medium text-text-main">{value}</p></div>;
+}
+function DetailDrawer({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-[90] flex justify-end bg-slate-950/25" role="presentation" onMouseDown={(event) => event.currentTarget === event.target && onClose()}>
+      <aside role="dialog" aria-modal="true" aria-label={title} className="h-full w-full max-w-md overflow-y-auto border-l border-border bg-card p-5 shadow-2xl">
+        <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-semibold text-text-main">{title}</h2><button type="button" className="btn-outline" onClick={onClose} aria-label={`Close ${title}`}>Close</button></div>
+        <div className="mt-5">{children}</div>
+      </aside>
+    </div>
+  );
 }
 function Skeleton() {
   return <div className="h-40 animate-shimmer rounded-2xl" />;

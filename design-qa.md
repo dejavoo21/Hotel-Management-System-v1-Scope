@@ -107,6 +107,30 @@
 
 ---
 
+# Tasks & Advisories action-centre refinement — design QA
+
+**Source visual truth**
+- `C:\Users\walea\Downloads\ChatGPT Image Aug 16, 2026, 04_01_29 PM.png`
+- `C:\Users\walea\.codex\attachments\b2803841-f911-49c3-b5d4-e146c028ac0e\pasted-text.txt`
+
+## Implementation coverage
+
+- Aligns the desktop composition to the target: four compact action KPIs in the primary column, advisory queue and recent activity beneath, and a fixed-width intelligence rail containing arrival, Front Desk, Housekeeping, and Security context.
+- Adds Pending Assignment and Critical Items metrics, functional activity expansion, priority and department filtering coverage, and retains real task creation, assignment availability, dismissal confirmation, permission restrictions, audit logging, and the connected-service blocked state.
+- Restores the original branded Ask LaFlo launcher across applicable pages, using the navy surface, dedicated LaFlo AI Agent artwork, visible desktop label, compact mobile treatment, and corrected safe-area positioning.
+- Uses existing LaFlo theme tokens, shared shell, slim icon rail, Lucide icon set, and responsive stacking behavior.
+
+## Validation
+
+- Focused Vitest suites: 11 tests passed.
+- TypeScript and production Vite build passed.
+- React quality review completed for semantic controls, query-driven filters, permission states, responsive grids, and modal workflows.
+- Local runtime and same-viewport screenshot comparison were not run because the user previously instructed that the application must not be started locally on this PC.
+
+**final result: automated checks passed; visual comparison pending deployment/browser verification**
+
+---
+
 # Enterprise Search redesign — design QA
 
 **Source visual truth**
