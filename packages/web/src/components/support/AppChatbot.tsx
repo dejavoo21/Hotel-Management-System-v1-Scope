@@ -523,8 +523,8 @@ export default function AppChatbot() {
           </div>
         </section>
       ) : (
-        <button ref={launcherRef} type='button' onClick={() => setOpen(true)} className='flex items-center gap-2 rounded-2xl bg-primary-solid py-2 pl-2 pr-3 text-sm font-semibold text-primary-contrast shadow-xl ring-1 ring-black/5 transition-transform hover:scale-[1.02] hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 sm:pr-4' aria-label='Open LaFlo Assistant'>
-          <img src='/assets/laflo-ai-agent.png' alt='' aria-hidden='true' className='h-10 w-10 rounded-xl object-cover' /><span className='hidden whitespace-nowrap sm:inline'>Ask LaFlo</span>
+        <button ref={launcherRef} type='button' onClick={() => setOpen(true)} className='flex min-h-11 items-center gap-2 rounded-2xl bg-primary-solid px-3 py-2 text-xs font-semibold text-primary-contrast shadow-lg ring-1 ring-black/5 transition-transform hover:scale-[1.02] hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2' aria-label='Open LaFlo Assistant'>
+          <span className='relative h-[18px] w-[18px] shrink-0 overflow-hidden' aria-hidden='true'><img src='/laflo-logo.png' alt='' className='absolute -right-[5px] -top-[8px] h-[35px] w-auto max-w-none' /></span><span className='whitespace-nowrap'>Ask LaFlo</span>
         </button>
       )}
     </div>

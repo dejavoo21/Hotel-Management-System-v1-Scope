@@ -33,7 +33,9 @@ describe('AppChatbot', () => {
     expect(launcher).toHaveTextContent('Ask LaFlo');
     expect(launcher).toHaveClass('bg-primary-solid');
     expect(launcher).not.toHaveClass('bg-slate-950');
-    expect(launcher.querySelector('img')).toHaveAttribute('src', '/assets/laflo-ai-agent.png');
+    expect(launcher.querySelector('img')).toHaveAttribute('src', '/laflo-logo.png');
+    expect(launcher.querySelector('img')).not.toHaveClass('rounded-xl');
+    expect(launcher).toHaveClass('min-h-11');
 
     fireEvent.click(launcher);
     expect(screen.getByPlaceholderText('Ask anything about LaFlo…')).toBeInTheDocument();
@@ -51,6 +53,7 @@ describe('AppChatbot', () => {
     expect(launcher).toHaveTextContent('Ask LaFlo');
     expect(launcher).toHaveClass('rounded-2xl');
     expect(launcher).toHaveClass('bg-primary-solid');
-    expect(launcher.querySelector('img')).toHaveAttribute('src', '/assets/laflo-ai-agent.png');
+    expect(launcher.querySelector('img')).toHaveAttribute('src', '/laflo-logo.png');
+    expect(launcher).toHaveClass('text-xs');
   });
 });
