@@ -31,6 +31,11 @@ vi.mock("@/services/operations", async (importOriginal) => {
   };
 });
 
+vi.mock("@/stores/authStore", () => ({
+  useAuthStore: (selector: (state: any) => unknown) =>
+    selector({ user: { role: "ADMIN", modulePermissions: ["financials"] } }),
+}));
+
 const context: OperationsContext = {
   hotelId: "hotel-1",
   generatedAtUtc: "2026-08-16T12:23:00Z",
@@ -119,11 +124,25 @@ describe("MarketIntelligenceWorkspace", () => {
     expect(screen.getByText("Pricing Intelligence")).toBeInTheDocument();
     expect(screen.getByText("Market Signal Health")).toBeInTheDocument();
     expect(screen.getByText("Revenue Guidance (14 nights)")).toBeInTheDocument();
-    expect(screen.getByText("Competitor Alerts")).toBeInTheDocument();
-    expect(screen.getByText("Market Notes")).toBeInTheDocument();
+    expect(screen.getByText("Promote low-demand nights")).toBeInTheDocument();
+    expect(screen.getByText("Review collections before arrivals")).toBeInTheDocument();
     expect(screen.getAllByText("68%").length).toBeGreaterThan(0);
     expect(screen.getByText("3 samples")).toBeInTheDocument();
     expect(screen.getByText("No market data")).toBeInTheDocument();
+  });
+
+  it("opens summary details and filters competitor status", async () => {
+    renderWorkspace();
+    await screen.findByText("Metro Suites");
+
+    fireEvent.click(screen.getAllByRole("button", { name: /Market coverage/i })[0]);
+    expect(screen.getByRole("dialog", { name: "Market Coverage" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close details" }));
+
+    fireEvent.change(screen.getByLabelText("Competitor status"), {
+      target: { value: "inactive" },
+    });
+    expect(screen.getByText("No competitors match this filter")).toBeInTheDocument();
   });
 
   it("adds a competitor with parsed location data", async () => {

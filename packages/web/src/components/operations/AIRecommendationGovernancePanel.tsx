@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { CheckCircle2, ClipboardList, RefreshCcw, ShieldCheck, XCircle } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Eye, ExternalLink, History, MessageSquare, RefreshCcw, ShieldCheck, UserPlus, X, XCircle } from 'lucide-react';
 import { aiRecommendationsService, getApiError } from '@/services';
 import type { AIRecommendation, AIRecommendationStatus } from '@/services/aiRecommendations';
 import { useAuthStore } from '@/stores/authStore';
@@ -35,6 +35,7 @@ function RecommendationCard({
   onReject,
   onCreateTask,
   onExpire,
+  onInspect,
   isPending,
 }: {
   recommendation: AIRecommendation;
@@ -43,6 +44,7 @@ function RecommendationCard({
   onReject: (recommendation: AIRecommendation) => void;
   onCreateTask: (recommendation: AIRecommendation) => void;
   onExpire: (recommendation: AIRecommendation) => void;
+  onInspect: (recommendation: AIRecommendation, view: 'details' | 'source' | 'audit') => void;
   isPending: boolean;
 }) {
   const canApprove = canAct && recommendation.status === 'PENDING';
@@ -134,6 +136,11 @@ function RecommendationCard({
               Expire
             </button>
           ) : null}
+          <button type="button" onClick={() => onInspect(recommendation, 'details')} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"><Eye className="h-3.5 w-3.5" />View details</button>
+          <button type="button" onClick={() => onInspect(recommendation, 'source')} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"><ExternalLink className="h-3.5 w-3.5" />View source</button>
+          <button type="button" disabled title="Owner assignment service is not connected" className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-400 disabled:cursor-not-allowed"><UserPlus className="h-3.5 w-3.5" />Assign owner</button>
+          <button type="button" disabled title="Recommendation comments are not connected" className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-400 disabled:cursor-not-allowed"><MessageSquare className="h-3.5 w-3.5" />Add comment</button>
+          <button type="button" onClick={() => onInspect(recommendation, 'audit')} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"><History className="h-3.5 w-3.5" />Audit trail</button>
         </div>
       </div>
     </article>
@@ -146,6 +153,7 @@ export default function AIRecommendationGovernancePanel({ compact = false }: { c
   const [activeStatus, setActiveStatus] = useState<AIRecommendationStatus>('PENDING');
   const [rejecting, setRejecting] = useState<AIRecommendation | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [inspection, setInspection] = useState<{ recommendation: AIRecommendation; view: 'details' | 'source' | 'audit' } | null>(null);
   const userCanGovern = canGovern(user);
 
   const query = useQuery({
@@ -262,6 +270,7 @@ export default function AIRecommendationGovernancePanel({ compact = false }: { c
                 setRejecting(item);
                 setRejectionReason('');
               }}
+              onInspect={(item, view) => setInspection({ recommendation: item, view })}
             />
           ))
         ) : (
@@ -316,6 +325,11 @@ export default function AIRecommendationGovernancePanel({ compact = false }: { c
           </div>
         </div>
       ) : null}
+      {inspection ? <div className="fixed inset-0 z-[90] flex justify-end bg-slate-950/35" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setInspection(null); }}><section role="dialog" aria-modal="true" aria-label={`Recommendation ${inspection.view}`} className="h-full w-full max-w-lg overflow-y-auto border-l border-slate-200 bg-white p-5 shadow-2xl"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{inspection.view.replace('_', ' ')}</p><h2 className="mt-1 text-lg font-semibold text-slate-900">{inspection.recommendation.title}</h2></div><button type="button" onClick={() => setInspection(null)} aria-label="Close recommendation details" className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200"><X className="h-4 w-4" /></button></div>{inspection.view === 'details' ? <div className="mt-5 space-y-4 text-sm"><p className="leading-6 text-slate-700">{inspection.recommendation.description}</p><InfoRow label="Rationale" value={inspection.recommendation.rationale} /><InfoRow label="Confidence" value={`${Math.round(inspection.recommendation.confidence * 100)}%`} /><InfoRow label="Department" value={inspection.recommendation.department} /><InfoRow label="Status" value={inspection.recommendation.status.replace(/_/g, ' ')} /></div> : inspection.view === 'source' ? <div className="mt-5 space-y-4"><InfoRow label="Source type" value={inspection.recommendation.sourceType.replace(/_/g, ' ')} /><InfoRow label="Source reference" value={inspection.recommendation.sourceId} /><p className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">This recommendation was generated from authorised, permission-filtered operational context.</p></div> : <div className="mt-5 space-y-3"><InfoRow label="Generated" value={new Date(inspection.recommendation.createdAt).toLocaleString()} /><InfoRow label="Last updated" value={new Date(inspection.recommendation.updatedAt).toLocaleString()} /><InfoRow label="Reviewed" value={inspection.recommendation.reviewedAt ? new Date(inspection.recommendation.reviewedAt).toLocaleString() : 'Not reviewed'} /><InfoRow label="Current state" value={inspection.recommendation.status.replace(/_/g, ' ')} /></div>}</section></div> : null}
     </section>
   );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-2xl border border-slate-200 p-4"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 text-sm leading-6 text-slate-800">{value}</p></div>;
 }

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   Activity,
@@ -33,6 +34,7 @@ import { useAuthStore } from "@/stores/authStore";
 type Unit = "C" | "F";
 type AdvisoryState = "ALL" | "NOT_CREATED" | "CREATED";
 type WeatherRisk = "low" | "medium" | "high" | "unknown";
+type DetailView = { title: string; body: React.ReactNode } | null;
 
 const cardClass = "rounded-2xl border border-border bg-card shadow-card";
 const iconClass =
@@ -119,8 +121,17 @@ export default function WeatherForecastWorkspace({
   isRefreshing?: boolean;
   onRefresh: () => void;
 }) {
-  const [unit, setUnit] = useState<Unit>("C");
+  const [unit, setUnit] = useState<Unit>(() => sessionStorage.getItem("laflo-weather-unit") === "F" ? "F" : "C");
+  const [detail, setDetail] = useState<DetailView>(null);
   const weather = context?.weather;
+
+  useEffect(() => { sessionStorage.setItem("laflo-weather-unit", unit); }, [unit]);
+  useEffect(() => {
+    if (!detail) return undefined;
+    const close = (event: KeyboardEvent) => { if (event.key === "Escape") setDetail(null); };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [detail]);
 
   if (isLoading) return <WeatherLoadingState />;
   if (isError)
@@ -151,6 +162,12 @@ export default function WeatherForecastWorkspace({
   const confidence = pricing?.confidence || "low";
   const stale = Boolean(weather.stale || !weather.isFresh);
   const timeline = buildTimeline(currentTemp, low, high, summary, risk);
+  const openDetail = (title: string, rows: Array<[string, React.ReactNode]>, actions?: React.ReactNode) => setDetail({ title, body: <div className="space-y-4"><div className="divide-y divide-border rounded-2xl border border-border">{rows.map(([label, value]) => <div key={label} className="grid grid-cols-[130px_1fr] gap-3 p-3 text-sm"><strong className="text-text-main">{label}</strong><span className="text-text-muted">{value}</span></div>)}</div>{actions}</div> });
+  const openAssistant = (prompt: string) => window.dispatchEvent(new CustomEvent("laflo:open-assistant", { detail: { mode: "weather", prompt, context: { page: "Weather & Forecast", condition: summary, risk, arrivals, departures, demandSignal: demand, pricingAdjustmentPct: adjustment } } }));
+  const weatherDetails = () => openDetail("Weather Outlook", [["Condition", titleCase(summary)], ["Temperature range", `${displayTemp(low, unit, true)} – ${displayTemp(high, unit, true)}`], ["Provider", weather.syncedAtUtc ? "Connected provider" : "Not connected"], ["Last sync", weather.syncedAtUtc ? new Date(weather.syncedAtUtc).toLocaleString() : "Not synced"], ["Precipitation", risk === "unknown" ? "Unavailable" : `${riskMeta.label} risk`], ["Wind", "Provider detail unavailable"]]);
+  const arrivalDetails = () => openDetail("Arrival Forecast", [["Arrivals expected", arrivals], ["Departures expected", departures], ["In-house now", inHouse], ["Booking source", context?.ops ? "Authorised operations context" : "Booking data unavailable"], ["Calculation window", context?.ops?.windowStartUtc && context?.ops?.windowEndUtc ? `${new Date(context.ops.windowStartUtc).toLocaleString()} – ${new Date(context.ops.windowEndUtc).toLocaleString()}` : "Next 24 hours"], ["Data gaps", context?.ops ? "No reported gaps" : "Arrival forecast unavailable because booking data could not be loaded"]]);
+  const demandDetails = () => openDetail("Demand Forecast", [["Signal", demand === "down" ? "Down" : demand === "up" ? "Up" : "Stable"], ["Arrivals / departures", `${arrivals} / ${departures}`], ["Confidence", confidence], ["Source logic", "Rules-based signal"], ["Data note", confidence === "low" ? "Demand signal is based on limited data" : "Operational inputs available"]], <div className="flex flex-wrap gap-2"><Link to="/operations-center/revenue" className="rounded-xl border border-border px-3 py-2 text-xs font-semibold">Open Revenue Guidance</Link><Link to="/operations-center/market-intelligence" className="rounded-xl border border-border px-3 py-2 text-xs font-semibold">Open Market Intelligence</Link></div>);
+  const pricingDetails = () => openDetail("Pricing Intelligence", [["Opportunity", `${adjustment > 0 ? "+" : ""}${adjustment}%`], ["Recommendation", pricing?.suggestion || pricing?.note || "Review pricing guidance"], ["Confidence", confidence], ["Market coverage", `${context?.pricingSignal?.marketCoveragePct ?? 0}%`], ["Source / mode", "Rules-based"]], <div className="flex flex-wrap gap-2"><Link to="/operations-center/revenue" className="rounded-xl bg-primary-solid px-3 py-2 text-xs font-semibold text-primary-contrast">Open Revenue Guidance</Link><button type="button" onClick={() => openAssistant("Explain the weather-related pricing signal and its authorised evidence.")} className="rounded-xl border border-border px-3 py-2 text-xs font-semibold">Ask LaFlo about pricing signal</button></div>);
 
   return (
     <div className="space-y-4 pb-20">
@@ -170,12 +187,14 @@ export default function WeatherForecastWorkspace({
           icon={CloudSun}
           label="Current Weather"
           value={titleCase(summary)}
+          onClick={weatherDetails}
           detail={`${displayTemp(low, unit, true)} – ${displayTemp(high, unit, true)}`}
         />
         <SummaryCard
           icon={RefreshCcw}
           label="Forecast Status"
           value={weather.isFresh ? "Fresh" : "Stale"}
+          onClick={() => openDetail("Forecast Status", [["Status", weather.isFresh ? "Fresh" : "Stale"], ["Last successful sync", weather.syncedAtUtc ? new Date(weather.syncedAtUtc).toLocaleString() : "Not synced"], ["Provider status", weather.syncedAtUtc ? "Connected" : "Disconnected"], ["Error", weather.isFresh ? "None reported" : "Forecast data may be stale"]])}
           detail={`Last sync ${formatTime(weather.syncedAtUtc)}`}
           badge={weather.isFresh ? "CURRENT" : "REFRESH"}
         />
@@ -183,6 +202,7 @@ export default function WeatherForecastWorkspace({
           icon={ShieldCheck}
           label="Risk Level"
           value={riskMeta.label}
+          onClick={() => openDetail("Weather Risk", [["Risk level", riskMeta.label], ["Factors", risk === "unknown" ? "Provider risk factors unavailable" : "Forecast precipitation and current conditions"], ["Operational impact", risk === "low" ? "No disruption expected" : "Review operational readiness"], ["Related advisories", `${context?.advisories?.length || 0} active`]])}
           detail={
             risk === "low"
               ? "No disruption expected"
@@ -194,11 +214,13 @@ export default function WeatherForecastWorkspace({
           icon={CalendarClock}
           label="Arrival Load"
           value={`${arrivals} arrivals`}
+          onClick={arrivalDetails}
           detail={`${departures} departures · ${inHouse} in-house`}
         />
         <SummaryCard
           icon={demand === "down" ? TrendingDown : TrendingUp}
           label="Demand Signal"
+          onClick={demandDetails}
           value={
             demand === "down"
               ? "Softening"
@@ -220,19 +242,24 @@ export default function WeatherForecastWorkspace({
               high={high}
               unit={unit}
               risk={risk}
+              onOpen={weatherDetails}
+              onSync={onRefresh}
+              isRefreshing={isRefreshing}
             />
             <ArrivalCard
               arrivals={arrivals}
               departures={departures}
               inHouse={inHouse}
               hasBookings={Boolean(context?.ops)}
+              onOpen={arrivalDetails}
             />
-            <DemandCard demand={demand} confidence={confidence} />
+            <DemandCard demand={demand} confidence={confidence} onOpen={demandDetails} />
             <PricingCard
               adjustment={adjustment}
               confidence={confidence}
               recommendation={pricing?.suggestion || pricing?.note}
               marketCoverage={context?.pricingSignal?.marketCoveragePct}
+              onOpen={pricingDetails}
             />
           </section>
 
@@ -240,11 +267,12 @@ export default function WeatherForecastWorkspace({
             timeline={timeline}
             unit={unit}
             onUnitChange={setUnit}
+            onHour={(item) => openDetail(`${item.time} Forecast`, [["Time", item.time], ["Temperature", displayTemp(item.temperature, unit)], ["Condition", titleCase(item.condition)], ["Precipitation", `${item.precipitation}%`], ["Wind", `${item.wind} km/h`], ["Operational note", item.precipitation > 30 ? "Review outdoor operations for this period" : "Standard operations can continue"]])}
           />
 
           <div className="grid gap-4 xl:grid-cols-[1.15fr_.85fr]">
             <WeatherAdvisoryQueue context={context} />
-            <ReadinessImpactOverview context={context} risk={risk} />
+            <ReadinessImpactOverview context={context} risk={risk} onOpen={(title, itemDetail, value) => openDetail(title, [["Current state", value], ["Operational impact", itemDetail], ["Data source", context ? "Authorised operations and weather context" : "Unavailable"], ["Recommended preparation", risk === "low" ? "Continue standard operating plan" : "Review readiness and contingency actions"]], <button type="button" onClick={() => openAssistant(`Explain ${title.toLowerCase()} for the current weather window.`)} className="rounded-xl border border-border px-3 py-2 text-xs font-semibold">Ask LaFlo about this</button>)} />
           </div>
         </main>
 
@@ -255,8 +283,14 @@ export default function WeatherForecastWorkspace({
           high={high}
           unit={unit}
           risk={risk}
+          onWeather={weatherDetails}
+          onArrival={arrivalDetails}
+          onNote={() => openDetail("Operational Note", [["Risk", riskMeta.label], ["Explanation", risk === "low" ? "No weather alerts or disruptions in the current window" : "Weather conditions should be monitored"], ["Related advisories", `${context?.advisories?.length || 0}`]])}
+          onSync={onRefresh}
+          isRefreshing={isRefreshing}
         />
       </div>
+      {detail ? <div className="fixed inset-0 z-[90] flex justify-end bg-slate-950/35" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null); }}><section role="dialog" aria-modal="true" aria-label={detail.title} className="h-full w-full max-w-lg overflow-y-auto border-l border-border bg-card p-5 shadow-2xl"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Weather & Forecast</p><h2 className="mt-1 text-xl font-semibold text-text-main">{detail.title}</h2></div><button type="button" aria-label={`Close ${detail.title}`} onClick={() => setDetail(null)} className="grid h-9 w-9 place-items-center rounded-xl border border-border"><X className="h-4 w-4" /></button></div><div className="mt-5">{detail.body}</div></section></div> : null}
     </div>
   );
 }
@@ -268,6 +302,7 @@ function SummaryCard({
   detail,
   badge,
   semantic,
+  onClick,
 }: {
   icon: typeof Activity;
   label: string;
@@ -275,10 +310,11 @@ function SummaryCard({
   detail: string;
   badge?: string;
   semantic?: WeatherRisk;
+  onClick: () => void;
 }) {
   const tone = semantic ? riskStyle(semantic).icon : "theme-kpi-icon";
   return (
-    <article className={`${cardClass} min-h-[108px] p-3.5`}>
+    <button type="button" onClick={onClick} className={`${cardClass} min-h-[108px] p-3.5 text-left transition hover:-translate-y-0.5 hover:shadow-md`}>
       <div className="flex items-start gap-3">
         <span
           className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${tone}`}
@@ -300,7 +336,7 @@ function SummaryCard({
           <p className="mt-1 truncate text-[10px] text-text-muted">{detail}</p>
         </div>
       </div>
-    </article>
+    </button>
   );
 }
 
@@ -311,6 +347,9 @@ function WeatherOutlookCard({
   high,
   unit,
   risk,
+  onOpen,
+  onSync,
+  isRefreshing,
 }: {
   weather: NonNullable<OperationsContext["weather"]>;
   summary: string;
@@ -318,10 +357,13 @@ function WeatherOutlookCard({
   high: number;
   unit: Unit;
   risk: WeatherRisk;
+  onOpen: () => void;
+  onSync: () => void;
+  isRefreshing: boolean;
 }) {
   const meta = riskStyle(risk);
   return (
-    <article className={`${cardClass} p-4`}>
+    <article role="button" tabIndex={0} onClick={onOpen} onKeyDown={(event) => { if (event.key === "Enter") onOpen(); }} className={`${cardClass} cursor-pointer p-4 transition hover:shadow-md`}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className={iconClass}>
@@ -371,6 +413,7 @@ function WeatherOutlookCard({
           <span>Connected provider</span>
         </div>
       </div>
+      <button type="button" onClick={(event) => { event.stopPropagation(); onSync(); }} disabled={isRefreshing} className="mt-3 inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-[10px] font-semibold disabled:opacity-50"><RefreshCcw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />{isRefreshing ? "Syncing…" : "Sync outlook"}</button>
     </article>
   );
 }
@@ -380,14 +423,16 @@ function ArrivalCard({
   departures,
   inHouse,
   hasBookings,
+  onOpen,
 }: {
   arrivals: number;
   departures: number;
   inHouse: number;
   hasBookings: boolean;
+  onOpen: () => void;
 }) {
   return (
-    <article className={`${cardClass} p-4`}>
+    <button type="button" onClick={onOpen} className={`${cardClass} p-4 text-left transition hover:shadow-md`}>
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2">
           <span className={iconClass}>
@@ -420,16 +465,18 @@ function ArrivalCard({
       <p className="mt-5 text-[10px] leading-4 text-text-muted">
         Window is calculated from booking activity and current occupancy.
       </p>
-    </article>
+    </button>
   );
 }
 
 function DemandCard({
   demand,
   confidence,
+  onOpen,
 }: {
   demand: "down" | "flat" | "up";
   confidence: string;
+  onOpen: () => void;
 }) {
   const title =
     demand === "down"
@@ -438,7 +485,7 @@ function DemandCard({
         ? "Demand is strengthening"
         : "Demand is stable";
   return (
-    <article className={`${cardClass} p-4`}>
+    <button type="button" onClick={onOpen} className={`${cardClass} p-4 text-left transition hover:shadow-md`}>
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2">
           <span className={iconClass}>
@@ -473,7 +520,7 @@ function DemandCard({
         <span>Rules-based signal</span>
         <span className="capitalize">{confidence} confidence</span>
       </div>
-    </article>
+    </button>
   );
 }
 
@@ -482,15 +529,17 @@ function PricingCard({
   confidence,
   recommendation,
   marketCoverage,
+  onOpen,
 }: {
   adjustment: number;
   confidence: string;
   recommendation?: string;
   marketCoverage?: number;
+  onOpen: () => void;
 }) {
   const signed = `${adjustment > 0 ? "+" : ""}${adjustment}%`;
   return (
-    <article className={`${cardClass} p-4`}>
+    <button type="button" onClick={onOpen} className={`${cardClass} p-4 text-left transition hover:shadow-md`}>
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2">
           <span className={iconClass}>
@@ -525,7 +574,7 @@ function PricingCard({
         Market coverage {marketCoverage ?? 0}%. Stronger with competitor rates,
         pickup, and seasonality.
       </p>
-    </article>
+    </button>
   );
 }
 
@@ -588,10 +637,12 @@ function ForecastTimeline({
   timeline,
   unit,
   onUnitChange,
+  onHour,
 }: {
   timeline: TimelineItem[];
   unit: Unit;
   onUnitChange: (unit: Unit) => void;
+  onHour: (item: TimelineItem) => void;
 }) {
   return (
     <section className={`${cardClass} p-4`}>
@@ -629,7 +680,7 @@ function ForecastTimeline({
       <div className="mt-4 overflow-x-auto rounded-xl border border-border">
         <div className="grid min-w-[980px] grid-cols-12 divide-x divide-border">
           {timeline.map((item) => (
-            <div key={item.time} className="min-w-0 p-3 text-center">
+            <button type="button" key={item.time} onClick={() => onHour(item)} aria-label={`Open ${item.time} forecast details`} className="min-w-0 p-3 text-center hover:bg-primary-50">
               <p className="text-[10px] font-bold text-text-main">
                 {item.time}
               </p>
@@ -656,7 +707,7 @@ function ForecastTimeline({
                   {item.wind}
                 </span>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>
@@ -671,9 +722,11 @@ function ForecastTimeline({
 function ReadinessImpactOverview({
   context,
   risk,
+  onOpen,
 }: {
   context?: OperationsContext;
   risk: WeatherRisk;
+  onOpen: (title: string, detail: string, value: string) => void;
 }) {
   const favourable = risk === "low";
   const arrivalLoad =
@@ -728,9 +781,9 @@ function ReadinessImpactOverview({
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         {items.map(({ icon: Icon, ...item }) => (
-          <article
+          <button type="button" onClick={() => onOpen(item.title, item.detail, item.value)}
             key={item.title}
-            className="rounded-xl border border-border bg-bg/40 p-3"
+            className="rounded-xl border border-border bg-bg/40 p-3 text-left transition hover:bg-primary-50"
           >
             <div className="flex items-center gap-2">
               <Icon className="h-4 w-4 text-primary-700" />
@@ -749,7 +802,7 @@ function ReadinessImpactOverview({
                 {item.status}
               </span>
             </div>
-          </article>
+          </button>
         ))}
       </div>
     </section>
@@ -774,6 +827,9 @@ function WeatherAdvisoryQueue({ context }: { context?: OperationsContext }) {
       ),
   );
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
+  const [taskDraft, setTaskDraft] = useState<NonNullable<OperationsContext["advisories"]>[number] | null>(null);
+  const [pendingDismiss, setPendingDismiss] = useState<NonNullable<OperationsContext["advisories"]>[number] | null>(null);
+  const [taskUnavailable, setTaskUnavailable] = useState(false);
   const advisories = context?.advisories || [];
   const filtered = advisories.filter(
     (item) =>
@@ -794,9 +850,14 @@ function WeatherAdvisoryQueue({ context }: { context?: OperationsContext }) {
       }),
     onSuccess: (_, item) => {
       setCreated((current) => new Set(current).add(item.id));
+      setTaskDraft(null);
       toast.success("Weather task created and audit entry recorded");
     },
-    onError: () => toast.error("Unable to create the weather task"),
+    onError: (error) => {
+      const message = (error as any)?.response?.data?.error || (error as Error)?.message || "Unable to create the weather task";
+      if (/not connected|unavailable|service/i.test(message)) setTaskUnavailable(true);
+      toast.error(message);
+    },
   });
   const departments = Array.from(
     new Set(advisories.map((item) => item.department).filter(Boolean)),
@@ -913,14 +974,17 @@ function WeatherAdvisoryQueue({ context }: { context?: OperationsContext }) {
                       disabled={
                         !canManageTasks ||
                         created.has(item.id) ||
+                        taskUnavailable ||
                         createTask.isPending
                       }
                       title={
                         !canManageTasks
                           ? "Task creation requires manager permission"
+                          : taskUnavailable
+                            ? "Task service is not connected"
                           : undefined
                       }
-                      onClick={() => createTask.mutate(item)}
+                      onClick={() => setTaskDraft(item)}
                       className="min-h-9 rounded-xl bg-primary-solid px-3 text-xs font-semibold text-primary-contrast disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {created.has(item.id)
@@ -932,9 +996,8 @@ function WeatherAdvisoryQueue({ context }: { context?: OperationsContext }) {
                     <button
                       type="button"
                       disabled={!canManageTasks}
-                      onClick={() =>
-                        toast.success("Advisory ready for assignment")
-                      }
+                      title={!canManageTasks ? "Permission required" : undefined}
+                      onClick={() => toast.error("Assignment is not available yet.")}
                       className="min-h-9 rounded-xl border border-border bg-card px-3 text-xs font-semibold text-text-main disabled:opacity-50"
                     >
                       Assign
@@ -942,9 +1005,7 @@ function WeatherAdvisoryQueue({ context }: { context?: OperationsContext }) {
                     <button
                       type="button"
                       aria-label={`Dismiss ${item.title}`}
-                      onClick={() =>
-                        setDismissed((current) => new Set(current).add(item.id))
-                      }
+                      onClick={() => setPendingDismiss(item)}
                       className="grid h-9 w-9 place-items-center rounded-xl border border-border bg-card text-text-muted"
                     >
                       <X className="h-4 w-4" />
@@ -975,9 +1036,14 @@ function WeatherAdvisoryQueue({ context }: { context?: OperationsContext }) {
           </div>
         ) : null}
       </div>
+      {taskUnavailable ? <p className="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">Task service is not connected. Connect task service to create weather-driven tasks.</p> : null}
+      {taskDraft ? <div className="fixed inset-0 z-[95] grid place-items-center bg-slate-950/40 p-4" role="presentation"><section role="dialog" aria-modal="true" aria-label="Create weather-driven task" className="w-full max-w-lg rounded-2xl border border-border bg-card p-5 shadow-2xl"><div className="flex items-start justify-between"><div><h2 className="text-lg font-semibold text-text-main">Create weather-driven task</h2><p className="mt-1 text-xs text-text-muted">Review the authorised advisory details before creating the task.</p></div><button type="button" aria-label="Close task drawer" onClick={() => setTaskDraft(null)}><X className="h-4 w-4" /></button></div><div className="mt-4 divide-y divide-border rounded-xl border border-border text-xs"><TaskField label="Title" value={taskDraft.title} /><TaskField label="Description" value={taskDraft.reason} /><TaskField label="Department" value={taskDraft.department || "Operations"} /><TaskField label="Priority" value={taskDraft.priority} /><TaskField label="Source" value={taskDraft.source} /><TaskField label="Due date" value="Within current 24-hour forecast window" /></div><div className="mt-4 flex justify-end gap-2"><button type="button" onClick={() => setTaskDraft(null)} className="rounded-xl border border-border px-4 py-2 text-xs font-semibold">Cancel</button><button type="button" disabled={createTask.isPending} onClick={() => createTask.mutate(taskDraft)} className="rounded-xl bg-primary-solid px-4 py-2 text-xs font-semibold text-primary-contrast disabled:opacity-50">{createTask.isPending ? "Creating…" : "Create task"}</button></div></section></div> : null}
+      {pendingDismiss ? <div className="fixed inset-0 z-[95] grid place-items-center bg-slate-950/40 p-4" role="presentation"><section role="alertdialog" aria-modal="true" aria-label="Dismiss this advisory?" className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl"><h2 className="text-lg font-semibold text-text-main">Dismiss this advisory?</h2><p className="mt-2 text-sm leading-6 text-text-muted">This will remove it from the active advisory queue but keep it in history.</p><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setPendingDismiss(null)} className="rounded-xl border border-border px-4 py-2 text-xs font-semibold">Cancel</button><button type="button" onClick={() => { setDismissed((current) => new Set(current).add(pendingDismiss.id)); setPendingDismiss(null); toast.success("Advisory dismissed from the active queue"); }} className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white">Dismiss advisory</button></div></section></div> : null}
     </section>
   );
 }
+
+function TaskField({ label, value }: { label: string; value: React.ReactNode }) { return <div className="grid grid-cols-[110px_1fr] gap-3 p-3"><strong className="text-text-main">{label}</strong><span className="text-text-muted">{value}</span></div>; }
 
 function WeatherQuickPanel({
   context,
@@ -986,6 +1052,11 @@ function WeatherQuickPanel({
   high,
   unit,
   risk,
+  onWeather,
+  onArrival,
+  onNote,
+  onSync,
+  isRefreshing,
 }: {
   context?: OperationsContext;
   summary: string;
@@ -993,6 +1064,11 @@ function WeatherQuickPanel({
   high: number;
   unit: Unit;
   risk: WeatherRisk;
+  onWeather: () => void;
+  onArrival: () => void;
+  onNote: () => void;
+  onSync: () => void;
+  isRefreshing: boolean;
 }) {
   const meta = riskStyle(risk);
   return (
@@ -1007,7 +1083,7 @@ function WeatherQuickPanel({
             </span>
           </h2>
         </div>
-        <div className="mt-3 rounded-xl border border-border bg-bg/40 p-3">
+        <button type="button" onClick={onWeather} className="mt-3 w-full rounded-xl border border-border bg-bg/40 p-3 text-left hover:bg-primary-50">
           <p className="text-sm font-bold text-text-main">
             {titleCase(summary)}
           </p>
@@ -1023,9 +1099,10 @@ function WeatherQuickPanel({
           <p className="mt-1 text-[10px] text-text-muted">
             Synced: {formatTime(context?.weather?.syncedAtUtc)}
           </p>
-        </div>
+        </button>
+        <button type="button" onClick={onSync} disabled={isRefreshing} className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold text-primary-700 disabled:opacity-50"><RefreshCcw className={`h-3 w-3 ${isRefreshing ? "animate-spin" : ""}`} />{isRefreshing ? "Syncing…" : "Sync weather"}</button>
       </section>
-      <section className={`${cardClass} p-4`}>
+      <button type="button" onClick={onArrival} className={`${cardClass} w-full p-4 text-left transition hover:shadow-md`}>
         <div className="flex items-center gap-2">
           <CalendarClock className="h-4 w-4 text-primary-700" />
           <h2 className="text-sm font-semibold text-text-main">
@@ -1051,8 +1128,8 @@ function WeatherQuickPanel({
         <span className="mt-3 inline-flex rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-bold text-emerald-700 ring-1 ring-emerald-200">
           LIVE
         </span>
-      </section>
-      <section className={`${cardClass} p-4`}>
+      </button>
+      <button type="button" onClick={onNote} className={`${cardClass} w-full p-4 text-left transition hover:shadow-md`}>
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-emerald-600" />
           <h2 className="text-sm font-semibold text-text-main">
@@ -1067,7 +1144,7 @@ function WeatherQuickPanel({
         <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-[10px] font-semibold text-emerald-700">
           {risk === "low" ? "All systems normal" : "Monitoring required"}
         </div>
-      </section>
+      </button>
     </aside>
   );
 }

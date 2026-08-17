@@ -211,19 +211,28 @@ export default function App() {
         <Route path="messages" element={<ModuleRoute requiredModule="messages"><MessagesPage /></ModuleRoute>} />
         <Route path="calls" element={<ModuleRoute requiredModule="messages"><CallsPage /></ModuleRoute>} />
         <Route path="operations" element={<Navigate to="/operations-center" replace />} />
-        <Route path="operations/ai" element={<Navigate to="/operations-center/ai" replace />} />
-        <Route path="operations/revenue" element={<Navigate to="/operations-center/revenue" replace />} />
-        <Route path="operations/weather" element={<Navigate to="/operations-center/weather" replace />} />
-        <Route path="operations/tasks" element={<Navigate to="/operations-center/tasks" replace />} />
-        <Route path="operations/market-intelligence" element={<Navigate to="/operations-center/market-intelligence" replace />} />
+        <Route path="operations/ai" element={<Navigate to="/operations/ai-governance" replace />} />
+        <Route path="operations/ai-workspace" element={<Navigate to="/operations/ai-governance" replace />} />
+        <Route path="operations/operations-concierge" element={<Navigate to="/operations/ai-governance" replace />} />
+        <Route path="operations/revenue" element={<Navigate to="/operations/operational-intelligence/revenue-guidance" replace />} />
+        <Route path="operations/weather" element={<Navigate to="/operations/operational-intelligence/weather-forecast" replace />} />
+        <Route path="operations/tasks" element={<Navigate to="/operations/tasks-advisories" replace />} />
+        <Route path="operations/market-intelligence" element={<Navigate to="/operations/operational-intelligence/market-intelligence" replace />} />
         <Route path="operations-center" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
-        <Route path="operations-center/search" element={<ModuleRoute requiredModule="bookings"><EnterpriseSearchPage /></ModuleRoute>} />
-        <Route path="operations-center/ai" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
-        <Route path="ai/hotel-brain" element={<ModuleRoute requiredModule="bookings"><HotelBrainPage /></ModuleRoute>} />
-        <Route path="operations-center/revenue" element={<ModuleRoute requiredModule="financials"><OperationsCenterPage /></ModuleRoute>} />
-        <Route path="operations-center/weather" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
-        <Route path="operations-center/tasks" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
-        <Route path="operations-center/market-intelligence" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="operations/enterprise-search" element={<ModuleRoute requiredModule="bookings"><EnterpriseSearchPage /></ModuleRoute>} />
+        <Route path="operations/ai-governance" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="operations/hotel-brain-console" element={<ModuleRoute requiredModule="bookings"><HotelBrainPage /></ModuleRoute>} />
+        <Route path="operations/tasks-advisories" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="operations/operational-intelligence/weather-forecast" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="operations/operational-intelligence/market-intelligence" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="operations/operational-intelligence/revenue-guidance" element={<ModuleRoute requiredModule="financials"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="operations-center/search" element={<Navigate to="/operations/enterprise-search" replace />} />
+        <Route path="operations-center/ai" element={<Navigate to="/operations/ai-governance" replace />} />
+        <Route path="ai/hotel-brain" element={<Navigate to="/operations/hotel-brain-console" replace />} />
+        <Route path="operations-center/revenue" element={<Navigate to="/operations/operational-intelligence/revenue-guidance" replace />} />
+        <Route path="operations-center/weather" element={<Navigate to="/operations/operational-intelligence/weather-forecast" replace />} />
+        <Route path="operations-center/tasks" element={<Navigate to="/operations/tasks-advisories" replace />} />
+        <Route path="operations-center/market-intelligence" element={<Navigate to="/operations/operational-intelligence/market-intelligence" replace />} />
         <Route path="incidents" element={<ModuleRoute requiredModule="incident_management"><IncidentCenterPage /></ModuleRoute>} />
         <Route path="security-center" element={<ModuleRoute requiredModule="security_center"><SecurityCenterPage /></ModuleRoute>} />
         <Route path="security-center/:tab" element={<ModuleRoute requiredModule="security_center"><SecurityCenterPage /></ModuleRoute>} />

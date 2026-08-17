@@ -44,12 +44,19 @@ describe('HotelBrainPage', () => {
 
   it('renders an intelligence and evidence console without a duplicate chat input', async () => {
     renderPage();
-    expect(screen.getByRole('heading', { name: 'Operational intelligence with evidence' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Hotel Brain Console' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'AI context sources' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Recommendation governance' })).toBeInTheDocument();
     expect(await screen.findByText('Operations are stable with two items requiring review.')).toBeInTheDocument();
     expect(screen.queryByPlaceholderText(/Ask Hotel Brain/i)).not.toBeInTheDocument();
     expect(screen.queryByText('Ask Hotel Brain')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /AI readiness AI ready/i }));
+    expect(screen.getByRole('dialog', { name: 'AI readiness' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Close AI readiness' }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Operations.*Available/i }));
+    expect(screen.getByRole('dialog', { name: 'Operations context' })).toBeInTheDocument();
   });
 
   it('opens the single Ask LaFlo assistant with incoming question context', async () => {

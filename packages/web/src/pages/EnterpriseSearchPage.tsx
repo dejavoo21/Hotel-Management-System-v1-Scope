@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import {
   AlertTriangle,
   Bot,
@@ -122,6 +123,8 @@ export default function EnterpriseSearchPage() {
   const [collapsedFilters, setCollapsedFilters] = useState<string[]>(['Status', 'Priority', 'Severity', 'Date Range', 'Department', 'Source Type']);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
+  const [savedSearchesOpen, setSavedSearchesOpen] = useState(false);
+  const [cleared, setCleared] = useState(false);
 
   const authorisedCategories = useMemo(
     () => categoryOptions.filter((category) => category.permissions.some((permission) => canAccess(user, permission))),
@@ -147,42 +150,51 @@ export default function EnterpriseSearchPage() {
   const searchQuery = useQuery({
     queryKey: ['enterprise-search', searchParams],
     queryFn: () => enterpriseSearchService.search(searchParams),
+    enabled: !cleared,
   });
 
   const rebuildMutation = useMutation({
     mutationFn: () => enterpriseSearchService.rebuild(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['enterprise-search'] }),
+    onSuccess: () => { toast.success('Search index rebuilt'); void queryClient.invalidateQueries({ queryKey: ['enterprise-search'] }); },
+    onError: () => toast.error('Index rebuild failed'),
   });
 
   const submit = (value = query) => {
+    setCleared(false);
     setQuery(value);
     setSubmittedQuery(value.trim());
     setPage(1);
     setSelectedResultId(null);
   };
   const askLaflo = (prompt: string) => openLafloAssistant({ mode: 'operations', prompt });
-  const authorisedResults = useMemo(
-    () => (searchQuery.data?.results || []).filter((result) => result.category === 'TASK'
-      ? canAccess(user, 'maintenance_center') || canAccess(user, 'bookings')
-      : authorisedCategoryValues.has(result.category)),
-    [authorisedCategoryValues, searchQuery.data?.results, user],
-  );
+  const authorisedResults = useMemo(() => {
+    if (cleared) return [];
+    const auditRequested = selectedCategory === 'AUDIT_LOG' || /\baudit\b/i.test(submittedQuery);
+    const unique = new Map<string, EnterpriseSearchResult>();
+    (searchQuery.data?.results || []).forEach((result) => {
+      const authorised = result.category === 'TASK'
+        ? canAccess(user, 'maintenance_center') || canAccess(user, 'bookings')
+        : authorisedCategoryValues.has(result.category);
+      if (!authorised || (result.category === 'AUDIT_LOG' && !auditRequested)) return;
+      const stableKey = `${result.sourceModule}:${result.entityId || result.id}:${result.category}`;
+      if (!unique.has(stableKey)) unique.set(stableKey, result);
+    });
+    return [...unique.values()];
+  }, [authorisedCategoryValues, cleared, searchQuery.data?.results, selectedCategory, submittedQuery, user]);
 
   const sortedResults = useMemo(() => {
     const rows = [...authorisedResults];
     if (sort === 'newest') rows.sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
     if (sort === 'oldest') rows.sort((a, b) => +new Date(a.updatedAt) - +new Date(b.updatedAt));
+    if (sort === 'relevance') rows.sort((a, b) => Number(a.category === 'AUDIT_LOG') - Number(b.category === 'AUDIT_LOG'));
     return rows;
   }, [authorisedResults, sort]);
 
   const pageSize = 6;
   const pages = Math.ceil(sortedResults.length / pageSize);
   const visibleResults = sortedResults.slice((page - 1) * pageSize, page * pageSize);
-  const selectedResult = sortedResults.find((result) => result.id === selectedResultId) || visibleResults[0] || null;
-  const count = (values: string[]) => values.reduce((total, category) => {
-    const grouped = searchQuery.data?.groups.find((group) => group.category === category)?.count;
-    return total + (grouped ?? authorisedResults.filter((result) => result.category === category).length);
-  }, 0);
+  const selectedResult = sortedResults.find((result) => result.id === selectedResultId) || null;
+  const count = (values: string[]) => authorisedResults.filter((result) => values.includes(result.category)).length;
   const displayTotal = authorisedResults.length;
 
   const appliedFilters = [
@@ -204,7 +216,8 @@ export default function EnterpriseSearchPage() {
     setSourceModule('');
   };
 
-  const chooseSavedSearch = (value: string) => submit(value);
+  const chooseSavedSearch = (value: string) => { submit(value); setSavedSearchesOpen(false); };
+  const clearSearch = () => { setQuery(''); setSubmittedQuery(''); setSelectedCategory(''); setSelectedResultId(null); setPage(1); setCleared(true); resetFilters(); };
   const toggleFilter = (label: string) => setCollapsedFilters((current) => current.includes(label)
     ? current.filter((item) => item !== label)
     : [...current, label]);
@@ -221,7 +234,7 @@ export default function EnterpriseSearchPage() {
         <FilterSection label="Source Type" icon={Building2} open={!collapsedFilters.includes('Source Type')} onToggle={() => toggleFilter('Source Type')}><Select value={sourceModule} onChange={setSourceModule} options={authorisedCategories.map((category) => category.value)} /></FilterSection>
       </section>
       <section className="rounded-xl border border-border bg-card p-3 shadow-sm">
-        <div className="flex items-center justify-between"><h2 className="text-xs font-bold">Saved Searches</h2><button type="button" className="text-[9px] font-semibold text-primary-700">View all</button></div>
+        <div className="flex items-center justify-between"><h2 className="text-xs font-bold">Saved Searches</h2><button type="button" onClick={() => setSavedSearchesOpen(true)} className="text-[9px] font-semibold text-primary-700">View all</button></div>
         <div className="mt-3 space-y-3">{savedSearches.map((saved) => <button key={saved.label} type="button" onClick={() => chooseSavedSearch(saved.query)} className="flex w-full items-start gap-2 text-left text-[10px] leading-4 text-text-muted hover:text-primary-700"><Bookmark className="mt-0.5 h-3.5 w-3.5 shrink-0" />{saved.label}</button>)}</div>
       </section>
     </>
@@ -249,7 +262,7 @@ export default function EnterpriseSearchPage() {
               <div className="flex h-12 items-center rounded-lg border border-border bg-card px-4 focus-within:border-primary-600 focus-within:ring-2 focus-within:ring-primary-100">
                 <Search className="h-5 w-5 shrink-0 text-text-muted" />
                 <input id="enterprise-search-input" aria-label="Enterprise search" value={query} onChange={(event) => setQuery(event.target.value)} className="min-w-0 flex-1 border-0 bg-transparent px-4 text-sm font-semibold outline-none ring-0" placeholder="Search guest, room, booking, incident, device, invoice, or keyword..." />
-                {query ? <button type="button" aria-label="Clear search text" onClick={() => setQuery('')} className="rounded-md p-1 text-text-muted hover:bg-primary-50"><X className="h-4 w-4" /></button> : null}
+                {query ? <button type="button" aria-label="Clear search and results" onClick={clearSearch} className="rounded-md p-1 text-text-muted hover:bg-primary-50"><X className="h-4 w-4" /></button> : null}
                 <button type="submit" className="ml-4 inline-flex h-10 w-28 items-center justify-center gap-2 rounded-lg bg-primary-950 text-xs font-semibold text-primary-contrast hover:bg-primary-900"><Search className="h-4 w-4" />Search</button>
               </div>
               <div aria-label="Search categories" className="flex flex-wrap gap-2 px-1 pb-0.5 pt-2">
@@ -260,11 +273,11 @@ export default function EnterpriseSearchPage() {
             </form>
 
             <section className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              <MetricCard icon={FileText} tone="emerald" label="Results" value={displayTotal} note="All sources" />
-              <MetricCard icon={Droplets} tone="rose" label="Incidents" value={count(['INCIDENT'])} note="Critical" />
-              <MetricCard icon={ClipboardList} tone="amber" label="Tasks" value={count(['TASK', 'MAINTENANCE'])} note="Open tasks" />
-              <MetricCard icon={UserRound} tone="blue" label="Guests" value={count(['GUEST'])} note="Matching guests" />
-              <MetricCard icon={Sparkles} tone="violet" label="AI recommendations" value={count(['AI_RECOMMENDATION'])} note="Best insights" />
+              <MetricCard icon={FileText} tone="emerald" label="Results" value={displayTotal} note="All sources" onClick={() => setSelectedCategory('')} />
+              <MetricCard icon={Droplets} tone="rose" label="Incidents" value={count(['INCIDENT'])} note="Critical" onClick={() => setSelectedCategory('INCIDENT')} />
+              <MetricCard icon={ClipboardList} tone="amber" label="Tasks" value={count(['TASK', 'MAINTENANCE'])} note="Open tasks" onClick={() => setSelectedCategory('MAINTENANCE')} />
+              <MetricCard icon={UserRound} tone="blue" label="Guests" value={count(['GUEST'])} note="Matching guests" onClick={() => setSelectedCategory('GUEST')} />
+              <MetricCard icon={Sparkles} tone="violet" label="AI recommendations" value={count(['AI_RECOMMENDATION'])} note="Best insights" onClick={() => setSelectedCategory('AI_RECOMMENDATION')} />
             </section>
 
             <div className="mt-3 flex items-center gap-2 xl:hidden">
@@ -277,7 +290,7 @@ export default function EnterpriseSearchPage() {
 
               <main className="min-w-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                 <div className="flex items-center justify-between border-b border-border px-4 py-2.5 text-[10px]"><strong>Showing {sortedResults.length ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, sortedResults.length)}` : '0'} of {displayTotal} results</strong><label className="flex items-center gap-1">Sort by:<select aria-label="Sort results" value={sort} onChange={(event) => setSort(event.target.value)} className="border-0 bg-transparent p-0 text-[10px] font-semibold text-text-main ring-0"><option value="relevance">Relevance</option><option value="newest">Newest</option><option value="oldest">Oldest</option></select><ChevronDown className="h-3 w-3" /></label></div>
-                {searchQuery.isLoading ? <div className="space-y-2 p-3">{Array.from({ length: 6 }).map((_, index) => <div key={index} className="h-[68px] animate-pulse rounded-lg bg-primary-50" />)}</div> : searchQuery.isError ? <EmptyState mode="error" canRebuild={canRebuildIndex} onBroaden={() => submit(query.split(/\s+/).slice(0, 2).join(' '))} onAdjust={() => setMobileFiltersOpen(true)} onClear={resetFilters} onSearchAll={() => setSelectedCategory('')} onRebuild={() => rebuildMutation.mutate()} /> : !visibleResults.length ? <EmptyState mode="empty" canRebuild={canRebuildIndex} onBroaden={() => submit(query.split(/\s+/).slice(0, 2).join(' '))} onAdjust={() => setMobileFiltersOpen(true)} onClear={resetFilters} onSearchAll={() => { setSelectedCategory(''); submit(query); }} onRebuild={() => rebuildMutation.mutate()} /> : <div className="divide-y divide-border">{visibleResults.map((result) => <ResultRow key={result.id} result={result} selected={selectedResult?.id === result.id} onSelect={() => setSelectedResultId(result.id)} />)}</div>}
+                {cleared ? <SearchStartState /> : searchQuery.isLoading ? <div className="space-y-2 p-3">{Array.from({ length: 6 }).map((_, index) => <div key={index} className="h-[68px] animate-pulse rounded-lg bg-primary-50" />)}</div> : searchQuery.isError ? <EmptyState mode="error" canRebuild={canRebuildIndex} onBroaden={() => submit(query.split(/\s+/).slice(0, 2).join(' '))} onAdjust={() => setMobileFiltersOpen(true)} onClear={resetFilters} onSearchAll={() => setSelectedCategory('')} onRebuild={() => rebuildMutation.mutate()} /> : !visibleResults.length ? <EmptyState mode="empty" canRebuild={canRebuildIndex} onBroaden={() => submit(query.split(/\s+/).slice(0, 2).join(' '))} onAdjust={() => setMobileFiltersOpen(true)} onClear={resetFilters} onSearchAll={() => { setSelectedCategory(''); submit(query); }} onRebuild={() => rebuildMutation.mutate()} /> : <div className="divide-y divide-border">{visibleResults.map((result) => <ResultRow key={result.id} result={result} selected={selectedResult?.id === result.id} onSelect={() => setSelectedResultId(result.id)} />)}</div>}
                 {pages > 1 ? <Pagination page={page} pages={pages} onChange={setPage} /> : null}
               </main>
             </div>
@@ -297,6 +310,7 @@ export default function EnterpriseSearchPage() {
         </div>
         <MobileDrawer open={mobileFiltersOpen} title="Search filters" onClose={() => setMobileFiltersOpen(false)}><div className="space-y-3">{filtersPanel}</div></MobileDrawer>
         <MobileDrawer open={mobilePreviewOpen} title="Result preview" onClose={() => setMobilePreviewOpen(false)}>{previewContent}</MobileDrawer>
+        <MobileDrawer open={savedSearchesOpen} title="Saved searches (local)" onClose={() => setSavedSearchesOpen(false)}><div className="space-y-2">{savedSearches.map((saved) => <button key={saved.label} type="button" onClick={() => chooseSavedSearch(saved.query)} className="flex w-full items-center justify-between rounded-xl border border-border bg-card p-3 text-left text-xs font-semibold">{saved.label}<ChevronRight className="h-4 w-4" /></button>)}</div></MobileDrawer>
       </div>
     </div>
   );
@@ -306,10 +320,12 @@ function CategoryChip({ active, onClick, children }: { active: boolean; onClick:
   return <button type="button" aria-pressed={active} onClick={onClick} className={`rounded-full border px-3.5 py-1.5 text-[10px] font-semibold transition ${active ? 'border-primary-700 bg-primary-700 text-primary-contrast' : 'border-border bg-card text-text-muted hover:border-primary-600 hover:text-primary-700'}`}>{children}</button>;
 }
 
-function MetricCard({ icon: Icon, tone, label, value, note }: { icon: typeof Search; tone: string; label: string; value: number; note: string }) {
+function MetricCard({ icon: Icon, tone, label, value, note, onClick }: { icon: typeof Search; tone: string; label: string; value: number; note: string; onClick: () => void }) {
   const tones: Record<string, string> = { emerald: 'bg-emerald-50 text-emerald-700', rose: 'bg-rose-50 text-rose-600', amber: 'bg-amber-50 text-amber-600', blue: 'bg-blue-50 text-blue-600', violet: 'bg-violet-50 text-violet-600' };
-  return <article className="flex h-[86px] items-center gap-3 rounded-xl border border-border bg-card px-4 shadow-sm"><span className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl ${tones[tone]}`}><Icon className="h-6 w-6" /></span><div><p className="text-[10px] text-text-muted">{label}</p><strong className="block text-xl leading-6">{value}</strong><p className="text-[10px] text-text-muted">{note}</p></div></article>;
+  return <button type="button" onClick={onClick} className="flex h-[86px] items-center gap-3 rounded-xl border border-border bg-card px-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"><span className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl ${tones[tone]}`}><Icon className="h-6 w-6" /></span><div><p className="text-[10px] text-text-muted">{label}</p><strong className="block text-xl leading-6">{value}</strong><p className="text-[10px] text-text-muted">{note}</p></div></button>;
 }
+
+function SearchStartState() { return <div className="flex min-h-[365px] flex-col items-center justify-center px-5 text-center"><span className="grid h-20 w-20 place-items-center rounded-full bg-primary-50 text-primary-800"><Search className="h-9 w-9" /></span><h2 className="mt-4 text-base font-bold">Search across LaFlo records</h2><p className="mt-2 text-xs text-text-muted">Enter a guest, room, booking, incident, device, invoice, or keyword to begin.</p></div>; }
 
 function FilterSection({ label, icon: Icon, open, onToggle, children }: { label: string; icon: typeof Search; open: boolean; onToggle: () => void; children: React.ReactNode }) {
   return <div className="border-b border-border last:border-0"><button type="button" onClick={onToggle} className="flex w-full items-center gap-2 px-3 py-3 text-[10px] font-semibold"><Icon className="h-3.5 w-3.5 text-text-muted" /><span className="flex-1 text-left">{label}</span>{open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}</button>{open ? <div className="px-3 pb-3">{children}</div> : null}</div>;

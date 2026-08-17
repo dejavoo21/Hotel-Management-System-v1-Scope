@@ -73,6 +73,8 @@ describe('EnterpriseSearchPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
 
     expect(await screen.findByRole('button', { name: /Room 214 maintenance work order/ })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Result preview' })).toHaveTextContent('No result selected');
+    fireEvent.click(screen.getByRole('button', { name: /Room 214 maintenance work order/ }));
     expect(screen.getByRole('region', { name: 'Result preview' })).toHaveTextContent('Room 214 maintenance work order');
     fireEvent.click(screen.getByRole('button', { name: /Offline camera near pool/ }));
     expect(screen.getByRole('region', { name: 'Result preview' })).toHaveTextContent('Offline camera near pool');
@@ -96,7 +98,7 @@ describe('EnterpriseSearchPage', () => {
     expect(screen.queryByText('Invoice #INV-8674')).not.toBeInTheDocument();
     expect(screen.queryByText('Offline camera near pool')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Create task' })).not.toBeInTheDocument();
-    expect(screen.getByText('Results').closest('article')).toHaveTextContent('1');
+    expect(screen.getByRole('button', { name: /Results 1 All sources/i })).toHaveTextContent('1');
   });
 
   it('shows a useful zero-result state without pagination and a connected preview state', async () => {
@@ -109,6 +111,16 @@ describe('EnterpriseSearchPage', () => {
     expect(screen.getByRole('button', { name: 'Search all categories' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Next results page' })).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Result preview' })).toHaveTextContent('No result selected');
+  });
+
+  it('clears results and suppresses audit noise from the All category', async () => {
+    searchMock.mockResolvedValue({ ...response, results: [...results, { ...results[0], id: 'duplicate-room' }, { ...results[0], id: 'audit-1', entityId: 'event-1', category: 'AUDIT_LOG', sourceModule: 'ENTERPRISE_SEARCH', title: 'ENTERPRISE_SEARCH_QUERY_SUBMITTED' }] });
+    renderPage();
+    expect(await screen.findAllByRole('button', { name: /Room 214 maintenance work order/ })).toHaveLength(1);
+    expect(screen.queryByText('ENTERPRISE_SEARCH_QUERY_SUBMITTED')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search and results' }));
+    expect(screen.getByRole('heading', { name: 'Search across LaFlo records' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Next results page' })).not.toBeInTheDocument();
   });
 
   it('hands the current investigation to the global Ask LaFlo assistant', async () => {

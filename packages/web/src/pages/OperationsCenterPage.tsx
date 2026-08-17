@@ -54,9 +54,9 @@ const focusMeta: Record<
       "Real-time operational visibility across your hotel. Make informed decisions with confidence.",
   },
   ai: {
-    title: "Operations Concierge",
+    title: "AI Governance",
     description:
-      "Review AI-generated operational briefings, context, and governed recommendations.",
+      "Review, approve, reject, expire, or convert AI recommendations into governed tasks.",
   },
   revenue: {
     title: "Revenue Guidance",
@@ -80,7 +80,17 @@ const focusMeta: Record<
   },
 };
 const getFocusFromPath = (pathname: string): OperationsFocus => {
-  const segment = pathname.split("/").filter(Boolean)[1];
+  const segments = pathname.split("/").filter(Boolean);
+  const lastSegment = segments.at(-1);
+  const canonical: Record<string, OperationsFocus> = {
+    "ai-governance": "ai",
+    "revenue-guidance": "revenue",
+    "weather-forecast": "weather",
+    "tasks-advisories": "tasks",
+    "market-intelligence": "market-intelligence",
+  };
+  if (lastSegment && canonical[lastSegment]) return canonical[lastSegment];
+  const segment = segments[1];
   return ["ai", "revenue", "weather", "tasks", "market-intelligence"].includes(
     segment,
   )
@@ -329,7 +339,7 @@ function CommandCenter({
       icon: CheckCircle2,
       count: briefing?.todayPriorities.length || 0,
       items: briefing?.todayPriorities || [],
-      href: "/operations-center/tasks?view=priorities",
+      href: "/operations/tasks-advisories?view=priorities",
       link: "View all priorities",
     },
     {
@@ -350,7 +360,7 @@ function CommandCenter({
         title: item.title,
         detail: `${item.owner} · ${item.rationale}`,
       })),
-      href: "/operations-center/tasks?view=recommended",
+      href: "/operations/tasks-advisories?view=recommended",
       link: "View all actions",
     },
   ];
@@ -364,7 +374,7 @@ function CommandCenter({
         ["Departures", context?.ops?.departuresNext24h || 0],
         ["In house", context?.ops?.inhouseNow || 0],
       ],
-      href: "/operations-center/tasks?department=FRONT_DESK",
+      href: "/operations/tasks-advisories?department=FRONT_DESK",
     },
     {
       name: "Housekeeping",
@@ -383,7 +393,7 @@ function CommandCenter({
           advisories.filter((x) => x.department === "HOUSEKEEPING").length,
         ],
       ],
-      href: "/operations-center/tasks?department=HOUSEKEEPING",
+      href: "/operations/tasks-advisories?department=HOUSEKEEPING",
     },
     {
       name: "Maintenance",
@@ -401,7 +411,7 @@ function CommandCenter({
           advisories.filter((x) => x.department === "MAINTENANCE").length,
         ],
       ],
-      href: "/operations-center/tasks?department=MAINTENANCE",
+      href: "/operations/tasks-advisories?department=MAINTENANCE",
     },
     {
       name: "Security",
@@ -438,7 +448,7 @@ function CommandCenter({
                 : "Forecast not synced"
             }
             tone={forecastFresh ? "good" : "warn"}
-            href="/operations-center/weather"
+            href="/operations/operational-intelligence/weather-forecast"
           />
           <StatusCard
             icon={demand === "down" ? TrendingDown : TrendingUp}
@@ -456,7 +466,7 @@ function CommandCenter({
               "Monitor booking pace"
             }
             tone={demand === "down" ? "warn" : "info"}
-            href={canRevenue ? "/operations-center/revenue" : ""}
+            href={canRevenue ? "/operations/operational-intelligence/revenue-guidance" : ""}
             restricted={!canRevenue}
           />
           <StatusCard
@@ -474,7 +484,7 @@ function CommandCenter({
             value={String(advisories.length)}
             sub={`Across ${new Set(advisories.map((x) => x.department).filter(Boolean)).size || 0} departments`}
             tone="info"
-            href={canTasks ? "/operations-center/tasks?status=open" : ""}
+            href={canTasks ? "/operations/tasks-advisories?status=open" : ""}
             restricted={!canTasks}
           />
         </section>
@@ -505,7 +515,7 @@ function CommandCenter({
             </h2>
             <Link
               className="text-sm font-semibold text-primary-600 hover:text-primary-700"
-              to="/operations-center/ai"
+              to="/operations/ai-governance"
             >
               Open department intelligence
             </Link>
@@ -576,7 +586,7 @@ function CommandCenter({
               icon={ClipboardList}
               title="Review tasks and advisories"
               detail={`${advisories.length} open tasks`}
-              href="/operations-center/tasks?status=open"
+              href="/operations/tasks-advisories?status=open"
               restricted={!canTasks}
             />
             <QuickAction
@@ -590,7 +600,7 @@ function CommandCenter({
               icon={Gauge}
               title="Open revenue guidance"
               detail={`${context?.pricingSignal?.marketCoveragePct || 0}% market coverage`}
-              href="/operations-center/revenue"
+              href="/operations/operational-intelligence/revenue-guidance"
               restricted={!canRevenue}
             />
           </div>
@@ -604,25 +614,25 @@ function CommandCenter({
               icon={CloudRain}
               label="Weather Outlook"
               value={context?.weather?.next24h?.summary || "No forecast"}
-              href="/operations-center/weather"
+              href="/operations/operational-intelligence/weather-forecast"
             />
             <Indicator
               icon={UsersRound}
               label="Arrival Forecast"
               value={`${context?.ops?.arrivalsNext24h || 0} arrivals`}
-              href="/operations-center/weather"
+              href="/operations/operational-intelligence/weather-forecast"
             />
             <Indicator
               icon={Gauge}
               label="Revenue Guidance"
               value={`${context?.pricingSignal?.marketCoveragePct || 0}% coverage`}
-              href="/operations-center/revenue"
+              href="/operations/operational-intelligence/revenue-guidance"
               restricted={!canRevenue}
             />
           </div>
           <Link
             className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary-600"
-            to="/operations-center/weather"
+            to="/operations/operational-intelligence/weather-forecast"
           >
             View all indicators <ArrowRight className="h-4 w-4" />
           </Link>
@@ -632,7 +642,7 @@ function CommandCenter({
           title="AI Recommendation Governance"
           description="Keep AI recommendations accurate and aligned with operational goals."
           action="Review queue"
-          href="/operations-center/ai#ai-recommendation-governance"
+          href="/operations/ai-governance#ai-recommendation-governance"
           restricted={!canGovernance}
           darkIcon
         >
@@ -656,8 +666,8 @@ function CommandCenter({
           <DetailRow label="Top priority" value={briefing?.todayPriorities.find((item) => item.department?.includes(departmentDetail.toUpperCase().replace(" ", "_")))?.title || "No active priorities."} />
           <DetailRow label="Top risk" value={risks.find((item) => item.department?.includes(departmentDetail.toUpperCase().replace(" ", "_")))?.title || "No active risks."} />
           <DetailRow label="Recommended action" value={briefing?.recommendedActions[0]?.title || "No recommended actions."} />
-          <Link className="btn-primary mt-4 inline-flex" to="/operations-center/tasks">Open related tasks</Link>
-          {canGovernance ? <Link className="btn-outline ml-2 mt-4 inline-flex" to="/operations-center/ai#ai-recommendation-governance">AI Governance</Link> : null}
+          <Link className="btn-primary mt-4 inline-flex" to="/operations/tasks-advisories">Open related tasks</Link>
+          {canGovernance ? <Link className="btn-outline ml-2 mt-4 inline-flex" to="/operations/ai-governance#ai-recommendation-governance">AI Governance</Link> : null}
         </DetailDrawer>
       ) : null}
       {showActivity ? (
@@ -691,6 +701,7 @@ function FocusedWorkspace({
 }
 
 function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
+  const [conciergeDetail, setConciergeDetail] = useState<{ title: string; body: React.ReactNode } | null>(null);
   const pendingQuery = useQuery({
     queryKey: ["ai-recommendations", "PENDING"],
     queryFn: () => aiRecommendationsService.list("PENDING"),
@@ -750,6 +761,7 @@ function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
       tone: "text-amber-600",
     },
   ];
+  const focusGovernance = () => document.getElementById("ai-recommendation-governance")?.scrollIntoView({ behavior: "smooth", block: "start" });
   return (
     <div className="space-y-3 pb-20">
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -758,6 +770,7 @@ function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
           label="Pending Recommendations"
           value={pending.length}
           detail="Governance review queue"
+          onClick={focusGovernance}
         />
         <AIStat
           icon={AlertTriangle}
@@ -765,12 +778,14 @@ function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
           value={highPriority}
           detail="Needs attention"
           semantic="risk"
+          onClick={focusGovernance}
         />
         <AIStat
           icon={Activity}
           label="Connected Contexts"
           value={contextSources}
           detail="Live operational sources"
+          onClick={() => setConciergeDetail({ title: "Connected Context Sources", body: <p className="text-sm leading-6 text-text-muted">{contextSources} authorised operational sources are currently available. Open individual Context Preview tiles for source-level status and summaries.</p> })}
         />
         <AIStat
           icon={RefreshCcw}
@@ -784,6 +799,7 @@ function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
               : "—"
           }
           detail={syncTime ? "Context is current" : "Awaiting context"}
+          onClick={() => setConciergeDetail({ title: "Latest Context Sync", body: <div className="space-y-3 text-sm text-text-muted"><DetailRow label="Status" value={syncTime ? "Current" : "Awaiting context"} /><DetailRow label="Last generated" value={syncTime?.toLocaleString() || "Not available"} /><DetailRow label="Connected sources" value={String(contextSources)} /></div> })}
         />
       </section>
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_390px]">
@@ -816,9 +832,11 @@ function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
             </div>
             <div className="grid grid-cols-2">
               {departments.map((item) => (
-                <div
+                <button
+                  type="button"
                   key={item.name}
-                  className="border-b border-r border-border p-4 even:border-r-0"
+                  onClick={() => setConciergeDetail({ title: `${item.name} Intelligence`, body: <div className="space-y-3"><DetailRow label="Current signal" value={`${item.value} ${item.unit}`} /><DetailRow label="Status" value={String(item.status)} /><DetailRow label="Top priority" value={pending.find((recommendation) => recommendation.department.toLowerCase().includes(item.name.toLowerCase().replace(" ", "_")))?.title || "No intelligence available for this department."} /><DetailRow label="Related recommendations" value={String(pending.filter((recommendation) => recommendation.department.toLowerCase().includes(item.name.toLowerCase().replace(" ", "_"))).length)} /></div> })}
+                  className="border-b border-r border-border p-4 text-left transition-colors hover:bg-primary-50 even:border-r-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-400"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-semibold text-text-main">
@@ -834,7 +852,7 @@ function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
                   <p className="mt-1 text-[10px] text-text-muted">
                     {item.unit}
                   </p>
-                </div>
+                </button>
               ))}
             </div>
           </section>
@@ -844,7 +862,7 @@ function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
                 Recent AI Activity
               </h2>
               <Link
-                to="/operations-center/tasks"
+                to="/operations/tasks-advisories"
                 className="text-xs font-semibold text-primary-600"
               >
                 View all
@@ -852,7 +870,7 @@ function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
             </div>
             <div className="mt-3 divide-y divide-border">
               {pending.slice(0, 4).map((item) => (
-                <div key={item.id} className="py-3">
+                <button type="button" key={item.id} onClick={() => setConciergeDetail({ title: item.title, body: <div className="space-y-3"><p className="text-sm leading-6 text-text-main">{item.description}</p><DetailRow label="Department" value={item.department} /><DetailRow label="Priority" value={item.priority} /><DetailRow label="Generated" value={new Date(item.createdAt).toLocaleString()} /><DetailRow label="Rationale" value={item.rationale} /></div> })} className="block w-full py-3 text-left hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400">
                   <p className="text-xs font-semibold text-text-main">
                     {item.title}
                   </p>
@@ -860,7 +878,7 @@ function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
                     {item.department} ·{" "}
                     {new Date(item.createdAt).toLocaleString()}
                   </p>
-                </div>
+                </button>
               ))}
               {!pending.length && (
                 <p className="py-5 text-xs text-text-muted">
@@ -875,6 +893,7 @@ function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
           </div>
         </aside>
       </div>
+      {conciergeDetail ? <DetailDrawer title={conciergeDetail.title} onClose={() => setConciergeDetail(null)}>{conciergeDetail.body}</DetailDrawer> : null}
     </div>
   );
 }
@@ -885,15 +904,17 @@ function AIStat({
   value,
   detail,
   semantic,
+  onClick,
 }: {
   icon: typeof Activity;
   label: string;
   value: string | number;
   detail: string;
   semantic?: "risk";
+  onClick?: () => void;
 }) {
-  return (
-    <article className="theme-stat-card flex min-h-24 items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
+  const content = (
+    <article className={`theme-stat-card flex min-h-24 items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm ${onClick ? "transition hover:-translate-y-0.5 hover:shadow-md" : ""}`}>
       <span
         className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${semantic === "risk" ? "bg-rose-50 text-rose-600" : "theme-kpi-icon"}`}
       >
@@ -906,6 +927,7 @@ function AIStat({
       </div>
     </article>
   );
+  return onClick ? <button type="button" onClick={onClick} className="rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400">{content}</button> : content;
 }
 
 const toneClass = {

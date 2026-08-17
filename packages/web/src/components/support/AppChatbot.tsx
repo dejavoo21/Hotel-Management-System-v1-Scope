@@ -44,6 +44,13 @@ const PAGE_NAMES: Record<string, string> = {
   '/operations-center/weather': 'Weather', '/operations-center/tasks': 'Tasks',
   '/operations-center/revenue': 'Operations Revenue',
   '/operations-center/market-intelligence': 'Market Intelligence',
+  '/operations/enterprise-search': 'Enterprise Search',
+  '/operations/hotel-brain-console': 'Hotel Brain Console',
+  '/operations/ai-governance': 'AI Governance',
+  '/operations/tasks-advisories': 'Tasks & Advisories',
+  '/operations/operational-intelligence/weather-forecast': 'Weather & Forecast',
+  '/operations/operational-intelligence/market-intelligence': 'Market Intelligence',
+  '/operations/operational-intelligence/revenue-guidance': 'Revenue Guidance',
 };
 
 const PAGE_FOCUS_PROMPTS: Record<string, string> = {
@@ -70,6 +77,13 @@ const PAGE_FOCUS_PROMPTS: Record<string, string> = {
   '/operations-center/tasks': 'What tasks need attention?',
   '/operations-center/revenue': 'Explain the Operations revenue view',
   '/operations-center/market-intelligence': 'Explain the market indicators',
+  '/operations/enterprise-search': 'What can Enterprise Search find?',
+  '/operations/hotel-brain-console': 'Summarise Hotel Brain evidence readiness.',
+  '/operations/ai-governance': 'Which AI recommendations require review?',
+  '/operations/tasks-advisories': 'What tasks and advisories need attention?',
+  '/operations/operational-intelligence/weather-forecast': 'What weather actions should we take today?',
+  '/operations/operational-intelligence/market-intelligence': 'Explain the market indicators',
+  '/operations/operational-intelligence/revenue-guidance': 'Explain the current revenue guidance',
   '/security-center': 'What security issues need attention?',
   '/security-center/cctv': 'How do I investigate an offline camera?',
   '/security-center/access-logs': 'What access results need escalation?',
@@ -104,10 +118,10 @@ const NAV_TARGETS: Array<ChatAction & { keywords: string[]; permission?: string 
   { label: 'Open Integration Manager', path: '/settings?tab=integrations', keywords: ['integration manager', 'settings > integrations', 'settings, then integrations', 'setup flow', 'add camera / nvr'], permission: 'settings' },
   { label: 'Open Settings', path: '/settings', keywords: ['setting', 'configuration'], permission: 'settings' },
   { label: 'Open User Management', path: '/users', keywords: ['user', 'access request', 'permission'], permission: 'users' },
-  { label: 'Open Enterprise Search', path: '/operations-center/search', keywords: ['search', 'find'], permission: 'bookings' },
-  { label: 'Open intelligence evidence', path: '/ai/hotel-brain', keywords: ['hotel brain', 'evidence', 'insight', 'analyse', 'analyze'], permission: 'bookings' },
-  { label: 'Open Weather', path: '/operations-center/weather', keywords: ['weather', 'forecast'], permission: 'bookings' },
-  { label: 'Open Tasks', path: '/operations-center/tasks', keywords: ['task', 'assigned work'], permission: 'bookings' },
+  { label: 'Open Enterprise Search', path: '/operations/enterprise-search', keywords: ['search', 'find'], permission: 'bookings' },
+  { label: 'Open intelligence evidence', path: '/operations/hotel-brain-console', keywords: ['hotel brain', 'evidence', 'insight', 'analyse', 'analyze'], permission: 'bookings' },
+  { label: 'Open Weather', path: '/operations/operational-intelligence/weather-forecast', keywords: ['weather', 'forecast'], permission: 'bookings' },
+  { label: 'Open Tasks', path: '/operations/tasks-advisories', keywords: ['task', 'assigned work'], permission: 'bookings' },
   { label: 'Open Command Center', path: '/enterprise-command-center', keywords: ['command center', 'enterprise command'], permission: 'dashboard' },
 ];
 

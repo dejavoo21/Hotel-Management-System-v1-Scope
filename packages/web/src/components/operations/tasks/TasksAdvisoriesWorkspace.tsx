@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -33,6 +33,7 @@ import { appendAuditLog } from "@/utils/auditLog";
 
 type Advisory = NonNullable<OperationsContext["advisories"]>[number];
 type AdvisoryState = "ALL" | "NOT_CREATED" | "CREATED" | "DISMISSED";
+type AdvisoryRequest = { state?: AdvisoryState; priority?: string; unassigned?: boolean; key: number };
 
 type Props = {
   context?: OperationsContext;
@@ -85,12 +86,14 @@ function SummaryCard({
   value,
   detail,
   tone = "primary",
+  onClick,
 }: {
   icon: typeof Activity;
   label: string;
   value: number;
   detail: string;
   tone?: "primary" | "risk" | "good" | "info";
+  onClick: () => void;
 }) {
   const toneClass =
     tone === "risk"
@@ -101,7 +104,7 @@ function SummaryCard({
           ? "bg-blue-50 text-blue-600"
           : "theme-kpi-icon";
   return (
-    <article className={`${card} flex min-h-24 items-center gap-3 p-4`}>
+    <button type="button" onClick={onClick} className={`${card} flex min-h-24 items-center gap-3 p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md`}>
       <span
         className={`grid h-11 w-11 place-items-center rounded-xl ${toneClass}`}
       >
@@ -112,7 +115,7 @@ function SummaryCard({
         <p className="mt-1 text-2xl font-bold text-text-main">{value}</p>
         <p className="mt-1 text-[10px] text-text-muted">{detail}</p>
       </div>
-    </article>
+    </button>
   );
 }
 
@@ -437,9 +440,13 @@ function DismissDialog({
 function AdvisoryQueue({
   context,
   canManage,
+  request,
+  onCountsChange,
 }: {
   context?: OperationsContext;
   canManage: boolean;
+  request: AdvisoryRequest;
+  onCountsChange: (counts: { open: number; created: number; dismissed: number; pending: number; critical: number }) => void;
 }) {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
@@ -469,6 +476,7 @@ function AdvisoryQueue({
   const [assignTarget, setAssignTarget] = useState<Advisory | null>(null);
   const [dismissTarget, setDismissTarget] = useState<Advisory | null>(null);
   const [serviceBlocked, setServiceBlocked] = useState(false);
+  const [unassignedOnly, setUnassignedOnly] = useState(false);
   const departments = [
     ...new Set(advisories.map((item) => item.department).filter(Boolean)),
   ] as string[];
@@ -481,8 +489,26 @@ function AdvisoryQueue({
     if (state !== "DISMISSED" && isDismissed) return false;
     if (priority !== "ALL" && item.priority !== priority) return false;
     if (department !== "ALL" && item.department !== department) return false;
+    if (unassignedOnly && !(created[item.id] || item.createdTicket)) return false;
+    if (unassignedOnly && created[item.id]?.assignedTo) return false;
     return true;
   });
+  useEffect(() => {
+    if (!request.key) return;
+    setState(request.state || "ALL");
+    setPriority(request.priority || "ALL");
+    setUnassignedOnly(Boolean(request.unassigned));
+  }, [request]);
+  useEffect(() => {
+    const active = advisories.filter((item) => !dismissed.has(item.id));
+    onCountsChange({
+      open: active.length,
+      created: active.filter((item) => Boolean(created[item.id] || item.createdTicket)).length,
+      dismissed: dismissed.size,
+      pending: active.filter((item) => Boolean(created[item.id] || item.createdTicket) && !created[item.id]?.assignedTo).length,
+      critical: active.filter((item) => item.priority === "high").length,
+    });
+  }, [advisories, created, dismissed, onCountsChange]);
   const dismiss = (item: Advisory) => {
     setDismissed((current) => new Set(current).add(item.id));
     appendAuditLog({
@@ -498,7 +524,7 @@ function AdvisoryQueue({
     toast.success("Advisory moved to history");
   };
   return (
-    <section className={`${card} overflow-hidden`}>
+    <section id="operations-advisory" className={`${card} overflow-hidden`}>
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border p-4">
         <div>
           <h2 className="font-semibold text-text-main">Operations Advisory</h2>
@@ -522,7 +548,7 @@ function AdvisoryQueue({
               <button
                 key={item}
                 type="button"
-                onClick={() => setState(item)}
+                onClick={() => { setState(item); setUnassignedOnly(false); }}
                 aria-pressed={state === item}
                 className={`rounded-lg px-2.5 py-1.5 text-[10px] font-semibold ${state === item ? "bg-primary-solid text-primary-contrast" : "text-text-muted"}`}
               >
@@ -574,6 +600,7 @@ function AdvisoryQueue({
           </Link>
         </div>
       ) : null}
+      {unassignedOnly ? <div className="flex items-center justify-between border-b border-border bg-blue-50 px-4 py-2 text-xs text-blue-800"><span>Showing created tasks that still need an owner.</span><button type="button" onClick={() => setUnassignedOnly(false)} className="font-semibold underline">Clear</button></div> : null}
       <div className="divide-y divide-border">
         {filtered.map((item) => {
           const result = created[item.id];
@@ -693,6 +720,7 @@ function AdvisoryQueue({
                 setState("ALL");
                 setPriority("ALL");
                 setDepartment("ALL");
+                setUnassignedOnly(false);
               }}
               className="mt-3 text-xs font-semibold text-primary-700"
             >
@@ -750,7 +778,16 @@ function RecentActivity() {
     queryFn: () => timelineService.list(filters),
     staleTime: 10_000,
   });
-  const events = query.data?.events || [];
+  const [showTechnical, setShowTechnical] = useState(false);
+  const [selected, setSelected] = useState<TimelineEvent | null>(null);
+  const allEvents = query.data?.events || [];
+  const isTechnical = (event: TimelineEvent) => /enterprise.?search|system|index|rebuild|audit/i.test(`${event.module} ${event.eventType}`);
+  const events = showTechnical ? allEvents.filter(isTechnical) : allEvents.filter((event) => !isTechnical(event));
+  const friendlyTitle = (event: TimelineEvent) => {
+    if (/search index updated/i.test(event.summary)) return "Search index updated";
+    if (/audit recorded/i.test(event.summary) && /hotel.?brain/i.test(event.module)) return "AI recommendation recorded";
+    return event.summary.replace(/^[a-z-]+:\s*/i, "");
+  };
   const setFilter = <K extends keyof TimelineFilters>(
     key: K,
     value: TimelineFilters[K],
@@ -767,11 +804,12 @@ function RecentActivity() {
         <div className="flex flex-wrap gap-2">
           <select
             aria-label="Activity module"
-            value={filters.module || ""}
-            onChange={(event) => setFilter("module", event.target.value)}
+            value={showTechnical ? "SYSTEM_TECHNICAL" : filters.module || ""}
+            onChange={(event) => { const value = event.target.value; setShowTechnical(value === "SYSTEM_TECHNICAL"); setFilter("module", value === "SYSTEM_TECHNICAL" ? undefined : value); }}
             className="rounded-xl border border-border bg-card px-2.5 py-2 text-[10px] text-text-main"
           >
             <option value="">All modules</option>
+            <option value="SYSTEM_TECHNICAL">System / Technical</option>
             {query.data?.filters.modules.map((item) => (
               <option key={item}>{item}</option>
             ))}
@@ -814,7 +852,7 @@ function RecentActivity() {
           </select>
           <button
             type="button"
-            onClick={() => setFilters({ limit: 24, time: "24h" })}
+            onClick={() => { setFilters({ limit: 24, time: "24h" }); setShowTechnical(false); }}
             className="text-[10px] font-semibold text-primary-700"
           >
             Clear filters
@@ -835,9 +873,9 @@ function RecentActivity() {
         ) : events.length ? (
           <div className="divide-y divide-border">
             {events.map((event: TimelineEvent) => (
-              <div
+              <button type="button" onClick={() => setSelected(event)}
                 key={event.id}
-                className="grid gap-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_120px_120px_110px] sm:items-center"
+                className="grid w-full gap-2 px-4 py-3 text-left hover:bg-primary-50 sm:grid-cols-[minmax(0,1fr)_120px_120px_110px] sm:items-center"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="theme-kpi-icon grid h-8 w-8 shrink-0 place-items-center rounded-xl">
@@ -845,7 +883,7 @@ function RecentActivity() {
                   </span>
                   <div className="min-w-0">
                     <p className="truncate text-xs font-semibold text-text-main">
-                      {event.summary}
+                      {friendlyTitle(event)}
                     </p>
                     <p className="mt-0.5 text-[9px] text-text-muted">
                       {event.module}
@@ -866,7 +904,7 @@ function RecentActivity() {
                 <time className="text-[10px] text-text-muted">
                   {formatTime(event.timestamp)}
                 </time>
-              </div>
+              </button>
             ))}
           </div>
         ) : (
@@ -890,6 +928,7 @@ function RecentActivity() {
           <ArrowRight className="h-3.5 w-3.5" />
         </button>
       </div>
+      {selected ? <div className="fixed inset-0 z-[90] flex justify-end bg-slate-950/35" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}><section role="dialog" aria-modal="true" aria-label="Activity details" className="h-full w-full max-w-lg overflow-y-auto border-l border-border bg-card p-5 shadow-2xl"><div className="flex items-start justify-between"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">{selected.module}</p><h2 className="mt-1 text-xl font-semibold text-text-main">{friendlyTitle(selected)}</h2></div><button type="button" aria-label="Close activity details" onClick={() => setSelected(null)}><X className="h-4 w-4" /></button></div><div className="mt-5 divide-y divide-border rounded-xl border border-border"><DetailRow label="Severity" value={selected.severity} /><DetailRow label="Department" value={pretty(selected.department)} /><DetailRow label="Time" value={formatTime(selected.timestamp)} /><DetailRow label="Category" value={isTechnical(selected) ? "System / Technical" : "Operational"} /><DetailRow label="Related record" value={selected.linkedEntity?.id || "No related record available"} /></div>{selected.linkedEntity?.id ? <Link to={`/${selected.linkedEntity.type.toLowerCase()}/${selected.linkedEntity.id}`} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary-solid px-4 py-2 text-xs font-semibold text-primary-contrast">Open related record <ArrowRight className="h-3.5 w-3.5" /></Link> : null}</section></div> : null}
     </section>
   );
 }
@@ -903,8 +942,9 @@ function ArrivalForecast({
   onRefresh: () => void;
   refreshing: boolean;
 }) {
+  const [open, setOpen] = useState(false);
   return (
-    <section className={`${card} p-4`}>
+    <section role="button" tabIndex={0} onClick={() => setOpen(true)} onKeyDown={(event) => { if (event.key === "Enter") setOpen(true); }} className={`${card} cursor-pointer p-4 transition hover:shadow-md`}>
       <div className="flex items-start justify-between">
         <div className="flex gap-3">
           <span className={iconBox}>
@@ -919,7 +959,8 @@ function ArrivalForecast({
         </div>
         <button
           type="button"
-          onClick={onRefresh}
+          onClick={(event) => { event.stopPropagation(); onRefresh(); }}
+          disabled={refreshing}
           aria-label="Refresh arrival forecast"
           className="grid h-9 w-9 place-items-center rounded-xl border border-border text-text-muted"
         >
@@ -940,6 +981,7 @@ function ArrivalForecast({
           </div>
         ))}
       </div>
+      {open ? <div className="fixed inset-0 z-[90] flex justify-end bg-slate-950/35" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}><section role="dialog" aria-modal="true" aria-label="Arrival forecast details" className="h-full w-full max-w-lg overflow-y-auto border-l border-border bg-card p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-start justify-between"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Tasks & Advisories</p><h2 className="mt-1 text-xl font-semibold text-text-main">Arrival Forecast</h2></div><button type="button" aria-label="Close arrival forecast" onClick={() => setOpen(false)}><X className="h-4 w-4" /></button></div><div className="mt-5 divide-y divide-border rounded-xl border border-border"><DetailRow label="Arrivals expected" value={context?.ops?.arrivalsNext24h ?? "Unavailable"} /><DetailRow label="Departures expected" value={context?.ops?.departuresNext24h ?? "Unavailable"} /><DetailRow label="In-house now" value={context?.ops?.inhouseNow ?? "Unavailable"} /><DetailRow label="Source data" value={context?.ops ? "Authorised booking operations context" : "Booking source unavailable"} /><DetailRow label="Calculation window" value={context?.ops?.windowStartUtc && context?.ops?.windowEndUtc ? `${formatTime(context.ops.windowStartUtc)} – ${formatTime(context.ops.windowEndUtc)}` : "Next 24 hours"} /><DetailRow label="Last updated" value={formatTime(context?.generatedAtUtc)} /></div></section></div> : null}
     </section>
   );
 }
@@ -959,8 +1001,9 @@ function IntelligenceCard({
   priority: string;
   action: string;
 }) {
+  const [open, setOpen] = useState(false);
   return (
-    <article className={`${card} p-4`}>
+    <article role="button" tabIndex={0} onClick={() => setOpen(true)} onKeyDown={(event) => { if (event.key === "Enter") setOpen(true); }} className={`${card} cursor-pointer p-4 transition hover:shadow-md`}>
       <div className="flex items-start gap-3">
         <span className={iconBox}>
           <Icon className="h-5 w-5" />
@@ -994,14 +1037,18 @@ function IntelligenceCard({
         </div>
       </div>
       <Link
-        to="/operations-center/ai#ai-recommendation-governance"
+        to={`/operations-center/ai?department=${encodeURIComponent(name)}#ai-recommendation-governance`}
+        onClick={(event) => event.stopPropagation()}
         className="mt-4 flex items-center justify-center gap-1 border-t border-border pt-3 text-xs font-semibold text-primary-700"
       >
         View in AI Governance <ArrowRight className="h-3.5 w-3.5" />
       </Link>
+      {open ? <div className="fixed inset-0 z-[90] flex justify-end bg-slate-950/35" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}><section role="dialog" aria-modal="true" aria-label={`${name} Intelligence details`} className="h-full w-full max-w-lg overflow-y-auto border-l border-border bg-card p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-start justify-between"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Department Intelligence</p><h2 className="mt-1 text-xl font-semibold text-text-main">{name}</h2></div><button type="button" aria-label={`Close ${name} Intelligence`} onClick={() => setOpen(false)}><X className="h-4 w-4" /></button></div><div className="mt-5 divide-y divide-border rounded-xl border border-border"><DetailRow label="Status" value={status} /><DetailRow label="Top priority" value={priority || "No department intelligence available"} /><DetailRow label="Top risk" value={risk || "No department intelligence available"} /><DetailRow label="Recommended action" value={action || "No department intelligence available"} /><DetailRow label="Related advisories" value="Available in the operational advisory queue" /><DetailRow label="Related tasks" value="Open Tasks & Advisories filters to review" /><DetailRow label="Recent activity" value="Filtered operational Event Bus activity" /></div><Link to={`/operations-center/ai?department=${encodeURIComponent(name)}#ai-recommendation-governance`} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary-solid px-4 py-2 text-xs font-semibold text-primary-contrast">View in AI Governance <ArrowRight className="h-3.5 w-3.5" /></Link></section></div> : null}
     </article>
   );
 }
+
+function DetailRow({ label, value }: { label: string; value: React.ReactNode }) { return <div className="grid grid-cols-[130px_1fr] gap-3 p-3 text-sm"><strong className="text-text-main">{label}</strong><span className="text-text-muted">{value}</span></div>; }
 
 export default function TasksAdvisoriesWorkspace({
   context,
@@ -1015,6 +1062,16 @@ export default function TasksAdvisoriesWorkspace({
     user?.role === "ADMIN" ||
     user?.role === "MANAGER" ||
     (user?.modulePermissions || []).includes("maintenance_center");
+  const privileged = user?.role === "ADMIN" || user?.role === "MANAGER";
+  const canViewHousekeeping = privileged || Boolean(user?.modulePermissions?.includes("housekeeping"));
+  const canViewSecurity = privileged || Boolean(user?.modulePermissions?.includes("security_center"));
+  const advisories = context?.advisories || [];
+  const initialCreated = advisories.filter((item) => item.createdTicket).length;
+  const [request, setRequest] = useState<AdvisoryRequest>({ key: 0 });
+  const [counts, setCounts] = useState({ open: advisories.length, created: initialCreated, dismissed: 0, pending: advisories.filter((item) => item.createdTicket).length, critical: advisories.filter((item) => item.priority === "high").length });
+  const updateCounts = useCallback((next: typeof counts) => setCounts(next), []);
+  const requestView = (next: Omit<AdvisoryRequest, "key">) => setRequest((current) => ({ ...next, key: current.key + 1 }));
+  const openAssistant = () => window.dispatchEvent(new CustomEvent("laflo:open-assistant", { detail: { mode: "tasks-advisories", prompt: "Summarise the highest-priority tasks and advisories and recommend the next operational action.", context: { page: "Tasks & Advisories", openAdvisories: counts.open, pendingAssignment: counts.pending, criticalItems: counts.critical } } }));
   if (isLoading) return <TasksLoadingState />;
   if (isError)
     return (
@@ -1033,13 +1090,6 @@ export default function TasksAdvisoriesWorkspace({
         </button>
       </div>
     );
-  const advisories = context?.advisories || [];
-  const created = advisories.filter((item) => item.createdTicket).length;
-  const pendingAssignment = advisories.filter(
-    (item) =>
-      item.createdTicket && !("assignedTo" in item.createdTicket),
-  ).length;
-  const critical = advisories.filter((item) => item.priority === "high").length;
   return (
     <div className="grid gap-4 pb-20 xl:grid-cols-[minmax(0,1fr)_420px]">
       <main className="min-w-0 space-y-4">
@@ -1050,32 +1100,36 @@ export default function TasksAdvisoriesWorkspace({
           <SummaryCard
             icon={ShieldCheck}
             label="Open Advisories"
-            value={advisories.length}
+            value={counts.open}
             detail="Operational recommendations requiring review"
+            onClick={() => requestView({ state: "ALL" })}
           />
           <SummaryCard
             icon={ClipboardList}
             label="Tasks Created"
-            value={created}
+            value={counts.created}
             detail="Created from advisories"
             tone="good"
+            onClick={() => requestView({ state: "CREATED" })}
           />
           <SummaryCard
             icon={UserRoundCheck}
             label="Pending Assignment"
-            value={pendingAssignment}
+            value={counts.pending}
             detail="Need owner assignment"
             tone="info"
+            onClick={() => requestView({ state: "ALL", unassigned: true })}
           />
           <SummaryCard
             icon={Flag}
             label="Critical Items"
-            value={critical}
+            value={counts.critical}
             detail="Requires urgent attention"
             tone="risk"
+            onClick={() => requestView({ state: "ALL", priority: "high" })}
           />
         </section>
-        <AdvisoryQueue context={context} canManage={canManage} />
+        <AdvisoryQueue context={context} canManage={canManage} request={request} onCountsChange={updateCounts} />
         <RecentActivity />
       </main>
       <aside className="space-y-3">
@@ -1096,7 +1150,7 @@ export default function TasksAdvisoriesWorkspace({
           risk="Payment or readiness issues"
           action="Run pre-shift huddle"
         />
-        <IntelligenceCard
+        {canViewHousekeeping ? <IntelligenceCard
           name="Housekeeping"
           icon={House}
           status={
@@ -1107,15 +1161,16 @@ export default function TasksAdvisoriesWorkspace({
           priority="Room readiness"
           risk="Out-of-service rooms"
           action="Prioritise checkout rooms"
-        />
-        <IntelligenceCard
+        /> : null}
+        {canViewSecurity ? <IntelligenceCard
           name="Security"
           icon={ShieldCheck}
           status="Stable"
           priority="Monitor alerts"
           risk="Unassigned incidents"
           action="Review open alerts"
-        />
+        /> : null}
+        <button type="button" onClick={openAssistant} className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-primary-700 shadow-card hover:bg-primary-50">Ask LaFlo about tasks</button>
       </aside>
     </div>
   );

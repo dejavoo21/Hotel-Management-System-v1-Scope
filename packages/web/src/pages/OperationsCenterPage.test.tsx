@@ -270,11 +270,11 @@ describe("OperationsCenterPage", () => {
     expect(screen.getByText("Operations Quick Actions")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /Review tasks and advisories/ }),
-    ).toHaveAttribute("href", "/operations-center/tasks?status=open");
-    expect(screen.getByRole("link", { name: "Open Forecast Status details" })).toHaveAttribute("href", "/operations-center/weather");
-    expect(screen.getByRole("link", { name: "Open Demand Signal details" })).toHaveAttribute("href", "/operations-center/revenue");
+    ).toHaveAttribute("href", "/operations/tasks-advisories?status=open");
+    expect(screen.getByRole("link", { name: "Open Forecast Status details" })).toHaveAttribute("href", "/operations/operational-intelligence/weather-forecast");
+    expect(screen.getByRole("link", { name: "Open Demand Signal details" })).toHaveAttribute("href", "/operations/operational-intelligence/revenue-guidance");
     expect(screen.getByRole("link", { name: "Open Active Alerts details" })).toHaveAttribute("href", "/security-center/alerts?status=active&severity=high");
-    expect(screen.getByRole("link", { name: "Open Open Tasks details" })).toHaveAttribute("href", "/operations-center/tasks?status=open");
+    expect(screen.getByRole("link", { name: "Open Open Tasks details" })).toHaveAttribute("href", "/operations/tasks-advisories?status=open");
     expect(
       screen.queryByPlaceholderText("Ask an operational question..."),
     ).not.toBeInTheDocument();
@@ -283,7 +283,7 @@ describe("OperationsCenterPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Review queue/ })).toHaveAttribute(
       "href",
-      "/operations-center/ai#ai-recommendation-governance",
+      "/operations/ai-governance#ai-recommendation-governance",
     );
     expect(
       screen.queryByText("Detailed governance queue"),
@@ -303,7 +303,7 @@ describe("OperationsCenterPage", () => {
     const openAssistant = vi.fn();
     window.addEventListener("laflo:open-assistant", openAssistant);
     renderPage("/operations-center/ai");
-    expect(await screen.findByText("Operations Concierge")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "AI Governance" })).toBeInTheDocument();
     expect(
       await screen.findByText("AI Operational Briefing"),
     ).toBeInTheDocument();
@@ -318,6 +318,14 @@ describe("OperationsCenterPage", () => {
     expect(screen.getByText("Context Preview")).toBeInTheDocument();
     expect(screen.getByText("Department Intelligence")).toBeInTheDocument();
     expect(screen.getByText("Detailed governance queue")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Weather Live/i }));
+    expect(screen.getByRole("dialog", { name: "Weather" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close Weather" }));
+
+    fireEvent.click(screen.getByRole("button", { name: /Front Desk Live/i }));
+    expect(screen.getByRole("dialog", { name: "Front Desk Intelligence" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close Front Desk Intelligence" }));
 
     fireEvent.click(
       screen.getByRole("button", { name: "Ask LaFlo for details" }),
@@ -413,6 +421,15 @@ describe("OperationsCenterPage", () => {
       screen.getByText("Proceed with standard operations plan"),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Create task" }));
+    const weatherTaskDialog = screen.getByRole("dialog", {
+      name: "Create weather-driven task",
+    });
+    expect(weatherTaskDialog).toHaveTextContent(
+      "Proceed with standard operations plan",
+    );
+    fireEvent.click(
+      within(weatherTaskDialog).getByRole("button", { name: "Create task" }),
+    );
     await waitFor(() =>
       expect(serviceMocks.createWeatherTask).toHaveBeenCalledWith(
         "a1",
@@ -425,6 +442,16 @@ describe("OperationsCenterPage", () => {
     expect(
       await screen.findByRole("button", { name: "Task created" }),
     ).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /Current Weather/i }));
+    expect(screen.getByRole("dialog", { name: "Weather Outlook" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close Weather Outlook" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Now forecast details" }));
+    expect(screen.getByRole("dialog", { name: "Now Forecast" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close Now Forecast" }));
+    fireEvent.click(screen.getByRole("button", { name: /Guest Readiness/i }));
+    expect(screen.getByRole("dialog", { name: "Guest Readiness" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close Guest Readiness" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Refresh forecast" }));
     await waitFor(() =>
@@ -465,6 +492,8 @@ describe("OperationsCenterPage", () => {
   });
 
   it("renders the tasks action centre and completes advisory workflows", async () => {
+    const openAssistant = vi.fn();
+    window.addEventListener("laflo:open-assistant", openAssistant);
     renderPage("/operations-center/tasks");
     expect(
       await screen.findByRole("heading", {
@@ -482,6 +511,27 @@ describe("OperationsCenterPage", () => {
     expect(screen.getByText("Security Intelligence")).toBeInTheDocument();
     expect(screen.getByText("Arrival Forecast")).toBeInTheDocument();
     expect(screen.queryByText("AI Recommendation Governance")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Critical Items/i }));
+    expect(screen.getByLabelText("Advisory priority")).toHaveValue("high");
+    fireEvent.click(screen.getByRole("button", { name: /Open Advisories/i }));
+    expect(screen.getByLabelText("Advisory priority")).toHaveValue("ALL");
+
+    fireEvent.click(screen.getByRole("button", { name: /^Arrival Forecast Operational/i }));
+    expect(screen.getByRole("dialog", { name: "Arrival forecast details" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close arrival forecast" }));
+
+    fireEvent.click(screen.getByRole("button", { name: /Front Desk Intelligence/i }));
+    expect(screen.getByRole("dialog", { name: "Front Desk Intelligence details" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close Front Desk Intelligence" }));
+
+    fireEvent.click(screen.getByRole("button", { name: /Run front desk pre-shift huddle/i }));
+    expect(screen.getByRole("dialog", { name: "Activity details" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close activity details" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Ask LaFlo about tasks" }));
+    expect(openAssistant).toHaveBeenCalledTimes(1);
+    expect((openAssistant.mock.calls[0][0] as CustomEvent).detail).toMatchObject({ mode: "tasks-advisories" });
 
     fireEvent.click(screen.getByRole("button", { name: "Not created" }));
     expect(
@@ -559,6 +609,7 @@ describe("OperationsCenterPage", () => {
     expect(
       screen.queryByText("Proceed with standard operations plan"),
     ).not.toBeInTheDocument();
+    window.removeEventListener("laflo:open-assistant", openAssistant);
   });
 
   it("shows an honest blocked state when the task service is unavailable", async () => {
