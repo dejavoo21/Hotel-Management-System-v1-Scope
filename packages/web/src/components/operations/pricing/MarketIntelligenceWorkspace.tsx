@@ -11,6 +11,7 @@ import {
   CircleDollarSign,
   Clock3,
   Gauge,
+  Info,
   LineChart,
   MoreVertical,
   Plus,
@@ -18,6 +19,7 @@ import {
   Sparkles,
   Target,
   TrendingDown,
+  TrendingUp,
   UploadCloud,
   X,
 } from 'lucide-react';
@@ -126,7 +128,7 @@ export default function MarketIntelligenceWorkspace({ context }: { context?: Ope
       <section className="grid gap-4 xl:grid-cols-[1.02fr_.98fr]">
         <article className="rounded-2xl border border-border bg-card p-4 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <CardHeading icon={Building2} title="Market Intelligence" subtitle="Add competitor hotels and capture per-night rates." />
+            <CardHeading icon={Building2} title="Competitor Set" subtitle="Add and manage competitor hotels capturing per-night rates." />
             <button type="button" onClick={() => openRates()} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary-950 px-4 text-xs font-semibold text-primary-contrast hover:bg-primary-900"><UploadCloud className="h-4 w-4" />Bulk apply rates</button>
           </div>
           <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
@@ -163,6 +165,7 @@ export default function MarketIntelligenceWorkspace({ context }: { context?: Ope
         <InsightCard icon={Gauge} title="Market Signal Health" subtitle="Coverage and competitor freshness"><div className="grid grid-cols-2 gap-3"><SignalMetric label="Market coverage" value={`${marketCoverage}%`} /><SignalMetric label="Competitors" value={String(competitors.length)} /><SignalMetric label="Freshness" value={marketCoverage ? 'Current' : 'Low'} /><SignalMetric label="Last rate update" value={timestamp(updatedAt)} small /></div><p className="mt-3 text-[10px] leading-4 text-text-muted">This page becomes more valuable as competitor rates are added.</p></InsightCard>
       </section>
 
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
         <div className="border-b border-border p-4">
           <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary-700" /><h2 className="font-semibold text-text-main">Revenue Guidance (14 nights)</h2></div><p className="mt-1 text-xs text-text-muted">Per-night suggestions based on booking pace, weather signals, and market rates when available.</p></div><Badge tone="emerald">{model}</Badge></div>
@@ -181,6 +184,23 @@ export default function MarketIntelligenceWorkspace({ context }: { context?: Ope
         </div>
         <div className="border-t border-border bg-primary-50/30 px-4 py-3 text-xs text-text-muted"><strong className="text-text-main">Tip:</strong> This becomes stronger once competitor rates and events are added.</div>
       </section>
+
+      <aside className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1" aria-label="Market intelligence utilities">
+        <UtilityPanel icon={AlertTriangle} title="Competitor Alerts" action="View all">
+          <UtilityRow title="Metro Suites raised rates" detail="+8% for Aug 17–19" time="11:45 AM" tone="up" />
+          <UtilityRow title="Parklane Inn lowered rates" detail="-5% for Aug 16–18" time="9:30 AM" tone="down" />
+          <UtilityRow title="Riverside Grand updated rates" detail="Multiple dates updated" time="8:15 AM" tone="info" />
+        </UtilityPanel>
+        <UtilityPanel icon={CalendarDays} title="Market Notes">
+          <div className="rounded-xl border border-border bg-primary-50/30 p-3 text-[11px] leading-5 text-text-main">
+            <p>Weekend demand is trending below budget.</p>
+            <p>Group pickup remains light.</p>
+            <p>Consider short-term offers and review channel mix.</p>
+          </div>
+          <p className="mt-2 text-right text-[9px] text-text-muted">Updated {timestamp(updatedAt)}</p>
+        </UtilityPanel>
+      </aside>
+      </div>
 
       <section aria-label="Pricing advisory" className="grid gap-3 md:grid-cols-3">
         <Advisory title="Promote low-demand nights" reason="Use targeted offers on nights with the weakest booking pace." />
@@ -205,6 +225,16 @@ function SignalMetric({ label, value, small = false }: { label: string; value: s
 function MiniTrend() { return <span className="grid h-14 w-20 place-items-center rounded-xl bg-sky-50 text-sky-600" aria-label="Demand trend down"><TrendingDown className="h-8 w-8" /></span>; }
 function MetaBadge({ children }: { children: React.ReactNode }) { return <span className="rounded-full bg-primary-50 px-2.5 py-1 text-[9px] font-semibold text-text-muted ring-1 ring-primary-100">{children}</span>; }
 function Advisory({ title, reason, onAction }: { title: string; reason: string; onAction?: () => void }) { return <article className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-700"><Sparkles className="h-4 w-4" /></span><div className="min-w-0 flex-1"><h3 className="text-xs font-semibold text-text-main">{title}</h3><p className="mt-1 text-[10px] leading-4 text-text-muted">{reason}</p></div><button type="button" onClick={onAction || (() => toast.success('Pricing advisory added to the task queue'))} className="shrink-0 rounded-xl border border-border px-3 py-2 text-[10px] font-semibold hover:bg-primary-50">Create task</button></article>; }
+
+function UtilityPanel({ icon: Icon, title, action, children }: { icon: typeof AlertTriangle; title: string; action?: string; children: React.ReactNode }) {
+  return <section className="rounded-2xl border border-border bg-card p-3 shadow-sm"><div className="mb-2 flex items-center justify-between gap-2"><div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-xl bg-primary-50 text-primary-700"><Icon className="h-4 w-4" /></span><h2 className="text-xs font-semibold text-text-main">{title}</h2></div>{action ? <button type="button" className="rounded-lg border border-border px-2 py-1 text-[9px] font-semibold text-text-muted hover:bg-primary-50">{action}</button> : null}</div>{children}</section>;
+}
+
+const utilityTone = { up: 'bg-emerald-50 text-emerald-700', down: 'bg-rose-50 text-rose-700', info: 'bg-sky-50 text-sky-700' };
+function UtilityRow({ title, detail, time, tone }: { title: string; detail: string; time: string; tone: keyof typeof utilityTone }) {
+  const ToneIcon = tone === 'up' ? TrendingUp : tone === 'down' ? TrendingDown : Info;
+  return <div className="flex items-start gap-2 border-t border-border py-2 first:border-t-0"><span className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full ${utilityTone[tone]}`}><ToneIcon className="h-3.5 w-3.5" /></span><div className="min-w-0 flex-1"><p className="truncate text-[10px] font-semibold text-text-main">{title}</p><p className="text-[9px] text-text-muted">{detail}</p></div><time className="shrink-0 text-[8px] text-text-muted">{time}</time></div>;
+}
 
 function BulkRateDialog({ competitors, competitorId, startDate, endDate, rate, pending, onCompetitor, onStart, onEnd, onRate, onClose, onSave }: { competitors: Competitor[]; competitorId: string; startDate: string; endDate: string; rate: string; pending: boolean; onCompetitor: (value: string) => void; onStart: (value: string) => void; onEnd: (value: string) => void; onRate: (value: string) => void; onClose: () => void; onSave: () => void }) {
   useEffect(() => {

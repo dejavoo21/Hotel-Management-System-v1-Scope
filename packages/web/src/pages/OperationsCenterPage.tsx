@@ -188,6 +188,8 @@ export default function OperationsCenterPage() {
     />
   ) : focus === "tasks" ? (
     <TasksHeader updatedAt={updatedAt} refreshButton={refreshButton} />
+  ) : focus === "market-intelligence" ? (
+    <MarketIntelligenceHeader updatedAt={updatedAt} refreshButton={refreshButton} />
   ) : (
     <CollaborationHeader
       workspace="operations"
@@ -1038,6 +1040,49 @@ function RevenueHeader({
             Last updated{" "}
             {updatedAt ? updatedAt.toLocaleString() : "awaiting live context"}
           </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 self-start">
+        <Link
+          to="/operations-center"
+          className="inline-flex min-h-9 items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-100 hover:bg-emerald-100"
+        >
+          <span className="h-2 w-2 rounded-full bg-emerald-600" />
+          Operations workspace
+        </Link>
+        {refreshButton}
+      </div>
+    </header>
+  );
+}
+function MarketIntelligenceHeader({
+  updatedAt,
+  refreshButton,
+}: {
+  updatedAt: Date | null;
+  refreshButton: React.ReactNode;
+}) {
+  return (
+    <header className="flex flex-col gap-4 px-1 py-1 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex items-start gap-3">
+        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
+          <Activity className="h-6 w-6" />
+        </span>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            Operations / Operations Center
+          </p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-text-main">
+            Market Intelligence
+          </h1>
+          <p className="mt-1 text-sm text-text-muted">
+            Manage competitor context and market-rate inputs to drive smarter pricing.
+          </p>
+          {updatedAt ? (
+            <p className="mt-1.5 text-xs text-text-muted">
+              Last updated {updatedAt.toLocaleString()}
+            </p>
+          ) : null}
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 self-start">

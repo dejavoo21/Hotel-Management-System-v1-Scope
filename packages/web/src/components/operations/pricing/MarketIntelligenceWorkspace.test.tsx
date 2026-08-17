@@ -119,6 +119,8 @@ describe("MarketIntelligenceWorkspace", () => {
     expect(screen.getByText("Pricing Intelligence")).toBeInTheDocument();
     expect(screen.getByText("Market Signal Health")).toBeInTheDocument();
     expect(screen.getByText("Revenue Guidance (14 nights)")).toBeInTheDocument();
+    expect(screen.getByText("Competitor Alerts")).toBeInTheDocument();
+    expect(screen.getByText("Market Notes")).toBeInTheDocument();
     expect(screen.getAllByText("68%").length).toBeGreaterThan(0);
     expect(screen.getByText("3 samples")).toBeInTheDocument();
     expect(screen.getByText("No market data")).toBeInTheDocument();
