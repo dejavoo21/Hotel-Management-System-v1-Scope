@@ -40,6 +40,7 @@ describe('AppChatbot', () => {
     expect(launcher.parentElement).toHaveClass('sm:bottom-3');
 
     fireEvent.click(launcher);
+    expect(screen.getByRole('dialog', { name: 'LaFlo Assistant' })).toHaveClass('max-h-[calc(100dvh-1.5rem)]');
     expect(screen.getByPlaceholderText('Ask anything about LaFlo…')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Close assistant' }));

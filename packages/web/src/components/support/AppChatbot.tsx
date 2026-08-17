@@ -357,8 +357,8 @@ export default function AppChatbot() {
   return (
     <div className='fixed bottom-2 right-4 z-[80] sm:bottom-3 sm:right-6'>
       {open ? (
-        <section role='dialog' aria-label='LaFlo Assistant' className='flex h-[min(680px,calc(100vh-1.5rem))] w-[min(430px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl'>
-          <header className='flex items-center justify-between gap-3 bg-gradient-to-r from-primary-800 to-primary-600 px-4 py-3 text-primary-contrast'>
+        <section role='dialog' aria-label='LaFlo Assistant' className='flex h-[min(680px,calc(100dvh-1.5rem))] max-h-[calc(100dvh-1.5rem)] w-[min(430px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl'>
+          <header className='flex shrink-0 items-center justify-between gap-3 bg-gradient-to-r from-primary-800 to-primary-600 px-4 py-3 text-primary-contrast'>
             <div className='flex min-w-0 items-center gap-3'>
               <span className='h-10 w-10 shrink-0 overflow-hidden rounded-xl shadow-sm ring-1 ring-white/20'>
                 <img src='/assets/laflo-ai-agent-transparent.png' alt='LaFlo AI Agent' className='h-full w-full object-contain' />
@@ -380,13 +380,13 @@ export default function AppChatbot() {
               </button>
             </div>
           </header>
-          <div className='flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2'>
+          <div className='flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2'>
             <span className='truncate text-xs text-slate-500'>Current page: <strong className='font-medium text-slate-700'>{currentPage}</strong></span>
             <select value={mode} onChange={(event) => setMode(event.target.value as AssistantMode)} className='h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700' aria-label='Assistant mode'>
               {Object.entries(MODE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </div>
-          <div ref={listRef} className='flex-1 space-y-3 overflow-y-auto bg-slate-50/60 p-3' aria-live='polite'>
+          <div ref={listRef} className='min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-slate-50/60 p-3' aria-live='polite'>
             {messages.map((message) => (
               <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className='max-w-[88%]'>
@@ -474,7 +474,7 @@ export default function AppChatbot() {
               </div>
             ) : null}
           </div>
-          <div className='border-t border-slate-200 bg-white p-3'>
+          <div className='max-h-[42dvh] shrink-0 overflow-y-auto border-t border-slate-200 bg-white p-3'>
             <form onSubmit={(event) => { event.preventDefault(); void sendMessage(input); }}>
               <label htmlFor='laflo-assistant-input' className='sr-only'>Ask anything about LaFlo</label>
               <div className='flex items-center gap-2 rounded-xl border border-slate-300 bg-white p-1.5 focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-100'>
