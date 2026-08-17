@@ -809,6 +809,7 @@ export function unifiedAssistantStatus() {
     enabled: provider !== 'none',
     hasKey,
     live: provider !== 'none' && hasKey,
-    model: process.env.OPENAI_MODEL || 'gpt-4.1-nano',
+    model: process.env.OPENAI_MODEL || 'gpt-5-mini',
+    advancedModel: process.env.OPENAI_COMPLEX_MODEL || 'gpt-5',
   };
 }

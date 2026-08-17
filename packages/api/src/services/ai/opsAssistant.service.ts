@@ -1,4 +1,5 @@
 import { generateAIRecommendation } from '../../ai/ai.service.js';
+import { OPENAI_COMPLEX_MODEL, OPENAI_MODEL } from '../../config/openai.js';
 
 type OpsAssistantParams = {
   hotelId: string;
@@ -29,6 +30,14 @@ function buildInstructions(): string {
   ].join(' ');
 }
 
+const COMPLEX_REQUEST_PATTERN = /\b(analy[sz]e|analysis|investigat|root cause|executive briefing|recommendation|scenario|strategy|compare|trade-?off|forecast|why did|risk assessment|incident review|action plan)\b/i;
+
+export function selectOpsAssistantModel(message: string): string {
+  const normalized = String(message || '').trim();
+  const requiresDeepReasoning = normalized.length >= 350 || COMPLEX_REQUEST_PATTERN.test(normalized);
+  return requiresDeepReasoning ? OPENAI_COMPLEX_MODEL : OPENAI_MODEL;
+}
+
 export async function runOpsAssistant(params: OpsAssistantParams): Promise<string> {
   if (process.env.ASSISTANT_PROVIDER === 'none' || !process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not configured');
@@ -40,6 +49,7 @@ export async function runOpsAssistant(params: OpsAssistantParams): Promise<strin
     prompt: params.message,
     systemPrompt: buildInstructions(),
     context: params.context ?? null,
+    model: selectOpsAssistantModel(params.message),
   });
 
   return recommendation.content;
