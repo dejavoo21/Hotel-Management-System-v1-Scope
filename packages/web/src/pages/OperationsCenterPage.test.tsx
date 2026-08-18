@@ -296,7 +296,14 @@ describe("OperationsCenterPage", () => {
     expect(screen.getByRole("dialog", { name: "Front Desk Intelligence" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Close Front Desk Intelligence" }));
     fireEvent.click(screen.getByRole("button", { name: "View all activity" }));
-    expect(screen.getByRole("dialog", { name: "Recent Operational Activity" })).toBeInTheDocument();
+    const activityDrawer = screen.getByRole("dialog", { name: "Recent Operational Activity" });
+    expect(activityDrawer).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Activity module"), { target: { value: "Weather" } });
+    expect(within(activityDrawer).getByText("Forecast context is current")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Activity severity"), { target: { value: "CRITICAL" } });
+    expect(screen.getByText("No operational activity matches these filters.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getByLabelText("Activity module")).toHaveValue("ALL");
   });
 
   it("replaces duplicate chat with an operational briefing while preserving governance and intelligence", async () => {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -304,6 +304,7 @@ function CommandCenter({
 }) {
   const [departmentDetail, setDepartmentDetail] = useState<string | null>(null);
   const [showActivity, setShowActivity] = useState(false);
+  const [activityFilters, setActivityFilters] = useState({ module: "ALL", severity: "ALL", department: "ALL", range: "24H" });
   const privileged = role === "ADMIN" || role === "MANAGER";
   const canTasks = privileged || permissions.includes("bookings");
   const canRevenue = privileged || permissions.includes("financials");
@@ -322,6 +323,12 @@ function CommandCenter({
     (item) => item.severity === "CRITICAL" || item.severity === "HIGH",
   );
   const advisories = context?.advisories || [];
+  const activityItems = recentItems(briefing, context);
+  const filteredActivity = activityItems.filter((item) =>
+    (activityFilters.module === "ALL" || item.module === activityFilters.module) &&
+    (activityFilters.severity === "ALL" || item.severity === activityFilters.severity) &&
+    (activityFilters.department === "ALL" || item.department === activityFilters.department),
+  );
   const demand = context?.pricingSignal?.demandTrend || "flat";
   const forecastFresh = Boolean(context?.weather?.isFresh);
   const operationalFocus: Array<{
@@ -667,16 +674,19 @@ function CommandCenter({
           <DetailRow label="Top risk" value={risks.find((item) => item.department?.includes(departmentDetail.toUpperCase().replace(" ", "_")))?.title || "No active risks."} />
           <DetailRow label="Recommended action" value={briefing?.recommendedActions[0]?.title || "No recommended actions."} />
           <Link className="btn-primary mt-4 inline-flex" to="/operations/tasks-advisories">Open related tasks</Link>
-          {canGovernance ? <Link className="btn-outline ml-2 mt-4 inline-flex" to="/operations/ai-governance#ai-recommendation-governance">AI Governance</Link> : null}
+          {canGovernance ? <Link className="btn-outline ml-2 mt-4 inline-flex" to={`/operations/ai-governance?department=${encodeURIComponent(departmentDetail)}#ai-recommendation-governance`}>AI Governance</Link> : null}
         </DetailDrawer>
       ) : null}
       {showActivity ? (
         <DetailDrawer title="Recent Operational Activity" onClose={() => setShowActivity(false)}>
           <div className="mb-4 grid gap-2 sm:grid-cols-2">
-            {['Module', 'Severity', 'Department', 'Date range'].map((label) => <button key={label} type="button" className="btn-outline justify-between">{label}: All</button>)}
+            <ActivityFilter label="Module" value={activityFilters.module} options={["ALL", ...new Set(activityItems.map((item) => item.module))]} onChange={(module) => setActivityFilters((current) => ({ ...current, module }))} />
+            <ActivityFilter label="Severity" value={activityFilters.severity} options={["ALL", "INFO", "WARNING", "CRITICAL"]} onChange={(severity) => setActivityFilters((current) => ({ ...current, severity }))} />
+            <ActivityFilter label="Department" value={activityFilters.department} options={["ALL", ...new Set(activityItems.map((item) => item.department))]} onChange={(department) => setActivityFilters((current) => ({ ...current, department }))} />
+            <ActivityFilter label="Date range" value={activityFilters.range} options={["24H", "7D"]} onChange={(range) => setActivityFilters((current) => ({ ...current, range }))} />
           </div>
-          <div className="divide-y divide-border">{recentItems(briefing, context).map((item, index) => <div key={`${item.title}-${index}`} className="py-3"><p className="text-sm font-semibold text-text-main">{item.title}</p><p className="mt-1 text-xs text-text-muted">{item.actor} · {item.detail}</p></div>)}</div>
-          {!recentItems(briefing, context).length ? <p className="text-sm text-text-muted">No recent operational activity.</p> : null}
+          <div className="divide-y divide-border">{filteredActivity.map((item, index) => <Link to={item.href} key={`${item.title}-${index}`} className="block py-3 hover:text-primary-700"><p className="text-sm font-semibold text-text-main">{item.title}</p><p className="mt-1 text-xs text-text-muted">{item.actor} · {item.department} · {item.severity}</p></Link>)}</div>
+          {!filteredActivity.length ? <div className="rounded-xl border border-dashed border-border p-5 text-center"><p className="text-sm font-semibold text-text-main">No operational activity matches these filters.</p><button type="button" className="btn-outline mt-3" onClick={() => setActivityFilters({ module: "ALL", severity: "ALL", department: "ALL", range: "24H" })}>Clear filters</button></div> : null}
         </DetailDrawer>
       ) : null}
       {briefingError ? <span className="sr-only">Operations advisory service is not connected.</span> : null}
@@ -1437,6 +1447,10 @@ function recentItems(briefing?: DailyGMBriefing, context?: OperationsContext) {
         actor: "AI",
         title: item.title,
         detail: item.department || "Operations",
+        module: "AI",
+        severity: "INFO",
+        department: item.department || "Operations",
+        href: "/operations/ai-governance",
       })) || [];
   const risk = briefing?.operationalRisks[0]
     ? [
@@ -1444,6 +1458,10 @@ function recentItems(briefing?: DailyGMBriefing, context?: OperationsContext) {
           actor: "AI",
           title: briefing.operationalRisks[0].title,
           detail: briefing.operationalRisks[0].department || "Risk",
+          module: "AI",
+          severity: briefing.operationalRisks[0].severity === "CRITICAL" ? "CRITICAL" : "WARNING",
+          department: briefing.operationalRisks[0].department || "Operations",
+          href: "/operations/tasks-advisories?view=risks",
         },
       ]
     : [];
@@ -1456,9 +1474,16 @@ function recentItems(briefing?: DailyGMBriefing, context?: OperationsContext) {
         ? "Forecast context is current"
         : "Forecast refresh recommended",
       detail: "Weather",
+      module: "Weather",
+      severity: context?.weather?.isFresh ? "INFO" : "WARNING",
+      department: "Operations",
+      href: "/operations/operational-intelligence/weather-forecast",
     },
   ];
   return result.slice(0, 3);
+}
+function ActivityFilter({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+  return <label className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">{label}<select aria-label={`Activity ${label.toLowerCase()}`} value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 block w-full rounded-xl border border-border bg-card px-3 py-2 text-xs font-medium normal-case text-text-main">{options.map((option) => <option key={option} value={option}>{option === "ALL" ? "All" : option === "24H" ? "Last 24 hours" : option === "7D" ? "Last 7 days" : option.replace(/_/g, " ")}</option>)}</select></label>;
 }
 function Metric({ label, value, warning = false }: { label: string; value: string | number; warning?: boolean }) {
   return (
@@ -1472,6 +1497,11 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   return <div className="mt-4 rounded-xl border border-border bg-bg/50 p-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">{label}</p><p className="mt-1 text-sm font-medium text-text-main">{value}</p></div>;
 }
 function DetailDrawer({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => event.key === "Escape" && onClose();
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
   return (
     <div className="fixed inset-0 z-[90] flex justify-end bg-slate-950/25" role="presentation" onMouseDown={(event) => event.currentTarget === event.target && onClose()}>
       <aside role="dialog" aria-modal="true" aria-label={title} className="h-full w-full max-w-md overflow-y-auto border-l border-border bg-card p-5 shadow-2xl">
