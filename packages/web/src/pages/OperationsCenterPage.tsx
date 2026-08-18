@@ -761,7 +761,11 @@ function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
       tone: "text-amber-600",
     },
   ];
-  const focusGovernance = () => document.getElementById("ai-recommendation-governance")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const focusGovernance = (detail: { status?: "PENDING"; priority?: string; department?: string; recommendationId?: string } = { status: "PENDING" }) => {
+    window.dispatchEvent(new CustomEvent("laflo:governance-filter", { detail }));
+    const queue = document.getElementById("ai-recommendation-governance");
+    if (typeof queue?.scrollIntoView === "function") queue.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
   return (
     <div className="space-y-3 pb-20">
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -770,7 +774,7 @@ function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
           label="Pending Recommendations"
           value={pending.length}
           detail="Governance review queue"
-          onClick={focusGovernance}
+          onClick={() => focusGovernance({ status: "PENDING" })}
         />
         <AIStat
           icon={AlertTriangle}
@@ -778,7 +782,7 @@ function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
           value={highPriority}
           detail="Needs attention"
           semantic="risk"
-          onClick={focusGovernance}
+          onClick={() => focusGovernance({ status: "PENDING", priority: "HIGH_OR_CRITICAL" })}
         />
         <AIStat
           icon={Activity}
@@ -816,10 +820,10 @@ function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
             }}
           />
           <div id="ai-recommendation-governance" className="scroll-mt-24">
-            <AIRecommendationGovernancePanel compact />
+            <AIRecommendationGovernancePanel />
           </div>
         </div>
-        <aside className="space-y-3 xl:pr-[60px]">
+        <aside className="space-y-3 pb-24">
           <ContextPreview context={context} />
           <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
             <div className="border-b border-border px-4 py-3">
@@ -835,7 +839,7 @@ function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
                 <button
                   type="button"
                   key={item.name}
-                  onClick={() => setConciergeDetail({ title: `${item.name} Intelligence`, body: <div className="space-y-3"><DetailRow label="Current signal" value={`${item.value} ${item.unit}`} /><DetailRow label="Status" value={String(item.status)} /><DetailRow label="Top priority" value={pending.find((recommendation) => recommendation.department.toLowerCase().includes(item.name.toLowerCase().replace(" ", "_")))?.title || "No intelligence available for this department."} /><DetailRow label="Related recommendations" value={String(pending.filter((recommendation) => recommendation.department.toLowerCase().includes(item.name.toLowerCase().replace(" ", "_"))).length)} /></div> })}
+                  onClick={() => focusGovernance({ status: "PENDING", department: item.name })}
                   className="border-b border-r border-border p-4 text-left transition-colors hover:bg-primary-50 even:border-r-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-400"
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -870,7 +874,7 @@ function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
             </div>
             <div className="mt-3 divide-y divide-border">
               {pending.slice(0, 4).map((item) => (
-                <button type="button" key={item.id} onClick={() => setConciergeDetail({ title: item.title, body: <div className="space-y-3"><p className="text-sm leading-6 text-text-main">{item.description}</p><DetailRow label="Department" value={item.department} /><DetailRow label="Priority" value={item.priority} /><DetailRow label="Generated" value={new Date(item.createdAt).toLocaleString()} /><DetailRow label="Rationale" value={item.rationale} /></div> })} className="block w-full py-3 text-left hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400">
+                <button type="button" key={item.id} onClick={() => focusGovernance({ status: "PENDING", recommendationId: item.id })} className="block w-full py-3 text-left hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400">
                   <p className="text-xs font-semibold text-text-main">
                     {item.title}
                   </p>

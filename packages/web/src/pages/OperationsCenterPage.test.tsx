@@ -301,7 +301,9 @@ describe("OperationsCenterPage", () => {
 
   it("replaces duplicate chat with an operational briefing while preserving governance and intelligence", async () => {
     const openAssistant = vi.fn();
+    const governanceFilter = vi.fn();
     window.addEventListener("laflo:open-assistant", openAssistant);
+    window.addEventListener("laflo:governance-filter", governanceFilter);
     renderPage("/operations-center/ai");
     expect(await screen.findByRole("heading", { name: "AI Governance" })).toBeInTheDocument();
     expect(
@@ -324,8 +326,8 @@ describe("OperationsCenterPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close Weather" }));
 
     fireEvent.click(screen.getByRole("button", { name: /Front Desk Live/i }));
-    expect(screen.getByRole("dialog", { name: "Front Desk Intelligence" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Close Front Desk Intelligence" }));
+    expect(governanceFilter).toHaveBeenCalledTimes(1);
+    expect((governanceFilter.mock.calls[0][0] as CustomEvent).detail).toMatchObject({ status: "PENDING", department: "Front Desk" });
 
     fireEvent.click(
       screen.getByRole("button", { name: "Ask LaFlo for details" }),
@@ -340,6 +342,7 @@ describe("OperationsCenterPage", () => {
       expect(serviceMocks.getBriefing).toHaveBeenCalledTimes(2),
     );
     window.removeEventListener("laflo:open-assistant", openAssistant);
+    window.removeEventListener("laflo:governance-filter", governanceFilter);
   });
 
   it("renders the executive revenue guidance workspace with a compact filterable night preview", async () => {
@@ -634,5 +637,25 @@ describe("OperationsCenterPage", () => {
     expect(
       screen.getByRole("link", { name: "Open Integration Manager" }),
     ).toHaveAttribute("href", "/settings?tab=integrations");
+  });
+
+  it("offers recovery actions when recent activity is empty", async () => {
+    serviceMocks.listTimeline.mockResolvedValue({
+      events: [],
+      filters: { modules: [], severities: [], departments: [] },
+    });
+    renderPage("/operations-center/tasks");
+    expect(
+      await screen.findByText("No recent activity matches these filters"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Clear filters" })).not.toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Refresh activity" }));
+    await waitFor(() => expect(serviceMocks.listTimeline).toHaveBeenCalledTimes(2));
+    fireEvent.click(
+      screen.getByRole("button", { name: "View system / technical activity" }),
+    );
+    expect(screen.getByLabelText("Activity module")).toHaveValue(
+      "SYSTEM_TECHNICAL",
+    );
   });
 });
