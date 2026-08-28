@@ -94,9 +94,10 @@ export const SidebarFlyout = memo(function SidebarFlyout({
   }
 
   const isHrefActive = (href: string): boolean => {
-    if (href === '/') return location.pathname === '/';
-    if (href === '/operations-center') return location.pathname === '/operations-center';
-    return location.pathname === href || location.pathname.startsWith(`${href}/`);
+    const pathname = href.split('?')[0];
+    if (pathname === '/') return location.pathname === '/';
+    if (pathname === '/operations-center') return location.pathname === '/operations-center';
+    return location.pathname === pathname || location.pathname.startsWith(`${pathname}/`);
   };
 
   const isItemActive = (item: NavItem): boolean => {

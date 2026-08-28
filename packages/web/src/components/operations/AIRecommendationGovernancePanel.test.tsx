@@ -60,4 +60,19 @@ describe('AIRecommendationGovernancePanel', () => {
     fireEvent.click(within(expiry).getByRole('button', { name: 'Expire recommendation' }));
     await waitFor(() => expect(mocks.expire).toHaveBeenCalledWith('rec-1'));
   });
+
+  it('reviews the prefilled governed task before creating it', async () => {
+    mocks.list.mockImplementation((status: string) => Promise.resolve(status === 'APPROVED' ? [{ ...recommendation, status: 'APPROVED' }] : []));
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: 'Approved' }));
+    await screen.findByText('Assign overdue tasks');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create task' }));
+    expect(mocks.createTask).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('dialog', { name: 'Create task from recommendation' });
+    expect(dialog).toHaveTextContent('Assign operational owners.');
+    expect(dialog).toHaveTextContent('SECURITY');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create task' }));
+    await waitFor(() => expect(mocks.createTask).toHaveBeenCalledWith('rec-1'));
+  });
 });

@@ -17,6 +17,7 @@ const serviceMocks = vi.hoisted(() => ({
   listRecommendations: vi.fn(),
   syncWeather: vi.fn(),
   createWeatherTask: vi.fn(),
+  createPricingTask: vi.fn(),
   createAdvisoryTask: vi.fn(),
   listTimeline: vi.fn(),
 }));
@@ -39,6 +40,7 @@ vi.mock("@/services/operations", async (importOriginal) => {
     operationsService: {
       ...original.operationsService,
       createTicketFromWeatherAction: serviceMocks.createWeatherTask,
+      createTicketFromPricingAction: serviceMocks.createPricingTask,
     },
   };
 });
@@ -181,7 +183,7 @@ const briefing = {
   source: "RULES",
 };
 
-const renderPage = (route = "/operations-center") => {
+const renderPage = (route: string | { pathname: string; state: Record<string, unknown> } = "/operations-center") => {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -228,6 +230,13 @@ describe("OperationsCenterPage", () => {
       department: "MAINTENANCE",
       priority: "LOW",
       conversationId: "conversation-1",
+    });
+    serviceMocks.createPricingTask.mockResolvedValue({
+      ticketId: "task-pricing-1",
+      status: "OPEN",
+      department: "MANAGEMENT",
+      conversationId: "conversation-pricing-1",
+      deduped: false,
     });
     serviceMocks.createAdvisoryTask.mockResolvedValue({
       ticketId: "task-advisory-1",
@@ -384,6 +393,13 @@ describe("OperationsCenterPage", () => {
     expect(screen.getByText("Sat, Aug 15")).toBeInTheDocument();
     expect(screen.getByText("Sun, Aug 16")).toBeInTheDocument();
     expect(screen.queryByText("Mon, Aug 17")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Create task" })[0]);
+    expect(serviceMocks.createPricingTask).not.toHaveBeenCalled();
+    const taskDialog = screen.getByRole("dialog", { name: "Create pricing task" });
+    expect(taskDialog).toHaveTextContent("Management");
+    fireEvent.click(within(taskDialog).getByRole("button", { name: "Create task" }));
+    await waitFor(() => expect(serviceMocks.createPricingTask).toHaveBeenCalled());
   });
 
   it("renders Market Intelligence as a dedicated pricing decision workspace", async () => {
@@ -620,6 +636,32 @@ describe("OperationsCenterPage", () => {
       screen.queryByText("Proceed with standard operations plan"),
     ).not.toBeInTheDocument();
     window.removeEventListener("laflo:open-assistant", openAssistant);
+  });
+
+  it("opens a prefilled task workflow from Enterprise Search route context", async () => {
+    renderPage({
+      pathname: "/operations/tasks-advisories",
+      state: {
+        requestedAction: "create",
+        sourceSearchResult: {
+          id: "incident-214",
+          title: "Investigate Room 214 leak",
+          summary: "A maintenance record and sensor alert indicate an active water leak.",
+          category: "MAINTENANCE",
+          sourceModule: "SMART_BUILDING",
+          severity: "HIGH",
+        },
+      },
+    });
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Create task from advisory",
+    });
+    expect(within(dialog).getByDisplayValue("Investigate Room 214 leak")).toBeInTheDocument();
+    expect(within(dialog).getByDisplayValue(/maintenance record and sensor alert/i)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Department")).toHaveValue("MAINTENANCE");
+    expect(within(dialog).getByLabelText("Priority")).toHaveValue("high");
+    expect(dialog).toHaveTextContent("ENTERPRISE_SEARCH");
   });
 
   it("shows an honest blocked state when the task service is unavailable", async () => {

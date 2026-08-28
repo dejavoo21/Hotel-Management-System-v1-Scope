@@ -1,6 +1,7 @@
 .git
 .github
 .artifacts
+.portfolio-agent
 .deploy
 .env
 node_modules
@@ -23,6 +24,8 @@ Sample ICONS
 Sample Rooms
 test-screenshots
 tests
+400
+{console.error*
 Transcripts
 ui-prototype
 weather architecture

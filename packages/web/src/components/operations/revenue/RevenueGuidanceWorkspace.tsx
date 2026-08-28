@@ -27,6 +27,7 @@ import {
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { operationsService, type OperationsContext } from '@/services/operations';
 import { useAuthStore } from '@/stores/authStore';
+import PricingTaskDialog from '@/components/operations/pricing/PricingTaskDialog';
 
 type NightFilter = 'all' | 'priority' | 'weekend' | 'next7';
 type PricingNight = NonNullable<OperationsContext['pricingCalendar']>[number];
@@ -65,15 +66,16 @@ export default function RevenueGuidanceWorkspace({ context }: { context?: Operat
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const [detail, setDetail] = useState<DetailView>(null);
   const [taskUnavailable, setTaskUnavailable] = useState(false);
+  const [taskDraft, setTaskDraft] = useState<PricingNight | null>(null);
   const privileged = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const canCreateTask = privileged || Boolean(user?.modulePermissions?.includes('bookings'));
   const canExport = privileged || Boolean(user?.modulePermissions?.includes('financials'));
   useEffect(() => {
-    if (!detail) return undefined;
-    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setDetail(null); };
+    if (!detail && !taskDraft) return undefined;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setDetail(null); setTaskDraft(null); } };
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [detail]);
+  }, [detail, taskDraft]);
   const nights = useMemo(() => (context?.pricingCalendar || []).slice(0, 14), [context?.pricingCalendar]);
   const signal = context?.pricingSignal;
   const adjustment = signal?.opportunityPct ?? nights[0]?.suggestedAdjustmentPct ?? -7;
@@ -110,7 +112,7 @@ export default function RevenueGuidanceWorkspace({ context }: { context?: Operat
         marketCoveragePct: marketCoverage,
       },
     }),
-    onSuccess: (data) => toast.success(data.deduped ? 'Pricing task already exists' : 'Pricing task created'),
+    onSuccess: (data) => { setTaskDraft(null); toast.success(data.deduped ? 'Pricing task already exists' : 'Pricing task created'); },
     onError: (error) => {
       const message = (error as any)?.response?.data?.error || (error as Error)?.message || 'Unable to create the pricing task';
       if (/not connected|unavailable|service/i.test(message)) setTaskUnavailable(true);
@@ -123,7 +125,7 @@ export default function RevenueGuidanceWorkspace({ context }: { context?: Operat
   const createPricingTask = (night: PricingNight) => {
     if (!canCreateTask) { toast.error('Permission required'); return; }
     if (taskUnavailable) { toast.error('Task service is not connected. Connect task service to create pricing tasks.'); return; }
-    createTask.mutate(night);
+    setTaskDraft(night);
   };
   const exportRecommendations = () => {
     if (!canExport) { toast.error('Permission required'); return; }
@@ -147,7 +149,7 @@ export default function RevenueGuidanceWorkspace({ context }: { context?: Operat
         <main className="min-w-0 space-y-4">
           <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-slate-900 text-white"><Sparkles className="h-4 w-4" /></span>
+              <span className="grid h-8 w-8 place-items-center rounded-xl bg-primary-solid text-primary-contrast"><Sparkles className="h-4 w-4" /></span>
               <div><h2 className="font-semibold text-text-main">Actionable Focus</h2><p className="text-xs text-text-muted">The most important revenue decisions to review now.</p></div>
             </div>
             <div className="grid gap-3 lg:grid-cols-3">
@@ -180,15 +182,15 @@ export default function RevenueGuidanceWorkspace({ context }: { context?: Operat
             <div className="border-b border-border p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div><div className="flex items-center gap-2"><CalendarDays className="h-5 w-5 text-emerald-700" /><h2 className="font-semibold text-text-main">Revenue Guidance (14 nights)</h2></div><p className="mt-1 text-xs text-text-muted">A focused preview of per-night recommendations and confidence.</p></div>
-                <span className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">{model}</span>
+                <span className="rounded-full bg-bg px-2.5 py-1 text-xs font-semibold text-text-main ring-1 ring-border">{model}</span>
               </div>
               <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-semibold text-text-muted"><MetaBadge>Market coverage: {marketCoverage}%</MetaBadge><MetaBadge>Updated: {metaUpdated ? new Date(metaUpdated).toLocaleString() : 'Awaiting refresh'}</MetaBadge><MetaBadge>Source: {source}</MetaBadge></div>
               <div className="mt-4 flex flex-wrap gap-2" role="tablist" aria-label="Revenue guidance filters">
-                {filters.map((item) => <button key={item.id} type="button" role="tab" aria-selected={filter === item.id} onClick={() => { setFilter(item.id); setShowAllNights(false); }} className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${filter === item.id ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100'}`}>{item.label}</button>)}
+                {filters.map((item) => <button key={item.id} type="button" role="tab" aria-selected={filter === item.id} onClick={() => { setFilter(item.id); setShowAllNights(false); }} className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${filter === item.id ? 'bg-primary-solid text-primary-contrast' : 'bg-bg text-text-muted ring-1 ring-border hover:bg-border/50'}`}>{item.label}</button>)}
               </div>
             </div>
 
-            <div className="hidden grid-cols-[1.25fr_.9fr_1fr_.9fr_.7fr_150px] gap-3 border-b border-border bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted md:grid"><span>Date / Night</span><span>Occupancy</span><span>Market data</span><span>Suggested adjustment</span><span>Confidence</span><span className="text-right">Action</span></div>
+            <div className="hidden grid-cols-[1.25fr_.9fr_1fr_.9fr_.7fr_150px] gap-3 border-b border-border bg-bg px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted md:grid"><span>Date / Night</span><span>Occupancy</span><span>Market data</span><span>Suggested adjustment</span><span>Confidence</span><span className="text-right">Action</span></div>
             <div className="divide-y divide-border">
               {visibleNights.slice(0, filter === 'all' && !showAllNights ? 7 : 14).map((night) => {
                 const occupancy = occupancyPercent(night.occupancyForecast);
@@ -197,15 +199,15 @@ export default function RevenueGuidanceWorkspace({ context }: { context?: Operat
                   <div className="grid gap-3 md:grid-cols-[1.25fr_.9fr_1fr_.9fr_.7fr_150px] md:items-center">
                     <div><p className="text-sm font-semibold text-text-main">{dateLabel(night.date)}</p><p className="text-[10px] text-text-muted">{night.date}</p></div>
                     <div><p className="text-sm font-semibold text-text-main">{occupancy}% occupancy</p><div className="mt-1.5 h-1.5 rounded-full bg-emerald-50"><div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${occupancy}%` }} /></div></div>
-                    <div><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${night.marketSamples ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{night.marketSamples ? `${night.marketSamples} samples` : 'No market data'}</span></div>
+                    <div><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${night.marketSamples ? 'bg-emerald-50 text-emerald-700' : 'bg-border/50 text-text-muted'}`}>{night.marketSamples ? `${night.marketSamples} samples` : 'No market data'}</span></div>
                     <div><span className="rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-200">{signedPercent(night.suggestedAdjustmentPct)}</span></div>
                     <div><span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold capitalize text-cyan-800 ring-1 ring-cyan-100">{night.confidence || 'low'}</span></div>
-                    <div className="flex justify-end gap-2"><button type="button" disabled={createTask.isPending || !canCreateTask || taskUnavailable} title={!canCreateTask ? 'Permission required' : taskUnavailable ? 'Task service is not connected' : undefined} onClick={() => createPricingTask(night)} className="min-h-9 rounded-xl border border-border bg-white px-3 text-xs font-semibold text-text-main hover:bg-slate-50 disabled:opacity-50">Create task</button><button type="button" aria-label={`${open ? 'Collapse' : 'Expand'} ${dateLabel(night.date)}`} onClick={() => setExpandedDate(open ? null : night.date)} className="grid h-9 w-9 place-items-center rounded-xl border border-border bg-white hover:bg-slate-50">{open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</button></div>
+                    <div className="flex justify-end gap-2"><button type="button" disabled={createTask.isPending || !canCreateTask || taskUnavailable} title={!canCreateTask ? 'Permission required' : taskUnavailable ? 'Task service is not connected' : undefined} onClick={() => createPricingTask(night)} className="min-h-9 rounded-xl border border-border bg-card px-3 text-xs font-semibold text-text-main hover:bg-bg disabled:opacity-50">Create task</button><button type="button" aria-label={`${open ? 'Collapse' : 'Expand'} ${dateLabel(night.date)}`} onClick={() => setExpandedDate(open ? null : night.date)} className="grid h-9 w-9 place-items-center rounded-xl border border-border bg-card hover:bg-bg">{open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</button></div>
                   </div>
-                  {open ? <div className="mt-3 grid gap-3 rounded-xl bg-slate-50 p-3 text-xs leading-5 text-text-muted sm:grid-cols-2"><p><strong className="text-text-main">Full rationale:</strong> {night.reasons?.join(' ') || 'Low occupancy and soft booking pace suggest a tactical pricing review.'}</p><div><p><strong className="text-text-main">Source:</strong> {source}</p><p><strong className="text-text-main">Market coverage:</strong> {night.marketSamples ? `${night.marketSamples} samples` : 'No market data'}</p><p><strong className="text-text-main">Next step:</strong> Review pricing with Revenue / Operations before applying.</p></div></div> : null}
+                  {open ? <div className="mt-3 grid gap-3 rounded-xl bg-bg p-3 text-xs leading-5 text-text-muted sm:grid-cols-2"><p><strong className="text-text-main">Full rationale:</strong> {night.reasons?.join(' ') || 'Low occupancy and soft booking pace suggest a tactical pricing review.'}</p><div><p><strong className="text-text-main">Source:</strong> {source}</p><p><strong className="text-text-main">Market coverage:</strong> {night.marketSamples ? `${night.marketSamples} samples` : 'No market data'}</p><p><strong className="text-text-main">Next step:</strong> Review pricing with Revenue / Operations before applying.</p></div></div> : null}
                 </div>;
               })}
-              {!visibleNights.length ? <div className="p-8 text-center"><CalendarDays className="mx-auto h-6 w-6 text-slate-400" /><p className="mt-2 text-sm font-semibold text-text-main">No nights match this view</p><p className="mt-1 text-xs text-text-muted">Choose another filter to review available guidance.</p></div> : null}
+              {!visibleNights.length ? <div className="p-8 text-center"><CalendarDays className="mx-auto h-6 w-6 text-text-muted" /><p className="mt-2 text-sm font-semibold text-text-main">No nights match this view</p><p className="mt-1 text-xs text-text-muted">Choose another filter to review available guidance.</p></div> : null}
             </div>
             {filter === 'all' && nights.length > 7 && !showAllNights ? <div className="border-t border-border p-3 text-center"><button type="button" onClick={() => setShowAllNights(true)} className="text-xs font-semibold text-primary-700">View remaining 7 nights <ArrowRight className="ml-1 inline h-3.5 w-3.5" /></button></div> : null}
           </section>
@@ -215,7 +217,7 @@ export default function RevenueGuidanceWorkspace({ context }: { context?: Operat
           <UtilityCard title="Quick Actions">
             <UtilityLink icon={ClipboardList} label="Open pricing task queue" detail="Review assigned actions" to="/operations-center/tasks" />
             <UtilityLink icon={Target} label="Review market coverage" detail={`${marketCoverage}% of nights covered`} to="/operations-center/market-intelligence" />
-            <button type="button" title={!canExport ? 'Permission required' : undefined} disabled={!canExport} onClick={exportRecommendations} className="flex w-full items-center gap-3 rounded-xl border border-border p-3 text-left hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"><span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-50 text-amber-700"><Download className="h-4 w-4" /></span><span><span className="block text-sm font-semibold text-text-main">Export recommendations</span><span className="block text-xs text-text-muted">Current {filters.find((item) => item.id === filter)?.label.toLowerCase()}</span></span><ArrowRight className="ml-auto h-4 w-4 text-text-muted" /></button>
+            <button type="button" title={!canExport ? 'Permission required' : undefined} disabled={!canExport} onClick={exportRecommendations} className="flex w-full items-center gap-3 rounded-xl border border-border p-3 text-left hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"><span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-50 text-amber-700"><Download className="h-4 w-4" /></span><span><span className="block text-sm font-semibold text-text-main">Export recommendations</span><span className="block text-xs text-text-muted">Current {filters.find((item) => item.id === filter)?.label.toLowerCase()}</span></span><ArrowRight className="ml-auto h-4 w-4 text-text-muted" /></button>
           </UtilityCard>
 
           <UtilityCard title="Operational Indicators">
@@ -227,7 +229,8 @@ export default function RevenueGuidanceWorkspace({ context }: { context?: Operat
           <section className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 shadow-sm"><div className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5 text-emerald-700" /><h2 className="font-semibold text-text-main">Data Health</h2></div><div className="mt-3 space-y-2 text-xs"><HealthRow label="Internal revenue signals" value={nights.length ? 'Operational' : 'Unavailable'} /><HealthRow label="Market data" value={marketCoverage ? 'Connected' : 'Not connected'} /><HealthRow label="Competitor rates" value={marketCoverage ? `${marketCoverage}% coverage` : 'Missing source'} /></div><p className="mt-3 text-xs leading-5 text-text-muted">{marketCoverage ? 'Revenue context is available. Review coverage gaps before changing rates.' : 'Connect competitor rates to strengthen pricing confidence.'}</p><Link to="/operations-center/market-intelligence" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">Configure sources <ArrowRight className="h-3.5 w-3.5" /></Link></section>
         </aside>
       </div>
-      {detail ? <div className="fixed inset-0 z-[90] flex justify-end bg-slate-950/35" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null); }}><section role="dialog" aria-modal="true" aria-label={detail.title} className="h-full w-full max-w-lg overflow-y-auto border-l border-border bg-card p-5 shadow-2xl"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Revenue Guidance</p><h2 className="mt-1 text-xl font-semibold text-text-main">{detail.title}</h2></div><button type="button" aria-label={`Close ${detail.title}`} onClick={() => setDetail(null)} className="grid h-9 w-9 place-items-center rounded-xl border border-border"><X className="h-4 w-4" /></button></div><div className="mt-5">{detail.body}</div></section></div> : null}
+      {detail ? <div className="fixed inset-0 z-[90] flex justify-end bg-text-main/35" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null); }}><section role="dialog" aria-modal="true" aria-label={detail.title} className="h-full w-full max-w-lg overflow-y-auto border-l border-border bg-card p-5 shadow-2xl"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Revenue Guidance</p><h2 className="mt-1 text-xl font-semibold text-text-main">{detail.title}</h2></div><button type="button" aria-label={`Close ${detail.title}`} onClick={() => setDetail(null)} className="grid h-9 w-9 place-items-center rounded-xl border border-border"><X className="h-4 w-4" /></button></div><div className="mt-5">{detail.body}</div></section></div> : null}
+      {taskDraft ? <PricingTaskDialog night={taskDraft} source={source} pending={createTask.isPending} onClose={() => setTaskDraft(null)} onConfirm={() => createTask.mutate(taskDraft)} /> : null}
     </div>
   );
 }
@@ -241,13 +244,13 @@ function SummaryCard({ icon: Icon, label, value, detail, badge, tone, onClick }:
 
 const focusTones = { amber: 'border-amber-100 bg-amber-50/60', blue: 'border-sky-100 bg-sky-50/60', rose: 'border-rose-100 bg-rose-50/60' };
 function FocusPanel({ eyebrow, title, detail, badge, tone, onClick }: { eyebrow: string; title: string; detail: string; badge: string; tone: keyof typeof focusTones; onClick: () => void }) {
-  return <button type="button" onClick={onClick} className={`flex min-h-36 flex-col rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${focusTones[tone]}`}><p className="text-[10px] font-bold uppercase tracking-wide text-text-muted">{eyebrow}</p><h3 className="mt-2 text-sm font-bold text-text-main">{title}</h3><p className="mt-1 flex-1 text-xs leading-5 text-text-muted">{detail}</p><span className="mt-3 self-end rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-bold text-text-muted ring-1 ring-black/5">{badge}</span></button>;
+  return <button type="button" onClick={onClick} className={`flex min-h-36 flex-col rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${focusTones[tone]}`}><p className="text-[10px] font-bold uppercase tracking-wide text-text-muted">{eyebrow}</p><h3 className="mt-2 text-sm font-bold text-text-main">{title}</h3><p className="mt-1 flex-1 text-xs leading-5 text-text-muted">{detail}</p><span className="mt-3 self-end rounded-full bg-card/80 px-2.5 py-1 text-[10px] font-bold text-text-muted ring-1 ring-black/5">{badge}</span></button>;
 }
 
 function Metric({ value, label }: { value: string; label: string }) { return <div><p className="text-lg font-bold text-text-main">{value}</p><p className="mt-1 text-[10px] text-text-muted">{label}</p></div>; }
 function MetaBadge({ children }: { children: React.ReactNode }) { return <span className="rounded-full bg-emerald-50 px-2.5 py-1 ring-1 ring-emerald-100">{children}</span>; }
-function EmptyChart() { return <div className="grid h-full place-items-center rounded-xl bg-slate-50 text-center"><div><LineChartIcon className="mx-auto h-6 w-6 text-slate-400" /><p className="mt-2 text-xs text-text-muted">Forecast data is being prepared</p></div></div>; }
+function EmptyChart() { return <div className="grid h-full place-items-center rounded-xl bg-bg text-center"><div><LineChartIcon className="mx-auto h-6 w-6 text-text-muted" /><p className="mt-2 text-xs text-text-muted">Forecast data is being prepared</p></div></div>; }
 function UtilityCard({ title, children }: { title: string; children: React.ReactNode }) { return <section className="rounded-2xl border border-border bg-card p-4 shadow-sm"><h2 className="font-semibold text-text-main">{title}</h2><div className="mt-3 space-y-2">{children}</div></section>; }
-function UtilityLink({ icon: Icon, label, detail, to }: { icon: typeof Activity; label: string; detail: string; to: string }) { return <Link to={to} className="flex items-center gap-3 rounded-xl border border-border p-3 hover:bg-slate-50"><span className="grid h-9 w-9 place-items-center rounded-xl bg-sky-50 text-sky-700"><Icon className="h-4 w-4" /></span><span className="min-w-0"><span className="block text-sm font-semibold text-text-main">{label}</span><span className="block truncate text-xs text-text-muted">{detail}</span></span><ArrowRight className="ml-auto h-4 w-4 text-text-muted" /></Link>; }
-function Indicator({ icon: Icon, label, value, status, to, onClick }: { icon: typeof Activity; label: string; value: string; status: string; to?: string; onClick?: () => void }) { const content = <><span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-50 text-emerald-700"><Icon className="h-4 w-4" /></span><span className="min-w-0"><span className="block text-xs font-semibold text-text-main">{label}</span><span className="block truncate text-xs text-text-muted">{value}</span><span className="block text-[9px] text-emerald-700">{status}</span></span><ShieldCheck className="ml-auto h-4 w-4 text-emerald-600" /></>; return to ? <Link to={to} className="flex items-center gap-3 rounded-xl border border-border p-3 hover:bg-slate-50">{content}</Link> : <button type="button" onClick={onClick} className="flex w-full items-center gap-3 rounded-xl border border-border p-3 text-left hover:bg-slate-50">{content}</button>; }
+function UtilityLink({ icon: Icon, label, detail, to }: { icon: typeof Activity; label: string; detail: string; to: string }) { return <Link to={to} className="flex items-center gap-3 rounded-xl border border-border p-3 hover:bg-bg"><span className="grid h-9 w-9 place-items-center rounded-xl bg-sky-50 text-sky-700"><Icon className="h-4 w-4" /></span><span className="min-w-0"><span className="block text-sm font-semibold text-text-main">{label}</span><span className="block truncate text-xs text-text-muted">{detail}</span></span><ArrowRight className="ml-auto h-4 w-4 text-text-muted" /></Link>; }
+function Indicator({ icon: Icon, label, value, status, to, onClick }: { icon: typeof Activity; label: string; value: string; status: string; to?: string; onClick?: () => void }) { const content = <><span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-50 text-emerald-700"><Icon className="h-4 w-4" /></span><span className="min-w-0"><span className="block text-xs font-semibold text-text-main">{label}</span><span className="block truncate text-xs text-text-muted">{value}</span><span className="block text-[9px] text-emerald-700">{status}</span></span><ShieldCheck className="ml-auto h-4 w-4 text-emerald-600" /></>; return to ? <Link to={to} className="flex items-center gap-3 rounded-xl border border-border p-3 hover:bg-bg">{content}</Link> : <button type="button" onClick={onClick} className="flex w-full items-center gap-3 rounded-xl border border-border p-3 text-left hover:bg-bg">{content}</button>; }
 function HealthRow({ label, value }: { label: string; value: string }) { return <div className="flex items-center justify-between gap-3"><span className="text-text-muted">{label}</span><strong className="text-text-main">{value}</strong></div>; }

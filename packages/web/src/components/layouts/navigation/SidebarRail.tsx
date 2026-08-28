@@ -82,9 +82,10 @@ export const SidebarRail = memo(function SidebarRail({
   // Check if current route is within a section
   const isRouteInSection = (section: NavSection): boolean => {
     return getSectionTargets(section).some(item => {
-      if (item.href === '/') return location.pathname === '/';
-      if (item.href === '/operations-center') return location.pathname === '/operations-center';
-      return location.pathname === item.href || location.pathname.startsWith(`${item.href}/`);
+      const pathname = item.href.split('?')[0];
+      if (pathname === '/') return location.pathname === '/';
+      if (pathname === '/operations-center') return location.pathname === '/operations-center';
+      return location.pathname === pathname || location.pathname.startsWith(`${pathname}/`);
     });
   };
 

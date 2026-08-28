@@ -71,7 +71,7 @@ const focusMeta: Record<
   tasks: {
     title: "Tasks & Advisories",
     description:
-      "Review operational actions, detailed advisories, and recent activity.",
+      "Use this page to convert operational advisories into tasks, assign owners, and track follow-up actions.",
   },
   "market-intelligence": {
     title: "Market Intelligence",
@@ -169,7 +169,7 @@ export default function OperationsCenterPage() {
           ? "Forecast refresh requires operations permission"
           : undefined
       }
-      className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-primary-solid px-4 py-2 text-sm font-semibold text-primary-contrast shadow-sm hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
       disabled={refreshWeatherMutation.isPending || !canRefreshForecast}
     >
       <RefreshCcw
@@ -1062,7 +1062,7 @@ function RevenueHeader({
           <Activity className="h-6 w-6" />
         </span>
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
             Operations / Operations Center
           </p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-text-main">
@@ -1105,7 +1105,7 @@ function MarketIntelligenceHeader({
           <Activity className="h-6 w-6" />
         </span>
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
             Operations / Operations Center
           </p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-text-main">
@@ -1206,7 +1206,7 @@ function StatusCard({
   const content = (
     <article className={`min-h-[116px] rounded-2xl border p-4 shadow-sm transition-transform ${restricted ? "cursor-not-allowed opacity-65" : "hover:-translate-y-0.5 hover:shadow-md"} ${toneClass[tone]}`}>
       <div className="flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/80">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-card/80">
           <Icon className="h-5 w-5" />
         </span>
         <div className="min-w-0">
@@ -1246,7 +1246,7 @@ function FocusCard({
       <div className="flex items-center gap-2">
         <Icon className="h-4 w-4" />
         <h3 className="text-sm font-semibold text-text-main">{title}</h3>
-        <span className="ml-auto rounded-full bg-white/80 px-2 py-0.5 text-xs font-bold">
+        <span className="ml-auto rounded-full bg-card/80 px-2 py-0.5 text-xs font-bold">
           {count}
         </span>
       </div>
@@ -1347,7 +1347,7 @@ function SummaryPanel({
     <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
       <div className="flex items-start gap-3">
         <span
-          className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${darkIcon ? "bg-slate-900 text-white" : "theme-kpi-icon"}`}
+          className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${darkIcon ? "bg-primary-solid text-primary-contrast" : "theme-kpi-icon"}`}
         >
           <Icon className="h-5 w-5" />
         </span>
@@ -1503,7 +1503,7 @@ function DetailDrawer({ title, onClose, children }: { title: string; onClose: ()
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [onClose]);
   return (
-    <div className="fixed inset-0 z-[90] flex justify-end bg-slate-950/25" role="presentation" onMouseDown={(event) => event.currentTarget === event.target && onClose()}>
+    <div className="fixed inset-0 z-[90] flex justify-end bg-text-main/25" role="presentation" onMouseDown={(event) => event.currentTarget === event.target && onClose()}>
       <aside role="dialog" aria-modal="true" aria-label={title} className="h-full w-full max-w-md overflow-y-auto border-l border-border bg-card p-5 shadow-2xl">
         <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-semibold text-text-main">{title}</h2><button type="button" className="btn-outline" onClick={onClose} aria-label={`Close ${title}`}>Close</button></div>
         <div className="mt-5">{children}</div>

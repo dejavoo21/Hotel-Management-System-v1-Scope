@@ -3,6 +3,7 @@ import {
   buildAmbiguousPlatformClarification,
   buildDashboardDeepDiveReply,
   buildDirectWeatherReply,
+  buildDirectTimezoneReply,
   catalogueGuideFor,
 } from './unifiedAssistant.service.js';
 
@@ -70,6 +71,38 @@ describe('buildDirectWeatherReply', () => {
 
   it('does not intercept unrelated platform questions', () => {
     expect(buildDirectWeatherReply('Explain the Rooms page', null)).toBeNull();
+  });
+});
+
+describe('buildDirectTimezoneReply', () => {
+  const summerDate = new Date('2026-08-18T12:00:00.000Z');
+
+  it('explains a browser BST label when the property is configured for GMT+2', () => {
+    const reply = buildDirectTimezoneReply(
+      'Why is the time zone showing BST when it is supposed to be GMT +2?',
+      { hotelProfile: { timezone: 'Africa/Johannesburg' } },
+      { timezone: 'Europe/London' },
+      summerDate
+    );
+    expect(reply).toContain('BST means British Summer Time and is GMT+1');
+    expect(reply).toContain('Africa/Johannesburg, which is currently GMT+2');
+    expect(reply).toContain('browser is reporting Europe/London (GMT+1)');
+    expect(reply).toContain('using the browser timezone instead of the hotel timezone');
+  });
+
+  it('explains that Europe/London legitimately uses BST in summer', () => {
+    const reply = buildDirectTimezoneReply(
+      'Why does local time say BST?',
+      { hotelProfile: { timezone: 'Europe/London' } },
+      { timezone: 'Europe/London' },
+      summerDate
+    );
+    expect(reply).toContain('Europe/London correctly displays BST during the UK summer');
+    expect(reply).toContain('correct GMT+2 region');
+  });
+
+  it('does not intercept unrelated questions', () => {
+    expect(buildDirectTimezoneReply('How do I approve this recommendation?', null, null, summerDate)).toBeNull();
   });
 });
 

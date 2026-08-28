@@ -234,16 +234,25 @@ export default function App() {
         <Route path="operations-center/tasks" element={<Navigate to="/operations/tasks-advisories" replace />} />
         <Route path="operations-center/market-intelligence" element={<Navigate to="/operations/operational-intelligence/market-intelligence" replace />} />
         <Route path="incidents" element={<ModuleRoute requiredModule="incident_management"><IncidentCenterPage /></ModuleRoute>} />
+        <Route path="incidents/active" element={<Navigate to="/incidents?tab=active" replace />} />
+        <Route path="incidents/critical" element={<Navigate to="/incidents?tab=critical" replace />} />
+        <Route path="incidents/assigned-to-me" element={<Navigate to="/incidents?tab=assigned-to-me" replace />} />
+        <Route path="incidents/resolved" element={<Navigate to="/incidents?tab=resolved" replace />} />
+        <Route path="incidents/closed" element={<Navigate to="/incidents?tab=closed" replace />} />
         <Route path="security-center" element={<ModuleRoute requiredModule="security_center"><SecurityCenterPage /></ModuleRoute>} />
         <Route path="security-center/:tab" element={<ModuleRoute requiredModule="security_center"><SecurityCenterPage /></ModuleRoute>} />
-        <Route path="operations/security/cctv" element={<Navigate to="/security-center/cctv" replace />} />
-        <Route path="operations/security/access-logs" element={<Navigate to="/security-center/access-logs" replace />} />
-        <Route path="operations/security/visitors" element={<Navigate to="/security-center/visitors" replace />} />
-        <Route path="operations/security/alerts" element={<Navigate to="/security-center/alerts" replace />} />
+        <Route path="operations/security/cctv" element={<Navigate to="/security-center?tab=cctv" replace />} />
+        <Route path="operations/security/access-logs" element={<Navigate to="/security-center?tab=access-logs" replace />} />
+        <Route path="operations/security/visitors" element={<Navigate to="/security-center?tab=visitors" replace />} />
+        <Route path="operations/security/alerts" element={<Navigate to="/security-center?tab=alerts" replace />} />
         <Route path="operations/smart-building" element={<ModuleRoute requiredModule="smart_building"><SmartBuildingPage /></ModuleRoute>} />
         <Route path="smart-building" element={<Navigate to="/operations/smart-building" replace />} />
-        <Route path="operations/smart-building/doors" element={<ModuleRoute requiredModule="smart_building"><SmartBuildingPage /></ModuleRoute>} />
-        <Route path="operations/smart-building/sensors" element={<ModuleRoute requiredModule="smart_building"><SmartBuildingPage /></ModuleRoute>} />
+        <Route path="smart-building/doors" element={<Navigate to="/operations/smart-building?tab=doors" replace />} />
+        <Route path="smart-building/sensors" element={<Navigate to="/operations/smart-building?tab=sensors" replace />} />
+        <Route path="smart-building/devices" element={<Navigate to="/operations/smart-building?tab=devices" replace />} />
+        <Route path="operations/smart-building/doors" element={<Navigate to="/operations/smart-building?tab=doors" replace />} />
+        <Route path="operations/smart-building/sensors" element={<Navigate to="/operations/smart-building?tab=sensors" replace />} />
+        <Route path="operations/smart-building/devices" element={<Navigate to="/operations/smart-building?tab=devices" replace />} />
         <Route path="operations/smart-building/energy" element={<ModuleRoute requiredModule="smart_building"><SmartBuildingPage /></ModuleRoute>} />
         <Route path="operations/smart-building/hvac" element={<ModuleRoute requiredModule="smart_building"><SmartBuildingPage /></ModuleRoute>} />
         <Route path="operations/smart-building/assets" element={<ModuleRoute requiredModule="smart_building"><SmartBuildingPage /></ModuleRoute>} />

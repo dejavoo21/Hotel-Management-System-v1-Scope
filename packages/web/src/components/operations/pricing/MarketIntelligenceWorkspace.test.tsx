@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OperationsContext } from "@/services/operations";
@@ -191,6 +191,10 @@ describe("MarketIntelligenceWorkspace", () => {
     );
 
     fireEvent.click(screen.getAllByRole("button", { name: "Create task" })[0]);
+    const taskDialog = screen.getByRole("dialog", { name: "Create pricing task" });
+    expect(taskDialog).toHaveTextContent("2026-08-16");
+    expect(taskDialog).toHaveTextContent("Management");
+    fireEvent.click(within(taskDialog).getByRole("button", { name: "Create task" }));
     await waitFor(() =>
       expect(serviceMocks.createPricingTask).toHaveBeenCalledWith(
         expect.objectContaining({

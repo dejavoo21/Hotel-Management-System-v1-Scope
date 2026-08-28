@@ -487,6 +487,51 @@ export function buildDirectWeatherReply(
   return lines.join('\n\n');
 }
 
+function timezoneOffsetLabel(timezone: string, at = new Date()): string | null {
+  try {
+    const part = new Intl.DateTimeFormat('en-GB', {
+      timeZone: timezone,
+      timeZoneName: 'shortOffset',
+    }).formatToParts(at).find((item) => item.type === 'timeZoneName')?.value;
+    return part?.replace('GMT+0', 'GMT') || null;
+  } catch {
+    return null;
+  }
+}
+
+export function buildDirectTimezoneReply(
+  message: string,
+  hotelContext: Record<string, unknown> | null,
+  applicationContext: Record<string, string> | null,
+  at = new Date()
+): string | null {
+  if (!/(time\s*zone|timezone|\bBST\b|\bGMT\b|UTC\s*[+-]|local time)/i.test(message)) return null;
+
+  const profile = hotelContext?.hotelProfile as Record<string, unknown> | undefined;
+  const propertyTimezone = typeof profile?.timezone === 'string' ? profile.timezone.trim() : '';
+  const browserTimezone = applicationContext?.timezone?.trim() || '';
+  const propertyOffset = propertyTimezone ? timezoneOffsetLabel(propertyTimezone, at) : null;
+  const browserOffset = browserTimezone ? timezoneOffsetLabel(browserTimezone, at) : null;
+  const lines = ['BST means British Summer Time and is GMT+1. It is not the same as GMT+2.'];
+
+  if (propertyTimezone) {
+    lines.push(`This hotel is configured to use ${propertyTimezone}${propertyOffset ? `, which is currently ${propertyOffset}` : ''}.`);
+  } else {
+    lines.push('The hotel timezone is not available in the authorised property profile.');
+  }
+
+  if (browserTimezone && browserTimezone !== propertyTimezone) {
+    lines.push(`Your browser is reporting ${browserTimezone}${browserOffset ? ` (${browserOffset})` : ''}. If the page shows BST, that view is probably using the browser timezone instead of the hotel timezone.`);
+  } else if (propertyTimezone === 'Europe/London') {
+    lines.push('Europe/London correctly displays BST during the UK summer. If the hotel should operate at GMT+2, its configured IANA timezone must be changed to the correct GMT+2 region.');
+  } else if (propertyOffset === 'GMT+2') {
+    lines.push('Because the hotel setting is already GMT+2, any BST label on the page is a display defect rather than the intended property configuration.');
+  }
+
+  lines.push('Open Settings > Hotel Information > Localisation to confirm the hotel timezone, save it, and refresh the page.');
+  return lines.join('\n\n');
+}
+
 const SUPPORT_OFFER =
   'I do not have enough verified LaFlo guidance to answer that confidently. Would you like me to pass this to the support team?';
 
@@ -687,6 +732,9 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
   const directWeatherReply = sections.includes('weather')
     ? buildDirectWeatherReply(trimmed, hotelContext)
     : null;
+  const directTimezoneReply = sections.includes('hotelProfile')
+    ? buildDirectTimezoneReply(trimmed, hotelContext as unknown as Record<string, unknown> | null, applicationContext)
+    : null;
   const dashboardDeepDive = applicationContext?.route?.split('?')[0] === '/'
     ? buildDashboardDeepDiveReply(trimmed, hotelContext as unknown as Record<string, unknown> | null)
     : null;
@@ -694,6 +742,9 @@ export async function unifiedAssistantChat(args: UnifiedChatArgs): Promise<Unifi
     reply = ambiguousClarification.reply;
     deepDivePrompts = ambiguousClarification.prompts;
     routingDecision = 'ambiguous-clarification';
+  } else if (directTimezoneReply) {
+    reply = directTimezoneReply;
+    routingDecision = 'direct-timezone';
   } else if (directWeatherReply) {
     reply = directWeatherReply;
     routingDecision = 'direct-weather';

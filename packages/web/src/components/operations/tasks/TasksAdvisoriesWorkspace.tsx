@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   Activity,
@@ -10,6 +10,7 @@ import {
   CreditCard,
   Flag,
   House,
+  Eye,
   Loader2,
   RefreshCcw,
   ShieldCheck,
@@ -32,8 +33,20 @@ import { useAuthStore } from "@/stores/authStore";
 import { appendAuditLog } from "@/utils/auditLog";
 
 type Advisory = NonNullable<OperationsContext["advisories"]>[number];
-type AdvisoryState = "ALL" | "NOT_CREATED" | "CREATED" | "DISMISSED";
+type AdvisoryState = "ALL" | "OPEN" | "NOT_CREATED" | "ASSIGNED" | "CREATED" | "DISMISSED" | "COMPLETED";
 type AdvisoryRequest = { state?: AdvisoryState; priority?: string; unassigned?: boolean; key: number };
+type SearchTaskHandoff = {
+  sourceSearchResult?: {
+    id?: string;
+    title?: string;
+    summary?: string;
+    snippet?: string;
+    category?: string;
+    sourceModule?: string;
+    severity?: string | null;
+  };
+  requestedAction?: "create" | "assign";
+};
 
 type Props = {
   context?: OperationsContext;
@@ -104,7 +117,7 @@ function SummaryCard({
           ? "bg-blue-50 text-blue-600"
           : "theme-kpi-icon";
   return (
-    <button type="button" onClick={onClick} className={`${card} flex min-h-24 items-center gap-3 p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md`}>
+    <button type="button" onClick={onClick} className={`${card} flex min-h-24 items-center gap-3 p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2`}>
       <span
         className={`grid h-11 w-11 place-items-center rounded-xl ${toneClass}`}
       >
@@ -207,7 +220,7 @@ function CreateTaskDialog({
   const valid = Boolean(title.trim() && description.trim() && dueDate);
   return (
     <div
-      className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/45 p-4"
+      className="fixed inset-0 z-[90] grid place-items-center bg-text-main/45 p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="create-task-title"
@@ -348,7 +361,7 @@ function AssignDialog({
 }) {
   return (
     <div
-      className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/45 p-4"
+      className="fixed inset-0 z-[90] grid place-items-center bg-text-main/45 p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="assign-title"
@@ -399,7 +412,7 @@ function DismissDialog({
 }) {
   return (
     <div
-      className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/45 p-4"
+      className="fixed inset-0 z-[90] grid place-items-center bg-text-main/45 p-4"
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="dismiss-title"
@@ -427,7 +440,7 @@ function DismissDialog({
           <button
             type="button"
             onClick={onConfirm}
-            className="min-h-10 rounded-xl bg-rose-600 px-4 text-sm font-semibold text-white"
+            className="min-h-10 rounded-xl bg-rose-600 px-4 text-sm font-semibold text-primary-contrast"
           >
             Dismiss advisory
           </button>
@@ -437,15 +450,56 @@ function DismissDialog({
   );
 }
 
+function AdvisoryDetailDrawer({ advisory, task, dismissed, onClose, onAsk }: {
+  advisory: Advisory;
+  task?: CreateAdvisoryTicketResult;
+  dismissed: boolean;
+  onClose: () => void;
+  onAsk: () => void;
+}) {
+  const status = dismissed
+    ? "Dismissed"
+    : task && ["RESOLVED", "CLOSED"].includes(task.status)
+      ? "Completed"
+      : task?.assignedTo
+        ? "Assigned"
+        : task
+          ? "Created"
+          : "Open / not created";
+  return (
+    <div className="fixed inset-0 z-[90] flex justify-end bg-text-main/35" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section role="dialog" aria-modal="true" aria-label="Advisory details" className="h-full w-full max-w-lg overflow-y-auto border-l border-border bg-card p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Operations Advisory</p><h2 className="mt-1 text-xl font-semibold text-text-main">{advisory.title}</h2></div><button type="button" aria-label="Close advisory details" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl border border-border"><X className="h-4 w-4" /></button></div>
+        <p className="mt-4 rounded-xl bg-bg p-4 text-sm leading-6 text-text-muted">{advisory.reason}</p>
+        <div className="mt-5 divide-y divide-border rounded-xl border border-border">
+          <DetailRow label="Status" value={status} />
+          <DetailRow label="Priority" value={pretty(advisory.priority)} />
+          <DetailRow label="Department" value={pretty(advisory.department)} />
+          <DetailRow label="Suggested owner" value={task?.assignedTo ? `${task.assignedTo.firstName} ${task.assignedTo.lastName}` : `${pretty(advisory.department)} team`} />
+          <DetailRow label="Source" value={pretty(advisory.source)} />
+          <DetailRow label="Rationale" value={advisory.reason} />
+          <DetailRow label="Task reference" value={task?.ticketId || advisory.createdTicket?.ticketId || "No task created"} />
+          <DetailRow label="Related records" value="Available from the source module and operational activity history" />
+        </div>
+        <div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={onAsk} className="rounded-xl bg-primary-solid px-4 py-2 text-xs font-semibold text-primary-contrast">Ask LaFlo about this advisory</button>{task?.ticketId ? <Link to={`/tickets/${task.ticketId}`} className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-text-main">Open task</Link> : null}</div>
+      </section>
+    </div>
+  );
+}
+
 function AdvisoryQueue({
   context,
   canManage,
   request,
+  handoff,
+  onHandoffConsumed,
   onCountsChange,
 }: {
   context?: OperationsContext;
   canManage: boolean;
   request: AdvisoryRequest;
+  handoff?: SearchTaskHandoff;
+  onHandoffConsumed: () => void;
   onCountsChange: (counts: { open: number; created: number; dismissed: number; pending: number; critical: number }) => void;
 }) {
   const queryClient = useQueryClient();
@@ -475,21 +529,55 @@ function AdvisoryQueue({
   const [createTarget, setCreateTarget] = useState<Advisory | null>(null);
   const [assignTarget, setAssignTarget] = useState<Advisory | null>(null);
   const [dismissTarget, setDismissTarget] = useState<Advisory | null>(null);
+  const [detailTarget, setDetailTarget] = useState<Advisory | null>(null);
   const [serviceBlocked, setServiceBlocked] = useState(false);
   const [unassignedOnly, setUnassignedOnly] = useState(false);
+  useEffect(() => {
+    const result = handoff?.sourceSearchResult;
+    if (!result?.title) return;
+    const category = String(result.category || result.sourceModule || "").toUpperCase();
+    const department: Advisory["department"] = /MAINTENANCE|SMART_BUILDING|DEVICE|SENSOR/.test(category)
+      ? "MAINTENANCE"
+      : /GUEST|RESERVATION|ROOM/.test(category)
+        ? "FRONT_DESK"
+        : "MANAGEMENT";
+    const severity = String(result.severity || "").toUpperCase();
+    const advisory: Advisory = {
+      id: `enterprise-search:${result.id || result.title}`,
+      title: result.title,
+      reason: result.summary || result.snippet || `Follow up on this ${pretty(result.category)} Enterprise Search result.`,
+      priority: /CRITICAL|HIGH|URGENT/.test(severity) ? "high" : /LOW|INFO/.test(severity) ? "low" : "medium",
+      department,
+      source: "ENTERPRISE_SEARCH",
+      createdTicket: null,
+    };
+    if (!canManage) {
+      toast.error("Operations management permission is required for this action.");
+      onHandoffConsumed();
+      return;
+    }
+    if (handoff?.requestedAction === "assign") setAssignTarget(advisory);
+    else setCreateTarget(advisory);
+    onHandoffConsumed();
+  }, [canManage, handoff, onHandoffConsumed]);
   const departments = [
     ...new Set(advisories.map((item) => item.department).filter(Boolean)),
   ] as string[];
   const filtered = advisories.filter((item) => {
     const isCreated = Boolean(created[item.id] || item.createdTicket);
     const isDismissed = dismissed.has(item.id);
+    const task = created[item.id];
+    const isAssigned = Boolean(task?.assignedTo);
+    const isCompleted = Boolean(task && ["RESOLVED", "CLOSED"].includes(task.status));
+    if (state === "OPEN" && isDismissed) return false;
     if (state === "CREATED" && !isCreated) return false;
     if (state === "NOT_CREATED" && (isCreated || isDismissed)) return false;
+    if (state === "ASSIGNED" && (!isAssigned || isDismissed)) return false;
+    if (state === "COMPLETED" && (!isCompleted || isDismissed)) return false;
     if (state === "DISMISSED" && !isDismissed) return false;
-    if (state !== "DISMISSED" && isDismissed) return false;
+    if (!["ALL", "DISMISSED"].includes(state) && isDismissed) return false;
     if (priority !== "ALL" && item.priority !== priority) return false;
     if (department !== "ALL" && item.department !== department) return false;
-    if (unassignedOnly && !(created[item.id] || item.createdTicket)) return false;
     if (unassignedOnly && created[item.id]?.assignedTo) return false;
     return true;
   });
@@ -509,7 +597,7 @@ function AdvisoryQueue({
       open: active.length,
       created: active.filter((item) => Boolean(created[item.id] || item.createdTicket)).length,
       dismissed: dismissed.size,
-      pending: active.filter((item) => Boolean(created[item.id] || item.createdTicket) && !created[item.id]?.assignedTo).length,
+      pending: active.filter((item) => !created[item.id]?.assignedTo).length,
       critical: active.filter((item) => item.priority === "high").length,
     });
   }, [advisories, created, dismissed, onCountsChange]);
@@ -526,6 +614,13 @@ function AdvisoryQueue({
     setDismissTarget(null);
     window.dispatchEvent(new Event("hotelos:timeline-event"));
     toast.success("Advisory moved to history");
+  };
+  const askAbout = (item: Advisory) => {
+    window.dispatchEvent(new CustomEvent("laflo:open-assistant", { detail: {
+      mode: "tasks-advisories",
+      prompt: `Review the advisory \"${item.title}\" and recommend the next authorised operational action.`,
+      context: { page: "Tasks & Advisories", advisoryId: item.id, title: item.title, source: item.source, department: item.department, priority: item.priority, rationale: item.reason },
+    } }));
   };
   return (
     <section id="operations-advisory" className={`${card} overflow-hidden`}>
@@ -547,7 +642,7 @@ function AdvisoryQueue({
         <div className="flex flex-wrap gap-2">
           <div className="flex rounded-xl border border-border bg-bg p-1">
             {(
-              ["ALL", "NOT_CREATED", "CREATED", "DISMISSED"] as AdvisoryState[]
+              ["ALL", "OPEN", "NOT_CREATED", "ASSIGNED", "CREATED", "DISMISSED", "COMPLETED"] as AdvisoryState[]
             ).map((item) => (
               <button
                 key={item}
@@ -608,8 +703,8 @@ function AdvisoryQueue({
       <div className="divide-y divide-border">
         {filtered.map((item) => {
           const result = created[item.id];
-          const status =
-            result || item.createdTicket ? "Created" : "Not created";
+          const isDismissed = dismissed.has(item.id);
+          const status = isDismissed ? "Dismissed" : result && ["RESOLVED", "CLOSED"].includes(result.status) ? "Completed" : result?.assignedTo ? "Assigned" : result || item.createdTicket ? "Created" : "Open";
           return (
             <article
               key={item.id}
@@ -674,12 +769,14 @@ function AdvisoryQueue({
                   ) : null}
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2 md:mr-28 xl:mr-0">
+                  <button type="button" onClick={() => setDetailTarget(item)} className="inline-flex min-h-9 items-center gap-1 rounded-xl border border-border bg-card px-3 text-xs font-semibold text-text-main"><Eye className="h-3.5 w-3.5" />View details</button>
+                  <button type="button" onClick={() => askAbout(item)} className="min-h-9 rounded-xl border border-primary-200 bg-primary-50 px-3 text-xs font-semibold text-primary-700">Ask LaFlo</button>
                   <button
                     type="button"
                     disabled={
                       !canManage ||
                       serviceBlocked ||
-                      Boolean(result || item.createdTicket)
+                      Boolean(result || item.createdTicket) || isDismissed
                     }
                     onClick={() => setCreateTarget(item)}
                     className="min-h-9 rounded-xl bg-primary-solid px-3 text-xs font-semibold text-primary-contrast disabled:opacity-50"
@@ -690,7 +787,7 @@ function AdvisoryQueue({
                   </button>
                   <button
                     type="button"
-                    disabled={!canManage || serviceBlocked}
+                    disabled={!canManage || serviceBlocked || isDismissed}
                     onClick={() => setAssignTarget(item)}
                     className="min-h-9 rounded-xl border border-border bg-card px-3 text-xs font-semibold text-text-main disabled:opacity-50"
                   >
@@ -698,7 +795,7 @@ function AdvisoryQueue({
                   </button>
                   <button
                     type="button"
-                    disabled={!canManage}
+                    disabled={!canManage || isDismissed}
                     aria-label={`Dismiss ${item.title}`}
                     onClick={() => setDismissTarget(item)}
                     className="grid h-9 w-9 place-items-center rounded-xl border border-border bg-card text-text-muted disabled:opacity-50"
@@ -718,18 +815,13 @@ function AdvisoryQueue({
                 ? "No advisories match the selected filters."
                 : "No operational advisories available."}
             </p>
-            <button
-              type="button"
-              onClick={() => {
+            <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-text-muted">Try clearing filters, viewing all advisories, or asking LaFlo to identify operational priorities.</p>
+            <div className="mt-4 flex flex-wrap justify-center gap-2"><button type="button" onClick={() => {
                 setState("ALL");
                 setPriority("ALL");
                 setDepartment("ALL");
                 setUnassignedOnly(false);
-              }}
-              className="mt-3 text-xs font-semibold text-primary-700"
-            >
-              Clear filters
-            </button>
+              }} className="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-text-main">Clear filters</button><button type="button" onClick={() => { setState("ALL"); setPriority("ALL"); setDepartment("ALL"); setUnassignedOnly(false); }} className="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-primary-700">View all advisories</button><button type="button" onClick={() => window.dispatchEvent(new CustomEvent("laflo:open-assistant", { detail: { mode: "tasks-advisories", prompt: "Identify today’s highest operational priorities from the authorised tasks and advisories context.", context: { page: "Tasks & Advisories", state, priority, department } } }))} className="rounded-xl bg-primary-solid px-3 py-2 text-xs font-semibold text-primary-contrast">Ask LaFlo about priorities</button></div>
           </div>
         ) : null}
       </div>
@@ -768,6 +860,7 @@ function AdvisoryQueue({
           onConfirm={() => dismiss(dismissTarget)}
         />
       ) : null}
+      {detailTarget ? <AdvisoryDetailDrawer advisory={detailTarget} task={created[detailTarget.id]} dismissed={dismissed.has(detailTarget.id)} onClose={() => setDetailTarget(null)} onAsk={() => askAbout(detailTarget)} /> : null}
     </section>
   );
 }
@@ -950,7 +1043,7 @@ function RecentActivity({ canViewTechnical }: { canViewTechnical: boolean }) {
           <ArrowRight className="h-3.5 w-3.5" />
         </button>
       </div>
-      {selected ? <div className="fixed inset-0 z-[90] flex justify-end bg-slate-950/35" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}><section role="dialog" aria-modal="true" aria-label="Activity details" className="h-full w-full max-w-lg overflow-y-auto border-l border-border bg-card p-5 shadow-2xl"><div className="flex items-start justify-between"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">{selected.module}</p><h2 className="mt-1 text-xl font-semibold text-text-main">{friendlyTitle(selected)}</h2></div><button type="button" aria-label="Close activity details" onClick={() => setSelected(null)}><X className="h-4 w-4" /></button></div><div className="mt-5 divide-y divide-border rounded-xl border border-border"><DetailRow label="Severity" value={selected.severity} /><DetailRow label="Department" value={pretty(selected.department)} /><DetailRow label="Time" value={formatTime(selected.timestamp)} /><DetailRow label="Category" value={isTechnical(selected) ? "System / Technical" : "Operational"} /><DetailRow label="Related record" value={selected.linkedEntity?.id || "No related record available"} /></div>{selected.linkedEntity?.id ? <Link to={`/${selected.linkedEntity.type.toLowerCase()}/${selected.linkedEntity.id}`} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary-solid px-4 py-2 text-xs font-semibold text-primary-contrast">Open related record <ArrowRight className="h-3.5 w-3.5" /></Link> : null}</section></div> : null}
+      {selected ? <div className="fixed inset-0 z-[90] flex justify-end bg-text-main/35" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}><section role="dialog" aria-modal="true" aria-label="Activity details" className="h-full w-full max-w-lg overflow-y-auto border-l border-border bg-card p-5 shadow-2xl"><div className="flex items-start justify-between"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">{selected.module}</p><h2 className="mt-1 text-xl font-semibold text-text-main">{friendlyTitle(selected)}</h2></div><button type="button" aria-label="Close activity details" onClick={() => setSelected(null)}><X className="h-4 w-4" /></button></div><div className="mt-5 divide-y divide-border rounded-xl border border-border"><DetailRow label="Severity" value={selected.severity} /><DetailRow label="Department" value={pretty(selected.department)} /><DetailRow label="Time" value={formatTime(selected.timestamp)} /><DetailRow label="Category" value={isTechnical(selected) ? "System / Technical" : "Operational"} /><DetailRow label="Related record" value={selected.linkedEntity?.id || "No related record available"} /></div>{selected.linkedEntity?.id ? <Link to={`/${selected.linkedEntity.type.toLowerCase()}/${selected.linkedEntity.id}`} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary-solid px-4 py-2 text-xs font-semibold text-primary-contrast">Open related record <ArrowRight className="h-3.5 w-3.5" /></Link> : null}</section></div> : null}
     </section>
   );
 }
@@ -1003,7 +1096,7 @@ function ArrivalForecast({
           </div>
         ))}
       </div>
-      {open ? <div className="fixed inset-0 z-[90] flex justify-end bg-slate-950/35" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}><section role="dialog" aria-modal="true" aria-label="Arrival forecast details" className="h-full w-full max-w-lg overflow-y-auto border-l border-border bg-card p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-start justify-between"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Tasks & Advisories</p><h2 className="mt-1 text-xl font-semibold text-text-main">Arrival Forecast</h2></div><button type="button" aria-label="Close arrival forecast" onClick={() => setOpen(false)}><X className="h-4 w-4" /></button></div><div className="mt-5 divide-y divide-border rounded-xl border border-border"><DetailRow label="Arrivals expected" value={context?.ops?.arrivalsNext24h ?? "Unavailable"} /><DetailRow label="Departures expected" value={context?.ops?.departuresNext24h ?? "Unavailable"} /><DetailRow label="In-house now" value={context?.ops?.inhouseNow ?? "Unavailable"} /><DetailRow label="Source data" value={context?.ops ? "Authorised booking operations context" : "Booking source unavailable"} /><DetailRow label="Calculation window" value={context?.ops?.windowStartUtc && context?.ops?.windowEndUtc ? `${formatTime(context.ops.windowStartUtc)} – ${formatTime(context.ops.windowEndUtc)}` : "Next 24 hours"} /><DetailRow label="Last updated" value={formatTime(context?.generatedAtUtc)} /></div></section></div> : null}
+      {open ? <div className="fixed inset-0 z-[90] flex justify-end bg-text-main/35" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}><section role="dialog" aria-modal="true" aria-label="Arrival forecast details" className="h-full w-full max-w-lg overflow-y-auto border-l border-border bg-card p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-start justify-between"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Tasks & Advisories</p><h2 className="mt-1 text-xl font-semibold text-text-main">Arrival Forecast</h2></div><button type="button" aria-label="Close arrival forecast" onClick={() => setOpen(false)}><X className="h-4 w-4" /></button></div><div className="mt-5 divide-y divide-border rounded-xl border border-border"><DetailRow label="Arrivals expected" value={context?.ops?.arrivalsNext24h ?? "Unavailable"} /><DetailRow label="Departures expected" value={context?.ops?.departuresNext24h ?? "Unavailable"} /><DetailRow label="In-house now" value={context?.ops?.inhouseNow ?? "Unavailable"} /><DetailRow label="Source data" value={context?.ops ? "Authorised booking operations context" : "Booking source unavailable"} /><DetailRow label="Calculation window" value={context?.ops?.windowStartUtc && context?.ops?.windowEndUtc ? `${formatTime(context.ops.windowStartUtc)} – ${formatTime(context.ops.windowEndUtc)}` : "Next 24 hours"} /><DetailRow label="Last updated" value={formatTime(context?.generatedAtUtc)} /></div></section></div> : null}
     </section>
   );
 }
@@ -1065,7 +1158,7 @@ function IntelligenceCard({
       >
         View in AI Governance <ArrowRight className="h-3.5 w-3.5" />
       </Link>
-      {open ? <div className="fixed inset-0 z-[90] flex justify-end bg-slate-950/35" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}><section role="dialog" aria-modal="true" aria-label={`${name} Intelligence details`} className="h-full w-full max-w-lg overflow-y-auto border-l border-border bg-card p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-start justify-between"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Department Intelligence</p><h2 className="mt-1 text-xl font-semibold text-text-main">{name}</h2></div><button type="button" aria-label={`Close ${name} Intelligence`} onClick={() => setOpen(false)}><X className="h-4 w-4" /></button></div><div className="mt-5 divide-y divide-border rounded-xl border border-border"><DetailRow label="Status" value={status} /><DetailRow label="Top priority" value={priority || "No department intelligence available"} /><DetailRow label="Top risk" value={risk || "No department intelligence available"} /><DetailRow label="Recommended action" value={action || "No department intelligence available"} /><DetailRow label="Related advisories" value="Available in the operational advisory queue" /><DetailRow label="Related tasks" value="Open Tasks & Advisories filters to review" /><DetailRow label="Recent activity" value="Filtered operational Event Bus activity" /></div><Link to={`/operations-center/ai?department=${encodeURIComponent(name)}#ai-recommendation-governance`} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary-solid px-4 py-2 text-xs font-semibold text-primary-contrast">View in AI Governance <ArrowRight className="h-3.5 w-3.5" /></Link></section></div> : null}
+      {open ? <div className="fixed inset-0 z-[90] flex justify-end bg-text-main/35" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}><section role="dialog" aria-modal="true" aria-label={`${name} Intelligence details`} className="h-full w-full max-w-lg overflow-y-auto border-l border-border bg-card p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-start justify-between"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Department Intelligence</p><h2 className="mt-1 text-xl font-semibold text-text-main">{name}</h2></div><button type="button" aria-label={`Close ${name} Intelligence`} onClick={() => setOpen(false)}><X className="h-4 w-4" /></button></div><div className="mt-5 divide-y divide-border rounded-xl border border-border"><DetailRow label="Status" value={status} /><DetailRow label="Top priority" value={priority || "No department intelligence available"} /><DetailRow label="Top risk" value={risk || "No department intelligence available"} /><DetailRow label="Recommended action" value={action || "No department intelligence available"} /><DetailRow label="Related advisories" value="Available in the operational advisory queue" /><DetailRow label="Related tasks" value="Open Tasks & Advisories filters to review" /><DetailRow label="Recent activity" value="Filtered operational Event Bus activity" /></div><Link to={`/operations-center/ai?department=${encodeURIComponent(name)}#ai-recommendation-governance`} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary-solid px-4 py-2 text-xs font-semibold text-primary-contrast">View in AI Governance <ArrowRight className="h-3.5 w-3.5" /></Link></section></div> : null}
     </article>
   );
 }
@@ -1079,6 +1172,8 @@ export default function TasksAdvisoriesWorkspace({
   isRefreshing,
   onRefresh,
 }: Props) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const canManage =
     user?.role === "ADMIN" ||
@@ -1090,10 +1185,14 @@ export default function TasksAdvisoriesWorkspace({
   const advisories = context?.advisories || [];
   const initialCreated = advisories.filter((item) => item.createdTicket).length;
   const [request, setRequest] = useState<AdvisoryRequest>({ key: 0 });
-  const [counts, setCounts] = useState({ open: advisories.length, created: initialCreated, dismissed: 0, pending: advisories.filter((item) => item.createdTicket).length, critical: advisories.filter((item) => item.priority === "high").length });
+  const [counts, setCounts] = useState({ open: advisories.length, created: initialCreated, dismissed: 0, pending: advisories.length, critical: advisories.filter((item) => item.priority === "high").length });
   const updateCounts = useCallback((next: typeof counts) => setCounts(next), []);
   const requestView = (next: Omit<AdvisoryRequest, "key">) => setRequest((current) => ({ ...next, key: current.key + 1 }));
-  const openAssistant = () => window.dispatchEvent(new CustomEvent("laflo:open-assistant", { detail: { mode: "tasks-advisories", prompt: "Summarise the highest-priority tasks and advisories and recommend the next operational action.", context: { page: "Tasks & Advisories", openAdvisories: counts.open, pendingAssignment: counts.pending, criticalItems: counts.critical } } }));
+  const handoff = location.state as SearchTaskHandoff | undefined;
+  const consumeHandoff = useCallback(() => {
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, navigate]);
+  const openAssistant = () => window.dispatchEvent(new CustomEvent("laflo:open-assistant", { detail: { mode: "tasks-advisories", prompt: "Summarise the highest-priority tasks and advisories and recommend the next operational action.", context: { page: "Tasks & Advisories", currentFilters: request, openAdvisories: counts.open, tasksCreated: counts.created, pendingAssignment: counts.pending, criticalItems: counts.critical, recentActivitySummary: "Operational Event Bus activity for the current authorised view", departmentIntelligenceSummary: { frontDesk: "Arrival coordination and readiness", housekeeping: canViewHousekeeping ? "Room-readiness follow-up" : "Restricted", security: canViewSecurity ? "Alert and incident follow-up" : "Restricted" } } } }));
   if (isLoading) return <TasksLoadingState />;
   if (isError)
     return (
@@ -1124,7 +1223,7 @@ export default function TasksAdvisoriesWorkspace({
             label="Open Advisories"
             value={counts.open}
             detail="Operational recommendations requiring review"
-            onClick={() => requestView({ state: "ALL" })}
+            onClick={() => requestView({ state: "OPEN" })}
           />
           <SummaryCard
             icon={ClipboardList}
@@ -1151,7 +1250,7 @@ export default function TasksAdvisoriesWorkspace({
             onClick={() => requestView({ state: "ALL", priority: "high" })}
           />
         </section>
-        <AdvisoryQueue context={context} canManage={canManage} request={request} onCountsChange={updateCounts} />
+        <AdvisoryQueue context={context} canManage={canManage} request={request} handoff={handoff} onHandoffConsumed={consumeHandoff} onCountsChange={updateCounts} />
         <RecentActivity canViewTechnical={privileged} />
       </main>
       <aside className="space-y-3 pb-20">
