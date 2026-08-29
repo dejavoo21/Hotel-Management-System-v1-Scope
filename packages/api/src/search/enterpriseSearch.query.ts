@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 
-const STOP_WORDS = new Set(['a', 'an', 'and', 'for', 'in', 'of', 'on', 'or', 'the', 'to', 'with']);
+const STOP_WORDS = new Set(['a', 'an', 'and', 'for', 'in', 'live', 'of', 'on', 'or', 'result', 'results', 'test', 'testing', 'the', 'to', 'verification', 'verify', 'with']);
 
 export function enterpriseSearchTerms(query: string): string[] {
   return [...new Set(
@@ -9,7 +9,7 @@ export function enterpriseSearchTerms(query: string): string[] {
       .replace(/[^a-z0-9#-]+/g, ' ')
       .split(/\s+/)
       .map((term) => term.trim())
-      .filter((term) => term.length > 1 && !STOP_WORDS.has(term)),
+      .filter((term) => term.length > 2 && !STOP_WORDS.has(term)),
   )].slice(0, 8);
 }
 
@@ -59,7 +59,7 @@ export function enterpriseSearchMatchesQuery(record: { title?: string | null; su
   const terms = enterpriseSearchTerms(phrase);
   if (!terms.length) return false;
   const matchedTerms = terms.filter((term) => haystack.includes(term)).length;
-  return matchedTerms >= Math.min(2, terms.length);
+  return matchedTerms >= Math.max(1, Math.ceil(terms.length / 2));
 }
 
 export function enterpriseSearchSnippetNeedle(query: string, text: string): string {

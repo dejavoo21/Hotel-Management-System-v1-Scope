@@ -27,6 +27,7 @@ describe('Enterprise Search query helpers', () => {
     const record = { title: 'Basement water sensor', summary: 'Leak detected near plant room' };
     expect(enterpriseSearchMatchesQuery(record, 'water leak investigation')).toBe(true);
     expect(enterpriseSearchMatchesQuery(record, 'zz live verify 32354534 no result')).toBe(false);
+    expect(enterpriseSearchMatchesQuery({ title: 'Live operational result' }, 'zz live verify 97f984c6 no result')).toBe(false);
     expect(enterpriseSearchMatchesQuery(record, 'sensor')).toBe(true);
   });
 });
