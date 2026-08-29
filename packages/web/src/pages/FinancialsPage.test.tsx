@@ -7,7 +7,6 @@ import FinancialsPage from './FinancialsPage';
 
 vi.mock('@/services/api', () => ({ default: { get: vi.fn() } }));
 vi.mock('@/services', () => ({ reportService: { exportReport: vi.fn() } }));
-vi.mock('@/components/operations/DepartmentIntelligenceCard', () => ({ default: () => <div>Revenue intelligence</div> }));
 
 const mockedGet = vi.mocked(api.get);
 const payloads: Record<string, unknown> = {
@@ -40,7 +39,7 @@ describe('FinancialsPage', () => {
   it('shows honest posted-revenue, occupancy, currency, and empty states', async () => {
     renderPage();
     expect(await screen.findByText('No completed revenue posted for this period.')).toBeInTheDocument();
-    expect(screen.getByText('Revenue intelligence')).toBeInTheDocument();
+    expect(screen.getByText('Revenue Intelligence')).toBeInTheDocument();
     expect(screen.getAllByText(/ZAR/).length).toBeGreaterThan(0);
     expect(screen.getByText('No booking-source revenue available for this period.')).toBeInTheDocument();
     expect(screen.getByText('No room type booking activity for this period.')).toBeInTheDocument();
