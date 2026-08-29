@@ -134,6 +134,7 @@ describe('EnterpriseSearchPage', () => {
     const event = openAssistant.mock.calls[0][0] as CustomEvent;
     expect(event.detail).toMatchObject({ mode: 'operations' });
     expect(event.detail.prompt).toContain('offline cameras');
+    expect(event.detail.context).toMatchObject({ page: 'Enterprise Search', query: 'offline cameras' });
     expect(searchMock).toHaveBeenCalledTimes(1);
     window.removeEventListener(OPEN_LAFLO_ASSISTANT_EVENT, openAssistant);
   });
@@ -149,6 +150,7 @@ describe('EnterpriseSearchPage', () => {
     const event = openAssistant.mock.calls[0][0] as CustomEvent;
     expect(event.detail.prompt).toContain('Offline camera near pool');
     expect(event.detail.prompt).toContain('Security Center');
+    expect(event.detail.context).toMatchObject({ page: 'Enterprise Search', resultId: 'cctv-1', entityId: 'camera-1' });
     window.removeEventListener(OPEN_LAFLO_ASSISTANT_EVENT, openAssistant);
   });
 });

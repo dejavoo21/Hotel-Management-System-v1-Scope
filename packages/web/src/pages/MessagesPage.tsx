@@ -948,7 +948,7 @@ export default function MessagesPage() {
                   : false;
                 const currentUserName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim();
                 const senderLabel = systemMsg
-                  ? 'LaFlo Assistant'
+                  ? 'Ask LaFlo'
                   : `${isCurrentUserMessage ? currentUserName || senderName : senderName}${
                       senderRole || (isCurrentUserMessage ? user?.role : undefined)
                         ? ` (${senderRole || user?.role})`

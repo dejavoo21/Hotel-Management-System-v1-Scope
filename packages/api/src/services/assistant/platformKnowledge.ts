@@ -204,7 +204,7 @@ const INTERFACE_GUIDANCE: Record<string, PlatformInterfaceGuidance> = {
     keyAreas: [
       { name: 'Conversation list', description: 'Find active, unread, assigned, and resolved conversations.' },
       { name: 'Thread context', description: 'Review participants, history, assignment, and related hotel context before replying.' },
-      { name: 'Live support', description: 'Join or continue private helpdesk conversations created through the LaFlo Assistant.' },
+      { name: 'Live support', description: 'Join or continue private helpdesk conversations created through Ask LaFlo.' },
     ],
     priorities: ['Respond to urgent and unassigned conversations first.', 'Verify the recipient and avoid sharing restricted records in messages.'],
     followUpPrompts: ['How do I find a conversation?', 'How does live support work?', 'How do I assign or resolve a thread?'],

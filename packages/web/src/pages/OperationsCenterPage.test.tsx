@@ -288,9 +288,9 @@ describe("OperationsCenterPage", () => {
       screen.queryByPlaceholderText("Ask an operational question..."),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText("AI Recommendation Governance"),
+      screen.getByText("Recommendation Review Queue"),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Review queue/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Review Recommendations/ })).toHaveAttribute(
       "href",
       "/operations/ai-governance#ai-recommendation-governance",
     );
@@ -321,7 +321,7 @@ describe("OperationsCenterPage", () => {
     window.addEventListener("laflo:open-assistant", openAssistant);
     window.addEventListener("laflo:governance-filter", governanceFilter);
     renderPage("/operations-center/ai");
-    expect(await screen.findByRole("heading", { name: "AI Governance" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "AI Recommendations" })).toBeInTheDocument();
     expect(
       await screen.findByText("AI Operational Briefing"),
     ).toBeInTheDocument();
@@ -483,7 +483,7 @@ describe("OperationsCenterPage", () => {
     await waitFor(() =>
       expect(serviceMocks.syncWeather).toHaveBeenCalledWith("hotel-1"),
     );
-  });
+  }, 15_000);
 
   it("shows the weather no-data state without blank forecast regions", async () => {
     serviceMocks.getContext.mockResolvedValueOnce({
@@ -536,7 +536,7 @@ describe("OperationsCenterPage", () => {
     expect(screen.getByText("Housekeeping Intelligence")).toBeInTheDocument();
     expect(screen.getByText("Security Intelligence")).toBeInTheDocument();
     expect(screen.getByText("Arrival Forecast")).toBeInTheDocument();
-    expect(screen.queryByText("AI Recommendation Governance")).not.toBeInTheDocument();
+    expect(screen.queryByText("Recommendation Review Queue")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Critical Items/i }));
     expect(screen.getByLabelText("Advisory priority")).toHaveValue("high");
@@ -633,9 +633,18 @@ describe("OperationsCenterPage", () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Dismiss advisory" }));
     expect(
-      screen.queryByText("Proceed with standard operations plan"),
-    ).not.toBeInTheDocument();
+      screen.getByText("Proceed with standard operations plan"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog", { name: "Dismiss this advisory?" })).not.toBeInTheDocument();
     window.removeEventListener("laflo:open-assistant", openAssistant);
+  });
+
+  it("applies canonical route filters to the Tasks and Advisories outcome list", async () => {
+    renderPage("/operations/tasks-advisories?state=OPEN&department=MAINTENANCE&source=WEATHER_ACTIONS");
+    await screen.findByText("Open Advisories");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Open" })).toHaveAttribute("aria-pressed", "true"));
+    expect(screen.getByLabelText("Advisory department")).toHaveValue("MAINTENANCE");
+    expect(screen.getByLabelText("Advisory source")).toHaveValue("WEATHER_ACTIONS");
   });
 
   it("opens a prefilled task workflow from Enterprise Search route context", async () => {

@@ -23,7 +23,7 @@ type PersistedState = { conversationId: string | null; messages: ChatMessage[] }
 const WELCOME: ChatMessage = {
   id: 'welcome',
   role: 'assistant',
-  text: 'Hi, I’m LaFlo Assistant. Ask me anything about this page, hotel operations, or how to use LaFlo.',
+  text: 'Hi, I’m LaFlo. Ask me anything about this page, hotel operations, or how to use LaFlo.',
 };
 
 const MODE_LABELS: Record<AssistantMode, string> = {
@@ -40,13 +40,13 @@ const PAGE_NAMES: Record<string, string> = {
   '/settings?tab=integrations': 'Integration Manager', '/operations-center': 'Operations Center',
   '/security-center': 'Security Center', '/operations/smart-building': 'Smart Building',
   '/maintenance-center': 'Maintenance Center', '/incidents': 'Incident Center',
-  '/operations-center/search': 'Enterprise Search', '/ai/hotel-brain': 'Hotel Brain',
+  '/operations-center/search': 'Enterprise Search', '/ai/hotel-brain': 'Hotel Insights',
   '/operations-center/weather': 'Weather', '/operations-center/tasks': 'Tasks',
   '/operations-center/revenue': 'Operations Revenue',
   '/operations-center/market-intelligence': 'Market Intelligence',
   '/operations/enterprise-search': 'Enterprise Search',
-  '/operations/hotel-brain-console': 'Hotel Brain Console',
-  '/operations/ai-governance': 'AI Governance',
+  '/operations/hotel-brain-console': 'Hotel Insights',
+  '/operations/ai-governance': 'AI Recommendations',
   '/operations/tasks-advisories': 'Tasks & Advisories',
   '/operations/operational-intelligence/weather-forecast': 'Weather & Forecast',
   '/operations/operational-intelligence/market-intelligence': 'Market Intelligence',
@@ -72,13 +72,13 @@ const PAGE_FOCUS_PROMPTS: Record<string, string> = {
   '/calls': 'Explain the active call controls',
   '/operations-center': 'What needs attention today?',
   '/operations-center/search': 'What can Enterprise Search find?',
-  '/ai/hotel-brain': 'Summarise Hotel Brain evidence readiness.',
+  '/ai/hotel-brain': 'Summarise the information available to Ask LaFlo.',
   '/operations-center/weather': 'What weather actions should we take today?',
   '/operations-center/tasks': 'What tasks need attention?',
   '/operations-center/revenue': 'Explain the Operations revenue view',
   '/operations-center/market-intelligence': 'Explain the market indicators',
   '/operations/enterprise-search': 'What can Enterprise Search find?',
-  '/operations/hotel-brain-console': 'Summarise Hotel Brain evidence readiness.',
+  '/operations/hotel-brain-console': 'Summarise the information available to Ask LaFlo.',
   '/operations/ai-governance': 'Which AI recommendations require review?',
   '/operations/tasks-advisories': 'What tasks and advisories need attention?',
   '/operations/operational-intelligence/weather-forecast': 'What weather actions should we take today?',
@@ -125,8 +125,16 @@ const NAV_TARGETS: Array<ChatAction & { keywords: string[]; permission?: string 
   { label: 'Open Command Center', path: '/enterprise-command-center', keywords: ['command center', 'enterprise command'], permission: 'dashboard' },
 ];
 
-function getPageName(pathname: string) {
-  if (PAGE_NAMES[pathname]) return PAGE_NAMES[pathname];
+function getPageName(route: string) {
+  if (PAGE_NAMES[route]) return PAGE_NAMES[route];
+  const [pathname, query = ''] = route.split('?');
+  const baseName = PAGE_NAMES[pathname];
+  if (baseName) {
+    const tab = new URLSearchParams(query).get('tab');
+    if (!tab) return baseName;
+    const tabName = tab.split('-').map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(' ');
+    return `${baseName} · ${tabName}`;
+  }
   const match = Object.entries(PAGE_NAMES)
     .filter(([path]) => path !== '/' && pathname.startsWith(`${path}/`))
     .sort(([a], [b]) => b.length - a.length)[0];
@@ -135,8 +143,9 @@ function getPageName(pathname: string) {
 
 function getPrompts(pathname: string) {
   const page = getPageName(pathname);
+  const basePath = pathname.split('?')[0];
   const matchingRoute = Object.keys(PAGE_FOCUS_PROMPTS)
-    .filter((route) => route === pathname || (route !== '/' && pathname.startsWith(`${route}/`)))
+    .filter((route) => route === pathname || route === basePath || (route !== '/' && basePath.startsWith(`${route}/`)))
     .sort((a, b) => b.length - a.length)[0];
   const focusPrompt = PAGE_FOCUS_PROMPTS[matchingRoute || '/'] || 'What should I prioritise today?';
   const prompts = [`Explain the ${page} page`, `What should I review first here?`, focusPrompt];
@@ -184,6 +193,7 @@ export default function AppChatbot() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [assistantLive, setAssistantLive] = useState<boolean | null>(null);
+  const [launchContext, setLaunchContext] = useState<Record<string, unknown> | null>(null);
   const [handoffRequested, setHandoffRequested] = useState(false);
   const [handoffText, setHandoffText] = useState('');
   const [handoffLoading, setHandoffLoading] = useState(false);
@@ -193,6 +203,9 @@ export default function AppChatbot() {
 
   const currentRoute = `${location.pathname}${location.search}`;
   const currentPage = useMemo(() => getPageName(currentRoute), [currentRoute]);
+  const assistantPage = typeof launchContext?.page === 'string' && launchContext.page.trim()
+    ? launchContext.page.trim()
+    : currentPage;
   const prompts = useMemo(() => getPrompts(currentRoute), [currentRoute]);
   const storageKey = user?.id ? `laflo-assistant:${user.id}` : null;
 
@@ -229,6 +242,7 @@ export default function AppChatbot() {
       const detail = (event as CustomEvent<OpenLafloAssistantDetail>).detail;
       if (detail?.mode) setMode(detail.mode);
       if (detail?.prompt) setInput(detail.prompt);
+      setLaunchContext(detail?.context || null);
       setOpen(true);
     };
     window.addEventListener(OPEN_LAFLO_ASSISTANT_EVENT, openAssistant);
@@ -257,6 +271,7 @@ export default function AppChatbot() {
   const startNewChat = () => {
     setMessages([WELCOME]);
     setConversationId(null);
+    setLaunchContext(null);
     setHandoffRequested(false);
     setHandoffText('');
     setInput('');
@@ -278,8 +293,9 @@ export default function AppChatbot() {
         mode: effectiveMode,
         conversationId,
         context: {
+          ...(launchContext || {}),
           route: currentRoute,
-          pageTitle: currentPage,
+          pageTitle: assistantPage,
           module: routeParts[0] || 'dashboard',
           recordId: routeParts[1] || '',
           locale: document.documentElement.lang || navigator.language || 'en-GB',
@@ -329,11 +345,11 @@ export default function AppChatbot() {
     try {
       const transcript = messages.slice(-12).map((message) => `${message.role.toUpperCase()}: ${message.text}`).join('\n');
       await conciergeService.create({
-        title: `Assistant handoff — ${currentPage}`,
+        title: `Assistant handoff — ${assistantPage}`,
         details: [
           `Requested by: ${user?.firstName || 'User'} ${user?.lastName || ''}`.trim(),
           `Email: ${user?.email || '-'}`,
-          `Page: ${currentPage} (${location.pathname})`,
+          `Page: ${assistantPage} (${location.pathname})`,
           `Issue: ${note}`,
           '',
           'Recent assistant transcript:',
@@ -342,8 +358,8 @@ export default function AppChatbot() {
         source: 'APP', notifySupport: false, priority: 'MEDIUM', status: 'PENDING',
       });
       const supportThread = await messageService.getOrCreateLiveSupportThread(
-        `[LaFlo Assistant] ${note}`,
-        `Live support requested from ${currentPage} by ${user?.firstName || 'User'}`
+        `[Ask LaFlo] ${note}`,
+        `Live support requested from ${assistantPage} by ${user?.firstName || 'User'}`
       );
       const supportWasNotified = supportThread.handoffNotification?.emailSent === true;
       setMessages((previous) => [...previous, {
@@ -371,17 +387,17 @@ export default function AppChatbot() {
   return (
     <div className='fixed bottom-2 right-4 z-[80] sm:bottom-3 sm:right-6'>
       {open ? (
-        <section role='dialog' aria-label='LaFlo Assistant' className='flex h-[min(680px,calc(100dvh-1.5rem))] max-h-[calc(100dvh-1.5rem)] w-[min(430px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl'>
+        <section role='dialog' aria-label='Ask LaFlo' className='flex h-[min(680px,calc(100dvh-1.5rem))] max-h-[calc(100dvh-1.5rem)] w-[min(430px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl'>
           <header className='flex shrink-0 items-center justify-between gap-3 bg-gradient-to-r from-primary-800 to-primary-600 px-4 py-3 text-primary-contrast'>
             <div className='flex min-w-0 items-center gap-3'>
               <span className='h-10 w-10 shrink-0 overflow-hidden rounded-xl shadow-sm ring-1 ring-white/20'>
                 <img src='/assets/laflo-ai-agent-transparent.png' alt='LaFlo AI Agent' className='h-full w-full object-contain' />
               </span>
               <div className='min-w-0'>
-                <h2 className='truncate text-sm font-semibold'>LaFlo Assistant</h2>
+                <h2 className='truncate text-sm font-semibold'>Ask LaFlo</h2>
                 <p className='flex items-center gap-1.5 text-xs text-emerald-50/80'>
                   <span className={`h-1.5 w-1.5 rounded-full ${assistantLive === false ? 'bg-amber-300' : 'bg-emerald-300'}`} />
-                  {assistantLive === false ? 'Temporarily unavailable' : `Helping with ${currentPage}`}
+                  {assistantLive === false ? 'Temporarily unavailable' : `Helping with ${assistantPage}`}
                 </p>
               </div>
             </div>
@@ -395,7 +411,7 @@ export default function AppChatbot() {
             </div>
           </header>
           <div className='flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2'>
-            <span className='truncate text-xs text-slate-500'>Current page: <strong className='font-medium text-slate-700'>{currentPage}</strong></span>
+            <span className='truncate text-xs text-slate-500'>Current context: <strong className='font-medium text-slate-700'>{assistantPage}</strong></span>
             <select value={mode} onChange={(event) => setMode(event.target.value as AssistantMode)} className='h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700' aria-label='Assistant mode'>
               {Object.entries(MODE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
@@ -537,7 +553,7 @@ export default function AppChatbot() {
           </div>
         </section>
       ) : (
-        <button ref={launcherRef} type='button' onClick={() => setOpen(true)} className='flex min-h-11 items-center gap-2 rounded-2xl bg-primary-solid px-3 py-2 text-xs font-semibold text-primary-contrast shadow-lg ring-1 ring-black/5 transition-transform hover:scale-[1.02] hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2' aria-label='Open LaFlo Assistant'>
+        <button ref={launcherRef} type='button' onClick={() => { setLaunchContext(null); setOpen(true); }} className='flex min-h-11 items-center gap-2 rounded-2xl bg-primary-solid px-3 py-2 text-xs font-semibold text-primary-contrast shadow-lg ring-1 ring-black/5 transition-transform hover:scale-[1.02] hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2' aria-label='Open Ask LaFlo'>
           <span className='relative h-[18px] w-[18px] shrink-0 overflow-hidden' aria-hidden='true'><img src='/laflo-logo.png' alt='' className='absolute -right-[5px] -top-[8px] h-[35px] w-auto max-w-none' /></span><span className='whitespace-nowrap'>Ask LaFlo</span>
         </button>
       )}

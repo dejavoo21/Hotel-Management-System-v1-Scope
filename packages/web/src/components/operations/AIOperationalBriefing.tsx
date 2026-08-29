@@ -68,7 +68,7 @@ export default function AIOperationalBriefing({
     : 'No high-priority operational risk is currently identified from the available context.';
   const actionCopy = recommendedAction
     ? `${recommendedAction.title} — ${recommendedAction.rationale}`
-    : priorityRecommendation?.description || priorityRecommendation?.title || 'Review the governance queue and assign owners to any overdue operational work.';
+    : priorityRecommendation?.description || priorityRecommendation?.title || 'Review the recommendation queue and assign owners to any overdue operational work.';
 
   const reviewRecommendations = () => {
     document.getElementById('ai-recommendation-governance')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -119,7 +119,19 @@ export default function AIOperationalBriefing({
         <div className="mt-5 flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => openLafloAssistant({ mode: 'operations', prompt: 'Explain today’s AI operational briefing and the recommended next action.' })}
+            onClick={() => openLafloAssistant({
+              mode: 'operations',
+              prompt: 'Explain today’s AI operational briefing and the recommended next action.',
+              context: {
+                page: 'Operations Center',
+                briefingGeneratedAt: generatedAt || null,
+                contextSourceCount,
+                recommendationCount: recommendations.length,
+                confidence,
+                topRisk: risk?.title || null,
+                recommendedAction: recommendedAction?.title || priorityRecommendation?.title || null,
+              },
+            })}
             className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary-solid px-4 py-2 text-sm font-semibold text-primary-contrast shadow-sm hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2"
           >
             <Bot className="h-4 w-4" />Ask LaFlo for details

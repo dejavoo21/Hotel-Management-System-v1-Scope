@@ -76,7 +76,7 @@ const definitions: PreferenceDefinition[] = [
   { id: 'doorAccessAlerts', title: 'Door / Access Alerts', description: 'Receive door and access-control alerts.', category: 'Security & Smart Building', priority: 'Critical' },
   { id: 'dailyReports', title: 'Daily Reports', description: 'Receive daily operational summaries.', category: 'Reports & Summaries', priority: 'Low' },
   { id: 'weeklyReports', title: 'Weekly Reports', description: 'Receive weekly performance summaries.', category: 'Reports & Summaries', priority: 'Low' },
-  { id: 'operationsSummary', title: 'Operations Summary', description: 'Receive Hotel Brain attention and operations summaries.', category: 'Reports & Summaries', priority: 'Low' },
+  { id: 'operationsSummary', title: 'Operations Summary', description: 'Receive Hotel Insights attention and operations summaries.', category: 'Reports & Summaries', priority: 'Low' },
 ];
 
 const categories = Array.from(new Set(definitions.map((item) => item.category)));

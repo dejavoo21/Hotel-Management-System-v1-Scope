@@ -95,14 +95,9 @@ A modern, production-ready Hotel Management System built with React, Node.js, an
    npm run dev
    ```
 
-## Demo Credentials
+## Authentication
 
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | admin@demo.hotel | Demo123! |
-| Manager | manager@demo.hotel | Demo123! |
-| Receptionist | reception@demo.hotel | Demo123! |
-| Housekeeping | housekeeping@demo.hotel | Demo123! |
+Production credentials are provisioned by an authorised LaFlo administrator and are never committed to the repository. Local automated tests use isolated fixture identities that are not production accounts.
 
 ## Project Structure
 

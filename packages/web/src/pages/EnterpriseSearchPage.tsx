@@ -166,7 +166,18 @@ export default function EnterpriseSearchPage() {
     setPage(1);
     setSelectedResultId(null);
   };
-  const askLaflo = (prompt: string) => openLafloAssistant({ mode: 'operations', prompt });
+  const askLaflo = (prompt: string, recordContext: Record<string, unknown> = {}) => openLafloAssistant({
+    mode: 'operations',
+    prompt,
+    context: {
+      page: 'Enterprise Search',
+      query: query || submittedQuery,
+      category: selectedCategory || 'ALL',
+      sourceModule: sourceModule || 'ALL',
+      status: status || 'ALL',
+      ...recordContext,
+    },
+  });
   const authorisedResults = useMemo(() => {
     if (cleared) return [];
     const auditRequested = selectedCategory === 'AUDIT_LOG' || /\baudit\b/i.test(submittedQuery);
@@ -241,7 +252,7 @@ export default function EnterpriseSearchPage() {
   );
 
   const previewContent = selectedResult
-    ? <Preview result={selectedResult} canCreateTask={canCreateTask} onOpen={() => selectedResult.sourceUrl && navigate(selectedResult.sourceUrl)} onAsk={() => askLaflo(`Use this authorised Enterprise Search result as context. Title: ${selectedResult.title}. Type: ${formatLabel(selectedResult.category)}. Source: ${formatLabel(selectedResult.sourceModule)}. Summary: ${selectedResult.summary || selectedResult.snippet}`)} onAssign={() => navigate('/operations/tasks-advisories', { state: { sourceSearchResult: selectedResult, requestedAction: 'assign' } })} onCreateTask={() => navigate('/operations/tasks-advisories', { state: { sourceSearchResult: selectedResult, requestedAction: 'create' } })} />
+    ? <Preview result={selectedResult} canCreateTask={canCreateTask} onOpen={() => selectedResult.sourceUrl && navigate(selectedResult.sourceUrl)} onAsk={() => askLaflo(`Use this authorised Enterprise Search result as context. Title: ${selectedResult.title}. Type: ${formatLabel(selectedResult.category)}. Source: ${formatLabel(selectedResult.sourceModule)}. Summary: ${selectedResult.summary || selectedResult.snippet}`, { resultId: selectedResult.id, entityId: selectedResult.entityId, resultCategory: selectedResult.category, resultSource: selectedResult.sourceModule, resultStatus: selectedResult.status, resultSeverity: selectedResult.severity })} onAssign={() => navigate('/operations/tasks-advisories', { state: { sourceSearchResult: selectedResult, requestedAction: 'assign' } })} onCreateTask={() => navigate('/operations/tasks-advisories', { state: { sourceSearchResult: selectedResult, requestedAction: 'create' } })} />
     : <EmptyPreview />;
 
   return (
@@ -304,7 +315,7 @@ export default function EnterpriseSearchPage() {
               <div className="flex items-center justify-between"><div><h2 className="flex items-center gap-2 text-xs font-bold"><Sparkles className="h-4 w-4 text-primary-700" />AI Insight</h2><p className="mt-1 text-[9px] text-text-muted">Evidence-backed insight from authorised context.</p></div><ChevronUp className="h-4 w-4 text-text-muted" /></div>
               <p className="mt-4 text-[11px] leading-5 text-text-main">{selectedResult ? 'This record matches similar authorised events. Consider reviewing the related systems and creating a preventive follow-up task.' : 'Select a result to generate an evidence-backed operational insight.'}</p>
               <p className="mt-2 text-[9px] font-semibold text-emerald-700">Powered by Hotel Brain · Permission-filtered context</p>
-              <div className="mt-4 flex gap-2">{canCreateTask ? <button type="button" disabled={!selectedResult} onClick={() => selectedResult && navigate('/operations/tasks-advisories', { state: { sourceSearchResult: selectedResult, requestedAction: 'create' } })} className="rounded-lg bg-primary-700 px-4 py-2 text-[10px] font-semibold text-primary-contrast disabled:opacity-40">Create task</button> : null}<button type="button" disabled={!selectedResult} onClick={() => selectedResult && askLaflo(`Show records similar to ${selectedResult.title}`)} className="rounded-lg border border-border bg-card px-4 py-2 text-[10px] font-semibold disabled:opacity-40">Show similar records</button></div>
+              <div className="mt-4 flex gap-2">{canCreateTask ? <button type="button" disabled={!selectedResult} onClick={() => selectedResult && navigate('/operations/tasks-advisories', { state: { sourceSearchResult: selectedResult, requestedAction: 'create' } })} className="rounded-lg bg-primary-700 px-4 py-2 text-[10px] font-semibold text-primary-contrast disabled:opacity-40">Create task</button> : null}<button type="button" disabled={!selectedResult} onClick={() => selectedResult && askLaflo(`Show records similar to ${selectedResult.title}`, { resultId: selectedResult.id, entityId: selectedResult.entityId, resultCategory: selectedResult.category })} className="rounded-lg border border-border bg-card px-4 py-2 text-[10px] font-semibold disabled:opacity-40">Ask LaFlo for similar records</button></div>
             </section>
           </aside>
         </div>

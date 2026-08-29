@@ -8,7 +8,7 @@
       "lastName": "User",
       "role": "ADMIN",
       "hotelId": "hotel-1",
-      "isActive": true,
+      "isActive": false,
       "twoFactorEnabled": false,
       "twoFactorSecret": null,
       "lastLoginAt": "2026-02-03T23:55:23.529Z",

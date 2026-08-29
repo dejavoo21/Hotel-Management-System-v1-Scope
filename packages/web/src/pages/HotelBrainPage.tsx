@@ -78,17 +78,26 @@ export default function HotelBrainPage() {
   const openAssistant = (prompt?: string) => openLafloAssistant({
     mode: 'operations',
     prompt: prompt || incomingQuestion || 'What should I pay attention to across hotel operations today?',
+    context: {
+      page: 'Hotel Insights',
+      authorisedContextSources: authorisedSources.map((source) => source.label),
+      readiness: statusQuery.data?.live ? 'ready' : 'configuration-review',
+      pendingGovernance: recommendationsQuery.data?.length || 0,
+      briefingGeneratedAt: briefingQuery.data?.generatedAt || null,
+      incomingQuestion: incomingQuestion || null,
+    },
   });
 
   const briefing = briefingQuery.data;
   const recommendations = recommendationsQuery.data || [];
-  const readinessLabel = statusQuery.isLoading ? 'Checking readiness' : statusQuery.data?.live ? 'AI ready' : 'Review configuration';
-  const openGovernance = () => document.getElementById('hotel-brain-governance')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const readinessLabel = statusQuery.isLoading ? 'Checking status' : statusQuery.data?.live ? 'Ready' : 'Needs configuration';
+  const openGovernance = () => navigate('/operations/ai-governance');
   const refreshEvidence = async () => {
-    const results = await Promise.allSettled([statusQuery.refetch(), briefingQuery.refetch(), recommendationsQuery.refetch()]);
-    if (results.every((result) => result.status === 'fulfilled')) toast.success('Hotel Brain evidence refreshed');
-    else if (results.some((result) => result.status === 'fulfilled')) toast('Evidence partially refreshed');
-    else toast.error('Evidence refresh failed');
+    const results = await Promise.all([statusQuery.refetch(), briefingQuery.refetch(), recommendationsQuery.refetch()]);
+    const successes = results.filter((result) => !result.error).length;
+    if (successes === results.length) toast.success('Hotel information refreshed');
+    else if (successes > 0) toast('Hotel information partially refreshed');
+    else toast.error('Hotel information refresh failed');
   };
 
   return (
@@ -98,13 +107,13 @@ export default function HotelBrainPage() {
           <div className="flex items-start gap-4">
             <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-card/10 ring-1 ring-border/20"><Brain className="h-7 w-7" /></span>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-sky-200">AI / Hotel Brain Console</p>
-              <h1 className="mt-1 text-2xl font-semibold">Hotel Brain Console</h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-primary-contrast">Hotel Brain powers Ask LaFlo with permission-filtered context, connected modules, evidence history, and governed recommendations.</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-sky-200">Operations / Hotel Insights</p>
+              <h1 className="mt-1 text-2xl font-semibold">Hotel Insights</h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-primary-contrast">Hotel Insights brings together information from rooms, tasks, incidents, revenue, security, and smart building systems to help Ask LaFlo give better answers.</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-2 rounded-xl border border-emerald-300/60 bg-emerald-400/10 px-3 py-2 text-xs font-semibold text-emerald-100"><ShieldCheck className="h-4 w-4" />Permission-filtered evidence</span>
+            <span className="inline-flex items-center gap-2 rounded-xl border border-emerald-300/60 bg-emerald-400/10 px-3 py-2 text-xs font-semibold text-emerald-100"><ShieldCheck className="h-4 w-4" />Information matched to your access</span>
             <button type="button" onClick={() => openAssistant()} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-card px-4 py-2 text-sm font-semibold text-text-main hover:bg-border/50"><Bot className="h-4 w-4" />Open Ask LaFlo</button>
           </div>
         </div>
@@ -117,19 +126,19 @@ export default function HotelBrainPage() {
         </section>
       ) : null}
 
-      <section aria-label="Hotel Brain status" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatusCard icon={Activity} label="AI readiness" value={readinessLabel} detail={statusQuery.data?.model || 'Ask LaFlo service'} tone="emerald" onClick={() => setDetail({ title: 'AI readiness', content: <DetailStack rows={[["Status", readinessLabel], ["Model", statusQuery.data?.model || "Not available"], ["Provider", statusQuery.data?.provider || "Not available"]]} /> })} />
-        <StatusCard icon={Database} label="Context sources" value={String(authorisedSources.length)} detail="Authorised connected modules" tone="sky" onClick={() => setDetail({ title: 'Context sources', content: <DetailStack rows={authorisedSources.map((source) => [source.label, source.detail])} /> })} />
-        <StatusCard icon={Sparkles} label="Governance queue" value={recommendationsQuery.isLoading ? '—' : String(recommendations.length)} detail="Pending AI recommendations" tone="violet" onClick={openGovernance} />
-        <StatusCard icon={Clock3} label="Last intelligence run" value={briefingQuery.isLoading ? 'Loading…' : formatTime(briefing?.generatedAt)} detail={briefing?.source === 'AI' ? 'AI generated' : 'Rules-assisted evidence'} tone="amber" onClick={() => setDetail({ title: 'Last intelligence run', content: <DetailStack rows={[["Generated", formatTime(briefing?.generatedAt)], ["Status", briefing ? "Completed" : "Not available"], ["Source", briefing?.source || "Not available"]]} /> })} />
+      <section aria-label="Hotel Insights status" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatusCard icon={Activity} label="Ask LaFlo status" value={readinessLabel} detail={statusQuery.data?.model || 'Ask LaFlo service'} tone="emerald" onClick={() => setDetail({ title: 'Ask LaFlo status', content: <DetailStack rows={[["Status", readinessLabel], ["Model", statusQuery.data?.model || "Not available"], ["Provider", statusQuery.data?.provider || "Not available"]]} /> })} />
+        <StatusCard icon={Database} label="Connected information" value={String(authorisedSources.length)} detail="Available hotel systems" tone="sky" onClick={() => setDetail({ title: 'Connected information', content: <DetailStack rows={authorisedSources.map((source) => [source.label, source.detail])} /> })} />
+        <StatusCard icon={Sparkles} label="Recommendations to review" value={recommendationsQuery.isLoading ? '—' : String(recommendations.length)} detail="Pending AI recommendations" tone="violet" onClick={openGovernance} />
+        <StatusCard icon={Clock3} label="Last update" value={briefingQuery.isLoading ? 'Loading…' : formatTime(briefing?.generatedAt)} detail={briefing?.source === 'AI' ? 'Ask LaFlo information updated' : 'Hotel information updated'} tone="amber" onClick={() => setDetail({ title: 'Last update', content: <DetailStack rows={[["Updated", formatTime(briefing?.generatedAt)], ["Status", briefing ? "Completed" : "Not available"], ["Source", briefing?.source || "Not available"]]} /> })} />
       </section>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
         <div className="space-y-4">
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div><h2 className="text-base font-semibold text-text-main">Latest operational briefing</h2><p className="mt-1 text-sm text-text-muted">Evidence-backed intelligence available to Ask LaFlo.</p></div>
-              <button type="button" onClick={() => void refreshEvidence()} disabled={briefingQuery.isFetching || statusQuery.isFetching || recommendationsQuery.isFetching} className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-text-main hover:bg-bg disabled:opacity-50"><RefreshCcw className={`h-4 w-4 ${briefingQuery.isFetching ? 'animate-spin' : ''}`} />Refresh evidence</button>
+              <div><h2 className="text-base font-semibold text-text-main">Today’s hotel briefing</h2><p className="mt-1 text-sm text-text-muted">Useful operational information available to Ask LaFlo.</p></div>
+              <button type="button" onClick={() => void refreshEvidence()} disabled={briefingQuery.isFetching || statusQuery.isFetching || recommendationsQuery.isFetching} className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-text-main hover:bg-bg disabled:opacity-50"><RefreshCcw className={`h-4 w-4 ${briefingQuery.isFetching ? 'animate-spin' : ''}`} />Refresh information</button>
             </div>
             {briefingQuery.isLoading ? <div className="mt-4 h-32 animate-pulse rounded-xl bg-border/50" /> : briefing ? (
               <div className="mt-4">
@@ -137,40 +146,40 @@ export default function HotelBrainPage() {
                 <div className="mt-3 divide-y divide-slate-100 rounded-xl border border-border">
                   {briefing.todayPriorities.slice(0, 5).map((item) => <div key={`${item.title}-${item.detail}`} className="flex items-start gap-3 px-4 py-3"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" /><div><p className="text-sm font-semibold text-text-main">{item.title}</p><p className="mt-0.5 text-xs leading-5 text-text-muted">{item.detail}</p></div>{item.department ? <span className="ml-auto shrink-0 rounded-full bg-border/50 px-2 py-1 text-[10px] font-semibold text-text-muted">{item.department}</span> : null}</div>)}
                 </div>
-                <div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => openAssistant(`Explain this operational briefing: ${briefing.executiveSummary}`)} className="rounded-xl bg-primary-solid px-3 py-2 text-xs font-semibold text-primary-contrast">Open Ask LaFlo</button><button type="button" onClick={() => setDetail({ title: 'Full operational briefing', content: <div className="space-y-3"><p className="text-sm leading-6 text-text-main">{briefing.executiveSummary}</p><DetailStack rows={briefing.todayPriorities.map((item) => [item.title, item.detail])} /></div> })} className="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-text-main">View full briefing</button><button type="button" onClick={openGovernance} className="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-text-main">Review related recommendations</button></div>
+                <div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => openAssistant(`Explain this operational briefing: ${briefing.executiveSummary}`)} className="rounded-xl bg-primary-solid px-3 py-2 text-xs font-semibold text-primary-contrast">Open Ask LaFlo</button><button type="button" onClick={() => setDetail({ title: 'Full hotel briefing', content: <div className="space-y-3"><p className="text-sm leading-6 text-text-main">{briefing.executiveSummary}</p><DetailStack rows={briefing.todayPriorities.map((item) => [item.title, item.detail])} /></div> })} className="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-text-main">View full hotel briefing</button><button type="button" onClick={openGovernance} className="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-text-main">Review recommendations</button></div>
               </div>
             ) : <EmptyState text="No operational briefing is available yet." />}
           </section>
 
           <section className="grid gap-4 lg:grid-cols-2">
             <ConsoleList icon={History} title="Recent Ask LaFlo questions" subtitle="Evidence-backed questions from your saved assistant history" items={recentQuestions} empty="No recent Ask LaFlo questions yet." actionLabel="Open Ask LaFlo" onAction={() => openAssistant()} onItem={(question) => setDetail({ title: 'Ask LaFlo question history', content: <DetailStack rows={[["Question", question], ["History", "Open Ask LaFlo to continue with current authorised context."]]} /> })} />
-            <ConsoleList icon={ClipboardCheck} title="Saved operational prompts" subtitle="Reusable prompts run through the same Ask LaFlo assistant" items={savedPrompts} empty="No saved prompts available." onItem={(prompt) => openAssistant(prompt)} />
+            <ConsoleList icon={ClipboardCheck} title="Saved hotel prompts" subtitle="Reusable prompts run through the same Ask LaFlo assistant" items={savedPrompts} empty="No saved prompts available." onItem={(prompt) => openAssistant(prompt)} />
           </section>
 
           <section id="hotel-brain-governance" className="scroll-mt-24 rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-3"><div><h2 className="text-base font-semibold text-text-main">Recommendation governance</h2><p className="mt-1 text-sm text-text-muted">Hotel Brain produces recommendations; authorised reviewers approve, reject, expire, or convert them to tasks.</p></div><ShieldCheck className="h-5 w-5 text-emerald-700" /></div>
+            <div className="flex items-start justify-between gap-3"><div><h2 className="text-base font-semibold text-text-main">AI Recommendations</h2><p className="mt-1 text-sm text-text-muted">Hotel Insights includes recommendations that authorised reviewers can approve, reject, expire, assign, or convert into tasks.</p></div><ShieldCheck className="h-5 w-5 text-emerald-700" /></div>
             <div className="mt-4 space-y-2">
               {recommendations.slice(0, 3).map((item) => <button type="button" onClick={() => setDetail({ title: item.title, content: <DetailStack rows={[["Department", item.department], ["Priority", item.priority], ["Confidence", `${Math.round(item.confidence * 100)}%`], ["Status", item.status]]} /> })} key={item.id} className="flex w-full flex-col gap-2 rounded-xl border border-border px-4 py-3 text-left hover:border-primary-300 hover:bg-primary-50 sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-text-main">{item.title}</p><p className="mt-1 text-xs text-text-muted">{item.department} · Confidence {Math.round(item.confidence * 100)}%</p></div><span className="w-fit rounded-full bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700">{item.priority}</span></button>)}
-              {!recommendationsQuery.isLoading && !recommendations.length ? <EmptyState text="No recommendations are awaiting governance review." /> : null}
+              {!recommendationsQuery.isLoading && !recommendations.length ? <EmptyState text="No recommendations are awaiting review." /> : null}
             </div>
-            <button type="button" onClick={() => navigate('/operations/ai-governance')} className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-800">Review governance queue <ArrowRight className="h-4 w-4" /></button>
+            <button type="button" onClick={() => navigate('/operations/ai-governance')} className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-800">Open AI Recommendations <ArrowRight className="h-4 w-4" /></button>
           </section>
         </div>
 
         <aside className="space-y-4">
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <div className="flex items-start gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-sky-50 text-sky-700"><Layers3 className="h-5 w-5" /></span><div><h2 className="text-base font-semibold text-text-main">AI context sources</h2><p className="mt-1 text-xs text-text-muted">Only modules you can access are available to Ask LaFlo.</p></div></div>
+            <div className="flex items-start gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-sky-50 text-sky-700"><Layers3 className="h-5 w-5" /></span><div><h2 className="text-base font-semibold text-text-main">Information available to Ask LaFlo</h2><p className="mt-1 text-xs text-text-muted">Only hotel systems you can access are available to Ask LaFlo.</p></div></div>
             <div className="mt-4 divide-y divide-slate-100">
               {authorisedSources.map((source) => <button type="button" onClick={() => setDetail({ title: `${source.label} context`, content: <DetailStack rows={[["Status", "Available"], ["Available context", source.detail], ["Permission", "Authorised"], ["Last refresh", formatTime(briefing?.generatedAt)]]} /> })} key={source.label} className="flex w-full items-center gap-3 py-3 text-left hover:text-primary-700"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-bg text-text-muted"><Database className="h-4 w-4" /></span><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-text-main">{source.label}</p><p className="truncate text-[11px] text-text-muted">{source.detail}</p></div><span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Available</span></button>)}
             </div>
           </section>
 
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="text-base font-semibold text-text-main">Evidence & audit</h2>
+            <h2 className="text-base font-semibold text-text-main">Sources and activity history</h2>
             <div className="mt-4 space-y-3 text-sm">
               <AuditRow icon={LockKeyhole} label="Permission filtering" value="Enforced" onClick={() => setDetail({ title: 'Permission filtering', content: <DetailStack rows={[["Status", "Enforced"], ["Scope", `${authorisedSources.length} authorised modules`], ["Restricted data", "Hidden from summaries and source details"]]} /> })} />
               <AuditRow icon={FileSearch} label="Evidence attribution" value="Enabled" onClick={() => setDetail({ title: 'Evidence attribution', content: <p className="text-sm leading-6 text-text-muted">Ask LaFlo answers identify the authorised operational sources used when evidence is available.</p> })} />
-              <AuditRow icon={ShieldCheck} label="Human governance" value="Required" onClick={openGovernance} />
+              <AuditRow icon={ShieldCheck} label="Human review" value="Required" onClick={openGovernance} />
               <AuditRow icon={History} label="Answer history" value={recentQuestions.length ? `${recentQuestions.length} recent` : 'No saved history'} onClick={() => setDetail({ title: 'Answer history', content: recentQuestions.length ? <DetailStack rows={recentQuestions.map((question, index) => [`Question ${index + 1}`, question])} /> : <EmptyState text="No recent Ask LaFlo questions yet." /> })} />
             </div>
             <p className="mt-4 rounded-xl bg-bg p-3 text-xs leading-5 text-text-muted">Powered by Hotel Brain. Answers use authorised hotel records and require human confirmation for important operational decisions.</p>

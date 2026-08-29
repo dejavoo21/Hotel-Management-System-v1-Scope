@@ -39,6 +39,12 @@ export default function AICopilotPanel({
     openLafloAssistant({
       mode: 'operations',
       prompt: `${question || 'Generate an operational insight for this page.'} Use only these authorised context sources: ${scopeLabel}.${entityContext}`,
+      context: {
+        page: title,
+        contextScope: contextScope || [],
+        linkedEntityType: linkedEntityType || null,
+        linkedEntityId: linkedEntityId || null,
+      },
     });
   };
 

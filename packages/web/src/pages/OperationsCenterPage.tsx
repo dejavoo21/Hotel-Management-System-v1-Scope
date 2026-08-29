@@ -6,6 +6,7 @@ import {
   Activity,
   AlertTriangle,
   ArrowRight,
+  Bot,
   CheckCircle2,
   ClipboardList,
   CloudRain,
@@ -36,6 +37,7 @@ import {
 import type { DailyGMBriefing, DailyBriefingItem } from "@/services/aiBriefing";
 import type { OperationsContext } from "@/services/operations";
 import { useAuthStore } from "@/stores/authStore";
+import { openLafloAssistant } from "@/lib/assistantEvents";
 
 type OperationsFocus =
   | "overview"
@@ -54,9 +56,9 @@ const focusMeta: Record<
       "Real-time operational visibility across your hotel. Make informed decisions with confidence.",
   },
   ai: {
-    title: "AI Governance",
+    title: "AI Recommendations",
     description:
-      "Review, approve, reject, expire, or convert AI recommendations into governed tasks.",
+      "Review AI-generated recommendations and decide whether to approve, reject, expire, assign, or convert them into tasks.",
   },
   revenue: {
     title: "Revenue Guidance",
@@ -130,13 +132,16 @@ export default function OperationsCenterPage() {
   const refreshWeatherMutation = useMutation({
     mutationFn: async () => {
       const weather = await weatherSignalsService.sync(hotelId);
-      const results = await Promise.allSettled([
+      const [operationsResult, briefingResult, governanceResult] = await Promise.all([
         operationsQuery.refetch(),
-        isOverview ? briefingQuery.refetch() : Promise.resolve(),
-        isOverview ? governanceQuery.refetch() : Promise.resolve(),
-        queryClient.invalidateQueries({ queryKey: ["operations-events"] }),
+        isOverview ? briefingQuery.refetch() : Promise.resolve(null),
+        isOverview ? governanceQuery.refetch() : Promise.resolve(null),
       ]);
-      return { weather, partial: results.some((result) => result.status === "rejected") };
+      await queryClient.invalidateQueries({ queryKey: ["operations-events"] });
+      return {
+        weather,
+        partial: [operationsResult, briefingResult, governanceResult].some((result) => Boolean(result?.error)),
+      };
     },
     onSuccess: ({ weather, partial }) => {
       toast.success(
@@ -611,6 +616,25 @@ function CommandCenter({
               restricted={!canRevenue}
             />
           </div>
+          <button
+            type="button"
+            onClick={() => openLafloAssistant({
+              mode: "operations",
+              prompt: "Summarise the Operations Center and recommend the next authorised action.",
+              context: {
+                page: "Operations Center",
+                arrivalsNext24h: context?.ops?.arrivalsNext24h || 0,
+                departuresNext24h: context?.ops?.departuresNext24h || 0,
+                openAdvisories: advisories.length,
+                highPriorityRisks: criticalRisks.length,
+                demandSignal: demand,
+                forecastFresh,
+              },
+            })}
+            className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-primary-solid px-4 py-2 text-sm font-semibold text-primary-contrast hover:bg-primary-hover"
+          >
+            <Bot className="h-4 w-4" />Ask LaFlo about Operations Center
+          </button>
         </section>
         <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
           <h2 className="font-semibold text-text-main">
@@ -646,15 +670,15 @@ function CommandCenter({
         </section>
         <SummaryPanel
           icon={ShieldCheck}
-          title="AI Recommendation Governance"
-          description="Keep AI recommendations accurate and aligned with operational goals."
-          action="Review queue"
+          title="Recommendation Review Queue"
+          description="Review AI-generated recommendations and decide which actions should move forward."
+          action="Review Recommendations"
           href="/operations/ai-governance#ai-recommendation-governance"
           restricted={!canGovernance}
           darkIcon
         >
           {governanceError ? (
-            <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">AI governance queue is unavailable.</p>
+            <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">AI recommendation queue is unavailable.</p>
           ) : canGovernance ? (
             <div className="grid grid-cols-2 gap-3">
               <Metric label="Pending reviews" value={pendingGovernance} warning={pendingGovernance >= 25} />
@@ -663,7 +687,7 @@ function CommandCenter({
               <Metric label="Last updated" value={context?.generatedAtUtc ? new Date(context.generatedAtUtc).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Awaiting data"} />
             </div>
           ) : (
-            <p className="rounded-xl bg-bg p-3 text-xs text-text-muted">Permission required to view AI governance.</p>
+            <p className="rounded-xl bg-bg p-3 text-xs text-text-muted">Permission required to view AI recommendations.</p>
           )}
         </SummaryPanel>
       </aside>
@@ -674,7 +698,7 @@ function CommandCenter({
           <DetailRow label="Top risk" value={risks.find((item) => item.department?.includes(departmentDetail.toUpperCase().replace(" ", "_")))?.title || "No active risks."} />
           <DetailRow label="Recommended action" value={briefing?.recommendedActions[0]?.title || "No recommended actions."} />
           <Link className="btn-primary mt-4 inline-flex" to="/operations/tasks-advisories">Open related tasks</Link>
-          {canGovernance ? <Link className="btn-outline ml-2 mt-4 inline-flex" to={`/operations/ai-governance?department=${encodeURIComponent(departmentDetail)}#ai-recommendation-governance`}>AI Governance</Link> : null}
+          {canGovernance ? <Link className="btn-outline ml-2 mt-4 inline-flex" to={`/operations/ai-governance?department=${encodeURIComponent(departmentDetail)}#ai-recommendation-governance`}>Open AI Recommendations</Link> : null}
         </DetailDrawer>
       ) : null}
       {showActivity ? (
@@ -783,7 +807,7 @@ function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
           icon={Gauge}
           label="Pending Recommendations"
           value={pending.length}
-          detail="Governance review queue"
+          detail="Recommendation review queue"
           onClick={() => focusGovernance({ status: "PENDING" })}
         />
         <AIStat
@@ -826,7 +850,10 @@ function OperationsAIWorkspace({ context }: { context?: OperationsContext }) {
             isLoading={briefingQuery.isLoading}
             isRefreshing={briefingQuery.isFetching}
             onRefresh={() => {
-              void briefingQuery.refetch();
+              void briefingQuery.refetch().then((result) => {
+                if (result.error) toast.error((result.error as Error).message || "Operational briefing could not be refreshed");
+                else toast.success("Operational briefing refreshed");
+              });
             }}
           />
           <div id="ai-recommendation-governance" className="scroll-mt-24">

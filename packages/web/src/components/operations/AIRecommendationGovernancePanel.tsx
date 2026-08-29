@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { AlertTriangle, CheckCircle2, ClipboardList, Eye, ExternalLink, History, MessageSquare, RefreshCcw, ShieldCheck, UserPlus, X, XCircle } from 'lucide-react';
+import { AlertTriangle, Bot, CheckCircle2, ClipboardList, Eye, ExternalLink, History, MessageSquare, RefreshCcw, ShieldCheck, UserPlus, X, XCircle } from 'lucide-react';
 import { aiRecommendationsService, getApiError } from '@/services';
 import type { AIRecommendation, AIRecommendationStatus } from '@/services/aiRecommendations';
 import { useAuthStore } from '@/stores/authStore';
 import type { User } from '@/types';
 import { appendAuditLog } from '@/utils/auditLog';
+import { openLafloAssistant } from '@/lib/assistantEvents';
 
 type GovernanceTarget = { status?: AIRecommendationStatus; priority?: string; department?: string; recommendationId?: string };
 type NoteState = { owner?: string; comments: { text: string; at: string; author: string }[] };
@@ -46,6 +47,7 @@ function RecommendationCard({
   onInspect,
   onAssign,
   onComment,
+  onAsk,
   note,
   isPending,
 }: {
@@ -58,6 +60,7 @@ function RecommendationCard({
   onInspect: (recommendation: AIRecommendation, view: 'details' | 'source' | 'audit') => void;
   onAssign: (recommendation: AIRecommendation) => void;
   onComment: (recommendation: AIRecommendation) => void;
+  onAsk: (recommendation: AIRecommendation) => void;
   note?: NoteState;
   isPending: boolean;
 }) {
@@ -106,7 +109,7 @@ function RecommendationCard({
             {note?.comments.length ? <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 font-semibold text-blue-700">{note.comments.length} comment{note.comments.length === 1 ? '' : 's'}</span> : null}
           </div>
         <div className="mt-4 border-t border-border pt-3">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-text-muted">Governance actions</p>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-text-muted">Recommendation actions</p>
           <div className="flex flex-wrap gap-2">
           {canApprove ? (
             <button
@@ -158,6 +161,7 @@ function RecommendationCard({
           <button type="button" disabled={!canAct} onClick={() => onAssign(recommendation)} className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-xs font-semibold text-text-muted disabled:cursor-not-allowed disabled:opacity-50"><UserPlus className="h-3.5 w-3.5" />Assign owner</button>
           <button type="button" disabled={!canAct} onClick={() => onComment(recommendation)} className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-xs font-semibold text-text-muted disabled:cursor-not-allowed disabled:opacity-50"><MessageSquare className="h-3.5 w-3.5" />Add comment</button>
           <button type="button" onClick={() => onInspect(recommendation, 'audit')} className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-text-muted hover:bg-bg"><History className="h-3.5 w-3.5" />Audit trail</button>
+          <button type="button" onClick={() => onAsk(recommendation)} className="inline-flex items-center gap-1.5 rounded-xl border border-primary-200 bg-primary-50 px-3 py-2 text-xs font-semibold text-primary-700 hover:bg-primary-100"><Bot className="h-3.5 w-3.5" />Ask LaFlo about this recommendation</button>
           </div>
         </div>
       </div>
@@ -174,9 +178,7 @@ export default function AIRecommendationGovernancePanel({ compact = false }: { c
   const [creatingTask, setCreatingTask] = useState<AIRecommendation | null>(null);
   const [assigning, setAssigning] = useState<AIRecommendation | null>(null);
   const [commenting, setCommenting] = useState<AIRecommendation | null>(null);
-  const [owner, setOwner] = useState('Operations Manager');
-  const [comment, setComment] = useState('');
-  const [notes, setNotes] = useState<Record<string, NoteState>>(readNotes);
+  const [notes] = useState<Record<string, NoteState>>(readNotes);
   const [target, setTarget] = useState<GovernanceTarget>({});
   const [rejectionReason, setRejectionReason] = useState('');
   const [inspection, setInspection] = useState<{ recommendation: AIRecommendation; view: 'details' | 'source' | 'audit' } | null>(null);
@@ -240,12 +242,15 @@ export default function AIRecommendationGovernancePanel({ compact = false }: { c
     return true;
   }), [query.data, target]);
   const queryError = query.isError ? getApiError(query.error) : null;
-  const persistNote = (recommendation: AIRecommendation, next: NoteState) => {
-    const updated = { ...notes, [recommendation.id]: next };
-    setNotes(updated);
-    localStorage.setItem(notesKey, JSON.stringify(updated));
+  const audit = (action: string, recommendation: AIRecommendation, details?: Record<string, unknown>) => appendAuditLog({ action, actorId: user?.id, actorName: user?.email || 'Recommendation reviewer', targetId: recommendation.id, targetLabel: recommendation.title, details });
+  const refreshRecommendations = async () => {
+    const result = await query.refetch();
+    if (result.error) {
+      toast.error(getApiError(result.error).message);
+      return;
+    }
+    toast.success('Recommendation queue refreshed');
   };
-  const audit = (action: string, recommendation: AIRecommendation, details?: Record<string, unknown>) => appendAuditLog({ action, actorId: user?.id, actorName: user?.email || 'Governance reviewer', targetId: recommendation.id, targetLabel: recommendation.title, details });
 
   return (
     <section className="rounded-3xl border border-border bg-card p-5 shadow-sm">
@@ -255,9 +260,9 @@ export default function AIRecommendationGovernancePanel({ compact = false }: { c
             <ShieldCheck className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-text-main">AI Recommendation Governance</h2>
+            <h2 className="text-base font-semibold text-text-main">Recommendation Review Queue</h2>
             <p className="mt-1 text-sm text-text-muted">
-              Review, approve, reject, expire, or convert Hotel Brain recommendations into governed tasks.
+              Review AI-generated recommendations and decide whether to approve, reject, expire, assign, or convert them into tasks.
             </p>
             {!userCanGovern ? (
               <p className="mt-2 text-xs font-medium text-amber-700">
@@ -266,15 +271,18 @@ export default function AIRecommendationGovernancePanel({ compact = false }: { c
             ) : null}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => query.refetch()}
-          disabled={query.isFetching}
-          className="inline-flex items-center gap-2 rounded-2xl border border-border bg-card px-3 py-2 text-sm font-semibold text-text-main hover:bg-bg disabled:opacity-60"
-        >
-          <RefreshCcw className={`h-4 w-4 ${query.isFetching ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => openLafloAssistant({ mode: 'operations', prompt: 'Summarise the AI Recommendations queue and identify the recommendations that require authorised review.', context: { page: 'AI Recommendations', status: activeStatus, visibleRecommendations: recommendations.length, canGovern: userCanGovern } })} className="inline-flex items-center gap-2 rounded-2xl border border-primary-200 bg-primary-50 px-3 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-100"><Bot className="h-4 w-4" />Ask LaFlo about this queue</button>
+          <button
+            type="button"
+            onClick={refreshRecommendations}
+            disabled={query.isFetching}
+            className="inline-flex items-center gap-2 rounded-2xl border border-border bg-card px-3 py-2 text-sm font-semibold text-text-main hover:bg-bg disabled:opacity-60"
+          >
+            <RefreshCcw className={`h-4 w-4 ${query.isFetching ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
@@ -324,8 +332,9 @@ export default function AIRecommendationGovernancePanel({ compact = false }: { c
                 setRejectionReason('');
               }}
               onInspect={(item, view) => setInspection({ recommendation: item, view })}
-              onAssign={(item) => { setAssigning(item); setOwner(notes[item.id]?.owner || 'Operations Manager'); }}
-              onComment={(item) => { setCommenting(item); setComment(''); }}
+              onAssign={setAssigning}
+              onComment={setCommenting}
+              onAsk={(item) => openLafloAssistant({ mode: 'operations', prompt: `Explain this AI recommendation and the authorised evidence behind it: ${item.title}`, context: { page: 'AI Recommendations', recommendationId: item.id, status: item.status, department: item.department, priority: item.priority, confidence: item.confidence, sourceType: item.sourceType, sourceId: item.sourceId } })}
               note={notes[recommendation.id]}
             />
           ))
@@ -334,7 +343,7 @@ export default function AIRecommendationGovernancePanel({ compact = false }: { c
             <ShieldCheck className="mx-auto h-7 w-7 text-text-muted" />
             <p className="mt-2 text-sm font-semibold text-text-main">No {activeStatus.toLowerCase().replace(/_/g, ' ')} recommendations</p>
             <p className="mt-1 text-xs text-text-muted">There are no recommendations matching this queue and its current filters.</p>
-            <div className="mt-4 flex justify-center gap-2">{activeStatus !== 'PENDING' || Object.keys(target).length ? <button type="button" onClick={() => { setActiveStatus('PENDING'); setTarget({}); }} className="rounded-xl bg-primary-solid px-3 py-2 text-xs font-semibold text-primary-contrast">Return to Pending</button> : null}<button type="button" onClick={() => query.refetch()} className="rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-text-main">Refresh queue</button></div>
+            <div className="mt-4 flex justify-center gap-2">{activeStatus !== 'PENDING' || Object.keys(target).length ? <button type="button" onClick={() => { setActiveStatus('PENDING'); setTarget({}); }} className="rounded-xl bg-primary-solid px-3 py-2 text-xs font-semibold text-primary-contrast">Return to Pending</button> : null}<button type="button" onClick={refreshRecommendations} disabled={query.isFetching} className="rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-text-main disabled:opacity-60">Refresh queue</button></div>
           </div>
         )}
       </div>
@@ -355,6 +364,7 @@ export default function AIRecommendationGovernancePanel({ compact = false }: { c
               className="mt-2 w-full rounded-2xl border border-border p-3 text-sm focus:border-primary-500 focus:ring-primary-500"
               placeholder="Explain why this recommendation should not be acted on."
             />
+            {!rejectionReason.trim() ? <p className="mt-2 text-xs font-medium text-rose-700">A rejection reason is required.</p> : null}
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
@@ -371,7 +381,7 @@ export default function AIRecommendationGovernancePanel({ compact = false }: { c
                 onClick={() => {
                   rejectMutation.mutate();
                 }}
-                disabled={rejectMutation.isPending}
+                disabled={rejectMutation.isPending || !rejectionReason.trim()}
                 className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-primary-contrast hover:bg-rose-700 disabled:opacity-60"
               >
                 Reject
@@ -380,10 +390,10 @@ export default function AIRecommendationGovernancePanel({ compact = false }: { c
           </div>
         </div>
       ) : null}
-      {expiring ? <ConfirmDialog title="Expire recommendation?" description="This recommendation will move to Expired and will no longer appear in the active governance queue." item={expiring.title} confirmLabel="Expire recommendation" onCancel={() => setExpiring(null)} onConfirm={() => { audit('AI Recommendation Expired', expiring); actionMutation.mutate({ action: 'expire', recommendation: expiring }); }} pending={actionMutation.isPending} /> : null}
+      {expiring ? <ConfirmDialog title="Expire recommendation?" description="This recommendation will move to Expired and will no longer appear in the active recommendation queue." item={expiring.title} confirmLabel="Expire recommendation" onCancel={() => setExpiring(null)} onConfirm={() => { audit('AI Recommendation Expired', expiring); actionMutation.mutate({ action: 'expire', recommendation: expiring }); }} pending={actionMutation.isPending} /> : null}
       {creatingTask ? <RecommendationTaskDialog recommendation={creatingTask} pending={actionMutation.isPending} onCancel={() => setCreatingTask(null)} onConfirm={() => actionMutation.mutate({ action: 'create-task', recommendation: creatingTask })} /> : null}
-      {assigning ? <FormDialog title="Assign recommendation owner" description={assigning.title} onClose={() => setAssigning(null)} actionLabel="Save assignment" onSubmit={() => { const current = notes[assigning.id] || { comments: [] }; persistNote(assigning, { ...current, owner }); audit('AI Recommendation Owner Assigned', assigning, { owner }); toast.success('Recommendation owner assigned'); setAssigning(null); }}><label className="block text-sm font-medium text-text-main">Responsible owner or team<select value={owner} onChange={(event) => setOwner(event.target.value)} className="mt-2 w-full rounded-2xl border border-border p-3 text-sm"><option>Operations Manager</option><option>Front Desk</option><option>Housekeeping</option><option>Security</option><option>Revenue</option><option>Maintenance</option></select></label></FormDialog> : null}
-      {commenting ? <FormDialog title="Add governance comment" description={commenting.title} onClose={() => setCommenting(null)} actionLabel="Add comment" disabled={!comment.trim()} onSubmit={() => { const current = notes[commenting.id] || { comments: [] }; const entry = { text: comment.trim(), at: new Date().toISOString(), author: user?.email || 'Governance reviewer' }; persistNote(commenting, { ...current, comments: [...current.comments, entry] }); audit('AI Recommendation Comment Added', commenting, { comment: entry.text }); toast.success('Governance comment added'); setCommenting(null); }}><label className="block text-sm font-medium text-text-main">Reviewer comment<textarea value={comment} onChange={(event) => setComment(event.target.value)} rows={4} placeholder="Add context, a review note, or follow-up instruction." className="mt-2 w-full rounded-2xl border border-border p-3 text-sm" /></label></FormDialog> : null}
+      {assigning ? <UnavailableDialog title="Assign recommendation owner" item={assigning.title} message="Recommendation assignment is not connected to the user and team service. No owner has been changed." onClose={() => setAssigning(null)} /> : null}
+      {commenting ? <UnavailableDialog title="Add recommendation comment" item={commenting.title} message="Recommendation comments are not connected to persistent storage. No comment has been saved." onClose={() => setCommenting(null)} /> : null}
       {inspection ? <div className="fixed inset-0 z-[90] flex justify-end bg-text-main/35" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setInspection(null); }}><section role="dialog" aria-modal="true" aria-label={`Recommendation ${inspection.view}`} className="h-full w-full max-w-lg overflow-y-auto border-l border-border bg-card p-5 shadow-2xl"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-text-muted">{inspection.view.replace('_', ' ')}</p><h2 className="mt-1 text-lg font-semibold text-text-main">{inspection.recommendation.title}</h2></div><button type="button" onClick={() => setInspection(null)} aria-label="Close recommendation details" className="grid h-9 w-9 place-items-center rounded-xl border border-border"><X className="h-4 w-4" /></button></div>{inspection.view === 'details' ? <div className="mt-5 space-y-4 text-sm"><p className="leading-6 text-text-main">{inspection.recommendation.description}</p><InfoRow label="Rationale" value={inspection.recommendation.rationale} /><InfoRow label="Confidence" value={`${Math.round(inspection.recommendation.confidence * 100)}%`} /><InfoRow label="Department" value={inspection.recommendation.department} /><InfoRow label="Status" value={inspection.recommendation.status.replace(/_/g, ' ')} /></div> : inspection.view === 'source' ? <div className="mt-5 space-y-4"><InfoRow label="Source type" value={inspection.recommendation.sourceType.replace(/_/g, ' ')} /><InfoRow label="Source reference" value={inspection.recommendation.sourceId} /><p className="rounded-2xl bg-bg p-4 text-sm leading-6 text-text-muted">This recommendation was generated from authorised, permission-filtered operational context.</p></div> : <div className="mt-5 space-y-3"><InfoRow label="Generated" value={new Date(inspection.recommendation.createdAt).toLocaleString()} /><InfoRow label="Last updated" value={new Date(inspection.recommendation.updatedAt).toLocaleString()} /><InfoRow label="Reviewed" value={inspection.recommendation.reviewedAt ? new Date(inspection.recommendation.reviewedAt).toLocaleString() : 'Not reviewed'} /><InfoRow label="Current state" value={inspection.recommendation.status.replace(/_/g, ' ')} /></div>}</section></div> : null}
     </section>
   );
@@ -394,11 +404,11 @@ function ConfirmDialog({ title, description, item, confirmLabel, onCancel, onCon
 }
 
 function RecommendationTaskDialog({ recommendation, pending, onCancel, onConfirm }: { recommendation: AIRecommendation; pending: boolean; onCancel: () => void; onConfirm: () => void }) {
-  return <div className="fixed inset-0 z-[95] grid place-items-center bg-text-main/45 p-4" role="presentation"><section role="dialog" aria-modal="true" aria-label="Create task from recommendation" className="w-full max-w-lg rounded-3xl border border-border bg-card p-5 shadow-2xl"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Prefilled governed task</p><h2 className="mt-1 text-lg font-semibold text-text-main">Create task from recommendation</h2><p className="mt-1 text-sm text-text-muted">Review the Hotel Brain evidence before creating the operational task.</p></div><button type="button" onClick={onCancel} aria-label="Close task form" className="grid h-9 w-9 place-items-center rounded-xl border border-border"><X className="h-4 w-4" /></button></div><div className="mt-5 divide-y divide-border rounded-2xl border border-border text-sm"><InfoRow label="Task" value={recommendation.title} /><InfoRow label="Description" value={recommendation.description} /><InfoRow label="Department" value={recommendation.department} /><InfoRow label="Priority" value={recommendation.priority} /><InfoRow label="Confidence" value={`${Math.round(recommendation.confidence * 100)}%`} /><InfoRow label="Source" value={recommendation.sourceType.replace(/_/g, ' ')} /></div><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={onCancel} disabled={pending} className="rounded-xl border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50">Cancel</button><button type="button" onClick={onConfirm} disabled={pending} className="rounded-xl bg-primary-solid px-4 py-2 text-sm font-semibold text-primary-contrast disabled:opacity-50">{pending ? 'Creating…' : 'Create task'}</button></div></section></div>;
+  return <div className="fixed inset-0 z-[95] grid place-items-center bg-text-main/45 p-4" role="presentation"><section role="dialog" aria-modal="true" aria-label="Create task from recommendation" className="w-full max-w-lg rounded-3xl border border-border bg-card p-5 shadow-2xl"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Prefilled recommendation task</p><h2 className="mt-1 text-lg font-semibold text-text-main">Create task from recommendation</h2><p className="mt-1 text-sm text-text-muted">Review the Hotel Brain evidence before creating the operational task.</p></div><button type="button" onClick={onCancel} aria-label="Close task form" className="grid h-9 w-9 place-items-center rounded-xl border border-border"><X className="h-4 w-4" /></button></div><div className="mt-5 divide-y divide-border rounded-2xl border border-border text-sm"><InfoRow label="Task" value={recommendation.title} /><InfoRow label="Description" value={recommendation.description} /><InfoRow label="Department" value={recommendation.department} /><InfoRow label="Priority" value={recommendation.priority} /><InfoRow label="Confidence" value={`${Math.round(recommendation.confidence * 100)}%`} /><InfoRow label="Source" value={recommendation.sourceType.replace(/_/g, ' ')} /></div><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={onCancel} disabled={pending} className="rounded-xl border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50">Cancel</button><button type="button" onClick={onConfirm} disabled={pending} className="rounded-xl bg-primary-solid px-4 py-2 text-sm font-semibold text-primary-contrast disabled:opacity-50">{pending ? 'Creating…' : 'Create task'}</button></div></section></div>;
 }
 
-function FormDialog({ title, description, children, onClose, onSubmit, actionLabel, disabled = false }: { title: string; description: string; children: React.ReactNode; onClose: () => void; onSubmit: () => void; actionLabel: string; disabled?: boolean }) {
-  return <div className="fixed inset-0 z-[95] grid place-items-center bg-text-main/45 p-4" role="dialog" aria-modal="true" aria-label={title}><div className="w-full max-w-lg rounded-3xl bg-card p-5 shadow-2xl"><div className="flex items-start justify-between"><div><h2 className="text-lg font-semibold text-text-main">{title}</h2><p className="mt-1 text-sm text-text-muted">{description}</p></div><button type="button" onClick={onClose} aria-label={`Close ${title}`}><X className="h-4 w-4" /></button></div><div className="mt-5">{children}</div><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={onClose} className="rounded-xl border border-border px-4 py-2 text-sm font-semibold">Cancel</button><button type="button" disabled={disabled} onClick={onSubmit} className="rounded-xl bg-primary-solid px-4 py-2 text-sm font-semibold text-primary-contrast disabled:opacity-50">{actionLabel}</button></div></div></div>;
+function UnavailableDialog({ title, item, message, onClose }: { title: string; item: string; message: string; onClose: () => void }) {
+  return <div className="fixed inset-0 z-[95] grid place-items-center bg-text-main/45 p-4" role="dialog" aria-modal="true" aria-label={title}><div className="w-full max-w-lg rounded-3xl bg-card p-5 shadow-2xl"><div className="flex items-start justify-between"><div><h2 className="text-lg font-semibold text-text-main">{title}</h2><p className="mt-1 text-sm text-text-muted">{item}</p></div><button type="button" onClick={onClose} aria-label={`Close ${title}`}><X className="h-4 w-4" /></button></div><div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900"><strong>Unavailable by design.</strong> {message}</div><div className="mt-5 flex justify-end"><button type="button" onClick={onClose} className="rounded-xl bg-primary-solid px-4 py-2 text-sm font-semibold text-primary-contrast">Close</button></div></div></div>;
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {

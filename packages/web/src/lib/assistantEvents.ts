@@ -5,6 +5,7 @@ export const OPEN_LAFLO_ASSISTANT_EVENT = 'laflo:open-assistant';
 export type OpenLafloAssistantDetail = {
   prompt?: string;
   mode?: AssistantMode;
+  context?: Record<string, unknown>;
 };
 
 export function openLafloAssistant(detail: OpenLafloAssistantDetail = {}) {

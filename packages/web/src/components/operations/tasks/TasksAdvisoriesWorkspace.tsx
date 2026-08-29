@@ -34,7 +34,7 @@ import { appendAuditLog } from "@/utils/auditLog";
 
 type Advisory = NonNullable<OperationsContext["advisories"]>[number];
 type AdvisoryState = "ALL" | "OPEN" | "NOT_CREATED" | "ASSIGNED" | "CREATED" | "DISMISSED" | "COMPLETED";
-type AdvisoryRequest = { state?: AdvisoryState; priority?: string; unassigned?: boolean; key: number };
+type AdvisoryRequest = { state?: AdvisoryState; priority?: string; department?: string; source?: string; unassigned?: boolean; key: number };
 type SearchTaskHandoff = {
   sourceSearchResult?: {
     id?: string;
@@ -187,7 +187,7 @@ function CreateTaskDialog({
         priority,
         department,
         source: advisory.source,
-        meta: { generatedAtUtc: new Date().toISOString() },
+        meta: { generatedAtUtc: new Date().toISOString(), dueDate },
       }),
     onSuccess: (result) => {
       appendAuditLog({
@@ -423,8 +423,8 @@ function DismissDialog({
           Dismiss this advisory?
         </h2>
         <p className="mt-2 text-sm leading-6 text-text-muted">
-          This will remove it from the active advisory queue but keep it in
-          history.
+          LaFlo will request removal from the active advisory queue. If the
+          dismissal service is unavailable, the advisory will remain active.
         </p>
         <p className="mt-3 rounded-xl bg-bg p-3 text-xs font-semibold text-text-main">
           {advisory.title}
@@ -503,11 +503,11 @@ function AdvisoryQueue({
   onCountsChange: (counts: { open: number; created: number; dismissed: number; pending: number; critical: number }) => void;
 }) {
   const queryClient = useQueryClient();
-  const user = useAuthStore((state) => state.user);
   const advisories = context?.advisories || [];
   const [state, setState] = useState<AdvisoryState>("ALL");
   const [priority, setPriority] = useState("ALL");
   const [department, setDepartment] = useState("ALL");
+  const [source, setSource] = useState("ALL");
   const [created, setCreated] = useState<
     Record<string, CreateAdvisoryTicketResult>
   >(() =>
@@ -525,7 +525,7 @@ function AdvisoryQueue({
         ]),
     ),
   );
-  const [dismissed, setDismissed] = useState(new Set<string>());
+  const [dismissed] = useState(new Set<string>());
   const [createTarget, setCreateTarget] = useState<Advisory | null>(null);
   const [assignTarget, setAssignTarget] = useState<Advisory | null>(null);
   const [dismissTarget, setDismissTarget] = useState<Advisory | null>(null);
@@ -578,13 +578,16 @@ function AdvisoryQueue({
     if (!["ALL", "DISMISSED"].includes(state) && isDismissed) return false;
     if (priority !== "ALL" && item.priority !== priority) return false;
     if (department !== "ALL" && item.department !== department) return false;
-    if (unassignedOnly && created[item.id]?.assignedTo) return false;
+    if (source !== "ALL" && item.source !== source) return false;
+    if (unassignedOnly && (!isCreated || isAssigned)) return false;
     return true;
   });
   useEffect(() => {
     if (!request.key) return;
     setState(request.state || "ALL");
     setPriority(request.priority || "ALL");
+    setDepartment(request.department || "ALL");
+    setSource(request.source || "ALL");
     setUnassignedOnly(Boolean(request.unassigned));
     const queue = document.getElementById("operations-advisory");
     if (typeof queue?.scrollIntoView === "function") {
@@ -597,23 +600,13 @@ function AdvisoryQueue({
       open: active.length,
       created: active.filter((item) => Boolean(created[item.id] || item.createdTicket)).length,
       dismissed: dismissed.size,
-      pending: active.filter((item) => !created[item.id]?.assignedTo).length,
+      pending: active.filter((item) => Boolean(created[item.id] || item.createdTicket) && !created[item.id]?.assignedTo).length,
       critical: active.filter((item) => item.priority === "high").length,
     });
   }, [advisories, created, dismissed, onCountsChange]);
   const dismiss = (item: Advisory) => {
-    setDismissed((current) => new Set(current).add(item.id));
-    appendAuditLog({
-      action: "Operations Advisory Dismissed",
-      actorId: user?.id,
-      actorName: user?.email || "Operations user",
-      targetId: item.id,
-      targetLabel: item.title,
-      details: { source: item.source, department: item.department },
-    });
     setDismissTarget(null);
-    window.dispatchEvent(new Event("hotelos:timeline-event"));
-    toast.success("Advisory moved to history");
+    toast.error(`Advisory dismissal is not connected. ${item.title} remains active.`);
   };
   const askAbout = (item: Advisory) => {
     window.dispatchEvent(new CustomEvent("laflo:open-assistant", { detail: {
@@ -669,6 +662,15 @@ function AdvisoryQueue({
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>
+          </select>
+          <select
+            aria-label="Advisory source"
+            value={source}
+            onChange={(event) => setSource(event.target.value)}
+            className="rounded-xl border border-border bg-card px-2.5 py-2 text-[10px] font-semibold text-text-main"
+          >
+            <option value="ALL">All sources</option>
+            {[...new Set(advisories.map((item) => item.source))].map((item) => <option key={item} value={item}>{pretty(item)}</option>)}
           </select>
           <select
             aria-label="Advisory department"
@@ -820,8 +822,9 @@ function AdvisoryQueue({
                 setState("ALL");
                 setPriority("ALL");
                 setDepartment("ALL");
+                setSource("ALL");
                 setUnassignedOnly(false);
-              }} className="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-text-main">Clear filters</button><button type="button" onClick={() => { setState("ALL"); setPriority("ALL"); setDepartment("ALL"); setUnassignedOnly(false); }} className="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-primary-700">View all advisories</button><button type="button" onClick={() => window.dispatchEvent(new CustomEvent("laflo:open-assistant", { detail: { mode: "tasks-advisories", prompt: "Identify today’s highest operational priorities from the authorised tasks and advisories context.", context: { page: "Tasks & Advisories", state, priority, department } } }))} className="rounded-xl bg-primary-solid px-3 py-2 text-xs font-semibold text-primary-contrast">Ask LaFlo about priorities</button></div>
+              }} className="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-text-main">Clear filters</button><button type="button" onClick={() => { setState("ALL"); setPriority("ALL"); setDepartment("ALL"); setSource("ALL"); setUnassignedOnly(false); }} className="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-primary-700">View all advisories</button><button type="button" onClick={() => window.dispatchEvent(new CustomEvent("laflo:open-assistant", { detail: { mode: "tasks-advisories", prompt: "Identify today’s highest operational priorities from the authorised tasks and advisories context.", context: { page: "Tasks & Advisories", state, priority, department, source } } }))} className="rounded-xl bg-primary-solid px-3 py-2 text-xs font-semibold text-primary-contrast">Ask LaFlo about priorities</button></div>
           </div>
         ) : null}
       </div>
@@ -892,6 +895,11 @@ function RecentActivity({ canViewTechnical }: { canViewTechnical: boolean }) {
   const clearFilters = () => {
     setFilters({ limit: 24, time: "24h" });
     setShowTechnical(false);
+  };
+  const refreshActivity = async () => {
+    const result = await query.refetch();
+    if (result.error) toast.error((result.error as Error).message || "Recent activity could not be refreshed");
+    else toast.success("Recent activity refreshed");
   };
   return (
     <section className={`${card} overflow-hidden`}>
@@ -974,8 +982,8 @@ function RecentActivity({ canViewTechnical }: { canViewTechnical: boolean }) {
             <AlertTriangle className="mx-auto h-6 w-6 text-rose-500" />
             <p className="mt-2 text-sm font-semibold text-text-main">Recent activity could not be loaded.</p>
             <p className="mt-1 text-xs text-text-muted">The activity service may be temporarily unavailable. Your advisories are unaffected.</p>
-            <button type="button" onClick={() => query.refetch()} className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-xl bg-primary-solid px-4 text-xs font-semibold text-primary-contrast">
-              <RefreshCcw className="h-3.5 w-3.5" /> Refresh activity
+            <button type="button" onClick={() => void refreshActivity()} disabled={query.isFetching} className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-xl bg-primary-solid px-4 text-xs font-semibold text-primary-contrast disabled:opacity-60">
+              <RefreshCcw className={`h-3.5 w-3.5 ${query.isFetching ? "animate-spin" : ""}`} /> {query.isFetching ? "Refreshing…" : "Refresh activity"}
             </button>
           </div>
         ) : events.length ? (
@@ -1022,7 +1030,7 @@ function RecentActivity({ canViewTechnical }: { canViewTechnical: boolean }) {
             <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-text-muted">Try a wider time range, clear the current filters, or refresh to check for newly recorded operational events.</p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <button type="button" onClick={clearFilters} className="min-h-9 rounded-xl border border-border bg-card px-3 text-xs font-semibold text-text-main">Clear filters</button>
-              <button type="button" onClick={() => query.refetch()} className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-primary-solid px-3 text-xs font-semibold text-primary-contrast"><RefreshCcw className="h-3.5 w-3.5" />Refresh activity</button>
+              <button type="button" onClick={() => void refreshActivity()} disabled={query.isFetching} className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-primary-solid px-3 text-xs font-semibold text-primary-contrast disabled:opacity-60"><RefreshCcw className={`h-3.5 w-3.5 ${query.isFetching ? "animate-spin" : ""}`} />{query.isFetching ? "Refreshing…" : "Refresh activity"}</button>
               {canViewTechnical ? <button type="button" onClick={() => { setFilters({ limit: 24, time: "24h" }); setShowTechnical(true); }} className="min-h-9 rounded-xl border border-border bg-card px-3 text-xs font-semibold text-primary-700">View system / technical activity</button> : null}
             </div>
           </div>
@@ -1156,9 +1164,9 @@ function IntelligenceCard({
         onClick={(event) => event.stopPropagation()}
         className="mt-4 flex items-center justify-center gap-1 border-t border-border pt-3 text-xs font-semibold text-primary-700"
       >
-        View in AI Governance <ArrowRight className="h-3.5 w-3.5" />
+        Open AI Recommendations <ArrowRight className="h-3.5 w-3.5" />
       </Link>
-      {open ? <div className="fixed inset-0 z-[90] flex justify-end bg-text-main/35" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}><section role="dialog" aria-modal="true" aria-label={`${name} Intelligence details`} className="h-full w-full max-w-lg overflow-y-auto border-l border-border bg-card p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-start justify-between"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Department Intelligence</p><h2 className="mt-1 text-xl font-semibold text-text-main">{name}</h2></div><button type="button" aria-label={`Close ${name} Intelligence`} onClick={() => setOpen(false)}><X className="h-4 w-4" /></button></div><div className="mt-5 divide-y divide-border rounded-xl border border-border"><DetailRow label="Status" value={status} /><DetailRow label="Top priority" value={priority || "No department intelligence available"} /><DetailRow label="Top risk" value={risk || "No department intelligence available"} /><DetailRow label="Recommended action" value={action || "No department intelligence available"} /><DetailRow label="Related advisories" value="Available in the operational advisory queue" /><DetailRow label="Related tasks" value="Open Tasks & Advisories filters to review" /><DetailRow label="Recent activity" value="Filtered operational Event Bus activity" /></div><Link to={`/operations-center/ai?department=${encodeURIComponent(name)}#ai-recommendation-governance`} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary-solid px-4 py-2 text-xs font-semibold text-primary-contrast">View in AI Governance <ArrowRight className="h-3.5 w-3.5" /></Link></section></div> : null}
+      {open ? <div className="fixed inset-0 z-[90] flex justify-end bg-text-main/35" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}><section role="dialog" aria-modal="true" aria-label={`${name} Intelligence details`} className="h-full w-full max-w-lg overflow-y-auto border-l border-border bg-card p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-start justify-between"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Department Intelligence</p><h2 className="mt-1 text-xl font-semibold text-text-main">{name}</h2></div><button type="button" aria-label={`Close ${name} Intelligence`} onClick={() => setOpen(false)}><X className="h-4 w-4" /></button></div><div className="mt-5 divide-y divide-border rounded-xl border border-border"><DetailRow label="Status" value={status} /><DetailRow label="Top priority" value={priority || "No department intelligence available"} /><DetailRow label="Top risk" value={risk || "No department intelligence available"} /><DetailRow label="Recommended action" value={action || "No department intelligence available"} /><DetailRow label="Related advisories" value="Available in the operational advisory queue" /><DetailRow label="Related tasks" value="Open Tasks & Advisories filters to review" /><DetailRow label="Recent activity" value="Filtered operational Event Bus activity" /></div><Link to={`/operations-center/ai?department=${encodeURIComponent(name)}#ai-recommendation-governance`} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary-solid px-4 py-2 text-xs font-semibold text-primary-contrast">Open AI Recommendations <ArrowRight className="h-3.5 w-3.5" /></Link></section></div> : null}
     </article>
   );
 }
@@ -1188,6 +1196,24 @@ export default function TasksAdvisoriesWorkspace({
   const [counts, setCounts] = useState({ open: advisories.length, created: initialCreated, dismissed: 0, pending: advisories.length, critical: advisories.filter((item) => item.priority === "high").length });
   const updateCounts = useCallback((next: typeof counts) => setCounts(next), []);
   const requestView = (next: Omit<AdvisoryRequest, "key">) => setRequest((current) => ({ ...next, key: current.key + 1 }));
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const rawState = (params.get("state") || params.get("status") || "").toUpperCase();
+    const view = params.get("view");
+    const allowedStates: AdvisoryState[] = ["ALL", "OPEN", "NOT_CREATED", "ASSIGNED", "CREATED", "DISMISSED", "COMPLETED"];
+    const state = allowedStates.includes(rawState as AdvisoryState)
+      ? rawState as AdvisoryState
+      : view === "recommended"
+        ? "NOT_CREATED"
+        : view === "priorities"
+          ? "OPEN"
+          : undefined;
+    const priority = params.get("priority")?.toLowerCase();
+    const department = params.get("department")?.toUpperCase();
+    const source = params.get("source")?.toUpperCase();
+    if (!state && !priority && !department && !source && params.get("unassigned") !== "true") return;
+    setRequest((current) => ({ state, priority, department, source, unassigned: params.get("unassigned") === "true", key: current.key + 1 }));
+  }, [location.search]);
   const handoff = location.state as SearchTaskHandoff | undefined;
   const consumeHandoff = useCallback(() => {
     navigate(location.pathname, { replace: true, state: null });

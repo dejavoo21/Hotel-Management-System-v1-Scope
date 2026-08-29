@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuthStore } from '@/stores/authStore';
 import SmartBuildingPage from './SmartBuildingPage';
@@ -10,7 +10,8 @@ vi.mock('@/services/smartBuilding', () => ({ default: mocks }));
 vi.mock('@/components/collaboration/CollaborationHeader', () => ({ default: ({ title, actions }: { title: string; actions?: React.ReactNode }) => <header><h1>{title}</h1>{actions}</header> }));
 vi.mock('@/components/hardware/HardwareIntegrationPanel', () => ({ default: () => <div>Hardware integration</div> }));
 
-const renderPage = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={['/operations/smart-building?tab=overview']}><SmartBuildingPage /></MemoryRouter></QueryClientProvider>);
+const LocationProbe = () => { const location = useLocation(); return <output data-testid="location">{location.pathname}|{JSON.stringify(location.state)}</output>; };
+const renderPage = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={['/operations/smart-building?tab=overview']}><SmartBuildingPage /><LocationProbe /></MemoryRouter></QueryClientProvider>);
 
 describe('SmartBuildingPage', () => {
   beforeEach(() => {
@@ -42,5 +43,18 @@ describe('SmartBuildingPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Refresh status' }));
     await waitFor(() => expect(mocks.getOverview.mock.calls.length).toBeGreaterThan(1));
     expect(mocks.listDevices.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it('opens record evidence and hands a prefilled Smart Building task to Tasks and Advisories', async () => {
+    renderPage();
+    await screen.findByText('Lobby door');
+    fireEvent.click(screen.getByRole('button', { name: 'doors' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'View details' }));
+    expect(screen.getByRole('dialog', { name: 'Lobby door details' })).toHaveTextContent('Door ID');
+    fireEvent.click(screen.getByRole('button', { name: 'Close Smart Building details' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create task' }));
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/operations/tasks-advisories'));
+    expect(screen.getByTestId('location')).toHaveTextContent('Inspect Lobby door');
+    expect(screen.getByTestId('location')).toHaveTextContent('SMART_BUILDING');
   });
 });

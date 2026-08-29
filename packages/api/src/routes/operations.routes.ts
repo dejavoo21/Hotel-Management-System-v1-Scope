@@ -127,7 +127,7 @@ const handleOpsChat = async (req: AuthenticatedRequest, res: Response, next: Nex
       conversation = await prisma.conversation.create({
         data: {
           hotelId,
-          subject: `Operations Concierge (${mode})`,
+          subject: `Ask LaFlo (${mode})`,
           status: 'OPEN',
           lastMessageAt: new Date(),
         },
@@ -255,7 +255,7 @@ router.get('/assistant/conversations/:conversationId/transcript.txt', async (req
     });
 
     const lines: string[] = [];
-    lines.push(`Conversation: ${convo.subject ?? 'Operations Concierge'}`);
+    lines.push(`Conversation: ${convo.subject ?? 'Ask LaFlo'}`);
     lines.push(`Started: ${convo.createdAt.toISOString()}`);
     lines.push('---');
 
@@ -287,6 +287,7 @@ type CreateAdvisoryTicketBody = {
   meta?: {
     weatherSyncedAtUtc?: string | null;
     generatedAtUtc?: string | null;
+    dueDate?: string;
   } | null;
 };
 
@@ -485,6 +486,11 @@ router.post('/advisories/create-ticket', async (req: AuthenticatedRequest, res: 
     const assignedToId = await prisma.$transaction((tx) =>
       pickAssigneeForDepartment({ tx, hotelId, department })
     );
+    const dueDate = body.meta?.dueDate ? new Date(body.meta.dueDate) : undefined;
+    if (dueDate && Number.isNaN(dueDate.getTime())) {
+      res.status(400).json({ success: false, error: 'dueDate must be a valid date' });
+      return;
+    }
     const task = await createTask({
       hotelId,
       title: `[Operations Advisory] ${title.slice(0, 100)}`,
@@ -494,6 +500,7 @@ router.post('/advisories/create-ticket', async (req: AuthenticatedRequest, res: 
       priority,
       status: 'OPEN',
       assignedToId,
+      dueDate,
       details: {
         source: body.source || 'WEATHER_ACTIONS',
         advisoryId: body.advisoryId || null,
@@ -504,6 +511,7 @@ router.post('/advisories/create-ticket', async (req: AuthenticatedRequest, res: 
         priority: routed.priority,
         weatherSyncedAtUtc: body.meta?.weatherSyncedAtUtc ?? null,
         generatedAtUtc: body.meta?.generatedAtUtc ?? null,
+        dueDate: dueDate?.toISOString() ?? null,
       },
       actor: { userId },
       source: 'operations-center',

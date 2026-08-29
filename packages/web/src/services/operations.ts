@@ -126,6 +126,7 @@ export type CreateAdvisoryTicketInput = {
     weatherSyncedAtUtc?: string | null;
     generatedAtUtc?: string | null;
     departmentIntelligence?: string;
+    dueDate?: string;
   };
 };
 

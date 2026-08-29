@@ -110,12 +110,31 @@ function categoryForProvider(provider: IntegrationProvider): IntegrationManagerC
   if (provider.category === 'WEATHER') return 'WEATHER';
   if (provider.category === 'PAYMENTS') return 'PAYMENTS';
   if (provider.category === 'OTA') return 'BOOKING_CHANNELS';
-  if (provider.id === 'microsoft-365') return 'MICROSOFT_365';
+  if (provider.id === 'microsoft-365' || provider.category === 'COMMUNICATIONS' || provider.category === 'PRODUCTIVITY') return 'MICROSOFT_365';
   if (provider.category === 'AI') return 'AI_PROVIDERS';
   if (provider.category === 'CCTV') return 'CCTV';
   if (provider.category === 'SMART_LOCKS') return 'SMART_LOCKS';
   if (provider.category === 'IOT') return 'OTHER_PROVIDERS';
   return 'OTHER_PROVIDERS';
+}
+
+function registryItemForProvider(provider: IntegrationProvider): ProviderRegistryItem {
+  return {
+    id: provider.id,
+    category: categoryForProvider(provider),
+    name: provider.name,
+    providerType: provider.id.replace(/-/g, '_').toUpperCase(),
+    connectionMethods: provider.capabilities.length
+      ? provider.capabilities.map((capability) => capability.replace(/[.\s-]+/g, '_').toUpperCase())
+      : ['REST_API'],
+    credentialFields: provider.configuration.map((field) => ({
+      key: field.key,
+      label: field.label,
+      secret: field.secret,
+      required: field.required,
+    })),
+    status: provider.status === 'FUTURE' ? 'FUTURE' : provider.status === 'CONFIGURED' ? 'ENVIRONMENT_CONFIGURED' : 'AVAILABLE',
+  };
 }
 
 function statusFromHardware(item: HardwareIntegration) {
@@ -140,6 +159,10 @@ export async function getIntegrationManagerOverview(hotelId: string) {
     orderBy: { updatedAt: 'desc' },
   });
   const marketplace = listIntegrations();
+  const registry = [...providerRegistry];
+  marketplace.forEach((provider) => {
+    if (!registry.some((item) => item.id === provider.id)) registry.push(registryItemForProvider(provider));
+  });
   const categories = providerRegistry.reduce((acc, provider) => {
     acc.add(provider.category);
     return acc;
@@ -178,7 +201,7 @@ export async function getIntegrationManagerOverview(hotelId: string) {
   return {
     setupSteps,
     categories: cards,
-    registry: providerRegistry,
+    registry,
     recentLogs: await getIntegrationManagerLogs(hotelId),
   };
 }

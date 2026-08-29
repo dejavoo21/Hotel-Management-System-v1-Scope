@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { OPEN_LAFLO_ASSISTANT_EVENT } from '@/lib/assistantEvents';
 import { useAuthStore } from '@/stores/authStore';
 import AIRecommendationGovernancePanel from './AIRecommendationGovernancePanel';
 
@@ -29,6 +30,8 @@ describe('AIRecommendationGovernancePanel', () => {
 
   it('filters tabs and provides an actionable empty state', async () => {
     renderPanel();
+    expect(screen.getByRole('heading', { name: 'Recommendation Review Queue' })).toBeInTheDocument();
+    expect(screen.getByText('Review AI-generated recommendations and decide whether to approve, reject, expire, assign, or convert them into tasks.')).toBeInTheDocument();
     expect(await screen.findByText('Assign overdue tasks')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Approved' }));
     expect(await screen.findByText('No approved recommendations')).toBeInTheDocument();
@@ -44,24 +47,27 @@ describe('AIRecommendationGovernancePanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close recommendation details' }));
     fireEvent.click(screen.getByRole('button', { name: 'Assign owner' }));
     const assign = screen.getByRole('dialog', { name: 'Assign recommendation owner' });
-    fireEvent.change(within(assign).getByRole('combobox'), { target: { value: 'Security' } });
-    fireEvent.click(within(assign).getByRole('button', { name: 'Save assignment' }));
-    expect(await screen.findByText('Owner: Security')).toBeInTheDocument();
+    expect(assign).toHaveTextContent('Unavailable by design');
+    expect(assign).toHaveTextContent('No owner has been changed');
+    fireEvent.click(within(assign).getByRole('button', { name: 'Close' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add comment' }));
-    const comment = screen.getByRole('dialog', { name: 'Add governance comment' });
-    fireEvent.change(within(comment).getByRole('textbox'), { target: { value: 'Reviewed with Security lead.' } });
-    fireEvent.click(within(comment).getByRole('button', { name: 'Add comment' }));
-    expect(await screen.findByText('1 comment')).toBeInTheDocument();
+    const comment = screen.getByRole('dialog', { name: 'Add recommendation comment' });
+    expect(comment).toHaveTextContent('Unavailable by design');
+    expect(comment).toHaveTextContent('No comment has been saved');
+    fireEvent.click(within(comment).getByRole('button', { name: 'Close' }));
     fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
-    fireEvent.click(within(screen.getByText('Reject recommendation').closest('div')!).getByRole('button', { name: 'Reject' }));
-    await waitFor(() => expect(mocks.reject).toHaveBeenCalledWith('rec-1', ''));
+    const rejection = screen.getByText('Reject recommendation').closest('div')!;
+    expect(within(rejection).getByRole('button', { name: 'Reject' })).toBeDisabled();
+    fireEvent.change(within(rejection).getByLabelText('Rejection reason'), { target: { value: 'Evidence is incomplete' } });
+    fireEvent.click(within(rejection).getByRole('button', { name: 'Reject' }));
+    await waitFor(() => expect(mocks.reject).toHaveBeenCalledWith('rec-1', 'Evidence is incomplete'));
     fireEvent.click(screen.getByRole('button', { name: 'Expire' }));
     const expiry = screen.getByRole('alertdialog', { name: 'Expire recommendation?' });
     fireEvent.click(within(expiry).getByRole('button', { name: 'Expire recommendation' }));
     await waitFor(() => expect(mocks.expire).toHaveBeenCalledWith('rec-1'));
   });
 
-  it('reviews the prefilled governed task before creating it', async () => {
+  it('reviews the prefilled recommendation task before creating it', async () => {
     mocks.list.mockImplementation((status: string) => Promise.resolve(status === 'APPROVED' ? [{ ...recommendation, status: 'APPROVED' }] : []));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: 'Approved' }));
@@ -74,5 +80,20 @@ describe('AIRecommendationGovernancePanel', () => {
     expect(dialog).toHaveTextContent('SECURITY');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Create task' }));
     await waitFor(() => expect(mocks.createTask).toHaveBeenCalledWith('rec-1'));
+  });
+
+  it('opens Ask LaFlo with queue and recommendation evidence context', async () => {
+    const openAssistant = vi.fn();
+    window.addEventListener(OPEN_LAFLO_ASSISTANT_EVENT, openAssistant);
+    renderPanel();
+    await screen.findByText('Assign overdue tasks');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ask LaFlo about this queue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ask LaFlo about this recommendation' }));
+
+    expect(openAssistant).toHaveBeenCalledTimes(2);
+    expect((openAssistant.mock.calls[0][0] as CustomEvent).detail.context).toMatchObject({ page: 'AI Recommendations', status: 'PENDING' });
+    expect((openAssistant.mock.calls[1][0] as CustomEvent).detail.context).toMatchObject({ page: 'AI Recommendations', recommendationId: 'rec-1', sourceId: 'brief-1' });
+    window.removeEventListener(OPEN_LAFLO_ASSISTANT_EVENT, openAssistant);
   });
 });
