@@ -10,7 +10,7 @@ import type {
   HotelBrainAnswer,
   SearchIndexRecordInput,
 } from './enterpriseSearch.types.js';
-import { enterpriseSearchRelevance, enterpriseSearchSnippetNeedle, enterpriseSearchTextWhere } from './enterpriseSearch.query.js';
+import { enterpriseSearchMatchesQuery, enterpriseSearchRelevance, enterpriseSearchSnippetNeedle, enterpriseSearchTextWhere } from './enterpriseSearch.query.js';
 
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 100;
@@ -524,7 +524,14 @@ export async function searchEnterpriseIndex(hotelId: string, actor: EnterpriseSe
   const rankedRows = query
     ? [...rows].sort((left, right) => enterpriseSearchRelevance(right, query) - enterpriseSearchRelevance(left, query))
     : rows;
-  const allowed = rankedRows.filter((row) => canRead(actor, row.accessScope));
+  const relevantRows = query ? rankedRows.filter((row) => enterpriseSearchMatchesQuery(row, query)) : rankedRows;
+  const uniqueRows = [...new Map(relevantRows.map((row) => {
+    const key = ['AI_RECOMMENDATION', 'AUDIT_LOG'].includes(row.entityType)
+      ? `${row.entityType}:${row.sourceModule}:${String(row.title || '').trim().toLowerCase()}`
+      : row.searchId;
+    return [key, row];
+  })).values()];
+  const allowed = uniqueRows.filter((row) => canRead(actor, row.accessScope));
   const results = allowed.slice(0, limit).map((row) => toResult(row, query));
   const groups = Object.values(
     results.reduce<Record<string, { category: string; count: number; results: EnterpriseSearchResult[] }>>((acc, result) => {
@@ -543,7 +550,7 @@ export async function searchEnterpriseIndex(hotelId: string, actor: EnterpriseSe
     payload: {
       query,
       total: results.length,
-      restrictedCount: rows.length - allowed.length,
+      restrictedCount: uniqueRows.length - allowed.length,
       categories: groups.map((group) => group.category),
     },
   });
@@ -553,7 +560,7 @@ export async function searchEnterpriseIndex(hotelId: string, actor: EnterpriseSe
     results,
     groups,
     total: results.length,
-    restrictedCount: rows.length - allowed.length,
+    restrictedCount: uniqueRows.length - allowed.length,
     generatedAt: new Date().toISOString(),
   };
 }

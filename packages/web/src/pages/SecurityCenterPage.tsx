@@ -219,7 +219,7 @@ const AccessLogsPanel = ({ logs }: { logs: DoorAccessEvent[] }) => {
       <div className="grid gap-2 rounded-2xl border border-border bg-card p-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Access log filters">
         <input aria-label="Access date" type="date" value={date} onChange={(event) => setDate(event.target.value)} className="rounded-xl border border-border px-3 py-2 text-sm" />
         <select aria-label="Access door or source" value={source} onChange={(event) => setSource(event.target.value)} className="rounded-xl border border-border px-3 py-2 text-sm"><option value="ALL">All doors and sources</option>{sources.map((item) => <option key={item}>{item}</option>)}</select>
-        <select aria-label="Access status" value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-xl border border-border px-3 py-2 text-sm"><option value="ALL">All decisions</option>{statuses.map((item) => <option key={item}>{formatStatus(item)}</option>)}</select>
+        <select aria-label="Access status" value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-xl border border-border px-3 py-2 text-sm"><option value="ALL">All decisions</option>{statuses.map((item) => <option key={item} value={item}>{formatStatus(item)}</option>)}</select>
         <input aria-label="Access user or visitor" value={userQuery} onChange={(event) => setUserQuery(event.target.value)} placeholder="User or visitor" className="rounded-xl border border-border px-3 py-2 text-sm" />
       </div>
       {filtered.length === 0 ? <EmptyState label="No access events match these filters." /> : <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
@@ -362,7 +362,7 @@ const AlertsPanel = ({
   return (
     <div className="space-y-3">
       <SecurityTasksPanel tasks={tasks} />
-      <div className="grid gap-2 rounded-2xl border border-border bg-card p-3 sm:grid-cols-2" aria-label="Security alert filters"><select aria-label="Security alert status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="rounded-xl border border-border px-3 py-2 text-sm"><option value="ALL">All alert statuses</option>{statuses.map((item) => <option key={item}>{formatStatus(item)}</option>)}</select><select aria-label="Security alert severity" value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value)} className="rounded-xl border border-border px-3 py-2 text-sm"><option value="ALL">All severities</option>{severities.map((item) => <option key={item}>{formatStatus(item)}</option>)}</select></div>
+      <div className="grid gap-2 rounded-2xl border border-border bg-card p-3 sm:grid-cols-2" aria-label="Security alert filters"><select aria-label="Security alert status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="rounded-xl border border-border px-3 py-2 text-sm"><option value="ALL">All alert statuses</option>{statuses.map((item) => <option key={item} value={item}>{formatStatus(item)}</option>)}</select><select aria-label="Security alert severity" value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value)} className="rounded-xl border border-border px-3 py-2 text-sm"><option value="ALL">All severities</option>{severities.map((item) => <option key={item} value={item}>{formatStatus(item)}</option>)}</select></div>
       {alerts.length === 0 ? (
         <EmptyState label="No security alerts recorded." />
       ) : filteredAlerts.length === 0 ? (

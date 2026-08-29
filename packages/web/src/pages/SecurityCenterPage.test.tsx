@@ -57,4 +57,12 @@ describe('SecurityCenterPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'View details' }));
     expect(screen.getByText('Unassigned')).toBeInTheDocument();
   });
+
+  it('keeps API enum values when filtering formatted alert labels', async () => {
+    renderPage();
+    await screen.findByText('Forced door');
+    fireEvent.change(screen.getByLabelText('Security alert severity'), { target: { value: 'HIGH' } });
+    expect(screen.getByLabelText('Security alert severity')).toHaveValue('HIGH');
+    expect(screen.getByText('Forced door')).toBeInTheDocument();
+  });
 });

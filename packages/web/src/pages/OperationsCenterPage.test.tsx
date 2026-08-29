@@ -673,6 +673,33 @@ describe("OperationsCenterPage", () => {
     expect(dialog).toHaveTextContent("ENTERPRISE_SEARCH");
   });
 
+  it("preserves Smart Building source context and records the created task outcome", async () => {
+    renderPage({
+      pathname: "/operations/tasks-advisories",
+      state: {
+        requestedAction: "create",
+        sourceSearchResult: {
+          id: "lobby-temperature-sensor",
+          title: "Inspect Lobby Temperature Sensor",
+          summary: "Lobby Temperature Sensor is online at Lobby.",
+          category: "SMART_BUILDING",
+          sourceModule: "SMART_BUILDING",
+          severity: "MEDIUM",
+        },
+      },
+    });
+
+    const dialog = await screen.findByRole("dialog", { name: "Create task from advisory" });
+    expect(dialog).toHaveTextContent("smart-building:lobby-temperature-sensor");
+    expect(dialog).toHaveTextContent("SMART_BUILDING");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create task" }));
+    await waitFor(() => expect(serviceMocks.createAdvisoryTask).toHaveBeenCalledWith(expect.objectContaining({
+      advisoryId: "smart-building:lobby-temperature-sensor",
+      source: "SMART_BUILDING",
+    })));
+    await waitFor(() => expect(screen.getByText("Tasks Created").parentElement).toHaveTextContent("1"));
+  });
+
   it("shows an honest blocked state when the task service is unavailable", async () => {
     serviceMocks.createAdvisoryTask.mockRejectedValueOnce({
       response: {

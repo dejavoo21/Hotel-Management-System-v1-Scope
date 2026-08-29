@@ -503,7 +503,12 @@ function AdvisoryQueue({
   onCountsChange: (counts: { open: number; created: number; dismissed: number; pending: number; critical: number }) => void;
 }) {
   const queryClient = useQueryClient();
-  const advisories = context?.advisories || [];
+  const contextAdvisories = context?.advisories || [];
+  const [handoffAdvisories, setHandoffAdvisories] = useState<Advisory[]>([]);
+  const advisories = [
+    ...contextAdvisories,
+    ...handoffAdvisories.filter((handoffItem) => !contextAdvisories.some((item) => item.id === handoffItem.id)),
+  ];
   const [state, setState] = useState<AdvisoryState>("ALL");
   const [priority, setPriority] = useState("ALL");
   const [department, setDepartment] = useState("ALL");
@@ -512,7 +517,7 @@ function AdvisoryQueue({
     Record<string, CreateAdvisoryTicketResult>
   >(() =>
     Object.fromEntries(
-      advisories
+      contextAdvisories
         .filter((item) => item.createdTicket)
         .map((item) => [
           item.id,
@@ -542,13 +547,15 @@ function AdvisoryQueue({
         ? "FRONT_DESK"
         : "MANAGEMENT";
     const severity = String(result.severity || "").toUpperCase();
+    const isSmartBuilding = /SMART_BUILDING|DEVICE|SENSOR/.test(category);
+    const source: Advisory["source"] = isSmartBuilding ? "SMART_BUILDING" : "ENTERPRISE_SEARCH";
     const advisory: Advisory = {
-      id: `enterprise-search:${result.id || result.title}`,
+      id: `${isSmartBuilding ? "smart-building" : "enterprise-search"}:${result.id || result.title}`,
       title: result.title,
-      reason: result.summary || result.snippet || `Follow up on this ${pretty(result.category)} Enterprise Search result.`,
+      reason: result.summary || result.snippet || `Follow up on this ${pretty(result.category)} ${isSmartBuilding ? "record" : "Enterprise Search result"}.`,
       priority: /CRITICAL|HIGH|URGENT/.test(severity) ? "high" : /LOW|INFO/.test(severity) ? "low" : "medium",
       department,
-      source: "ENTERPRISE_SEARCH",
+      source,
       createdTicket: null,
     };
     if (!canManage) {
@@ -556,6 +563,7 @@ function AdvisoryQueue({
       onHandoffConsumed();
       return;
     }
+    setHandoffAdvisories((current) => current.some((item) => item.id === advisory.id) ? current : [...current, advisory]);
     if (handoff?.requestedAction === "assign") setAssignTarget(advisory);
     else setCreateTarget(advisory);
     onHandoffConsumed();

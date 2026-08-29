@@ -106,7 +106,7 @@ export type OperationsContext = {
     reason: string;
     priority: 'low' | 'medium' | 'high';
     department?: 'FRONT_DESK' | 'HOUSEKEEPING' | 'MAINTENANCE' | 'CONCIERGE' | 'BILLING' | 'MANAGEMENT';
-    source: 'WEATHER_ACTIONS' | 'PRICING' | 'ARRIVALS' | 'ENTERPRISE_SEARCH';
+    source: 'WEATHER_ACTIONS' | 'PRICING' | 'ARRIVALS' | 'ENTERPRISE_SEARCH' | 'SMART_BUILDING';
     createdTicket?: {
       ticketId: string;
       conversationId: string;
@@ -121,7 +121,7 @@ export type CreateAdvisoryTicketInput = {
   reason: string;
   priority: 'low' | 'medium' | 'high';
   department: 'FRONT_DESK' | 'HOUSEKEEPING' | 'CONCIERGE' | 'MAINTENANCE' | 'BILLING' | 'MANAGEMENT';
-  source?: 'WEATHER_ACTIONS' | 'PRICING' | 'ARRIVALS' | 'ENTERPRISE_SEARCH';
+  source?: 'WEATHER_ACTIONS' | 'PRICING' | 'ARRIVALS' | 'ENTERPRISE_SEARCH' | 'SMART_BUILDING';
   meta?: {
     weatherSyncedAtUtc?: string | null;
     generatedAtUtc?: string | null;

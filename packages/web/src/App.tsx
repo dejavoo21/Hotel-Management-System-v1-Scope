@@ -240,6 +240,10 @@ export default function App() {
         <Route path="incidents/resolved" element={<Navigate to="/incidents?tab=resolved" replace />} />
         <Route path="incidents/closed" element={<Navigate to="/incidents?tab=closed" replace />} />
         <Route path="security-center" element={<ModuleRoute requiredModule="security_center"><SecurityCenterPage /></ModuleRoute>} />
+        <Route path="security-center/cctv" element={<Navigate to="/security-center?tab=cctv" replace />} />
+        <Route path="security-center/access-logs" element={<Navigate to="/security-center?tab=access-logs" replace />} />
+        <Route path="security-center/visitors" element={<Navigate to="/security-center?tab=visitors" replace />} />
+        <Route path="security-center/alerts" element={<Navigate to="/security-center?tab=alerts" replace />} />
         <Route path="security-center/:tab" element={<ModuleRoute requiredModule="security_center"><SecurityCenterPage /></ModuleRoute>} />
         <Route path="operations/security/cctv" element={<Navigate to="/security-center?tab=cctv" replace />} />
         <Route path="operations/security/access-logs" element={<Navigate to="/security-center?tab=access-logs" replace />} />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { enterpriseSearchRelevance, enterpriseSearchSnippetNeedle, enterpriseSearchTerms, enterpriseSearchTextWhere } from './enterpriseSearch.query.js';
+import { enterpriseSearchMatchesQuery, enterpriseSearchRelevance, enterpriseSearchSnippetNeedle, enterpriseSearchTerms, enterpriseSearchTextWhere } from './enterpriseSearch.query.js';
 
 describe('Enterprise Search query helpers', () => {
   it('tokenises a natural-language investigation without stop words', () => {
@@ -21,5 +21,12 @@ describe('Enterprise Search query helpers', () => {
 
   it('uses a matching token for snippets when the exact phrase is absent', () => {
     expect(enterpriseSearchSnippetNeedle('water leak basement sensor', 'Sensor WL-01 detected water in the basement')).toBe('water');
+  });
+
+  it('requires a meaningful multi-token match while preserving short searches', () => {
+    const record = { title: 'Basement water sensor', summary: 'Leak detected near plant room' };
+    expect(enterpriseSearchMatchesQuery(record, 'water leak investigation')).toBe(true);
+    expect(enterpriseSearchMatchesQuery(record, 'zz live verify 32354534 no result')).toBe(false);
+    expect(enterpriseSearchMatchesQuery(record, 'sensor')).toBe(true);
   });
 });

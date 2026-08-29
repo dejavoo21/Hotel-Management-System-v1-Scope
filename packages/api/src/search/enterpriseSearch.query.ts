@@ -49,6 +49,19 @@ export function enterpriseSearchRelevance(record: { title?: string | null; summa
   return score;
 }
 
+export function enterpriseSearchMatchesQuery(record: { title?: string | null; summary?: string | null; searchableText?: string | null; roomNumber?: string | null }, query: string): boolean {
+  const phrase = query.trim().toLowerCase();
+  if (!phrase) return true;
+  const haystack = [record.title, record.summary, record.searchableText, record.roomNumber]
+    .map((value) => String(value || '').toLowerCase())
+    .join(' ');
+  if (haystack.includes(phrase)) return true;
+  const terms = enterpriseSearchTerms(phrase);
+  if (!terms.length) return false;
+  const matchedTerms = terms.filter((term) => haystack.includes(term)).length;
+  return matchedTerms >= Math.min(2, terms.length);
+}
+
 export function enterpriseSearchSnippetNeedle(query: string, text: string): string {
   const normalizedText = text.toLowerCase();
   const phrase = query.trim().toLowerCase();

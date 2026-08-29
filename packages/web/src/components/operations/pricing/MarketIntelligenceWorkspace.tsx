@@ -61,7 +61,7 @@ export default function MarketIntelligenceWorkspace({ context }: { context?: Ope
   const visibleCompetitors = competitors.filter((competitor) => {
     if (statusFilter === 'active') return competitor.isActive !== false;
     if (statusFilter === 'inactive') return competitor.isActive === false;
-    if (statusFilter === 'needs-rates') return !competitor.updatedAt;
+    if (statusFilter === 'needs-rates') return coveredNights === 0 || !competitor.updatedAt;
     if (statusFilter === 'stale') return isStale(competitor.updatedAt);
     return true;
   });
