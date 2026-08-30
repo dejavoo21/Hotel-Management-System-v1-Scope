@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "HotelOS - Modern Hotel Front-Office Management System",
   "private": true,
+  "packageManager": "npm@11.14.1",
   "workspaces": [
     "packages/*"
   ],
@@ -37,7 +38,7 @@
     "rimraf": "^5.0.5"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "keywords": [
     "hotel",
