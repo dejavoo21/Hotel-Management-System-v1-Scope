@@ -62,7 +62,9 @@ export const accessRequestService = {
       }`,
       { responseType: 'blob' }
     );
-    const contentType = response.headers?.['content-type'] || 'application/octet-stream';
+    const contentTypeHeader = response.headers?.['content-type'];
+    const contentType =
+      typeof contentTypeHeader === 'string' ? contentTypeHeader : 'application/octet-stream';
     const disposition = response.headers?.['content-disposition'] as string | undefined;
     const filenameMatch = disposition?.match(/filename\*?=(?:UTF-8''|\"?)([^\";]+)/i);
     const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : `attachment-${index + 1}`;

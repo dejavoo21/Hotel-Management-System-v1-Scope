@@ -77,12 +77,14 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: process.env.GENERATE_SOURCEMAP === 'true',
     rollupOptions: {
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
           ui: ['@headlessui/react', '@heroicons/react'],
+          charts: ['recharts'],
+          communications: ['@twilio/voice-sdk', 'twilio-video', 'socket.io-client'],
         },
       },
     },

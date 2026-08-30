@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { usePresenceStore, getPresenceLabel } from '@/stores/presenceStore';
@@ -1094,7 +1094,19 @@ export default function DashboardLayout() {
 
         {/* Page content */}
         <main id="main-content" className="app-workspace-background min-w-0 flex-1 overflow-x-clip p-4 lg:p-5" tabIndex={-1}>
-          <Outlet />
+          <Suspense
+            fallback={
+              <div
+                className="flex min-h-[40vh] items-center justify-center"
+                role="status"
+                aria-label="Loading workspace"
+              >
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-600 border-t-transparent" />
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </main>
       </div>
       <CommandPalette

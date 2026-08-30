@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { getExplicitPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
@@ -14,33 +15,37 @@ import ResetPasswordPage from '@/pages/auth/ResetPasswordPage';
 import RequestAccessPage from '@/pages/auth/RequestAccessPage';
 
 // Dashboard Pages
-import DashboardPage from '@/pages/DashboardPage';
-import EnterpriseCommandCenterPage from '@/pages/EnterpriseCommandCenterPage';
-import RoomsPage from '@/pages/RoomsPage';
-import BookingsPage from '@/pages/BookingsPage';
-import BookingDetailPage from '@/pages/BookingDetailPage';
-import GuestsPage from '@/pages/GuestsPage';
-import HousekeepingPage from '@/pages/HousekeepingPage';
-import ReportsPage from '@/pages/ReportsPage';
-import FinancialsPage from '@/pages/FinancialsPage';
-import InvoicesPage from '@/pages/InvoicesPage';
-import ExpensesPage from '@/pages/ExpensesPage';
-import SettingsPage from '@/pages/SettingsPage';
-import UsersPage from '@/pages/UsersPage';
-import ReviewsPage from '@/pages/ReviewsPage';
-import ConciergePage from '@/pages/ConciergePage';
-import InventoryPage from '@/pages/InventoryPage';
-import CalendarPage from '@/pages/CalendarPage';
-import MessagesPage from '@/pages/MessagesPageRedesigned';
-import CallsPage from '@/pages/CallsPage';
-import OperationsCenterPage from '@/pages/OperationsCenterPage';
-import EnterpriseSearchPage from '@/pages/EnterpriseSearchPage';
-import HotelBrainPage from '@/pages/HotelBrainPage';
-import SecurityCenterPage from '@/pages/SecurityCenterPage';
-import MaintenanceCenterPage from '@/pages/MaintenanceCenterPage';
-import SmartBuildingPage from '@/pages/SmartBuildingPage';
-import IncidentCenterPage from '@/features/incidents/IncidentCenterPage';
-import NotAuthorizedPage from '@/pages/NotAuthorizedPage';
+const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
+const EnterpriseCommandCenterPage = lazy(() => import('@/pages/EnterpriseCommandCenterPage'));
+const RoomsPage = lazy(() => import('@/pages/RoomsPage'));
+const BookingsPage = lazy(() => import('@/pages/BookingsPage'));
+const BookingDetailPage = lazy(() => import('@/pages/BookingDetailPage'));
+const GuestsPage = lazy(() => import('@/pages/GuestsPage'));
+const HousekeepingPage = lazy(() => import('@/pages/HousekeepingPage'));
+const ReportsPage = lazy(() => import('@/pages/ReportsPage'));
+const FinancialsPage = lazy(() => import('@/pages/FinancialsPage'));
+const InvoicesPage = lazy(() => import('@/pages/InvoicesPage'));
+const ExpensesPage = lazy(() => import('@/pages/ExpensesPage'));
+const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
+const UsersPage = lazy(() => import('@/pages/UsersPage'));
+const ReviewsPage = lazy(() => import('@/pages/ReviewsPage'));
+const ConciergePage = lazy(() => import('@/pages/ConciergePage'));
+const InventoryPage = lazy(() => import('@/pages/InventoryPage'));
+const CalendarPage = lazy(() => import('@/pages/CalendarPage'));
+const MessagesPage = lazy(() => import('@/pages/MessagesPageRedesigned'));
+const CallsPage = lazy(() => import('@/pages/CallsPage'));
+const OperationsCenterPage = lazy(() => import('@/pages/OperationsCenterPage'));
+const EnterpriseSearchPage = lazy(() => import('@/pages/EnterpriseSearchPage'));
+const HotelBrainPage = lazy(() => import('@/pages/HotelBrainPage'));
+const SecurityCenterPage = lazy(() => import('@/pages/SecurityCenterPage'));
+const MaintenanceCenterPage = lazy(() => import('@/pages/MaintenanceCenterPage'));
+const SmartBuildingPage = lazy(() => import('@/pages/SmartBuildingPage'));
+const IncidentCenterPage = lazy(() => import('@/features/incidents/IncidentCenterPage'));
+const NotAuthorizedPage = lazy(() => import('@/pages/NotAuthorizedPage'));
+
+function RouteFallback() {
+  return <div className="flex min-h-[40vh] items-center justify-center" role="status" aria-label="Loading workspace"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-600 border-t-transparent" /></div>;
+}
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -158,6 +163,7 @@ export default function App() {
   return (
     <>
       <SkipLink />
+      <Suspense fallback={<RouteFallback />}>
       <Routes>
       {/* Auth Routes */}
       <Route element={<AuthLayout />}>
@@ -282,6 +288,7 @@ export default function App() {
       {/* 404 */}
       <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </>
   );
 }
