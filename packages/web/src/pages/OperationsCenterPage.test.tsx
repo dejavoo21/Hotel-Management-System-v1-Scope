@@ -288,11 +288,11 @@ describe("OperationsCenterPage", () => {
       screen.queryByPlaceholderText("Ask an operational question..."),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText("Recommendation Review Queue"),
+      screen.getByText("Recommendation Review"),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Review Recommendations/ })).toHaveAttribute(
       "href",
-      "/operations/ai-governance#ai-recommendation-governance",
+      "/hotel-insights?tab=recommendations",
     );
     expect(
       screen.queryByText("Detailed governance queue"),
@@ -536,7 +536,7 @@ describe("OperationsCenterPage", () => {
     expect(screen.getByText("Housekeeping Intelligence")).toBeInTheDocument();
     expect(screen.getByText("Security Intelligence")).toBeInTheDocument();
     expect(screen.getByText("Arrival Forecast")).toBeInTheDocument();
-    expect(screen.queryByText("Recommendation Review Queue")).not.toBeInTheDocument();
+    expect(screen.queryByText("Recommendation Review")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Critical Items/i }));
     expect(screen.getByLabelText("Advisory priority")).toHaveValue("high");

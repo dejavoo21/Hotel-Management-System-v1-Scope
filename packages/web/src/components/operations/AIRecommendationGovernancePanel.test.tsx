@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import { OPEN_LAFLO_ASSISTANT_EVENT } from '@/lib/assistantEvents';
 import { useAuthStore } from '@/stores/authStore';
 import AIRecommendationGovernancePanel from './AIRecommendationGovernancePanel';
@@ -15,7 +16,7 @@ const recommendation = {
   status: 'PENDING', createdAt: '2026-08-17T10:00:00Z', updatedAt: '2026-08-17T10:00:00Z',
 };
 
-const renderPanel = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><AIRecommendationGovernancePanel /></QueryClientProvider>);
+const renderPanel = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><AIRecommendationGovernancePanel /></MemoryRouter></QueryClientProvider>);
 
 describe('AIRecommendationGovernancePanel', () => {
   beforeEach(() => {
@@ -30,8 +31,8 @@ describe('AIRecommendationGovernancePanel', () => {
 
   it('filters tabs and provides an actionable empty state', async () => {
     renderPanel();
-    expect(screen.getByRole('heading', { name: 'Recommendation Review Queue' })).toBeInTheDocument();
-    expect(screen.getByText('Review AI-generated recommendations and decide whether to approve, reject, expire, assign, or convert them into tasks.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Recommendation Review' })).toBeInTheDocument();
+    expect(screen.getByText('Review suggested actions and decide whether to approve, reject, expire, assign, or convert them into tasks.')).toBeInTheDocument();
     expect(await screen.findByText('Assign overdue tasks')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Approved' }));
     expect(await screen.findByText('No approved recommendations')).toBeInTheDocument();
@@ -92,8 +93,8 @@ describe('AIRecommendationGovernancePanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ask LaFlo about this recommendation' }));
 
     expect(openAssistant).toHaveBeenCalledTimes(2);
-    expect((openAssistant.mock.calls[0][0] as CustomEvent).detail.context).toMatchObject({ page: 'AI Recommendations', status: 'PENDING' });
-    expect((openAssistant.mock.calls[1][0] as CustomEvent).detail.context).toMatchObject({ page: 'AI Recommendations', recommendationId: 'rec-1', sourceId: 'brief-1' });
+    expect((openAssistant.mock.calls[0][0] as CustomEvent).detail.context).toMatchObject({ page: 'Hotel Insights', section: 'Recommendations', status: 'PENDING' });
+    expect((openAssistant.mock.calls[1][0] as CustomEvent).detail.context).toMatchObject({ page: 'Hotel Insights', section: 'Recommendations', recommendationId: 'rec-1', sourceId: 'brief-1' });
     window.removeEventListener(OPEN_LAFLO_ASSISTANT_EVENT, openAssistant);
   });
 });

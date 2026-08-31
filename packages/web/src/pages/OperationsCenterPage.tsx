@@ -527,7 +527,7 @@ function CommandCenter({
             </h2>
             <Link
               className="text-sm font-semibold text-primary-600 hover:text-primary-700"
-              to="/operations/ai-governance"
+              to="/hotel-insights?tab=recommendations"
             >
               Open department intelligence
             </Link>
@@ -670,10 +670,10 @@ function CommandCenter({
         </section>
         <SummaryPanel
           icon={ShieldCheck}
-          title="Recommendation Review Queue"
+          title="Recommendation Review"
           description="Review AI-generated recommendations and decide which actions should move forward."
           action="Review Recommendations"
-          href="/operations/ai-governance#ai-recommendation-governance"
+          href="/hotel-insights?tab=recommendations"
           restricted={!canGovernance}
           darkIcon
         >
@@ -698,7 +698,7 @@ function CommandCenter({
           <DetailRow label="Top risk" value={risks.find((item) => item.department?.includes(departmentDetail.toUpperCase().replace(" ", "_")))?.title || "No active risks."} />
           <DetailRow label="Recommended action" value={briefing?.recommendedActions[0]?.title || "No recommended actions."} />
           <Link className="btn-primary mt-4 inline-flex" to="/operations/tasks-advisories">Open related tasks</Link>
-          {canGovernance ? <Link className="btn-outline ml-2 mt-4 inline-flex" to={`/operations/ai-governance?department=${encodeURIComponent(departmentDetail)}#ai-recommendation-governance`}>Open AI Recommendations</Link> : null}
+          {canGovernance ? <Link className="btn-outline ml-2 mt-4 inline-flex" to={`/hotel-insights?tab=recommendations&department=${encodeURIComponent(departmentDetail)}`}>Review recommendations</Link> : null}
         </DetailDrawer>
       ) : null}
       {showActivity ? (
@@ -1477,7 +1477,7 @@ function recentItems(briefing?: DailyGMBriefing, context?: OperationsContext) {
         module: "AI",
         severity: "INFO",
         department: item.department || "Operations",
-        href: "/operations/ai-governance",
+        href: "/hotel-insights?tab=recommendations",
       })) || [];
   const risk = briefing?.operationalRisks[0]
     ? [

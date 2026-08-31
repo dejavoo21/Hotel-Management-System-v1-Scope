@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { navSections } from './navConfig';
 
 describe('Operations navigation terminology', () => {
-  it('contains only the nine major Operations workspaces', () => {
+  it('contains only the eight consolidated Operations workspaces', () => {
     const operations = navSections.find((section) => section.id === 'operations');
 
     expect(operations?.items?.map((item) => item.label)).toEqual([
@@ -12,7 +12,6 @@ describe('Operations navigation terminology', () => {
       'Security Center',
       'Incident Center',
       'Smart Building',
-      'AI Recommendations',
       'Hotel Insights',
       'Enterprise Search',
     ]);
@@ -21,25 +20,16 @@ describe('Operations navigation terminology', () => {
     );
   });
 
-  it('labels the existing governance route as AI Recommendations', () => {
+  it('consolidates recommendations and hotel information under Hotel Insights', () => {
     const operations = navSections.find((section) => section.id === 'operations');
-    const recommendationWorkspace = operations?.items?.find((item) => item.id === 'operations-ai');
-
-    expect(recommendationWorkspace).toMatchObject({
-      label: 'AI Recommendations',
-      href: '/operations/ai-governance',
-    });
-    expect(operations?.items?.some((item) => item.label === 'AI Governance')).toBe(false);
-  });
-
-  it('labels the existing Hotel Brain route as Hotel Insights', () => {
-    const operations = navSections.find((section) => section.id === 'operations');
-    const insightsWorkspace = operations?.items?.find((item) => item.id === 'hotel-brain');
+    const insightsWorkspace = operations?.items?.find((item) => item.id === 'hotel-insights');
 
     expect(insightsWorkspace).toMatchObject({
       label: 'Hotel Insights',
-      href: '/operations/hotel-brain-console',
+      href: '/hotel-insights',
     });
+    expect(operations?.items?.some((item) => item.label === 'AI Recommendations')).toBe(false);
+    expect(operations?.items?.some((item) => item.label === 'AI Governance')).toBe(false);
     expect(operations?.items?.some((item) => item.label === 'Hotel Brain Console')).toBe(false);
   });
 });

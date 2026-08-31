@@ -15,10 +15,11 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/services', () => ({
   assistantService: { status: mocks.status },
   aiBriefingService: { getDailyBriefing: mocks.briefing },
-  aiRecommendationsService: { list: mocks.recommendations },
+  aiRecommendationsService: { list: mocks.recommendations, approve: vi.fn(), reject: vi.fn(), createTask: vi.fn(), expire: vi.fn() },
+  getApiError: (error: Error) => ({ message: error.message }),
 }));
 
-const renderPage = (entry = '/ai/hotel-brain') => {
+const renderPage = (entry = '/hotel-insights') => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
@@ -53,10 +54,11 @@ describe('HotelBrainPage', () => {
     expect(screen.getByRole('heading', { name: 'Hotel Insights' })).toBeInTheDocument();
     expect(screen.getByText('Hotel Insights brings together information from rooms, tasks, incidents, revenue, security, and smart building systems to help Ask LaFlo give better answers.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Today’s hotel briefing' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Information available to Ask LaFlo' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Sources and activity history' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Saved hotel prompts' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'AI Recommendations' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Recommendations' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Information Sources' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Saved Prompts' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Activity History' })).toBeInTheDocument();
     expect(await screen.findByText('Operations are stable with two items requiring review.')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: /Ask LaFlo status Ready/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Connected information 6/i })).toBeInTheDocument();
@@ -72,8 +74,10 @@ describe('HotelBrainPage', () => {
     expect(screen.getByRole('dialog', { name: 'Ask LaFlo status' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Close Ask LaFlo status' }));
 
-    fireEvent.click(screen.getByRole('button', { name: /Operations.*Available/i }));
-    expect(screen.getByRole('dialog', { name: 'Operations context' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: 'Information Sources' }));
+    expect(screen.getByRole('heading', { name: 'Information available to Ask LaFlo' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Available Operations/i }));
+    expect(screen.getByRole('dialog', { name: 'Operations information' })).toBeInTheDocument();
   });
 
   it('opens briefing details, routes recommendation review, refreshes all sources, and runs saved prompts in Ask LaFlo', async () => {
@@ -93,21 +97,24 @@ describe('HotelBrainPage', () => {
       expect(mocks.recommendations).toHaveBeenCalledTimes(2);
     });
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Saved Prompts' }));
     fireEvent.click(screen.getByRole('button', { name: "Which rooms are not ready for today's arrivals?" }));
     expect((listener.mock.calls.at(-1)?.[0] as CustomEvent).detail).toMatchObject({
       prompt: "Which rooms are not ready for today's arrivals?",
       context: { page: 'Hotel Insights' },
     });
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Overview' }));
     fireEvent.click(screen.getByRole('button', { name: 'Review recommendations' }));
-    expect(screen.getByTestId('location')).toHaveTextContent('/operations/ai-governance');
+    expect(screen.getByTestId('location')).toHaveTextContent('/hotel-insights?tab=recommendations');
+    expect(screen.getByRole('heading', { name: 'Recommendation Review' })).toBeInTheDocument();
     window.removeEventListener(OPEN_LAFLO_ASSISTANT_EVENT, listener);
   });
 
   it('opens the single Ask LaFlo assistant with incoming question context', async () => {
     const listener = vi.fn();
     window.addEventListener(OPEN_LAFLO_ASSISTANT_EVENT, listener);
-    renderPage('/ai/hotel-brain?question=Which%20rooms%20need%20attention%3F');
+    renderPage('/hotel-insights?question=Which%20rooms%20need%20attention%3F');
     fireEvent.click(screen.getByRole('button', { name: 'Continue in Ask LaFlo' }));
     await waitFor(() => expect(listener).toHaveBeenCalledTimes(1));
     const event = listener.mock.calls[0][0] as CustomEvent;

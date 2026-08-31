@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/authStore';
 import type { User } from '@/types';
 import { appendAuditLog } from '@/utils/auditLog';
 import { openLafloAssistant } from '@/lib/assistantEvents';
+import { useSearchParams } from 'react-router-dom';
 
 type GovernanceTarget = { status?: AIRecommendationStatus; priority?: string; department?: string; recommendationId?: string };
 type NoteState = { owner?: string; comments: { text: string; at: string; author: string }[] };
@@ -172,14 +173,20 @@ function RecommendationCard({
 export default function AIRecommendationGovernancePanel({ compact = false }: { compact?: boolean }) {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
-  const [activeStatus, setActiveStatus] = useState<AIRecommendationStatus>('PENDING');
+  const [searchParams] = useSearchParams();
+  const routeStatus = searchParams.get('status')?.toUpperCase() as AIRecommendationStatus | undefined;
+  const [activeStatus, setActiveStatus] = useState<AIRecommendationStatus>(statusTabs.some((tab) => tab.value === routeStatus) ? routeStatus as AIRecommendationStatus : 'PENDING');
   const [rejecting, setRejecting] = useState<AIRecommendation | null>(null);
   const [expiring, setExpiring] = useState<AIRecommendation | null>(null);
   const [creatingTask, setCreatingTask] = useState<AIRecommendation | null>(null);
   const [assigning, setAssigning] = useState<AIRecommendation | null>(null);
   const [commenting, setCommenting] = useState<AIRecommendation | null>(null);
   const [notes] = useState<Record<string, NoteState>>(readNotes);
-  const [target, setTarget] = useState<GovernanceTarget>({});
+  const [target, setTarget] = useState<GovernanceTarget>({
+    department: searchParams.get('department') || undefined,
+    priority: searchParams.get('priority') || undefined,
+    recommendationId: searchParams.get('recommendationId') || undefined,
+  });
   const [rejectionReason, setRejectionReason] = useState('');
   const [inspection, setInspection] = useState<{ recommendation: AIRecommendation; view: 'details' | 'source' | 'audit' } | null>(null);
   const userCanGovern = canGovern(user);
@@ -237,7 +244,7 @@ export default function AIRecommendationGovernancePanel({ compact = false }: { c
   const recommendations = useMemo(() => (query.data || []).filter((item) => {
     if (target.priority === 'HIGH_OR_CRITICAL' && !['HIGH', 'CRITICAL'].includes(item.priority)) return false;
     if (target.priority && target.priority !== 'HIGH_OR_CRITICAL' && item.priority !== target.priority) return false;
-    if (target.department && !item.department.toLowerCase().includes(target.department.toLowerCase().replace(/\s+/g, '_'))) return false;
+    if (target.department && !item.department.toLowerCase().replace(/[\s_-]+/g, '').includes(target.department.toLowerCase().replace(/[\s_-]+/g, ''))) return false;
     if (target.recommendationId && item.id !== target.recommendationId) return false;
     return true;
   }), [query.data, target]);
@@ -260,9 +267,9 @@ export default function AIRecommendationGovernancePanel({ compact = false }: { c
             <ShieldCheck className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-text-main">Recommendation Review Queue</h2>
+            <h2 className="text-base font-semibold text-text-main">Recommendation Review</h2>
             <p className="mt-1 text-sm text-text-muted">
-              Review AI-generated recommendations and decide whether to approve, reject, expire, assign, or convert them into tasks.
+              Review suggested actions and decide whether to approve, reject, expire, assign, or convert them into tasks.
             </p>
             {!userCanGovern ? (
               <p className="mt-2 text-xs font-medium text-amber-700">
@@ -272,7 +279,7 @@ export default function AIRecommendationGovernancePanel({ compact = false }: { c
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => openLafloAssistant({ mode: 'operations', prompt: 'Summarise the AI Recommendations queue and identify the recommendations that require authorised review.', context: { page: 'AI Recommendations', status: activeStatus, visibleRecommendations: recommendations.length, canGovern: userCanGovern } })} className="inline-flex items-center gap-2 rounded-2xl border border-primary-200 bg-primary-50 px-3 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-100"><Bot className="h-4 w-4" />Ask LaFlo about this queue</button>
+          <button type="button" onClick={() => openLafloAssistant({ mode: 'operations', prompt: 'Summarise the recommendations queue and identify the items that require authorised review.', context: { page: 'Hotel Insights', section: 'Recommendations', status: activeStatus, visibleRecommendations: recommendations.length, canGovern: userCanGovern } })} className="inline-flex items-center gap-2 rounded-2xl border border-primary-200 bg-primary-50 px-3 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-100"><Bot className="h-4 w-4" />Ask LaFlo about this queue</button>
           <button
             type="button"
             onClick={refreshRecommendations}
@@ -334,7 +341,7 @@ export default function AIRecommendationGovernancePanel({ compact = false }: { c
               onInspect={(item, view) => setInspection({ recommendation: item, view })}
               onAssign={setAssigning}
               onComment={setCommenting}
-              onAsk={(item) => openLafloAssistant({ mode: 'operations', prompt: `Explain this AI recommendation and the authorised evidence behind it: ${item.title}`, context: { page: 'AI Recommendations', recommendationId: item.id, status: item.status, department: item.department, priority: item.priority, confidence: item.confidence, sourceType: item.sourceType, sourceId: item.sourceId } })}
+              onAsk={(item) => openLafloAssistant({ mode: 'operations', prompt: `Explain this recommendation and the authorised information behind it: ${item.title}`, context: { page: 'Hotel Insights', section: 'Recommendations', recommendationId: item.id, status: item.status, department: item.department, priority: item.priority, confidence: item.confidence, sourceType: item.sourceType, sourceId: item.sourceId } })}
               note={notes[recommendation.id]}
             />
           ))
@@ -404,7 +411,7 @@ function ConfirmDialog({ title, description, item, confirmLabel, onCancel, onCon
 }
 
 function RecommendationTaskDialog({ recommendation, pending, onCancel, onConfirm }: { recommendation: AIRecommendation; pending: boolean; onCancel: () => void; onConfirm: () => void }) {
-  return <div className="fixed inset-0 z-[95] grid place-items-center overflow-y-auto bg-text-main/45 p-4" role="presentation"><section role="dialog" aria-modal="true" aria-label="Create task from recommendation" className="max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-border bg-card p-5 shadow-2xl"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Prefilled recommendation task</p><h2 className="mt-1 text-lg font-semibold text-text-main">Create task from recommendation</h2><p className="mt-1 text-sm text-text-muted">Review the Hotel Brain evidence before creating the operational task.</p></div><button type="button" onClick={onCancel} aria-label="Close task form" className="grid h-9 w-9 place-items-center rounded-xl border border-border"><X className="h-4 w-4" /></button></div><div className="mt-5 divide-y divide-border rounded-2xl border border-border text-sm"><InfoRow label="Task" value={recommendation.title} /><InfoRow label="Description" value={recommendation.description} /><InfoRow label="Department" value={recommendation.department} /><InfoRow label="Priority" value={recommendation.priority} /><InfoRow label="Confidence" value={`${Math.round(recommendation.confidence * 100)}%`} /><InfoRow label="Source" value={recommendation.sourceType.replace(/_/g, ' ')} /></div><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={onCancel} disabled={pending} className="rounded-xl border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50">Cancel</button><button type="button" onClick={onConfirm} disabled={pending} className="rounded-xl bg-primary-solid px-4 py-2 text-sm font-semibold text-primary-contrast disabled:opacity-50">{pending ? 'Creating…' : 'Create task'}</button></div></section></div>;
+  return <div className="fixed inset-0 z-[95] grid place-items-center overflow-y-auto bg-text-main/45 p-4" role="presentation"><section role="dialog" aria-modal="true" aria-label="Create task from recommendation" className="max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-border bg-card p-5 shadow-2xl"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700">Prefilled recommendation task</p><h2 className="mt-1 text-lg font-semibold text-text-main">Create task from recommendation</h2><p className="mt-1 text-sm text-text-muted">Review the supporting hotel information before creating the operational task.</p></div><button type="button" onClick={onCancel} aria-label="Close task form" className="grid h-9 w-9 place-items-center rounded-xl border border-border"><X className="h-4 w-4" /></button></div><div className="mt-5 divide-y divide-border rounded-2xl border border-border text-sm"><InfoRow label="Task" value={recommendation.title} /><InfoRow label="Description" value={recommendation.description} /><InfoRow label="Department" value={recommendation.department} /><InfoRow label="Priority" value={recommendation.priority} /><InfoRow label="Confidence" value={`${Math.round(recommendation.confidence * 100)}%`} /><InfoRow label="Source" value={recommendation.sourceType.replace(/_/g, ' ')} /></div><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={onCancel} disabled={pending} className="rounded-xl border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50">Cancel</button><button type="button" onClick={onConfirm} disabled={pending} className="rounded-xl bg-primary-solid px-4 py-2 text-sm font-semibold text-primary-contrast disabled:opacity-50">{pending ? 'Creating…' : 'Create task'}</button></div></section></div>;
 }
 
 function UnavailableDialog({ title, item, message, onClose }: { title: string; item: string; message: string; onClose: () => void }) {

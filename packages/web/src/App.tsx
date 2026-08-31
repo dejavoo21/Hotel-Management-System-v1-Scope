@@ -159,6 +159,14 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function HotelInsightsRedirect({ tab }: { tab?: 'recommendations' }) {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  if (tab) params.set('tab', tab);
+  const query = params.toString();
+  return <Navigate to={`/hotel-insights${query ? `?${query}` : ''}`} replace />;
+}
+
 export default function App() {
   return (
     <>
@@ -217,24 +225,30 @@ export default function App() {
         <Route path="messages" element={<ModuleRoute requiredModule="messages"><MessagesPage /></ModuleRoute>} />
         <Route path="calls" element={<ModuleRoute requiredModule="messages"><CallsPage /></ModuleRoute>} />
         <Route path="operations" element={<Navigate to="/operations-center" replace />} />
-        <Route path="operations/ai" element={<Navigate to="/operations/ai-governance" replace />} />
-        <Route path="operations/ai-workspace" element={<Navigate to="/operations/ai-governance" replace />} />
-        <Route path="operations/operations-concierge" element={<Navigate to="/operations/ai-governance" replace />} />
+        <Route path="operations/ai" element={<HotelInsightsRedirect tab="recommendations" />} />
+        <Route path="operations/ai-workspace" element={<HotelInsightsRedirect tab="recommendations" />} />
+        <Route path="operations/operations-concierge" element={<HotelInsightsRedirect tab="recommendations" />} />
         <Route path="operations/revenue" element={<Navigate to="/operations/operational-intelligence/revenue-guidance" replace />} />
         <Route path="operations/weather" element={<Navigate to="/operations/operational-intelligence/weather-forecast" replace />} />
         <Route path="operations/tasks" element={<Navigate to="/operations/tasks-advisories" replace />} />
         <Route path="operations/market-intelligence" element={<Navigate to="/operations/operational-intelligence/market-intelligence" replace />} />
         <Route path="operations-center" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
         <Route path="operations/enterprise-search" element={<ModuleRoute requiredModule="bookings"><EnterpriseSearchPage /></ModuleRoute>} />
-        <Route path="operations/ai-governance" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
-        <Route path="operations/hotel-brain-console" element={<ModuleRoute requiredModule="bookings"><HotelBrainPage /></ModuleRoute>} />
+        <Route path="hotel-insights" element={<ModuleRoute requiredModule="bookings"><HotelBrainPage /></ModuleRoute>} />
+        <Route path="hotel-brain" element={<HotelInsightsRedirect />} />
+        <Route path="hotel-brain-console" element={<HotelInsightsRedirect />} />
+        <Route path="ai-governance" element={<HotelInsightsRedirect tab="recommendations" />} />
+        <Route path="ai-recommendations" element={<HotelInsightsRedirect tab="recommendations" />} />
+        <Route path="operations/ai-governance" element={<HotelInsightsRedirect tab="recommendations" />} />
+        <Route path="operations/ai-recommendations" element={<HotelInsightsRedirect tab="recommendations" />} />
+        <Route path="operations/hotel-brain-console" element={<HotelInsightsRedirect />} />
         <Route path="operations/tasks-advisories" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
         <Route path="operations/operational-intelligence/weather-forecast" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
         <Route path="operations/operational-intelligence/market-intelligence" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
         <Route path="operations/operational-intelligence/revenue-guidance" element={<ModuleRoute requiredModule="financials"><OperationsCenterPage /></ModuleRoute>} />
         <Route path="operations-center/search" element={<Navigate to="/operations/enterprise-search" replace />} />
-        <Route path="operations-center/ai" element={<Navigate to="/operations/ai-governance" replace />} />
-        <Route path="ai/hotel-brain" element={<Navigate to="/operations/hotel-brain-console" replace />} />
+        <Route path="operations-center/ai" element={<HotelInsightsRedirect tab="recommendations" />} />
+        <Route path="ai/hotel-brain" element={<HotelInsightsRedirect />} />
         <Route path="operations-center/revenue" element={<Navigate to="/operations/operational-intelligence/revenue-guidance" replace />} />
         <Route path="operations-center/weather" element={<Navigate to="/operations/operational-intelligence/weather-forecast" replace />} />
         <Route path="operations-center/tasks" element={<Navigate to="/operations/tasks-advisories" replace />} />
