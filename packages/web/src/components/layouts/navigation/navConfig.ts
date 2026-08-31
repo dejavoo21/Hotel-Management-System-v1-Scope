@@ -48,7 +48,7 @@ export const navSections: NavSection[] = [
     items: [
       { id: 'operations-center', label: 'Operations Center', href: '/operations-center', permission: 'bookings', icon: 'gauge', badge: 'NEW' },
       { id: 'operations-tasks', label: 'Tasks & Advisories', href: '/operations/tasks-advisories', permission: 'bookings', icon: 'calendar-check' },
-      { id: 'operational-intelligence', label: 'Operational Intelligence', href: '/operations/operational-intelligence/weather-forecast', permission: 'bookings', icon: 'chart' },
+      { id: 'operational-intelligence', label: 'Operational Intelligence', href: '/operational-intelligence', permission: 'bookings', icon: 'chart' },
       { id: 'security-center', label: 'Security Center', href: '/security-center', permission: 'security_center', icon: 'admin' },
       { id: 'incident-center', label: 'Incident Center', href: '/incidents?tab=overview', permission: 'incident_management', icon: 'admin' },
       { id: 'smart-building', label: 'Smart Building', href: '/operations/smart-building?tab=overview', permission: 'smart_building', icon: 'building' },

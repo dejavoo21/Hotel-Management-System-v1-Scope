@@ -37,6 +37,7 @@ const CallsPage = lazy(() => import('@/pages/CallsPage'));
 const OperationsCenterPage = lazy(() => import('@/pages/OperationsCenterPage'));
 const EnterpriseSearchPage = lazy(() => import('@/pages/EnterpriseSearchPage'));
 const HotelBrainPage = lazy(() => import('@/pages/HotelBrainPage'));
+const OperationalIntelligencePage = lazy(() => import('@/pages/OperationalIntelligencePage'));
 const SecurityCenterPage = lazy(() => import('@/pages/SecurityCenterPage'));
 const MaintenanceCenterPage = lazy(() => import('@/pages/MaintenanceCenterPage'));
 const SmartBuildingPage = lazy(() => import('@/pages/SmartBuildingPage'));
@@ -234,6 +235,12 @@ export default function App() {
         <Route path="operations/market-intelligence" element={<Navigate to="/operations/operational-intelligence/market-intelligence" replace />} />
         <Route path="operations-center" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
         <Route path="operations/enterprise-search" element={<ModuleRoute requiredModule="bookings"><EnterpriseSearchPage /></ModuleRoute>} />
+        <Route path="operational-intelligence" element={<ModuleRoute requiredModule="bookings"><OperationalIntelligencePage /></ModuleRoute>} />
+        <Route path="operations/operational-intelligence" element={<Navigate to="/operational-intelligence" replace />} />
+        <Route path="operational-intelligence/weather" element={<Navigate to="/operations/operational-intelligence/weather-forecast" replace />} />
+        <Route path="weather-forecast" element={<Navigate to="/operations/operational-intelligence/weather-forecast" replace />} />
+        <Route path="market-intelligence" element={<Navigate to="/operations/operational-intelligence/market-intelligence" replace />} />
+        <Route path="revenue-guidance" element={<Navigate to="/operations/operational-intelligence/revenue-guidance" replace />} />
         <Route path="hotel-insights" element={<ModuleRoute requiredModule="bookings"><HotelBrainPage /></ModuleRoute>} />
         <Route path="hotel-brain" element={<HotelInsightsRedirect />} />
         <Route path="hotel-brain-console" element={<HotelInsightsRedirect />} />

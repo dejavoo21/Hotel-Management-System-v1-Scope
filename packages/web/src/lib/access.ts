@@ -47,6 +47,7 @@ ROUTE_MODULES['/operations-center'] = 'bookings';
 ROUTE_MODULES['/operations/ai-governance'] = 'bookings';
 ROUTE_MODULES['/operations/hotel-brain-console'] = 'bookings';
 ROUTE_MODULES['/hotel-insights'] = 'bookings';
+ROUTE_MODULES['/operational-intelligence'] = 'bookings';
 ROUTE_MODULES['/operations/enterprise-search'] = 'bookings';
 ROUTE_MODULES['/operations/tasks-advisories'] = 'bookings';
 ROUTE_MODULES['/operations/operational-intelligence'] = 'bookings';

@@ -32,4 +32,12 @@ describe('Operations navigation terminology', () => {
     expect(operations?.items?.some((item) => item.label === 'AI Governance')).toBe(false);
     expect(operations?.items?.some((item) => item.label === 'Hotel Brain Console')).toBe(false);
   });
+
+  it('opens Operational Intelligence on its broader overview', () => {
+    const operations = navSections.find((section) => section.id === 'operations');
+    expect(operations?.items?.find((item) => item.id === 'operational-intelligence')).toMatchObject({
+      label: 'Operational Intelligence',
+      href: '/operational-intelligence',
+    });
+  });
 });
