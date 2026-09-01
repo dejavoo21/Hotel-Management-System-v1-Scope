@@ -1527,7 +1527,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                 </span>
               </div>
             ) : null}
-            <div className="flex-1 space-y-4 overflow-y-auto p-4">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
               {props.detailLoading ? (
                 <p className="text-sm text-text-muted">Loading conversation…</p>
               ) : (
