@@ -7,7 +7,7 @@ import {
   MessageSquare, Phone, PhoneCall, PhoneMissed, Search, UserRoundCheck, UsersRound,
 } from 'lucide-react';
 import { bookingService, guestService, messageService } from '@/services';
-import { openLafloAssistant } from '@/lib/assistantEvents';
+import { openLafloAssistant, setLafloAssistantContext } from '@/lib/assistantEvents';
 import { canAccess } from '@/lib/access';
 import { useAuthStore } from '@/stores/authStore';
 import type { Guest } from '@/types';
@@ -113,6 +113,10 @@ export default function GuestCallsWorkspace() {
       toast.success('Call note saved to the guest profile.');
     } catch (error: any) { openUnavailable('Note not saved', error?.response?.data?.error || 'The guest notes service is unavailable or you do not have permission.'); }
   };
+  useEffect(() => {
+    setLafloAssistantContext({ page: 'Guest Calls', selectedGuestId: selectedGuest?.id, selectedGuest: selectedGuest ? `${selectedGuest.firstName} ${selectedGuest.lastName}` : undefined, dialledNumber: dial || undefined, recentCallSummary: recents.slice(0, 5), visibleFilters: { tab, filter }, availableActions: ['place call', 'open guest profile', 'add call note'], restrictedActions: providerConnected ? [] : ['place call: calling provider disconnected'], sourceState: providerConnected ? 'live' : 'unavailable' });
+    return () => setLafloAssistantContext(null);
+  }, [dial, filter, providerConnected, recents, selectedGuest, tab]);
   const ask = (prompt: string) => openLafloAssistant({ prompt, context: { page: 'Guest Calls', selectedGuestId: selectedGuest?.id, selectedGuest: selectedGuest ? `${selectedGuest.firstName} ${selectedGuest.lastName}` : undefined, dialledNumber: dial || undefined, recentCallSummary: recents.slice(0, 5), visibleFilters: { tab, filter }, availableActions: ['place call', 'open guest profile', 'add call note'], restrictedActions: providerConnected ? [] : ['place call: calling provider disconnected'], sourceState: providerConnected ? 'live' : 'unavailable' } });
 
   const navItems: Array<{ id: CallsTab; label: string; icon: typeof Phone }> = [
@@ -126,10 +130,10 @@ export default function GuestCallsWorkspace() {
     { label: 'Available Agents', value: agents.data?.filter((agent) => agent.online).length || 0, detail: agents.isError ? 'Availability unavailable' : 'Online now', icon: UserRoundCheck, action: () => openUnavailable('Agent availability', agents.isError ? 'Staff presence is unavailable.' : `${agents.data?.filter((agent) => agent.online).map((agent) => `${agent.firstName} ${agent.lastName}`).join(', ') || 'No agents are currently online.'}`) },
   ];
 
-  return <div className="space-y-4 pb-20">
+  return <div className="guest-calls-workspace -m-4 min-h-[calc(100dvh-4rem)] space-y-4 bg-slate-50/95 p-4 pb-20 lg:-m-5 lg:p-5 lg:pb-20">
     <header className="theme-card rounded-2xl border p-5 xl:hidden"><p className="theme-link text-xs font-semibold uppercase tracking-[.16em]">Guest experience</p><p className="mt-1 text-2xl font-bold text-text-main">Guest Calls</p><p className="mt-1 text-sm text-text-muted">Connect with guests, rooms, departments, and external contacts from one place.</p></header>
     <section className="grid gap-3 sm:grid-cols-2 xl:ml-[376px] xl:grid-cols-4" aria-label="Call summary">{kpis.slice(0, 4).map(({ label, value, detail, icon: Icon, action }) => <button key={label} type="button" onClick={action} className="theme-kpi rounded-2xl border p-3 text-left hover:border-primary-300"><span className="flex items-start justify-between"><span><span className="block text-xs font-semibold text-text-muted">{label}</span><strong className="mt-1 block text-xl text-text-main">{value}</strong></span><span className="grid h-8 w-8 place-items-center rounded-xl bg-primary-50 text-primary-700"><Icon className="h-4 w-4" /></span></span><span className="mt-1 block text-xs text-text-muted">{detail}</span></button>)}</section>
-    <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)_340px]">
+    <div className="grid gap-4 xl:grid-cols-[360px_minmax(560px,680px)_minmax(400px,1fr)]">
       <aside className="theme-card rounded-2xl border p-3 xl:-mt-[100px]"><div className="mb-4 flex items-start gap-3 border-b border-border p-2 pb-4"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-50 text-primary-700"><PhoneCall className="h-5 w-5" /></span><div><h1 className="text-xl font-bold text-text-main">Guest Calls</h1><p className="mt-1 text-xs text-text-muted">Connect with guests quickly and efficiently.</p></div></div><div className="space-y-1">{navItems.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setTab(id)} className={`flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold ${tab === id ? 'bg-primary-50 text-primary-700' : 'text-text-muted hover:bg-bg'}`}><Icon className="h-4 w-4" />{label}</button>)}</div><div className="my-3 border-t border-border" />
         <section className="rounded-xl border border-border bg-bg p-3"><div className="flex items-center justify-between"><h2 className="text-sm font-semibold">Line Status</h2><span className={`text-xs font-semibold ${providerConnected ? 'text-emerald-700' : 'text-rose-700'}`}>{providerLabel}</span></div><p className="mt-2 text-xs text-text-muted">{voice.data?.fromPhone || 'No active phone number'}</p><p className="mt-1 text-xs text-text-muted">Provider-managed voice</p><button type="button" onClick={() => navigate('/settings?tab=integrations')} className="mt-3 w-full rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold">Change line</button></section>
         <div className="mt-3 grid grid-cols-2 gap-2">{[kpis[0], kpis[1], kpis[2], kpis[4]].map(({ label, value, detail, icon: Icon, action }) => <button key={label} type="button" onClick={action} className="rounded-xl border border-border bg-bg p-3 text-left"><span className="flex items-start justify-between"><span><span className="block text-[10px] font-semibold text-text-muted">{label.replace(' Calls Today',' Today')}</span><strong className="mt-1 block text-lg">{value}</strong></span><Icon className="h-4 w-4 text-primary-700" /></span><span className="mt-1 block text-[9px] text-text-muted">{detail}</span></button>)}</div>

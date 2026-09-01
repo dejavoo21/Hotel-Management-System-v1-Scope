@@ -1059,3 +1059,70 @@
 :is([data-theme='dark-mode'], [data-theme='midnight-dark'], [data-theme='warm-charcoal']) .auth-access-description {
   color: #b6c8d1;
 }
+
+/* Guest Calls follows the approved three-column operations workspace composition. */
+.guest-calls-workspace {
+  background: rgb(var(--color-bg) / 0.96);
+}
+
+.guest-calls-workspace > section[aria-label='Call summary'] > button {
+  min-height: 80px;
+  border-color: rgb(var(--color-border) / 0.82);
+  border-radius: 12px;
+  background: rgb(var(--color-bg-card));
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.035);
+}
+
+.guest-calls-workspace > div.grid > aside,
+.guest-calls-workspace > div.grid > main > section {
+  border-color: rgb(var(--color-border) / 0.82);
+  background: rgb(var(--color-bg-card));
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.035);
+}
+
+.guest-calls-workspace main > section:first-child > div.mt-4.grid > div:last-child div.mt-2 > button {
+  min-height: 47px;
+  border-color: rgb(var(--color-info) / 0.12);
+  background: rgb(var(--color-info) / 0.055);
+}
+
+.guest-calls-workspace main .border-dashed {
+  min-height: 220px;
+  background: rgb(var(--color-bg) / 0.35);
+}
+
+/* One assistant entry point: page context is forwarded to the persistent launcher. */
+.guest-calls-workspace .border-amber-200 button:last-child,
+.guest-calls-workspace main .border-dashed button:last-child,
+.guest-calls-workspace > div.grid > aside:last-child > button:last-child {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .guest-calls-workspace > section[aria-label='Call summary'] {
+    width: min(915px, calc(100% - 376px));
+    height: 80px;
+  }
+
+  .guest-calls-workspace > div.grid {
+    grid-template-columns: 360px minmax(560px, 680px) minmax(400px, 1fr);
+  }
+
+  .guest-calls-workspace > div.grid > aside:first-child {
+    min-height: 808px;
+    margin-top: -96px;
+  }
+
+  .guest-calls-workspace > div.grid > main > section:first-child {
+    min-height: 393px;
+  }
+
+  .guest-calls-workspace > div.grid > main > section:last-child {
+    min-height: 300px;
+  }
+
+  .guest-calls-workspace > div.grid > aside:last-child {
+    max-height: 712px;
+    overflow-y: auto;
+  }
+}

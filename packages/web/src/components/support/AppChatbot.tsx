@@ -6,7 +6,11 @@ import { ArrowLeft, ArrowRight, Bot, Compass, Download, Headphones, Mail, Plus, 
 import { assistantService, conciergeService, messageService } from '@/services';
 import type { AssistantMode } from '@/services/assistant';
 import { useAuthStore } from '@/stores/authStore';
-import { OPEN_LAFLO_ASSISTANT_EVENT, type OpenLafloAssistantDetail } from '@/lib/assistantEvents';
+import {
+  OPEN_LAFLO_ASSISTANT_EVENT,
+  SET_LAFLO_ASSISTANT_CONTEXT_EVENT,
+  type OpenLafloAssistantDetail,
+} from '@/lib/assistantEvents';
 import { canAccess } from '@/lib/access';
 import type { PermissionId } from '@/utils/userAccess';
 import { findAskLafloActions, resolveAskLafloAction } from '@/features/ask-laflo/actionRegistry';
@@ -114,6 +118,14 @@ export default function AppChatbot() {
 
   useEffect(() => {
     assistantService.status().then((status) => setAssistantLive(status.live)).catch(() => setAssistantLive(false));
+  }, []);
+
+  useEffect(() => {
+    const updateContext = (event: Event) => {
+      setLaunchContext((event as CustomEvent<Record<string, unknown> | null>).detail || null);
+    };
+    window.addEventListener(SET_LAFLO_ASSISTANT_CONTEXT_EVENT, updateContext);
+    return () => window.removeEventListener(SET_LAFLO_ASSISTANT_CONTEXT_EVENT, updateContext);
   }, []);
 
   useEffect(() => {
@@ -571,7 +583,7 @@ export default function AppChatbot() {
           </div>
         </section>
       ) : (
-        <button ref={launcherRef} type='button' onClick={() => { setLaunchContext(null); setOpen(true); }} className='flex min-h-11 items-center gap-2 rounded-2xl bg-primary-solid px-3 py-2 text-xs font-semibold text-primary-contrast shadow-lg ring-1 ring-black/5 transition-transform hover:scale-[1.02] hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2' aria-label='Open Ask LaFlo'>
+        <button ref={launcherRef} type='button' onClick={() => setOpen(true)} className='flex min-h-11 items-center gap-2 rounded-2xl bg-primary-solid px-3 py-2 text-xs font-semibold text-primary-contrast shadow-lg ring-1 ring-black/5 transition-transform hover:scale-[1.02] hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2' aria-label='Open Ask LaFlo'>
           <span className='relative h-[18px] w-[18px] shrink-0 overflow-hidden' aria-hidden='true'><img src='/laflo-logo.png' alt='' className='absolute -right-[5px] -top-[8px] h-[35px] w-auto max-w-none' /></span><span className='whitespace-nowrap'>Ask LaFlo</span>
         </button>
       )}

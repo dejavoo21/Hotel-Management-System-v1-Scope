@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { OPEN_LAFLO_ASSISTANT_EVENT } from '@/lib/assistantEvents';
+import { SET_LAFLO_ASSISTANT_CONTEXT_EVENT } from '@/lib/assistantEvents';
 import { useAuthStore } from '@/stores/authStore';
 import GuestCallsWorkspace from './GuestCallsWorkspace';
 
@@ -38,14 +38,13 @@ describe('GuestCallsWorkspace', () => {
     expect(screen.getByLabelText('Phone number or extension')).toHaveValue('');
   });
 
-  it('opens Ask LaFlo with Guest Calls context', async () => {
+  it('provides Guest Calls context to the single global Ask LaFlo launcher', async () => {
     const listener = vi.fn();
-    window.addEventListener(OPEN_LAFLO_ASSISTANT_EVENT, listener);
+    window.addEventListener(SET_LAFLO_ASSISTANT_CONTEXT_EVENT, listener);
     renderPage();
-    fireEvent.click(screen.getAllByRole('button', { name: 'Ask LaFlo' }).at(-1)!);
     await waitFor(() => expect(listener).toHaveBeenCalled());
-    expect((listener.mock.calls[0][0] as CustomEvent).detail.context).toMatchObject({ page: 'Guest Calls', sourceState: 'unavailable' });
-    window.removeEventListener(OPEN_LAFLO_ASSISTANT_EVENT, listener);
+    expect((listener.mock.calls.at(-1)?.[0] as CustomEvent).detail).toMatchObject({ page: 'Guest Calls', sourceState: 'unavailable' });
+    window.removeEventListener(SET_LAFLO_ASSISTANT_CONTEXT_EVENT, listener);
   });
 
   it('does not mount a second fixed Ask LaFlo launcher', () => {
