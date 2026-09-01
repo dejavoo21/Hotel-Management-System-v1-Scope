@@ -47,4 +47,9 @@ describe('GuestCallsWorkspace', () => {
     expect((listener.mock.calls[0][0] as CustomEvent).detail.context).toMatchObject({ page: 'Guest Calls', sourceState: 'unavailable' });
     window.removeEventListener(OPEN_LAFLO_ASSISTANT_EVENT, listener);
   });
+
+  it('does not mount a second fixed Ask LaFlo launcher', () => {
+    const { container } = renderPage();
+    expect(container.querySelector('button.fixed.bottom-5.right-6')).toBeNull();
+  });
 });
