@@ -5,17 +5,23 @@ import toast from "react-hot-toast";
 import {
   AlertTriangle,
   Bot,
+  CalendarDays,
+  CheckCircle2,
   ChevronRight,
   Clock3,
   Inbox,
   Loader2,
   MessageSquareText,
+  Phone,
   RefreshCcw,
   Search,
   Send,
   ShieldAlert,
+  Sparkles,
   TicketCheck,
+  UserRoundCheck,
   UsersRound,
+  Wrench,
   X,
 } from "lucide-react";
 import messageService from "@/services/messages";
@@ -50,6 +56,7 @@ type ConversationFilter =
   | "assigned"
   | "escalated"
   | "resolved";
+type PriorityFilter = "all" | "urgent" | "high" | "medium" | "low";
 type TicketAction = "escalate" | "resolve" | "close";
 type TaskDraft = {
   title: string;
@@ -75,6 +82,7 @@ const REQUEST_CATEGORIES = new Set([
   "BILLING",
   "COMPLAINT",
 ]);
+const VIP_PATTERN = /\bvip\b/i;
 const terminalTicket = (ticket: Ticket) =>
   ticket.status === "RESOLVED" || ticket.status === "CLOSED";
 const guestName = (thread?: MessageThreadSummary | null) =>
@@ -122,6 +130,8 @@ export default function MessagesPageRedesigned() {
   const [search, setSearch] = useState("");
   const [conversationFilter, setConversationFilter] =
     useState<ConversationFilter>("all");
+  const [priorityFilter, setPriorityFilter] =
+    useState<PriorityFilter>("all");
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(
     params.get("thread"),
   );
@@ -197,6 +207,11 @@ export default function MessagesPageRedesigned() {
         thread.subject.toLowerCase().includes(needle) ||
         thread.lastMessage?.body.toLowerCase().includes(needle);
       if (!matchesSearch) return false;
+      if (
+        priorityFilter !== "all" &&
+        ticket?.priority.toLowerCase() !== priorityFilter
+      )
+        return false;
       if (conversationFilter === "open")
         return thread.status === "OPEN" && (!ticket || !terminalTicket(ticket));
       if (conversationFilter === "assigned")
@@ -213,7 +228,14 @@ export default function MessagesPageRedesigned() {
         );
       return true;
     });
-  }, [conversationFilter, search, threads, ticketsByConversation, user?.id]);
+  }, [
+    conversationFilter,
+    priorityFilter,
+    search,
+    threads,
+    ticketsByConversation,
+    user?.id,
+  ]);
 
   const escalations = useMemo(
     () =>
@@ -236,7 +258,7 @@ export default function MessagesPageRedesigned() {
   );
   const vipFollowUps = threads.filter(
     (thread) =>
-      /\bvip\b/i.test(`${thread.subject} ${thread.lastMessage?.body || ""}`) &&
+      VIP_PATTERN.test(`${thread.subject} ${thread.lastMessage?.body || ""}`) &&
       thread.status === "OPEN",
   );
 
@@ -247,10 +269,21 @@ export default function MessagesPageRedesigned() {
       agentsQuery.refetch(),
       selectedThreadId ? threadQuery.refetch() : Promise.resolve(),
     ]);
-    setLastUpdated(new Date());
-    if (results.some((result) => result.status === "rejected"))
+    const failed = results.some(
+      (result) =>
+        result.status === "rejected" ||
+        (result.status === "fulfilled" &&
+          typeof result.value === "object" &&
+          result.value !== null &&
+          "isError" in result.value &&
+          Boolean(result.value.isError)),
+    );
+    if (failed)
       toast.error("Some guest experience information could not be refreshed.");
-    else toast.success("Guest experience information refreshed.");
+    else {
+      setLastUpdated(new Date());
+      toast.success("Guest experience information refreshed.");
+    }
   };
   const selectTab = (tab: WorkspaceTab, extra: Record<string, string> = {}) =>
     setParams({ tab, ...extra });
@@ -300,6 +333,12 @@ export default function MessagesPageRedesigned() {
         currentFilters: { search, conversationFilter },
         openIssues: openTickets.length,
         slaStatus: selectedTicket ? getTimeRemaining(selectedTicket) : null,
+        relatedTasks: canCreateTask
+          ? "Operational task queue available"
+          : "Task details restricted",
+        recommendedActions: selectedTicket
+          ? ["assign owner", "create linked task", "call guest", "resolve"]
+          : ["review conversation", "call guest", "create follow-up task"],
         availableActions: [
           canMessage && "reply",
           canManage && "assign",
@@ -335,8 +374,23 @@ export default function MessagesPageRedesigned() {
       ),
   });
   const assignMutation = useMutation({
-    mutationFn: ({ threadId, userId }: { threadId: string; userId: string }) =>
-      messageService.assignSupportAgent(threadId, userId),
+    mutationFn: async ({
+      threadId,
+      userId,
+      ticketId,
+    }: {
+      threadId: string;
+      userId: string;
+      ticketId?: string;
+    }) => {
+      const [thread] = await Promise.all([
+        messageService.assignSupportAgent(threadId, userId),
+        ticketId
+          ? ticketService.assignTicket(ticketId, userId)
+          : Promise.resolve(null),
+      ]);
+      return thread;
+    },
     onSuccess: async () => {
       await Promise.all([
         threadsQuery.refetch(),
@@ -575,50 +629,91 @@ export default function MessagesPageRedesigned() {
         />
       ) : null}
       {!pageError && activeTab === "conversations" ? (
-        <ConversationWorkspace
-          threads={filteredThreads}
-          ticketsByConversation={ticketsByConversation}
-          selectedThreadId={selectedThreadId}
-          selectedThread={selectedThreadSummary}
-          detail={threadQuery.data}
-          detailLoading={threadQuery.isLoading}
-          search={search}
-          filter={conversationFilter}
-          draft={draft}
-          agents={agentsQuery.data || []}
-          canMessage={canMessage}
-          canManage={canManage}
-          canCreateTask={canCreateTask}
-          canViewGuest={canViewGuest}
-          sending={sendMutation.isPending}
-          onSearch={setSearch}
-          onFilter={setConversationFilter}
-          onSelect={selectThread}
-          onDraft={setDraft}
-          onSend={() => {
-            if (!draft.trim()) {
-              toast.error("Enter a reply before sending.");
-              return;
+        <div className="space-y-4">
+          <SupportIntelligenceStrip
+            openTickets={openTickets.length}
+            assigned={tickets.filter((ticket) => ticket.assignedToId).length}
+            slaBreaches={slaBreaches.length}
+            resolvedToday={tickets.filter(
+              (ticket) =>
+                terminalTicket(ticket) &&
+                new Date(ticket.updatedAtUtc).toDateString() ===
+                  new Date().toDateString(),
+            ).length}
+            priority={
+              escalations[0]?.conversation?.subject ||
+              openTickets[0]?.conversation?.subject ||
+              "No urgent guest issue identified"
             }
-            sendMutation.mutate();
-          }}
-          onUnavailable={(message) => toast(message)}
-          onAssign={(userId) =>
-            selectedThreadId &&
-            assignMutation.mutate({ threadId: selectedThreadId, userId })
-          }
-          onTicketAction={(action) => runTicketAction(selectedTicket, action)}
-          onCreateTask={() => makeTaskDraft(selectedTicket)}
-          onGuest={() =>
-            canViewGuest
-              ? navigate(
-                  `/guests${selectedThreadSummary?.guest?.email ? `?search=${encodeURIComponent(selectedThreadSummary.guest.email)}` : ""}`,
-                )
-              : toast.error("Permission required to view guest details.")
-          }
-          onAsk={askLaflo}
-          messageEndRef={messageEndRef}
-        />
+            updatedAt={lastUpdated}
+            onRefresh={refreshAll}
+            onOpenTickets={() => selectTab("tickets")}
+            onOpenAssigned={() => {
+              setConversationFilter("assigned");
+              selectTab("conversations");
+            }}
+            onOpenEscalations={() => selectTab("escalations")}
+          />
+          <ConversationWorkspace
+            threads={filteredThreads}
+            ticketsByConversation={ticketsByConversation}
+            selectedThreadId={selectedThreadId}
+            selectedThread={selectedThreadSummary}
+            detail={threadQuery.data}
+            detailLoading={threadQuery.isLoading}
+            search={search}
+            filter={conversationFilter}
+            priorityFilter={priorityFilter}
+            draft={draft}
+            agents={agentsQuery.data || []}
+            canMessage={canMessage}
+            canManage={canManage}
+            canCreateTask={canCreateTask}
+            canViewGuest={canViewGuest}
+            sending={sendMutation.isPending}
+            onSearch={setSearch}
+            onFilter={setConversationFilter}
+            onPriorityFilter={setPriorityFilter}
+            onSelect={selectThread}
+            onDraft={setDraft}
+            onSend={() => {
+              if (!draft.trim()) {
+                toast.error("Enter a reply before sending.");
+                return;
+              }
+              sendMutation.mutate();
+            }}
+            onUnavailable={(message) => toast(message)}
+            onAssign={(userId) =>
+              selectedThreadId &&
+              assignMutation.mutate({
+                threadId: selectedThreadId,
+                userId,
+                ticketId: selectedTicket?.id,
+              })
+            }
+            onTicketAction={(action) => runTicketAction(selectedTicket, action)}
+            onCreateTask={() => makeTaskDraft(selectedTicket)}
+            onOpenTasks={() => navigate("/operations/tasks-advisories?tab=tasks")}
+            onCall={() => {
+              const phone = selectedThreadSummary?.guest?.phone;
+              if (!phone) {
+                toast("No guest phone number is available for this conversation.");
+                return;
+              }
+              navigate(`/calls?number=${encodeURIComponent(phone)}&source=guest-experience&thread=${encodeURIComponent(selectedThreadId || "")}`);
+            }}
+            onGuest={() =>
+              canViewGuest
+                ? navigate(
+                    `/guests${selectedThreadSummary?.guest?.email ? `?search=${encodeURIComponent(selectedThreadSummary.guest.email)}` : ""}`,
+                  )
+                : toast.error("Permission required to view guest details.")
+            }
+            onAsk={askLaflo}
+            messageEndRef={messageEndRef}
+          />
+        </div>
       ) : null}
       {!pageError && activeTab === "tickets" ? (
         <TicketTable
@@ -634,6 +729,7 @@ export default function MessagesPageRedesigned() {
             assignMutation.mutate({
               threadId: ticket.conversationId,
               userId: user.id,
+              ticketId: ticket.id,
             });
           }}
           onAction={runTicketAction}
@@ -658,6 +754,7 @@ export default function MessagesPageRedesigned() {
             assignMutation.mutate({
               threadId: ticket.conversationId,
               userId: user.id,
+              ticketId: ticket.id,
             });
           }}
           onAction={runTicketAction}
@@ -686,6 +783,7 @@ export default function MessagesPageRedesigned() {
             assignMutation.mutate({
               threadId: ticket.conversationId,
               userId: user.id,
+              ticketId: ticket.id,
             });
           }}
           onAction={runTicketAction}
@@ -722,6 +820,116 @@ export default function MessagesPageRedesigned() {
         />
       ) : null}
     </div>
+  );
+}
+
+function SupportIntelligenceStrip({
+  openTickets,
+  assigned,
+  slaBreaches,
+  resolvedToday,
+  priority,
+  updatedAt,
+  onRefresh,
+  onOpenTickets,
+  onOpenAssigned,
+  onOpenEscalations,
+}: {
+  openTickets: number;
+  assigned: number;
+  slaBreaches: number;
+  resolvedToday: number;
+  priority: string;
+  updatedAt: Date;
+  onRefresh: () => Promise<void>;
+  onOpenTickets: () => void;
+  onOpenAssigned: () => void;
+  onOpenEscalations: () => void;
+}) {
+  const items = [
+    {
+      label: "Open tickets",
+      value: openTickets,
+      detail: "Require follow-up",
+      icon: TicketCheck,
+      action: onOpenTickets,
+    },
+    {
+      label: "Assigned",
+      value: assigned,
+      detail: "With an owner",
+      icon: UserRoundCheck,
+      action: onOpenAssigned,
+    },
+    {
+      label: "SLA breach",
+      value: slaBreaches,
+      detail: "At risk or overdue",
+      icon: Clock3,
+      action: onOpenEscalations,
+    },
+    {
+      label: "Resolved today",
+      value: resolvedToday,
+      detail: "Completed follow-ups",
+      icon: CheckCircle2,
+      action: onOpenTickets,
+    },
+  ];
+  return (
+    <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-950 text-white">
+            <Sparkles className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-semibold text-text-main">
+                Guest Experience Intelligence
+              </h2>
+              <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-bold uppercase text-primary-700">
+                Live
+              </span>
+            </div>
+            <p className="mt-1 max-w-3xl truncate text-xs text-text-muted">
+              Priority: {priority}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => void onRefresh()}
+          className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-semibold text-text-main"
+        >
+          <RefreshCcw className="h-3.5 w-3.5" />
+          Updated {updatedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+        </button>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {items.map(({ label, value, detail, icon: Icon, action }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={action}
+            className="group rounded-xl border border-border bg-bg/70 p-3 text-left transition hover:border-primary-300 hover:bg-primary-50"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-text-muted">
+                  {label}
+                </p>
+                <p className="mt-1 text-2xl font-bold text-text-main">{value}</p>
+              </div>
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-card text-primary-700 shadow-sm">
+                <Icon className="h-4 w-4" />
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-text-muted">{detail}</p>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -915,6 +1123,7 @@ type ConversationWorkspaceProps = {
   detailLoading: boolean;
   search: string;
   filter: ConversationFilter;
+  priorityFilter: PriorityFilter;
   draft: string;
   agents: SupportAgent[];
   canMessage: boolean;
@@ -924,6 +1133,7 @@ type ConversationWorkspaceProps = {
   sending: boolean;
   onSearch: (value: string) => void;
   onFilter: (value: ConversationFilter) => void;
+  onPriorityFilter: (value: PriorityFilter) => void;
   onSelect: (id: string) => void;
   onDraft: (value: string) => void;
   onSend: () => void;
@@ -931,17 +1141,20 @@ type ConversationWorkspaceProps = {
   onAssign: (userId: string) => void;
   onTicketAction: (action: TicketAction) => void;
   onCreateTask: () => void;
+  onOpenTasks: () => void;
+  onCall: () => void;
   onGuest: () => void;
   onAsk: (prompt: string, extra?: Record<string, unknown>) => void;
   messageEndRef: React.Ref<HTMLDivElement>;
 };
 
 function ConversationWorkspace(props: ConversationWorkspaceProps) {
+  const [contextTab, setContextTab] = useState<"guest" | "ticket">("guest");
   const ticket = props.selectedThreadId
     ? props.ticketsByConversation.get(props.selectedThreadId)
     : null;
   return (
-    <section className="grid min-h-[650px] min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:grid-cols-[290px_minmax(340px,1fr)] 2xl:grid-cols-[310px_minmax(420px,1fr)_300px]">
+    <section className="grid min-h-[680px] min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:grid-cols-[300px_minmax(360px,1fr)] xl:grid-cols-[310px_minmax(420px,1fr)_330px]">
       <aside className="min-h-0 border-b border-border lg:border-b-0 lg:border-r">
         <div className="space-y-3 border-b border-border p-3">
           <label className="relative block">
@@ -953,22 +1166,38 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
               className="w-full rounded-xl border border-border bg-bg py-2.5 pl-9 pr-3 text-sm text-text-main"
             />
           </label>
-          <select
-            value={props.filter}
-            onChange={(event) =>
-              props.onFilter(event.target.value as ConversationFilter)
-            }
-            aria-label="Filter conversations"
-            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text-main"
-          >
-            <option value="all">All conversations</option>
-            <option value="open">Open</option>
-            <option value="assigned">Assigned to me</option>
-            <option value="escalated">Escalated or SLA risk</option>
-            <option value="resolved">Resolved</option>
-          </select>
+          <div className="grid grid-cols-2 gap-2">
+            <select
+              value={props.filter}
+              onChange={(event) =>
+                props.onFilter(event.target.value as ConversationFilter)
+              }
+              aria-label="Filter conversations"
+              className="min-w-0 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-text-main"
+            >
+              <option value="all">All statuses</option>
+              <option value="open">Open</option>
+              <option value="assigned">Assigned to me</option>
+              <option value="escalated">Escalated / SLA</option>
+              <option value="resolved">Resolved</option>
+            </select>
+            <select
+              value={props.priorityFilter}
+              onChange={(event) =>
+                props.onPriorityFilter(event.target.value as PriorityFilter)
+              }
+              aria-label="Filter conversation priority"
+              className="min-w-0 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-text-main"
+            >
+              <option value="all">All priorities</option>
+              <option value="urgent">Urgent</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
         </div>
-        <div className="max-h-[520px] overflow-y-auto lg:max-h-[650px]">
+        <div className="max-h-[540px] overflow-y-auto lg:max-h-[680px]">
           {props.threads.map((thread) => {
             const itemTicket = props.ticketsByConversation.get(thread.id);
             return (
@@ -1022,15 +1251,29 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
         {props.selectedThread ? (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card p-4">
-              <div>
-                <h2 className="font-semibold text-text-main">
-                  {guestName(props.selectedThread)}
-                </h2>
-                <p className="text-xs text-text-muted">
-                  {props.selectedThread.booking?.bookingRef ||
-                    "No booking linked"}{" "}
-                  · {labelize(props.selectedThread.status)}
-                </p>
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-100 text-sm font-bold text-primary-700">
+                  {initials(guestName(props.selectedThread))}
+                </span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="font-semibold text-text-main">
+                      {guestName(props.selectedThread)}
+                    </h2>
+                    {VIP_PATTERN.test(
+                      `${props.selectedThread.subject} ${props.selectedThread.lastMessage?.body || ""}`,
+                    ) ? (
+                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                        VIP guest
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="truncate text-xs text-text-muted">
+                    {props.selectedThread.booking?.bookingRef ||
+                      "No booking linked"}{" "}
+                    · {labelize(props.selectedThread.status)}
+                  </p>
+                </div>
               </div>
               <div className="flex flex-wrap gap-2">
                 <button
@@ -1072,6 +1315,24 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                 )}
               </div>
             </div>
+            {ticket ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 text-xs">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-red-50 px-2 py-1 font-bold text-red-700">
+                    {labelize(ticket.priority)}
+                  </span>
+                  <span className="font-semibold text-text-muted">
+                    Ticket #{ticket.id.slice(0, 8)}
+                  </span>
+                  <span className="truncate font-semibold text-text-main">
+                    {props.selectedThread.subject}
+                  </span>
+                </div>
+                <span className="rounded-lg border border-border px-2 py-1 font-semibold text-text-main">
+                  {labelize(ticket.status)}
+                </span>
+              </div>
+            ) : null}
             <div className="flex-1 space-y-4 overflow-y-auto p-4">
               {props.detailLoading ? (
                 <p className="text-sm text-text-muted">Loading conversation…</p>
@@ -1121,6 +1382,14 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                   className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-45"
                 >
                   Create task
+                </button>
+                <button
+                  type="button"
+                  onClick={props.onCall}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold"
+                >
+                  <Phone className="mr-1 inline h-3.5 w-3.5" />
+                  Call guest
                 </button>
                 <button
                   type="button"
@@ -1226,66 +1495,263 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
           </div>
         )}
       </main>
-      <aside className="hidden border-l border-border bg-card p-4 2xl:block">
-        <h2 className="font-semibold text-text-main">Guest context</h2>
-        {props.selectedThread ? (
-          <div className="mt-4 space-y-4 text-sm">
-            <ContextRow label="Guest" value={guestName(props.selectedThread)} />
-            <ContextRow
-              label="Room / booking"
-              value={props.selectedThread.booking?.bookingRef || "Not linked"}
-            />
-            <ContextRow
-              label="Booking status"
-              value={
-                props.selectedThread.booking ? "Booking linked" : "Unavailable"
-              }
-            />
-            <ContextRow
-              label="VIP flag"
-              value={
-                /\bvip\b/i.test(
-                  `${props.selectedThread.subject} ${props.selectedThread.lastMessage?.body || ""}`,
-                )
-                  ? "VIP follow-up indicated"
-                  : "Not available"
-              }
-            />
-            <ContextRow
-              label="Open issues"
-              value={
-                ticket && !terminalTicket(ticket)
-                  ? "1 linked ticket"
-                  : "No open linked ticket"
-              }
-            />
-            <ContextRow
-              label="Linked tasks"
-              value="Available through linked tickets"
-            />
-            <ContextRow
-              label="Sentiment / urgency"
-              value={
-                ticket?.priority ? labelize(ticket.priority) : "Not analysed"
-              }
-            />
+      <aside className="hidden min-w-0 border-l border-border bg-card xl:block">
+        <div className="grid grid-cols-2 border-b border-border px-3 pt-2">
+          {[
+            ["guest", "Guest Details"],
+            ["ticket", "Ticket Insights"],
+          ].map(([id, label]) => (
             <button
+              key={id}
               type="button"
-              onClick={props.onGuest}
-              className="w-full rounded-xl border border-border px-3 py-2 text-xs font-semibold"
+              onClick={() => setContextTab(id as "guest" | "ticket")}
+              className={`border-b-2 px-2 py-3 text-xs font-semibold ${contextTab === id ? "border-primary-600 text-primary-700" : "border-transparent text-text-muted"}`}
             >
-              {props.canViewGuest
-                ? "Open guest details"
-                : "Guest details · Permission required"}
+              {label}
             </button>
+          ))}
+        </div>
+        {props.selectedThread ? (
+          <div className="max-h-[680px] space-y-3 overflow-y-auto p-3 text-sm">
+            {contextTab === "guest" ? (
+              <>
+                <section className="rounded-xl border border-border p-3">
+                  <div className="flex items-center gap-3">
+                    <span className="grid h-10 w-10 place-items-center rounded-full bg-primary-100 text-xs font-bold text-primary-700">
+                      {initials(guestName(props.selectedThread))}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold text-text-main">
+                        {guestName(props.selectedThread)}
+                      </p>
+                      <p className="truncate text-xs text-text-muted">
+                        {props.selectedThread.guest?.email || "Email not available"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={props.onCall}
+                      className="rounded-lg border border-border px-2 py-2 text-xs font-semibold"
+                    >
+                      <Phone className="mr-1 inline h-3.5 w-3.5" /> Call guest
+                    </button>
+                    <button
+                      type="button"
+                      onClick={props.onGuest}
+                      className="rounded-lg border border-border px-2 py-2 text-xs font-semibold"
+                    >
+                      <UsersRound className="mr-1 inline h-3.5 w-3.5" /> Profile
+                    </button>
+                  </div>
+                </section>
+                <section className="rounded-xl border border-border p-3">
+                  <h3 className="text-xs font-semibold text-text-main">
+                    Stay information
+                  </h3>
+                  <div className="mt-3 space-y-3">
+                    <ContextRow
+                      label="Reservation"
+                      value={props.selectedThread.booking?.bookingRef || "Not linked"}
+                    />
+                    <ContextRow
+                      label="Check-in"
+                      value={
+                        props.selectedThread.booking
+                          ? new Date(props.selectedThread.booking.checkInDate).toLocaleDateString()
+                          : "Unavailable"
+                      }
+                    />
+                    <ContextRow
+                      label="Check-out"
+                      value={
+                        props.selectedThread.booking
+                          ? new Date(props.selectedThread.booking.checkOutDate).toLocaleDateString()
+                          : "Unavailable"
+                      }
+                    />
+                  </div>
+                </section>
+                <section className="rounded-xl border border-border p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-xs font-semibold text-text-main">Related tasks</h3>
+                    <button
+                      type="button"
+                      disabled={!props.canCreateTask}
+                      onClick={props.onCreateTask}
+                      className="text-xs font-semibold text-primary-700 disabled:opacity-45"
+                    >
+                      + New task
+                    </button>
+                  </div>
+                  <p className="mt-3 rounded-lg bg-bg p-3 text-xs text-text-muted">
+                    Linked task details are available from the operational task queue.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={props.onOpenTasks}
+                    className="mt-2 w-full rounded-lg border border-border px-3 py-2 text-xs font-semibold"
+                  >
+                    Open task queue
+                  </button>
+                </section>
+              </>
+            ) : (
+              <>
+                <section className="rounded-xl border border-border p-3">
+                  <h3 className="text-xs font-semibold text-text-main">Ticket status</h3>
+                  {ticket ? (
+                    <div className="mt-3 space-y-3">
+                      <ContextRow label="Status" value={labelize(ticket.status)} />
+                      <ContextRow label="Priority" value={labelize(ticket.priority)} />
+                      <ContextRow
+                        label="SLA"
+                        value={
+                          ticket.status === "BREACHED" || isOverdue(ticket)
+                            ? "At risk / breached"
+                            : getTimeRemaining(ticket)?.display || "No SLA due"
+                        }
+                      />
+                      <ContextRow
+                        label="Owner"
+                        value={
+                          ticket.assignedTo
+                            ? `${ticket.assignedTo.firstName} ${ticket.assignedTo.lastName}`
+                            : "Unassigned"
+                        }
+                      />
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-xs text-text-muted">
+                      No ticket is linked to this conversation.
+                    </p>
+                  )}
+                </section>
+                <section className="rounded-xl border border-border p-3">
+                  <h3 className="text-xs font-semibold text-text-main">
+                    Issue timeline
+                  </h3>
+                  <div className="mt-3 space-y-3 text-xs">
+                    <TimelineItem icon={MessageSquareText} title="Issue reported" detail={timestamp(props.selectedThread.lastMessageAt)} />
+                    <TimelineItem icon={UserRoundCheck} title="Owner status" detail={ticket?.assignedTo ? "Owner assigned" : "Awaiting owner"} />
+                    <TimelineItem icon={Clock3} title="SLA status" detail={ticket && (ticket.status === "BREACHED" || isOverdue(ticket)) ? "Needs immediate attention" : "Within available target"} />
+                  </div>
+                </section>
+              </>
+            )}
+            <section className="rounded-xl border border-primary-200 bg-primary-50 p-3">
+              <h3 className="flex items-center gap-2 text-xs font-semibold text-text-main">
+                <Sparkles className="h-4 w-4 text-primary-700" /> Suggested next actions
+              </h3>
+              <div className="mt-3 space-y-2">
+                <ActionRow
+                  icon={Wrench}
+                  title="Notify the responsible department"
+                  detail="Create a linked operational follow-up"
+                  onClick={props.onCreateTask}
+                />
+                <ActionRow
+                  icon={Phone}
+                  title="Call the guest"
+                  detail="Open Guest Calls with this contact"
+                  onClick={props.onCall}
+                />
+                <ActionRow
+                  icon={CalendarDays}
+                  title="Compensate guest"
+                  detail="Billing workflow is not connected"
+                  onClick={() =>
+                    props.onUnavailable(
+                      "Guest compensation is unavailable because an authorised billing workflow is not connected.",
+                    )
+                  }
+                />
+              </div>
+            </section>
+            <section className="rounded-xl border border-border p-3">
+              <h3 className="flex items-center gap-2 text-xs font-semibold text-text-main">
+                <Bot className="h-4 w-4 text-primary-700" /> Recommended response
+              </h3>
+              <p className="mt-2 rounded-lg bg-bg p-3 text-xs text-text-muted">
+                I’m sorry for the inconvenience. We’re reviewing this now and will update you as soon as the next step is confirmed.
+              </p>
+              <button
+                type="button"
+                disabled={!props.canMessage}
+                onClick={() =>
+                  props.onDraft(
+                    "I’m sorry for the inconvenience. We’re reviewing this now and will update you as soon as the next step is confirmed.",
+                  )
+                }
+                className="mt-2 w-full rounded-lg border border-border px-3 py-2 text-xs font-semibold disabled:opacity-45"
+              >
+                Use this response
+              </button>
+            </section>
           </div>
         ) : (
-          <p className="mt-4 text-sm text-text-muted">
+          <p className="p-4 text-sm text-text-muted">
             Select a conversation to view authorised guest context.
           </p>
         )}
       </aside>
     </section>
+  );
+}
+
+function TimelineItem({
+  icon: Icon,
+  title,
+  detail,
+}: {
+  icon: typeof Clock3;
+  title: string;
+  detail: string;
+}) {
+  return (
+    <div className="flex gap-2">
+      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-bg text-primary-700">
+        <Icon className="h-3.5 w-3.5" />
+      </span>
+      <div>
+        <p className="font-semibold text-text-main">{title}</p>
+        <p className="text-text-muted">{detail}</p>
+      </div>
+    </div>
+  );
+}
+
+function ActionRow({
+  icon: Icon,
+  title,
+  detail,
+  onClick,
+}: {
+  icon: typeof Clock3;
+  title: string;
+  detail: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-2 rounded-lg border border-primary-200 bg-card p-2 text-left"
+    >
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary-50 text-primary-700">
+        <Icon className="h-4 w-4" />
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-xs font-semibold text-text-main">
+          {title}
+        </span>
+        <span className="block truncate text-[10px] text-text-muted">
+          {detail}
+        </span>
+      </span>
+      <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0 text-text-muted" />
+    </button>
   );
 }
 
@@ -1357,13 +1823,72 @@ function TicketTable({
   onCreateTask: (ticket: Ticket) => void;
   onAsk: (ticket: Ticket) => void;
 }) {
+  const [ticketSearch, setTicketSearch] = useState("");
+  const [ticketPriority, setTicketPriority] = useState("all");
+  const [ticketStatus, setTicketStatus] = useState("all");
+  const filteredTickets = useMemo(() => {
+    const needle = ticketSearch.trim().toLowerCase();
+    return tickets.filter((ticket) => {
+      const matchesSearch =
+        !needle ||
+        ticket.id.toLowerCase().includes(needle) ||
+        ticket.conversation?.subject.toLowerCase().includes(needle) ||
+        `${ticket.conversation?.guest?.firstName || ""} ${ticket.conversation?.guest?.lastName || ""}`
+          .toLowerCase()
+          .includes(needle);
+      return (
+        matchesSearch &&
+        (ticketPriority === "all" || ticket.priority === ticketPriority) &&
+        (ticketStatus === "all" || ticket.status === ticketStatus)
+      );
+    });
+  }, [ticketPriority, ticketSearch, ticketStatus, tickets]);
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-      <div className="p-5">
-        <h2 className="font-semibold text-text-main">{title}</h2>
-        <p className="mt-1 text-sm text-text-muted">{detail}</p>
+      <div className="flex flex-wrap items-end justify-between gap-4 p-5">
+        <div>
+          <h2 className="font-semibold text-text-main">{title}</h2>
+          <p className="mt-1 text-sm text-text-muted">{detail}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <label className="relative">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
+            <input
+              value={ticketSearch}
+              onChange={(event) => setTicketSearch(event.target.value)}
+              placeholder="Search tickets"
+              className="w-48 rounded-lg border border-border bg-bg py-2 pl-8 pr-3 text-xs"
+            />
+          </label>
+          <select
+            aria-label="Filter ticket priority"
+            value={ticketPriority}
+            onChange={(event) => setTicketPriority(event.target.value)}
+            className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold"
+          >
+            <option value="all">All priorities</option>
+            <option value="URGENT">Urgent</option>
+            <option value="HIGH">High</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="LOW">Low</option>
+          </select>
+          <select
+            aria-label="Filter ticket status"
+            value={ticketStatus}
+            onChange={(event) => setTicketStatus(event.target.value)}
+            className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold"
+          >
+            <option value="all">All statuses</option>
+            <option value="OPEN">Open</option>
+            <option value="PENDING">Pending</option>
+            <option value="IN_PROGRESS">In progress</option>
+            <option value="BREACHED">Breached</option>
+            <option value="RESOLVED">Resolved</option>
+            <option value="CLOSED">Closed</option>
+          </select>
+        </div>
       </div>
-      {tickets.length ? (
+      {filteredTickets.length ? (
         <div className="overflow-x-auto">
           <table className="min-w-[1120px] w-full text-left text-xs">
             <thead className="border-y border-border bg-bg text-text-muted">
@@ -1387,7 +1912,7 @@ function TicketTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {tickets.map((ticket) => (
+              {filteredTickets.map((ticket) => (
                 <tr key={ticket.id}>
                   <td className="px-4 py-3">
                     <button
@@ -1492,7 +2017,7 @@ function TicketTable({
         </div>
       ) : (
         <p className="border-t border-border p-10 text-center text-sm text-text-muted">
-          {empty}
+          {tickets.length ? "No tickets match the current filters." : empty}
         </p>
       )}
     </section>

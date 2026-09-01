@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   send: vi.fn(),
   agents: vi.fn(),
   assign: vi.fn(),
+  assignTicket: vi.fn(),
   tickets: vi.fn(),
   resolve: vi.fn(),
   close: vi.fn(),
@@ -40,6 +41,7 @@ vi.mock("@/services/tickets", async (importOriginal) => {
     ...actual,
     default: {
       getTickets: mocks.tickets,
+      assignTicket: mocks.assignTicket,
       resolveTicket: mocks.resolve,
       closeTicket: mocks.close,
       escalateTicket: mocks.escalate,
@@ -162,6 +164,7 @@ describe("Guest Experience Center", () => {
       createdAt: "2026-09-01T08:10:00Z",
     });
     mocks.assign.mockResolvedValue(thread);
+    mocks.assignTicket.mockResolvedValue({ ...ticket, assignedToId: "agent-1" });
     mocks.resolve.mockResolvedValue({ ...ticket, status: "RESOLVED" });
     mocks.close.mockResolvedValue({ ...ticket, status: "CLOSED" });
     mocks.escalate.mockResolvedValue({
@@ -236,6 +239,7 @@ describe("Guest Experience Center", () => {
     await waitFor(() =>
       expect(mocks.assign).toHaveBeenCalledWith("thread-1", "agent-1"),
     );
+    expect(mocks.assignTicket).toHaveBeenCalledWith("ticket-1", "agent-1");
   });
 
   it("creates a linked task, confirms ticket outcomes, and opens Ask LaFlo with structured context", async () => {
@@ -243,6 +247,15 @@ describe("Guest Experience Center", () => {
     window.addEventListener(OPEN_LAFLO_ASSISTANT_EVENT, listener);
     renderPage("/messages?tab=tickets");
     expect(await screen.findByText("Late room readiness")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Filter ticket priority"), {
+      target: { value: "LOW" },
+    });
+    expect(
+      screen.getByText("No tickets match the current filters."),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Filter ticket priority"), {
+      target: { value: "HIGH" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Create task" }));
     const dialog = screen.getByRole("dialog", {
       name: "Create task from guest issue",
@@ -285,6 +298,31 @@ describe("Guest Experience Center", () => {
     expect(
       await screen.findByPlaceholderText("Type a guest reply"),
     ).toBeInTheDocument();
+  });
+
+  it("filters by priority, prepares the recommended response, and opens Guest Calls with guest context", async () => {
+    renderPage("/messages?tab=conversations");
+    await screen.findByText("My room is not ready.");
+
+    fireEvent.change(screen.getByLabelText("Filter conversation priority"), {
+      target: { value: "low" },
+    });
+    expect(
+      screen.getByText("No conversations match the current search and filter."),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Filter conversation priority"), {
+      target: { value: "high" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Use this response" }));
+    expect(screen.getByPlaceholderText("Type a guest reply")).toHaveValue(
+      "I’m sorry for the inconvenience. We’re reviewing this now and will update you as soon as the next step is confirmed.",
+    );
+
+    fireEvent.click(screen.getAllByRole("button", { name: /Call guest/ })[0]);
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      "/calls?number=%2B44123456789&source=guest-experience&thread=thread-1",
+    );
   });
 
   it("disables management and guest-detail actions when the user lacks permission", async () => {
