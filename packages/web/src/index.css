@@ -1099,30 +1099,53 @@
 }
 
 @media (min-width: 1280px) {
+  .guest-calls-workspace {
+    padding-top: 10px;
+    padding-inline: 34px;
+  }
+
   .guest-calls-workspace > section[aria-label='Call summary'] {
+    margin-left: 380px;
     width: min(915px, calc(100% - 376px));
     height: 80px;
   }
 
   .guest-calls-workspace > div.grid {
-    grid-template-columns: 360px minmax(560px, 680px) minmax(400px, 1fr);
+    gap: 18px;
+    grid-template-columns: 362px minmax(560px, 678px) minmax(400px, 1fr);
   }
 
   .guest-calls-workspace > div.grid > aside:first-child {
-    min-height: 808px;
+    min-height: 812px;
     margin-top: -96px;
   }
 
   .guest-calls-workspace > div.grid > main > section:first-child {
+    height: 393px;
     min-height: 393px;
   }
 
   .guest-calls-workspace > div.grid > main > section:last-child {
-    min-height: 300px;
+    min-height: 307px;
   }
 
   .guest-calls-workspace > div.grid > aside:last-child {
-    max-height: 712px;
+    max-height: 716px;
     overflow-y: auto;
+  }
+
+  .guest-calls-workspace main > section:first-child > div.mt-4.grid {
+    margin-top: 12px;
+  }
+
+  .guest-calls-workspace main > section:first-child > div.mt-4.grid > div:first-child > div:nth-child(2) > button {
+    height: 46px;
+    padding-block: 0;
+  }
+
+  .guest-calls-workspace main > section:first-child > div.mt-4.grid > div:last-child div.mt-2 > button {
+    height: 47px;
+    min-height: 47px;
+    padding-block: 0;
   }
 }
