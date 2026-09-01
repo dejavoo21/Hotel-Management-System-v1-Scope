@@ -224,6 +224,8 @@ export default function App() {
         <Route path="bookings/:id" element={<ModuleRoute requiredModule="bookings"><BookingDetailPage /></ModuleRoute>} />
         <Route path="inventory" element={<ModuleRoute requiredModule="inventory"><InventoryPage /></ModuleRoute>} />
         <Route path="messages" element={<ModuleRoute requiredModule="messages"><MessagesPage /></ModuleRoute>} />
+        <Route path="guest-experience" element={<Navigate to="/messages?tab=overview" replace />} />
+        <Route path="guest-experience-center" element={<Navigate to="/messages?tab=overview" replace />} />
         <Route path="calls" element={<ModuleRoute requiredModule="messages"><CallsPage /></ModuleRoute>} />
         <Route path="operations" element={<Navigate to="/operations-center" replace />} />
         <Route path="operations/ai" element={<HotelInsightsRedirect tab="recommendations" />} />

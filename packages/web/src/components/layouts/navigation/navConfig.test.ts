@@ -40,4 +40,12 @@ describe('Operations navigation terminology', () => {
       href: '/operational-intelligence',
     });
   });
+
+  it('labels the guest messaging workspace as Guest Experience Center', () => {
+    const guest = navSections.find((section) => section.id === 'guest');
+    expect(guest?.items?.find((item) => item.id === 'messages')).toMatchObject({
+      label: 'Guest Experience Center',
+      href: '/messages?tab=overview',
+    });
+  });
 });

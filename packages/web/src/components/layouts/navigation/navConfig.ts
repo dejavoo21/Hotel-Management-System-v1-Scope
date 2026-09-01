@@ -61,7 +61,7 @@ export const navSections: NavSection[] = [
     label: 'Guest',
     icon: 'guest',
     items: [
-      { id: 'messages', label: 'Messages', href: '/messages', permission: 'messages', icon: 'message' },
+      { id: 'messages', label: 'Guest Experience Center', href: '/messages?tab=overview', permission: 'messages', icon: 'message' },
       { id: 'calls', label: 'Calls', href: '/calls', permission: 'messages', icon: 'phone' },
       { id: 'guests', label: 'Guests', href: '/guests', permission: 'guests', icon: 'users' },
     ],

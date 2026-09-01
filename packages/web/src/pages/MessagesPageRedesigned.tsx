@@ -1,844 +1,1581 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
-import { messageService, ticketService } from '@/services';
-import { escalateTicket, type Ticket } from '@/services/tickets';
-import { useAuthStore } from '@/stores/authStore';
-import { usePresenceStore, getPresenceLabel } from '@/stores/presenceStore';
-import { useSocketPresence } from '@/hooks/useSocketPresence';
-import { PresenceDot } from '@/components/presence';
-import { ConversationList } from '@/components/support/ConversationList';
-import { TicketMetaBar } from '@/components/support/TicketMetaBar';
-import { SupportLayout } from '@/components/support/SupportLayout';
-import { SupportRightPanel } from '@/components/support/SupportRightPanel';
-import SupportVideoPanel from '@/components/calls/SupportVideoPanel';
-import DepartmentIntelligenceCard from '@/components/operations/DepartmentIntelligenceCard';
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import toast from "react-hot-toast";
+import {
+  AlertTriangle,
+  Bot,
+  ChevronRight,
+  Clock3,
+  Inbox,
+  Loader2,
+  MessageSquareText,
+  RefreshCcw,
+  Search,
+  Send,
+  ShieldAlert,
+  TicketCheck,
+  UsersRound,
+  X,
+} from "lucide-react";
+import messageService from "@/services/messages";
+import ticketService from "@/services/tickets";
+import operationsService from "@/services/operations";
+import { canAccess } from "@/lib/access";
+import { openLafloAssistant } from "@/lib/assistantEvents";
+import { useAuthStore } from "@/stores/authStore";
+import {
+  getTimeRemaining,
+  isEscalated,
+  isOverdue,
+  type Ticket,
+} from "@/services/tickets";
 import type {
   ConversationMessage,
   MessageThreadDetail,
   MessageThreadSummary,
   SupportAgent,
-} from '@/types';
+} from "@/types";
 
-type SupportRailItem = 'activity' | 'chat' | 'calls' | 'files';
-import type { EffectiveStatus } from '@/types';
-type InternalDmMessage = {
-  id: string;
-  threadId: string;
-  senderId: string;
-  text: string;
-  createdAt: string;
-  clientMessageId?: string | null;
+type WorkspaceTab =
+  | "overview"
+  | "conversations"
+  | "tickets"
+  | "escalations"
+  | "guest-requests"
+  | "call-history";
+type ConversationFilter =
+  | "all"
+  | "open"
+  | "assigned"
+  | "escalated"
+  | "resolved";
+type TicketAction = "escalate" | "resolve" | "close";
+type TaskDraft = {
+  title: string;
+  reason: string;
+  department: Ticket["department"];
+  priority: "low" | "medium" | "high";
+  sourceId: string;
 };
 
-const formatTime = (date: string) =>
-  new Date(date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-
-const getInitials = (name: string) =>
-  name
-    .split(' ')
+const TABS: Array<{ id: WorkspaceTab; label: string }> = [
+  { id: "overview", label: "Overview" },
+  { id: "conversations", label: "Conversations" },
+  { id: "tickets", label: "Tickets" },
+  { id: "escalations", label: "Escalations" },
+  { id: "guest-requests", label: "Guest Requests" },
+  { id: "call-history", label: "Call History" },
+];
+const REQUEST_CATEGORIES = new Set([
+  "HOUSEKEEPING",
+  "MAINTENANCE",
+  "CONCIERGE",
+  "ROOM_SERVICE",
+  "BILLING",
+  "COMPLAINT",
+]);
+const terminalTicket = (ticket: Ticket) =>
+  ticket.status === "RESOLVED" || ticket.status === "CLOSED";
+const guestName = (thread?: MessageThreadSummary | null) =>
+  thread?.guest
+    ? `${thread.guest.firstName} ${thread.guest.lastName}`
+    : thread?.subject || "Guest";
+const initials = (value: string) =>
+  value
+    .split(/\s+/)
     .map((part) => part[0])
+    .join("")
     .slice(0, 2)
-    .join('')
     .toUpperCase();
-
-const resolveSenderName = (message: ConversationMessage) => {
-  if (message.senderType === 'GUEST' && message.guest) return `${message.guest.firstName} ${message.guest.lastName}`;
-  if (message.senderUser) return `${message.senderUser.firstName} ${message.senderUser.lastName}`;
-  return 'Support';
-};
-
-const resolveThreadName = (thread: MessageThreadSummary) => {
-  if (thread.guest) return `${thread.guest.firstName} ${thread.guest.lastName}`;
-  return thread.subject || 'Guest';
-};
-
-const getStoredAvatarByUserId = (userId?: string | null) => {
-  if (!userId) return null;
-  try {
-    return (
-      localStorage.getItem(`laflo-user-avatar:${userId}`) ||
-      localStorage.getItem(`laflo-profile-avatar:${userId}`)
-    );
-  } catch {
-    return null;
-  }
-};
-
-const sanitizePhone = (value?: string) => {
-  const input = (value || '').toUpperCase();
-  let output = '';
-  const LETTER_TO_DIGIT: Record<string, string> = {
-    A: '2', B: '2', C: '2', D: '3', E: '3', F: '3', G: '4', H: '4', I: '4',
-    J: '5', K: '5', L: '5', M: '6', N: '6', O: '6', P: '7', Q: '7', R: '7', S: '7',
-    T: '8', U: '8', V: '8', W: '9', X: '9', Y: '9', Z: '9',
+const labelize = (value?: string | null) =>
+  value
+    ? value
+        .replace(/_/g, " ")
+        .toLowerCase()
+        .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    : "—";
+const timestamp = (value?: string | null) =>
+  value ? new Date(value).toLocaleString() : "—";
+const errorMessage = (error: unknown, fallback: string) => {
+  const candidate = error as {
+    response?: { data?: { error?: string; message?: string } };
+    message?: string;
   };
-  for (const ch of input) {
-    if (/\d/.test(ch)) { output += ch; continue; }
-    if (ch === '+' && output.length === 0) { output += ch; continue; }
-    if (LETTER_TO_DIGIT[ch]) { output += LETTER_TO_DIGIT[ch]; }
-  }
-  return output;
-};
-
-const resolveThreadPhone = (thread?: MessageThreadSummary | null) => {
-  if (!thread) return '';
-  return sanitizePhone(thread.guest?.phone || '');
+  return (
+    candidate.response?.data?.error ||
+    candidate.response?.data?.message ||
+    candidate.message ||
+    fallback
+  );
 };
 
 export default function MessagesPageRedesigned() {
   const { user } = useAuthStore();
-  const { getEffectiveStatus } = usePresenceStore();
-  
-  // Ensure socket connection for real-time presence updates
-  const { emitDmOpen, emitDmSend, emitCallStart, emitCallDecline, emitPresenceSet } = useSocketPresence();
-  
-  const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [search, setSearch] = useState('');
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
-  const [draftMessage, setDraftMessage] = useState('');
-  const [activeTab, setActiveTab] = useState<'open' | 'assigned' | 'breach' | 'resolved'>('open');
-  const [showRightPanel, setShowRightPanel] = useState(false);
-  const [activeRailItem, setActiveRailItem] = useState<SupportRailItem>('chat');
-  const [showAgentsPopover, setShowAgentsPopover] = useState(false);
-  const [dmMessagesByThread, setDmMessagesByThread] = useState<Record<string, InternalDmMessage[]>>({});
-  const [dmPeerByThread, setDmPeerByThread] = useState<Record<string, string>>({});
-  
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  const agentsPopoverRef = useRef<HTMLDivElement>(null);
+  const [params, setParams] = useSearchParams();
+  const requestedTab = params.get("tab") as WorkspaceTab | null;
+  const activeTab = TABS.some((tab) => tab.id === requestedTab)
+    ? requestedTab!
+    : "overview";
+  const [search, setSearch] = useState("");
+  const [conversationFilter, setConversationFilter] =
+    useState<ConversationFilter>("all");
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(
+    params.get("thread"),
+  );
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(
+    params.get("ticket"),
+  );
+  const [draft, setDraft] = useState("");
+  const [taskDraft, setTaskDraft] = useState<TaskDraft | null>(null);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const messageEndRef = useRef<HTMLDivElement>(null);
 
-  // Data Fetching
-  const { data: threadsData, refetch: refetchThreads } = useQuery({
-    queryKey: ['message-threads', search],
-    queryFn: () => messageService.listThreads(search),
-    refetchInterval: 7000,
+  const canMessage = canAccess(user, "messages");
+  const canManage =
+    canMessage && (user?.role === "ADMIN" || user?.role === "MANAGER");
+  const canCreateTask = canAccess(user, "bookings");
+  const canViewGuest = canAccess(user, "guests");
+
+  const threadsQuery = useQuery({
+    queryKey: ["guest-experience", "threads"],
+    queryFn: () => messageService.listThreads(),
+    refetchInterval: 15_000,
   });
-
-  const { data: ticketsData } = useQuery({
-    queryKey: ['tickets-for-threads'],
+  const ticketsQuery = useQuery({
+    queryKey: ["guest-experience", "tickets"],
     queryFn: () => ticketService.getTickets({ limit: 100 }),
-    refetchInterval: 15000,
+    refetchInterval: 20_000,
   });
-
-  const ticketsByConversationId = useMemo(() => {
-    const map = new Map<string, Ticket>();
-    if (ticketsData?.tickets) {
-      for (const ticket of ticketsData.tickets) {
-        map.set(ticket.conversationId, ticket);
-      }
-    }
-    return map;
-  }, [ticketsData]);
-
-  const threads = useMemo(
-    () => (threadsData || []) as MessageThreadSummary[],
-    [threadsData]
+  const agentsQuery = useQuery<SupportAgent[]>({
+    queryKey: ["guest-experience", "agents"],
+    queryFn: messageService.listSupportAgents,
+    retry: false,
+  });
+  const threads = useMemo(() => threadsQuery.data || [], [threadsQuery.data]);
+  const tickets = useMemo(
+    () => ticketsQuery.data?.tickets || [],
+    [ticketsQuery.data],
+  );
+  const ticketsByConversation = useMemo(
+    () => new Map(tickets.map((ticket) => [ticket.conversationId, ticket])),
+    [tickets],
   );
 
-  const supportAgentsQuery = useQuery<SupportAgent[]>({
-    queryKey: ['support-agents'],
-    queryFn: () => messageService.listSupportAgents(),
-    refetchInterval: 10_000,
+  useEffect(() => {
+    if (!selectedThreadId && threads.length) setSelectedThreadId(threads[0].id);
+  }, [selectedThreadId, threads]);
+
+  const selectedThreadSummary =
+    threads.find((thread) => thread.id === selectedThreadId) || null;
+  const selectedTicket =
+    tickets.find((ticket) => ticket.id === selectedTicketId) ||
+    (selectedThreadId
+      ? ticketsByConversation.get(selectedThreadId)
+      : undefined) ||
+    null;
+  const threadQuery = useQuery<MessageThreadDetail>({
+    queryKey: ["guest-experience", "thread", selectedThreadId],
+    queryFn: () => messageService.getThread(selectedThreadId!),
+    enabled: Boolean(selectedThreadId),
+    refetchInterval: 8_000,
   });
-
-  // Use presence store for agent status (Teams-like real-time presence)
-  const resolveSupportAgentPresence = useCallback((agent: SupportAgent): EffectiveStatus => {
-    // Use presence store which has real socket data
-    return getEffectiveStatus(agent.id);
-  }, [getEffectiveStatus]);
-
-  // Real online agents count from presence store
-  const onlineAgentsCount = useMemo(() => {
-    const agents = supportAgentsQuery.data || [];
-    return agents.filter((a) => {
-      const status = getEffectiveStatus(a.id);
-      return status !== 'OFFLINE';
-    }).length;
-  }, [supportAgentsQuery.data, getEffectiveStatus]);
-
-  // Close agents popover on outside click
   useEffect(() => {
-    if (!showAgentsPopover) return;
-    const handleClickOutside = (event: MouseEvent) => {
-      if (agentsPopoverRef.current && !agentsPopoverRef.current.contains(event.target as Node)) {
-        setShowAgentsPopover(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showAgentsPopover]);
+    if (typeof messageEndRef.current?.scrollIntoView === "function")
+      messageEndRef.current.scrollIntoView({ behavior: "smooth" });
+  }, [threadQuery.data?.messages.length]);
 
-  // Set active thread on load
-  useEffect(() => {
-    const requestedThreadId = searchParams.get('thread');
-    if (requestedThreadId) {
-      setActiveThreadId(requestedThreadId);
-      return;
-    }
-    if (!activeThreadId && threads.length > 0) setActiveThreadId(threads[0].id);
-  }, [activeThreadId, threads, searchParams]);
+  const filteredThreads = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return threads.filter((thread) => {
+      const ticket = ticketsByConversation.get(thread.id);
+      const matchesSearch =
+        !needle ||
+        guestName(thread).toLowerCase().includes(needle) ||
+        thread.subject.toLowerCase().includes(needle) ||
+        thread.lastMessage?.body.toLowerCase().includes(needle);
+      if (!matchesSearch) return false;
+      if (conversationFilter === "open")
+        return thread.status === "OPEN" && (!ticket || !terminalTicket(ticket));
+      if (conversationFilter === "assigned")
+        return (
+          ticket?.assignedToId === user?.id ||
+          thread.assignedSupport?.userId === user?.id
+        );
+      if (conversationFilter === "escalated")
+        return Boolean(ticket && (isEscalated(ticket) || isOverdue(ticket)));
+      if (conversationFilter === "resolved")
+        return (
+          thread.status === "RESOLVED" ||
+          Boolean(ticket && terminalTicket(ticket))
+        );
+      return true;
+    });
+  }, [conversationFilter, search, threads, ticketsByConversation, user?.id]);
 
-  useEffect(() => {
-    const onDmThread = (event: Event) => {
-      const detail = (event as CustomEvent<{ threadId: string; peerUserId: string }>).detail;
-      if (!detail?.threadId || !detail?.peerUserId) return;
-      setDmPeerByThread((prev) => ({ ...prev, [detail.threadId]: detail.peerUserId }));
-      setDmMessagesByThread((prev) => (prev[detail.threadId] ? prev : { ...prev, [detail.threadId]: [] }));
-      setActiveThreadId(detail.threadId);
-      setSearchParams({ thread: detail.threadId });
-    };
-
-    const onDmNew = (event: Event) => {
-      const detail = (event as CustomEvent<{ threadId: string; message: InternalDmMessage }>).detail;
-      if (!detail?.threadId || !detail?.message) return;
-      setDmMessagesByThread((prev) => ({
-        ...prev,
-        [detail.threadId]: [...(prev[detail.threadId] || []), detail.message],
-      }));
-    };
-
-    window.addEventListener('hotelos:dm-thread', onDmThread);
-    window.addEventListener('hotelos:dm-new', onDmNew);
-    return () => {
-      window.removeEventListener('hotelos:dm-thread', onDmThread);
-      window.removeEventListener('hotelos:dm-new', onDmNew);
-    };
-  }, [setSearchParams]);
-
-  useEffect(() => {
-    const onCallRoom = (event: Event) => {
-      const detail = (event as CustomEvent<{ room: string; callId?: string }>).detail;
-      if (!detail?.room) return;
-      const callIdParam = detail.callId ? `&callId=${encodeURIComponent(detail.callId)}` : '';
-      navigate(`/calls?room=${encodeURIComponent(detail.room)}${callIdParam}`);
-    };
-    window.addEventListener('hotelos:call-room', onCallRoom);
-    return () => window.removeEventListener('hotelos:call-room', onCallRoom);
-  }, [navigate]);
-
-  useEffect(() => {
-    const onRing = (event: Event) => {
-      const detail = (event as CustomEvent<{ room: string; callId?: string; fromUserId: string; fromEmail?: string }>).detail;
-      if (!detail?.room) return;
-
-      toast((t) => (
-        <div className="flex items-center gap-3">
-          <div className="font-semibold">Incoming call</div>
-          <button
-            className="rounded-md bg-sky-600 px-3 py-1 text-sm text-white"
-            onClick={() => {
-              toast.dismiss(t.id);
-              const callIdParam = detail.callId ? `&callId=${encodeURIComponent(detail.callId)}` : '';
-              navigate(`/calls?room=${encodeURIComponent(detail.room)}${callIdParam}`);
-            }}
-          >
-            Accept
-          </button>
-          <button
-            className="rounded-md bg-slate-200 px-3 py-1 text-sm text-slate-700"
-            onClick={() => {
-              toast.dismiss(t.id);
-              emitCallDecline(detail.room, detail.callId);
-            }}
-          >
-            Decline
-          </button>
-        </div>
-      ), { duration: 10000 });
-    };
-
-    window.addEventListener('hotelos:call-ring', onRing);
-    return () => window.removeEventListener('hotelos:call-ring', onRing);
-  }, [navigate, emitCallDecline]);
-
-  // Thread Detail Query
-  const isDmThread = Boolean(activeThreadId?.startsWith('dm:'));
-  const activeThreadQuery = useQuery<MessageThreadDetail>({
-    queryKey: ['message-thread', activeThreadId],
-    queryFn: () => messageService.getThread(activeThreadId as string),
-    enabled: Boolean(activeThreadId) && !isDmThread,
-    refetchInterval: 4000,
-  });
-
-  const activeThread = activeThreadQuery.data;
-  const activeThreadSummary = threads.find((t) => t.id === activeThreadId);
-  const activeDmPeerId = activeThreadId ? dmPeerByThread[activeThreadId] : undefined;
-  const activeDmPeer = (supportAgentsQuery.data || []).find((a) => a.id === activeDmPeerId);
-  const isInternalDm = isDmThread;
-  const activeThreadName = isInternalDm
-    ? activeDmPeer
-      ? `${activeDmPeer.firstName} ${activeDmPeer.lastName}`
-      : 'Internal Chat'
-    : activeThreadSummary
-      ? resolveThreadName(activeThreadSummary)
-      : activeThread?.subject || 'Support';
-  const activeMessages = useMemo(() => {
-    if (activeThread && activeThread.messages.length > 0) return activeThread.messages;
-    return [];
-  }, [activeThread]);
-  const activeDmMessages = useMemo(
-    () => (activeThreadId ? dmMessagesByThread[activeThreadId] || [] : []),
-    [activeThreadId, dmMessagesByThread]
+  const escalations = useMemo(
+    () =>
+      tickets.filter(
+        (ticket) =>
+          !terminalTicket(ticket) &&
+          (isEscalated(ticket) ||
+            isOverdue(ticket) ||
+            ticket.priority === "URGENT"),
+      ),
+    [tickets],
   );
-  const activeTicket = activeThreadId ? ticketsByConversationId.get(activeThreadId) : null;
+  const guestRequests = useMemo(
+    () => tickets.filter((ticket) => REQUEST_CATEGORIES.has(ticket.category)),
+    [tickets],
+  );
+  const openTickets = tickets.filter((ticket) => !terminalTicket(ticket));
+  const slaBreaches = openTickets.filter(
+    (ticket) => ticket.status === "BREACHED" || isOverdue(ticket),
+  );
+  const vipFollowUps = threads.filter(
+    (thread) =>
+      /\bvip\b/i.test(`${thread.subject} ${thread.lastMessage?.body || ""}`) &&
+      thread.status === "OPEN",
+  );
 
-  // Scroll to bottom on new messages
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeMessages.length, activeDmMessages.length, isInternalDm]);
+  const refreshAll = async () => {
+    const results = await Promise.allSettled([
+      threadsQuery.refetch(),
+      ticketsQuery.refetch(),
+      agentsQuery.refetch(),
+      selectedThreadId ? threadQuery.refetch() : Promise.resolve(),
+    ]);
+    setLastUpdated(new Date());
+    if (results.some((result) => result.status === "rejected"))
+      toast.error("Some guest experience information could not be refreshed.");
+    else toast.success("Guest experience information refreshed.");
+  };
+  const selectTab = (tab: WorkspaceTab, extra: Record<string, string> = {}) =>
+    setParams({ tab, ...extra });
+  const selectThread = (id: string) => {
+    setSelectedThreadId(id);
+    setSelectedTicketId(null);
+    setParams({ tab: "conversations", thread: id });
+  };
+  const selectTicket = (ticket: Ticket) => {
+    setSelectedTicketId(ticket.id);
+    setSelectedThreadId(ticket.conversationId);
+    setParams({
+      tab: "conversations",
+      thread: ticket.conversationId,
+      ticket: ticket.id,
+    });
+  };
 
-  // Mutations
-  const sendMessageMutation = useMutation({
-    mutationFn: async () => {
-      if (!activeThreadId) return;
-      if (activeThreadId.startsWith('dm:')) {
-        emitDmSend({
-          threadId: activeThreadId,
-          text: draftMessage.trim(),
-          clientMessageId: window.crypto?.randomUUID?.(),
-        });
-        return;
-      }
-      await messageService.createMessage(activeThreadId, draftMessage.trim());
-    },
+  const askLaflo = (prompt: string, extra: Record<string, unknown> = {}) =>
+    openLafloAssistant({
+      mode: "operations",
+      prompt,
+      context: {
+        page: "Guest Experience Center",
+        activeTab,
+        selectedConversation: selectedThreadSummary
+          ? {
+              id: selectedThreadSummary.id,
+              subject: selectedThreadSummary.subject,
+              status: selectedThreadSummary.status,
+            }
+          : null,
+        selectedGuest: selectedThreadSummary?.guest
+          ? {
+              name: guestName(selectedThreadSummary),
+              bookingRef: selectedThreadSummary.booking?.bookingRef,
+            }
+          : null,
+        selectedTicket: selectedTicket
+          ? {
+              id: selectedTicket.id,
+              category: selectedTicket.category,
+              priority: selectedTicket.priority,
+              status: selectedTicket.status,
+            }
+          : null,
+        currentFilters: { search, conversationFilter },
+        openIssues: openTickets.length,
+        slaStatus: selectedTicket ? getTimeRemaining(selectedTicket) : null,
+        availableActions: [
+          canMessage && "reply",
+          canManage && "assign",
+          canManage && "escalate",
+          canCreateTask && "create-task",
+          canManage && "resolve",
+          canManage && "close",
+        ].filter(Boolean),
+        restrictedActions: [
+          !canMessage && "reply",
+          !canManage && "assign/escalate/resolve/close",
+          !canCreateTask && "create-task",
+          !canViewGuest && "sensitive-guest-details",
+        ].filter(Boolean),
+        ...extra,
+      },
+    });
+
+  const sendMutation = useMutation({
+    mutationFn: () =>
+      messageService.createMessage(selectedThreadId!, draft.trim()),
     onSuccess: async () => {
-      setDraftMessage('');
-      if (activeThreadId?.startsWith('dm:')) return;
-      await Promise.all([activeThreadQuery.refetch(), refetchThreads()]);
+      setDraft("");
+      await Promise.all([threadQuery.refetch(), threadsQuery.refetch()]);
+      toast.success("Reply sent.");
     },
-    onError: (err: Error & { response?: { data?: { error?: string } } }) => {
-      const msg = err?.response?.data?.error || err?.message || 'Failed to send message';
-      toast.error(msg);
-    },
+    onError: (error) =>
+      toast.error(
+        errorMessage(
+          error,
+          "Messaging is unavailable. Your reply was not sent.",
+        ),
+      ),
   });
-
   const assignMutation = useMutation({
-    mutationFn: async (userId?: string) => {
-      if (!activeThreadId) return null;
-      return messageService.assignSupportAgent(activeThreadId, userId);
-    },
+    mutationFn: ({ threadId, userId }: { threadId: string; userId: string }) =>
+      messageService.assignSupportAgent(threadId, userId),
     onSuccess: async () => {
-      await Promise.all([activeThreadQuery.refetch(), refetchThreads()]);
+      await Promise.all([
+        threadsQuery.refetch(),
+        threadQuery.refetch(),
+        ticketsQuery.refetch(),
+      ]);
+      toast.success("Owner assignment saved.");
     },
+    onError: (error) =>
+      toast.error(errorMessage(error, "Assignment service is unavailable.")),
+  });
+  const ticketMutation = useMutation({
+    mutationFn: ({
+      ticket,
+      action,
+    }: {
+      ticket: Ticket;
+      action: TicketAction;
+    }) =>
+      action === "escalate"
+        ? ticketService.escalateTicket(ticket.id)
+        : action === "resolve"
+          ? ticketService.resolveTicket(ticket.id)
+          : ticketService.closeTicket(ticket.id),
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        ticketsQuery.refetch(),
+        threadsQuery.refetch(),
+        threadQuery.refetch(),
+      ]);
+      toast.success(
+        `Ticket ${variables.action === "close" ? "closed" : `${variables.action}d`}.`,
+      );
+    },
+    onError: (error) =>
+      toast.error(errorMessage(error, "Ticket update is unavailable.")),
+  });
+  const taskMutation = useMutation({
+    mutationFn: (item: TaskDraft) =>
+      operationsService.createAdvisoryTicket({
+        advisoryId: `guest-experience:${item.sourceId}`,
+        title: item.title,
+        reason: item.reason,
+        priority: item.priority,
+        department: item.department,
+        source: "ENTERPRISE_SEARCH",
+        meta: { departmentIntelligence: "Guest Experience Center" },
+      }),
+    onSuccess: async (result) => {
+      setTaskDraft(null);
+      await queryClient.invalidateQueries({
+        queryKey: ["guest-experience", "tickets"],
+      });
+      toast.success(`Task created: ${result.ticketId.slice(0, 8)}`);
+    },
+    onError: (error) =>
+      toast.error(
+        errorMessage(
+          error,
+          "Task service is unavailable. No task was created.",
+        ),
+      ),
   });
 
-  const resolveTicketMutation = useMutation({
-    mutationFn: async () => {
-      if (!activeTicket?.id) return;
-      await ticketService.updateTicket(activeTicket.id, { status: 'RESOLVED' });
-    },
-    onSuccess: async () => {
-      toast.success('Ticket resolved');
-      await Promise.all([activeThreadQuery.refetch(), refetchThreads()]);
-    },
-  });
-
-  const escalateTicketMutation = useMutation({
-    mutationFn: async () => {
-      if (!activeTicket?.id) return;
-      await escalateTicket(activeTicket.id);
-    },
-    onSuccess: async () => {
-      toast.success('Ticket escalated');
-      await Promise.all([activeThreadQuery.refetch(), refetchThreads()]);
-    },
-  });
-
-  const handleSelectThread = (threadId: string) => {
-    setActiveThreadId(threadId);
-    setSearchParams({ thread: threadId });
-  };
-
-  const [showVideoPanel, setShowVideoPanel] = useState(false);
-  const onVideoClick = () => {
-    if (isInternalDm && activeDmPeerId) {
-      emitPresenceSet('BUSY');
-      emitCallStart({ calleeUserId: activeDmPeerId });
+  const makeTaskDraft = (ticket?: Ticket | null) => {
+    if (!canCreateTask) {
+      toast.error("Permission required to create operational tasks.");
       return;
     }
-    setShowVideoPanel((v) => !v);
+    const subject =
+      ticket?.conversation?.subject ||
+      selectedThreadSummary?.subject ||
+      "Guest follow-up";
+    setTaskDraft({
+      title: `Guest follow-up: ${subject}`,
+      reason: `Follow up from Guest Experience Center${ticket ? ` ticket ${ticket.id}` : selectedThreadId ? ` conversation ${selectedThreadId}` : ""}.`,
+      department: ticket?.department || "FRONT_DESK",
+      priority:
+        ticket?.priority === "URGENT" || ticket?.priority === "HIGH"
+          ? "high"
+          : ticket?.priority === "LOW"
+            ? "low"
+            : "medium",
+      sourceId: ticket?.id || selectedThreadId || "overview",
+    });
   };
-
-  const handleRailItemChange = useCallback((item: SupportRailItem) => {
-    setActiveRailItem(item);
-    // Handle navigation between Support rail items
-    if (item === 'calls') {
-      // Navigate to dedicated Calls page
-      navigate('/calls');
-    } else if (item === 'activity') {
-      // Activity shows recent support activity - stay on page but could filter
-      toast.success('Showing all activity');
-    } else if (item === 'files') {
-      // Files view - show shared files in conversations
-      toast.success('Files view - shared attachments');
-    }
-    // 'chat' stays on current view
-  }, [navigate]);
-
-  // Transform thread/ticket data for right panel
-  const rightPanelGuest = useMemo(() => {
-    if (!activeThreadSummary?.guest) return null;
-    const guest = activeThreadSummary.guest;
-    return {
-      id: activeThreadSummary.id,
-      name: `${guest.firstName} ${guest.lastName}`,
-      email: guest.email || '',
-      phone: guest.phone || '',
-      roomNumber: activeThreadSummary.booking?.bookingRef?.replace('BK-', ''),
-      checkIn: activeThreadSummary.booking?.checkInDate 
-        ? new Date(activeThreadSummary.booking.checkInDate).toLocaleDateString() 
-        : undefined,
-      checkOut: activeThreadSummary.booking?.checkOutDate 
-        ? new Date(activeThreadSummary.booking.checkOutDate).toLocaleDateString() 
-        : undefined,
-    };
-  }, [activeThreadSummary]);
-
-  const rightPanelTicket = useMemo(() => {
-    if (!activeTicket) return null;
-    return {
-      id: activeTicket.id,
-      status: (activeTicket.status?.toLowerCase() || 'open') as 'open' | 'in_progress' | 'resolved' | 'closed',
-      priority: (activeTicket.priority?.toLowerCase() || 'medium') as 'low' | 'medium' | 'high' | 'urgent',
-      category: activeTicket.category || 'General',
-      subject: activeTicket.conversation?.subject || activeThreadSummary?.subject || 'Support Request',
-      createdAt: activeTicket.createdAtUtc,
-      updatedAt: activeTicket.updatedAtUtc,
-      assignedTo: activeThread?.assignedSupport 
-        ? `${activeThread.assignedSupport.firstName} ${activeThread.assignedSupport.lastName}` 
-        : activeTicket.assignedTo 
-          ? `${activeTicket.assignedTo.firstName} ${activeTicket.assignedTo.lastName}`
-          : undefined,
-      slaDeadline: activeTicket.responseDueAtUtc || activeTicket.resolutionDueAtUtc,
-      slaBreached: activeTicket.status === 'BREACHED',
-    };
-  }, [activeTicket, activeThread, activeThreadSummary]);
-
-  const rightPanelActivities = useMemo(() => {
-    // Transform messages to activity items
-    return activeMessages.slice(-10).map((msg) => ({
-      id: msg.id,
-      type: 'message' as const,
-      description: msg.body.length > 50 ? msg.body.slice(0, 50) + '...' : msg.body,
-      timestamp: msg.createdAt,
-      actor: resolveSenderName(msg),
-    }));
-  }, [activeMessages]);
-
-  // Simple phone call via backend
-  const startTwilioPhoneCall = async (phone: string, threadId?: string) => {
-    const sanitized = sanitizePhone(phone);
-    if (!sanitized || !/^\+?\d{7,15}$/.test(sanitized)) {
-      toast.error('Enter a valid phone number before calling.');
+  const runTicketAction = (ticket: Ticket | null, action: TicketAction) => {
+    if (!ticket) {
+      toast.error(
+        "This conversation has no linked ticket. The action is unavailable.",
+      );
       return;
     }
-    try {
-      const started = await messageService.startSupportPhoneCall({ to: sanitized, threadId });
-      toast.success(`Call started (${started.sid.slice(-8)})`);
-    } catch (error: any) {
-      const message = error?.response?.data?.error || 'Failed to start phone call';
-      toast.error(message);
+    if (!canManage) {
+      toast.error("Permission required. A manager must complete this action.");
+      return;
     }
+    if (!window.confirm(`Confirm you want to ${action} this ticket?`)) return;
+    ticketMutation.mutate({ ticket, action });
   };
+
+  const kpis = [
+    {
+      label: "Open Conversations",
+      value: threads.filter((item) => item.status === "OPEN").length,
+      detail: "Active guest threads",
+      icon: MessageSquareText,
+      onClick: () => {
+        setConversationFilter("open");
+        selectTab("conversations");
+      },
+    },
+    {
+      label: "Open Tickets",
+      value: openTickets.length,
+      detail: "Require follow-up",
+      icon: TicketCheck,
+      onClick: () => selectTab("tickets"),
+    },
+    {
+      label: "Escalated Issues",
+      value: escalations.length,
+      detail: "Management attention",
+      icon: ShieldAlert,
+      onClick: () => selectTab("escalations"),
+    },
+    {
+      label: "SLA Breaches",
+      value: slaBreaches.length,
+      detail: "Overdue response or resolution",
+      icon: Clock3,
+      onClick: () => selectTab("escalations"),
+    },
+    {
+      label: "VIP Follow-ups",
+      value: vipFollowUps.length,
+      detail: "Based on available conversation data",
+      icon: UsersRound,
+      onClick: () => {
+        setSearch("VIP");
+        selectTab("conversations");
+      },
+    },
+    {
+      label: "Average Response Time",
+      value: "Unavailable",
+      detail: "Response analytics not connected",
+      icon: RefreshCcw,
+      onClick: () => toast("Response-time analytics is not connected."),
+    },
+  ];
+  const pageError = threadsQuery.isError && ticketsQuery.isError;
 
   return (
-    <SupportLayout
-      activeRailItem={activeRailItem}
-      onRailItemChange={handleRailItemChange}
-      rightPanelOpen={showRightPanel}
-      rightPanelTitle="Details"
-      onRightPanelClose={() => setShowRightPanel(false)}
-      rightPanelContent={
-        <SupportRightPanel
-          guest={rightPanelGuest}
-          ticket={rightPanelTicket}
-          activities={rightPanelActivities}
-        />
-      }
-    >
-      <div className="flex flex-col h-full">
-        {/* Page Header */}
-        <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white shrink-0">
-          <div>
-            <h1 className="text-xl font-semibold text-slate-900">Support</h1>
-            <p className="text-sm text-slate-500 mt-0.5">
-              {threads.length} conversations • {ticketsByConversationId.size} tickets
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {/* Agents Online - clickable with popover */}
-            <div className="relative" ref={agentsPopoverRef}>
-              <button
-                type="button"
-                onClick={() => setShowAgentsPopover(!showAgentsPopover)}
-                className="inline-flex items-center gap-2 text-xs text-slate-500 hover:text-slate-700 transition-colors"
-              >
-                <span className="flex h-2 w-2 rounded-full bg-green-500" />
-                {onlineAgentsCount} agents online
-                <svg className={`w-3 h-3 transition-transform ${showAgentsPopover ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {/* Agents Popover */}
-              {showAgentsPopover && supportAgentsQuery.data && (
-                <div className="absolute right-0 top-full mt-2 w-72 rounded-xl border border-slate-200 bg-white shadow-lg z-50 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-slate-100">
-                    <h3 className="text-sm font-semibold text-slate-900">Team Members</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">Click to start internal call</p>
-                  </div>
-                  <div className="max-h-64 overflow-y-auto">
-                    {supportAgentsQuery.data.map((agent) => {
-                      const status = resolveSupportAgentPresence(agent);
-                      const isCurrentUser = agent.id === user?.id;
-                      return (
-                        <div
-                          key={agent.id}
-                          className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${
-                            isCurrentUser
-                              ? 'bg-slate-50'
-                              : 'hover:bg-slate-50'
-                          }`}
-                        >
-                          {/* Agent Avatar with Presence Dot */}
-                          <div className="relative">
-                            <div className="w-9 h-9 rounded-full bg-slate-600 flex items-center justify-center">
-                              <span className="text-xs font-medium text-white">
-                                {agent.firstName?.[0]}{agent.lastName?.[0]}
-                              </span>
-                            </div>
-                            <div className="absolute -bottom-0.5 -right-0.5">
-                              <PresenceDot status={status} size="sm" />
-                            </div>
-                          </div>
-                          {/* Agent Info */}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-900 truncate">
-                              {agent.firstName} {agent.lastName}
-                              {isCurrentUser && <span className="text-slate-400 font-normal"> (you)</span>}
-                            </p>
-                            <p className="text-xs text-slate-500 truncate">
-                              {getPresenceLabel(status)} • {agent.role || 'Staff'}
-                            </p>
-                          </div>
-                          {isCurrentUser ? (
-                            <span className="text-[11px] text-slate-400">You</span>
-                          ) : (
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setShowAgentsPopover(false);
-                                  emitDmOpen(agent.id);
-                                }}
-                                className="rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
-                              >
-                                Message
-                              </button>
-                              <button
-                                type="button"
-                                disabled={status === 'OFFLINE'}
-                                onClick={() => {
-                                  setShowAgentsPopover(false);
-                                  emitPresenceSet('BUSY');
-                                  emitCallStart({ calleeUserId: agent.id });
-                                }}
-                                className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                Call
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
+    <div className="min-w-0 space-y-5 p-4 sm:p-6 lg:p-8">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">
+            Guest experience
+          </p>
+          <h1 className="mt-1 text-2xl font-bold text-text-main">
+            Guest Experience Center
+          </h1>
+          <p className="mt-1 max-w-3xl text-sm text-text-muted">
+            Manage guest conversations, service requests, escalations, and
+            follow-up tasks in one place.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => askLaflo("Which guest issues need attention today?")}
+            className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-2 text-sm font-semibold text-primary-700"
+          >
+            <Bot className="mr-2 inline h-4 w-4" />
+            Ask LaFlo
+          </button>
+          <button
+            type="button"
+            onClick={() => void refreshAll()}
+            disabled={threadsQuery.isFetching || ticketsQuery.isFetching}
+            className="rounded-xl bg-primary-solid px-4 py-2 text-sm font-semibold text-primary-contrast disabled:opacity-60"
+          >
+            <RefreshCcw
+              className={`mr-2 inline h-4 w-4 ${threadsQuery.isFetching || ticketsQuery.isFetching ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </button>
+        </div>
+      </header>
+      <nav
+        role="tablist"
+        aria-label="Guest Experience Center sections"
+        className="flex gap-1 overflow-x-auto rounded-2xl border border-border bg-card p-1.5 shadow-sm"
+      >
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            role="tab"
+            type="button"
+            onClick={() => selectTab(tab.id)}
+            aria-selected={activeTab === tab.id}
+            className={`min-h-10 shrink-0 rounded-xl px-4 text-sm font-semibold ${activeTab === tab.id ? "bg-primary-solid text-primary-contrast shadow-sm" : "text-text-muted hover:bg-bg hover:text-text-main"}`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
+      {pageError ? (
+        <StateCard
+          icon={AlertTriangle}
+          title="Guest experience data is disconnected"
+          detail="Conversation and ticket services could not be reached. Refresh to try again."
+          action={
             <button
               type="button"
-              onClick={() => setShowRightPanel(true)}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+              onClick={() => void refreshAll()}
+              className="rounded-xl bg-primary-solid px-4 py-2 text-sm font-semibold text-primary-contrast"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Guest Info
+              Retry
             </button>
-          </div>
-        </header>
-
-        <div className="shrink-0 border-b border-slate-200 bg-slate-50/60 px-6 py-4">
-          <DepartmentIntelligenceCard department="guest-experience" compact />
-        </div>
-
-        {/* Ticket Meta Bar */}
-        <TicketMetaBar
-          ticket={activeTicket}
-          assignedTo={activeThread?.assignedSupport?.firstName 
-            ? `${activeThread.assignedSupport.firstName} ${activeThread.assignedSupport.lastName}` 
-            : undefined}
-          onAssign={() => assignMutation.mutate(user?.id)}
-          onMarkResolved={() => resolveTicketMutation.mutate()}
-          onEscalate={() => escalateTicketMutation.mutate()}
-          onViewDetails={() => setShowRightPanel(true)}
+          }
         />
-
-        {/* Main Content Area */}
-        <div className="flex flex-1 overflow-hidden">
-        {/* Left: Conversation List */}
-        <ConversationList
+      ) : null}
+      {!pageError && activeTab === "overview" ? (
+        <Overview
+          kpis={kpis}
           threads={threads}
-          ticketsByConversationId={ticketsByConversationId}
-          activeThreadId={activeThreadId}
-          onSelectThread={handleSelectThread}
-          search={search}
-          onSearchChange={setSearch}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          currentUserId={user?.id}
+          tickets={tickets}
+          escalations={escalations}
+          lastUpdated={lastUpdated}
+          onRefresh={refreshAll}
+          onOpenThread={selectThread}
+          onOpenTicket={selectTicket}
+          onAsk={askLaflo}
         />
+      ) : null}
+      {!pageError && activeTab === "conversations" ? (
+        <ConversationWorkspace
+          threads={filteredThreads}
+          ticketsByConversation={ticketsByConversation}
+          selectedThreadId={selectedThreadId}
+          selectedThread={selectedThreadSummary}
+          detail={threadQuery.data}
+          detailLoading={threadQuery.isLoading}
+          search={search}
+          filter={conversationFilter}
+          draft={draft}
+          agents={agentsQuery.data || []}
+          canMessage={canMessage}
+          canManage={canManage}
+          canCreateTask={canCreateTask}
+          canViewGuest={canViewGuest}
+          sending={sendMutation.isPending}
+          onSearch={setSearch}
+          onFilter={setConversationFilter}
+          onSelect={selectThread}
+          onDraft={setDraft}
+          onSend={() => {
+            if (!draft.trim()) {
+              toast.error("Enter a reply before sending.");
+              return;
+            }
+            sendMutation.mutate();
+          }}
+          onUnavailable={(message) => toast(message)}
+          onAssign={(userId) =>
+            selectedThreadId &&
+            assignMutation.mutate({ threadId: selectedThreadId, userId })
+          }
+          onTicketAction={(action) => runTicketAction(selectedTicket, action)}
+          onCreateTask={() => makeTaskDraft(selectedTicket)}
+          onGuest={() =>
+            canViewGuest
+              ? navigate(
+                  `/guests${selectedThreadSummary?.guest?.email ? `?search=${encodeURIComponent(selectedThreadSummary.guest.email)}` : ""}`,
+                )
+              : toast.error("Permission required to view guest details.")
+          }
+          onAsk={askLaflo}
+          messageEndRef={messageEndRef}
+        />
+      ) : null}
+      {!pageError && activeTab === "tickets" ? (
+        <TicketTable
+          title="Tickets"
+          detail="Tickets created from guest conversations and operational requests."
+          tickets={tickets}
+          canManage={canManage}
+          canCreateTask={canCreateTask}
+          onOpen={selectTicket}
+          onAssign={(ticket) => {
+            if (!canManage || !user?.id)
+              return toast.error("Permission required to assign tickets.");
+            assignMutation.mutate({
+              threadId: ticket.conversationId,
+              userId: user.id,
+            });
+          }}
+          onAction={runTicketAction}
+          onCreateTask={makeTaskDraft}
+          onAsk={(ticket) =>
+            askLaflo("Ask LaFlo about this ticket.", { selectedTicket: ticket })
+          }
+        />
+      ) : null}
+      {!pageError && activeTab === "escalations" ? (
+        <TicketTable
+          title="Escalations"
+          detail="Escalated, urgent, and SLA-risk issues requiring management attention."
+          tickets={escalations}
+          canManage={canManage}
+          canCreateTask={canCreateTask}
+          empty="No active escalations or SLA risks."
+          onOpen={selectTicket}
+          onAssign={(ticket) => {
+            if (!canManage || !user?.id)
+              return toast.error("Permission required to assign escalations.");
+            assignMutation.mutate({
+              threadId: ticket.conversationId,
+              userId: user.id,
+            });
+          }}
+          onAction={runTicketAction}
+          onCreateTask={makeTaskDraft}
+          onAsk={(ticket) =>
+            askLaflo("Ask LaFlo for the recommended next step.", {
+              selectedTicket: ticket,
+            })
+          }
+        />
+      ) : null}
+      {!pageError && activeTab === "guest-requests" ? (
+        <TicketTable
+          title="Guest Requests"
+          detail="Operational service requests linked to guest conversations."
+          tickets={guestRequests}
+          canManage={canManage}
+          canCreateTask={canCreateTask}
+          empty="No guest service requests are available."
+          onOpen={selectTicket}
+          onAssign={(ticket) => {
+            if (!canManage || !user?.id)
+              return toast.error(
+                "Permission required to assign guest requests.",
+              );
+            assignMutation.mutate({
+              threadId: ticket.conversationId,
+              userId: user.id,
+            });
+          }}
+          onAction={runTicketAction}
+          onCreateTask={makeTaskDraft}
+          onAsk={(ticket) =>
+            askLaflo("Ask LaFlo about this guest request.", {
+              selectedRequest: ticket,
+            })
+          }
+        />
+      ) : null}
+      {!pageError && activeTab === "call-history" ? (
+        <StateCard
+          icon={Inbox}
+          title="Call history is unavailable"
+          detail="Call history is unavailable because call integration is not connected."
+          action={
+            <button
+              type="button"
+              onClick={() => navigate("/settings?tab=integrations")}
+              className="rounded-xl border border-border px-4 py-2 text-sm font-semibold text-text-main"
+            >
+              Review integrations
+            </button>
+          }
+        />
+      ) : null}
+      {taskDraft ? (
+        <TaskDialog
+          task={taskDraft}
+          pending={taskMutation.isPending}
+          onClose={() => setTaskDraft(null)}
+          onConfirm={() => taskMutation.mutate(taskDraft)}
+        />
+      ) : null}
+    </div>
+  );
+}
 
-        {/* Center: Chat Panel */}
-        <main className="flex-1 flex flex-col bg-slate-50 min-w-0">
-          {activeThreadId ? (
-            <>
-              {/* Chat Header */}
-              <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-slate-200 shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center">
-                    <span className="text-sm font-semibold text-white">
-                      {getInitials(activeThreadName)}
-                    </span>
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-semibold text-slate-900">{activeThreadName}</h2>
-                    <p className="text-xs text-slate-500">
-                      {activeThreadSummary?.guest?.email || 'Guest'}
-                    </p>
-                  </div>
+function Overview({
+  kpis,
+  threads,
+  tickets,
+  escalations,
+  lastUpdated,
+  onRefresh,
+  onOpenThread,
+  onOpenTicket,
+  onAsk,
+}: {
+  kpis: Array<{
+    label: string;
+    value: number | string;
+    detail: string;
+    icon: typeof MessageSquareText;
+    onClick: () => void;
+  }>;
+  threads: MessageThreadSummary[];
+  tickets: Ticket[];
+  escalations: Ticket[];
+  lastUpdated: Date;
+  onRefresh: () => Promise<void>;
+  onOpenThread: (id: string) => void;
+  onOpenTicket: (ticket: Ticket) => void;
+  onAsk: (prompt: string, extra?: Record<string, unknown>) => void;
+}) {
+  const priority =
+    escalations[0] || tickets.find((ticket) => !terminalTicket(ticket));
+  return (
+    <div className="space-y-5">
+      <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-text-main">
+              Guest Experience Intelligence
+            </h2>
+            <p className="mt-1 text-sm text-text-muted">
+              Based on available hotel information · Updated{" "}
+              {lastUpdated.toLocaleTimeString()}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void onRefresh()}
+            className="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-text-main"
+          >
+            Refresh summary
+          </button>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <Insight
+            label="Top priority"
+            value={
+              priority?.conversation?.subject ||
+              (threads[0]?.subject ?? "No priority issue identified")
+            }
+          />
+          <Insight
+            label="Top risk"
+            value={
+              escalations.length
+                ? `${escalations.length} issue${escalations.length === 1 ? "" : "s"} need management attention`
+                : "No active escalation risk"
+            }
+          />
+          <button
+            type="button"
+            onClick={() =>
+              priority
+                ? onOpenTicket(priority)
+                : onAsk("Which guest issues need attention today?")
+            }
+            className="rounded-xl border border-primary-200 bg-primary-50 p-4 text-left"
+          >
+            <p className="text-xs font-semibold uppercase text-primary-700">
+              Recommended action
+            </p>
+            <p className="mt-2 text-sm font-semibold text-text-main">
+              {priority
+                ? "Review the highest-priority guest issue"
+                : "Ask LaFlo to review today’s guest issues"}
+            </p>
+            <p className="mt-2 text-xs text-primary-700">
+              Open action <ChevronRight className="inline h-3.5 w-3.5" />
+            </p>
+          </button>
+        </div>
+      </section>
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {kpis.map(({ icon: Icon, ...item }) => (
+          <button
+            type="button"
+            key={item.label}
+            onClick={item.onClick}
+            className="theme-stat-card rounded-2xl border border-border bg-card p-4 text-left shadow-sm hover:border-primary-300"
+          >
+            <span className="theme-kpi-icon grid h-10 w-10 place-items-center rounded-xl">
+              <Icon className="h-5 w-5" />
+            </span>
+            <p className="mt-3 text-2xl font-bold text-text-main">
+              {item.value}
+            </p>
+            <p className="text-sm font-semibold text-text-main">{item.label}</p>
+            <p className="mt-1 text-xs text-text-muted">{item.detail}</p>
+          </button>
+        ))}
+      </section>
+      <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
+        <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <h2 className="font-semibold text-text-main">
+            Recent guest activity
+          </h2>
+          <div className="mt-3 divide-y divide-border">
+            {threads.slice(0, 6).map((thread) => (
+              <button
+                type="button"
+                key={thread.id}
+                onClick={() => onOpenThread(thread.id)}
+                className="flex w-full items-center justify-between gap-3 py-3 text-left"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-text-main">
+                    {guestName(thread)}
+                  </p>
+                  <p className="truncate text-xs text-text-muted">
+                    {thread.lastMessage?.body || thread.subject}
+                  </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  {/* Video Call Button */}
-                  <button
-                    type="button"
-                    onClick={onVideoClick}
-                    className={`p-2 rounded-lg transition-colors ${showVideoPanel ? 'text-sky-600 bg-sky-50' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
-                    title={showVideoPanel ? 'Hide video panel' : 'Start video call'}
-                  >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                  </button>
-                  {/* Screen Share Button */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!showVideoPanel) setShowVideoPanel(true);
-                      toast.success('Screen sharing available in video panel');
-                    }}
-                    className="p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                    title="Share screen"
-                  >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  </button>
-                  {/* Phone Call Button */}
-                  <button
-                    type="button"
-                    onClick={() => startTwilioPhoneCall(resolveThreadPhone(activeThreadSummary), activeThreadId)}
-                    disabled={!resolveThreadPhone(activeThreadSummary)}
-                    className="p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-50"
-                    title="Call guest"
-                  >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                  </button>
-                  {/* Guest Info Button */}
-                  <button
-                    type="button"
-                    onClick={() => setShowRightPanel(true)}
-                    className="p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                    title="View guest details"
-                  >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
+                <span className="shrink-0 text-xs text-text-muted">
+                  {timestamp(thread.lastMessageAt)}
+                </span>
+              </button>
+            ))}
+            {!threads.length ? (
+              <p className="py-8 text-center text-sm text-text-muted">
+                No guest conversations are available.
+              </p>
+            ) : null}
+          </div>
+        </section>
+        <section className="rounded-2xl border border-primary-200 bg-primary-50 p-5">
+          <Bot className="h-6 w-6 text-primary-700" />
+          <h2 className="mt-3 font-semibold text-text-main">
+            Ask LaFlo for guest experience help
+          </h2>
+          <p className="mt-2 text-sm text-text-muted">
+            Summarise issues, identify SLA risks, or recommend the next
+            authorised action using this page’s current context.
+          </p>
+          <div className="mt-4 space-y-2">
+            {[
+              "Which guest issues need attention today?",
+              "Which tickets are at risk of SLA breach?",
+              "Show unresolved VIP issues.",
+            ].map((prompt) => (
+              <button
+                key={prompt}
+                type="button"
+                onClick={() => onAsk(prompt)}
+                className="block w-full rounded-xl border border-primary-200 bg-card px-3 py-2 text-left text-xs font-semibold text-primary-700"
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
 
-              {/* Video Panel - collapsible */}
-              {showVideoPanel && !isInternalDm && (
-                <div className="px-5 py-3 bg-slate-50 border-b border-slate-200">
-                  <SupportVideoPanel 
-                    roomName={`laflo-support-${activeThreadId || 'general'}`} 
-                    title="Video Session"
-                  />
-                </div>
-              )}
+function Insight({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-bg p-4">
+      <p className="text-xs font-semibold uppercase text-text-muted">{label}</p>
+      <p className="mt-2 text-sm font-semibold text-text-main">{value}</p>
+    </div>
+  );
+}
 
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-                {(isInternalDm ? activeDmMessages : activeMessages).map((message: any) => {
-                  const isDmMsg = isInternalDm;
-                  const isGuest = isDmMsg ? message.senderId !== user?.id : message.senderType === 'GUEST';
-                  const senderName = isDmMsg
-                    ? message.senderId === user?.id
-                      ? `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'You'
-                      : activeThreadName
-                    : resolveSenderName(message);
-                  const avatarUserId = isDmMsg ? message.senderId : message.senderUser?.id;
-                  const avatar = getStoredAvatarByUserId(avatarUserId);
-                    
-                  return (
-                    <div
-                      key={message.id}
-                      className={`flex gap-3 ${isGuest ? '' : 'flex-row-reverse'}`}
-                    >
-                      {/* Avatar */}
-                      <div className={`
-                        w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center
-                        ${isGuest ? 'bg-slate-200' : 'bg-sky-600'}
-                      `}>
-                        {avatar ? (
-                          <img src={avatar} alt="" className="w-8 h-8 rounded-full object-cover" />
-                        ) : (
-                          <span className={`text-xs font-semibold ${isGuest ? 'text-slate-600' : 'text-white'}`}>
-                            {getInitials(senderName)}
-                          </span>
-                        )}
-                      </div>
+type ConversationWorkspaceProps = {
+  threads: MessageThreadSummary[];
+  ticketsByConversation: Map<string, Ticket>;
+  selectedThreadId: string | null;
+  selectedThread: MessageThreadSummary | null;
+  detail?: MessageThreadDetail;
+  detailLoading: boolean;
+  search: string;
+  filter: ConversationFilter;
+  draft: string;
+  agents: SupportAgent[];
+  canMessage: boolean;
+  canManage: boolean;
+  canCreateTask: boolean;
+  canViewGuest: boolean;
+  sending: boolean;
+  onSearch: (value: string) => void;
+  onFilter: (value: ConversationFilter) => void;
+  onSelect: (id: string) => void;
+  onDraft: (value: string) => void;
+  onSend: () => void;
+  onUnavailable: (message: string) => void;
+  onAssign: (userId: string) => void;
+  onTicketAction: (action: TicketAction) => void;
+  onCreateTask: () => void;
+  onGuest: () => void;
+  onAsk: (prompt: string, extra?: Record<string, unknown>) => void;
+  messageEndRef: React.Ref<HTMLDivElement>;
+};
 
-                      {/* Message Bubble */}
-                      <div className={`max-w-[70%] ${isGuest ? '' : 'text-right'}`}>
-                        <div className={`
-                          inline-block px-4 py-2.5 rounded-2xl text-sm
-                          ${isGuest 
-                            ? 'bg-white border border-slate-200 text-slate-800 rounded-tl-md' 
-                            : 'bg-sky-600 text-white rounded-tr-md'
-                          }
-                        `}>
-                          {isDmMsg ? message.text : message.body}
-                        </div>
-                        <div className={`
-                          mt-1 flex items-center gap-2 text-[11px] text-slate-400
-                          ${isGuest ? '' : 'justify-end'}
-                        `}>
-                          <span>{senderName}</span>
-                          <span>•</span>
-                          <span>{formatTime(message.createdAt)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                <div ref={chatEndRef} />
-              </div>
-
-              {/* Quick Actions */}
-              <div className="px-5 py-2 bg-white border-t border-slate-100 shrink-0">
-                <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                  <button
-                    type="button"
-                    onClick={() => toast.success('Action: Approve request')}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 whitespace-nowrap transition-colors"
-                  >
-                    <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toast.success('Action: Assign housekeeping')}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 whitespace-nowrap transition-colors"
-                  >
-                    <svg className="w-3.5 h-3.5 text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
-                    Housekeeping
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => escalateTicketMutation.mutate()}
-                    disabled={escalateTicketMutation.isPending}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 whitespace-nowrap transition-colors disabled:opacity-50"
-                  >
-                    <svg className="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                    </svg>
-                    Escalate
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toast.success('Task created')}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 whitespace-nowrap transition-colors"
-                  >
-                    <svg className="w-3.5 h-3.5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                    </svg>
-                    Create Task
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toast.success('Opening charge dialog')}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 whitespace-nowrap transition-colors"
-                  >
-                    <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Charge Guest
-                  </button>
-                </div>
-              </div>
-
-              {/* Message Input */}
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  if (!activeThreadId || !draftMessage.trim() || sendMessageMutation.isPending) return;
-                  await sendMessageMutation.mutateAsync();
-                }}
-                className="px-5 py-4 bg-white border-t border-slate-200 shrink-0"
+function ConversationWorkspace(props: ConversationWorkspaceProps) {
+  const ticket = props.selectedThreadId
+    ? props.ticketsByConversation.get(props.selectedThreadId)
+    : null;
+  return (
+    <section className="grid min-h-[650px] min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:grid-cols-[290px_minmax(340px,1fr)] 2xl:grid-cols-[310px_minmax(420px,1fr)_300px]">
+      <aside className="min-h-0 border-b border-border lg:border-b-0 lg:border-r">
+        <div className="space-y-3 border-b border-border p-3">
+          <label className="relative block">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+            <input
+              value={props.search}
+              onChange={(event) => props.onSearch(event.target.value)}
+              placeholder="Search conversations"
+              className="w-full rounded-xl border border-border bg-bg py-2.5 pl-9 pr-3 text-sm text-text-main"
+            />
+          </label>
+          <select
+            value={props.filter}
+            onChange={(event) =>
+              props.onFilter(event.target.value as ConversationFilter)
+            }
+            aria-label="Filter conversations"
+            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text-main"
+          >
+            <option value="all">All conversations</option>
+            <option value="open">Open</option>
+            <option value="assigned">Assigned to me</option>
+            <option value="escalated">Escalated or SLA risk</option>
+            <option value="resolved">Resolved</option>
+          </select>
+        </div>
+        <div className="max-h-[520px] overflow-y-auto lg:max-h-[650px]">
+          {props.threads.map((thread) => {
+            const itemTicket = props.ticketsByConversation.get(thread.id);
+            return (
+              <button
+                type="button"
+                key={thread.id}
+                onClick={() => props.onSelect(thread.id)}
+                className={`w-full border-b border-border p-3 text-left ${props.selectedThreadId === thread.id ? "bg-primary-50" : "hover:bg-bg"}`}
               >
                 <div className="flex gap-3">
-                  <input
-                    value={draftMessage}
-                    onChange={(e) => setDraftMessage(e.target.value)}
-                    placeholder="Type your message..."
-                    className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!activeThreadId || !draftMessage.trim() || sendMessageMutation.isPending}
-                    className="px-5 py-2.5 rounded-xl bg-sky-600 text-white text-sm font-semibold hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-100 text-xs font-bold text-primary-700">
+                    {initials(guestName(thread))}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-sm font-semibold text-text-main">
+                        {guestName(thread)}
+                      </p>
+                      <span className="text-[10px] text-text-muted">
+                        {new Date(thread.lastMessageAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                    <p className="truncate text-xs text-text-muted">
+                      {thread.lastMessage?.body || thread.subject}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      <Badge>{thread.status}</Badge>
+                      <Badge>{itemTicket?.priority || "NORMAL"}</Badge>
+                      <Badge>
+                        {itemTicket?.assignedTo
+                          ? itemTicket.assignedTo.firstName
+                          : thread.assignedSupport?.firstName || "Unassigned"}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+          {!props.threads.length ? (
+            <p className="p-8 text-center text-sm text-text-muted">
+              No conversations match the current search and filter.
+            </p>
+          ) : null}
+        </div>
+      </aside>
+      <main className="flex min-h-[600px] min-w-0 flex-col bg-bg/50">
+        {props.selectedThread ? (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card p-4">
+              <div>
+                <h2 className="font-semibold text-text-main">
+                  {guestName(props.selectedThread)}
+                </h2>
+                <p className="text-xs text-text-muted">
+                  {props.selectedThread.booking?.bookingRef ||
+                    "No booking linked"}{" "}
+                  · {labelize(props.selectedThread.status)}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    props.onAsk("Summarise this guest issue.", {
+                      selectedConversationId: props.selectedThread?.id,
+                    })
+                  }
+                  className="rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-xs font-semibold text-primary-700"
+                >
+                  Ask LaFlo
+                </button>
+                {props.canManage && props.agents.length ? (
+                  <select
+                    aria-label="Assign conversation owner"
+                    defaultValue=""
+                    onChange={(event) =>
+                      event.target.value && props.onAssign(event.target.value)
+                    }
+                    className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold"
                   >
-                    {sendMessageMutation.isPending ? 'Sending...' : 'Send'}
+                    <option value="">Assign owner</option>
+                    {props.agents.map((agent) => (
+                      <option key={agent.id} value={agent.id}>
+                        {agent.firstName} {agent.lastName}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    title="Permission required"
+                    className="rounded-lg border border-border px-3 py-2 text-xs font-semibold opacity-50"
+                  >
+                    Assign
                   </button>
-                </div>
-              </form>
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-16 h-16 mx-auto rounded-full bg-slate-100 flex items-center justify-center mb-4">
-                  <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                  </svg>
-                </div>
-                <p className="text-sm text-slate-500">Select a conversation to start</p>
+                )}
               </div>
             </div>
-          )}
-        </main>
+            <div className="flex-1 space-y-4 overflow-y-auto p-4">
+              {props.detailLoading ? (
+                <p className="text-sm text-text-muted">Loading conversation…</p>
+              ) : (
+                props.detail?.messages.map((message) => (
+                  <MessageBubble key={message.id} message={message} />
+                ))
+              )}
+              {!props.detailLoading && !props.detail?.messages.length ? (
+                <p className="py-10 text-center text-sm text-text-muted">
+                  No messages in this conversation.
+                </p>
+              ) : null}
+              <div ref={props.messageEndRef} />
+            </div>
+            <div className="border-t border-border bg-card p-3">
+              <div className="mb-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    props.onUnavailable(
+                      "Internal notes are unavailable because the note service is not connected.",
+                    )
+                  }
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold"
+                >
+                  Add internal note
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    props.onUnavailable(
+                      "File attachments are unavailable because file storage is not connected.",
+                    )
+                  }
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold"
+                >
+                  Attach file unavailable
+                </button>
+                <button
+                  type="button"
+                  disabled={!props.canCreateTask}
+                  title={
+                    !props.canCreateTask ? "Permission required" : undefined
+                  }
+                  onClick={props.onCreateTask}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-45"
+                >
+                  Create task
+                </button>
+                <button
+                  type="button"
+                  disabled={!props.canManage}
+                  title={!props.canManage ? "Permission required" : undefined}
+                  onClick={() => props.onTicketAction("escalate")}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-45"
+                >
+                  Escalate
+                </button>
+                <button
+                  type="button"
+                  disabled={!props.canManage}
+                  title={!props.canManage ? "Permission required" : undefined}
+                  onClick={() => props.onTicketAction("resolve")}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-45"
+                >
+                  Resolve
+                </button>
+                <button
+                  type="button"
+                  disabled={!props.canManage}
+                  title={!props.canManage ? "Permission required" : undefined}
+                  onClick={() => props.onTicketAction("close")}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-45"
+                >
+                  Close
+                </button>
+              </div>
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  props.onSend();
+                }}
+                className="flex gap-2"
+              >
+                <input
+                  value={props.draft}
+                  onChange={(event) => props.onDraft(event.target.value)}
+                  disabled={!props.canMessage || props.sending}
+                  placeholder={
+                    props.canMessage
+                      ? "Type a guest reply"
+                      : "Permission required to send guest messages"
+                  }
+                  className="min-w-0 flex-1 rounded-xl border border-border bg-bg px-3 py-2.5 text-sm"
+                />
+                <button
+                  type="submit"
+                  disabled={
+                    !props.canMessage || !props.draft.trim() || props.sending
+                  }
+                  className="rounded-xl bg-primary-solid px-4 py-2 text-sm font-semibold text-primary-contrast disabled:opacity-50"
+                >
+                  {props.sending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Send className="mr-1 inline h-4 w-4" />
+                      Reply
+                    </>
+                  )}
+                </button>
+              </form>
+              <details className="mt-3 border-t border-border pt-3 text-sm 2xl:hidden">
+                <summary className="cursor-pointer font-semibold text-text-main">
+                  Guest context
+                </summary>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <ContextRow
+                    label="Guest"
+                    value={guestName(props.selectedThread)}
+                  />
+                  <ContextRow
+                    label="Room / booking"
+                    value={
+                      props.selectedThread.booking?.bookingRef || "Not linked"
+                    }
+                  />
+                  <ContextRow
+                    label="Open issues"
+                    value={
+                      ticket && !terminalTicket(ticket)
+                        ? "1 linked ticket"
+                        : "No open linked ticket"
+                    }
+                  />
+                  <ContextRow
+                    label="Sentiment / urgency"
+                    value={
+                      ticket?.priority
+                        ? labelize(ticket.priority)
+                        : "Not analysed"
+                    }
+                  />
+                </div>
+              </details>
+            </div>
+          </>
+        ) : (
+          <div className="grid flex-1 place-items-center p-8 text-center text-sm text-text-muted">
+            Select a conversation to view its thread.
+          </div>
+        )}
+      </main>
+      <aside className="hidden border-l border-border bg-card p-4 2xl:block">
+        <h2 className="font-semibold text-text-main">Guest context</h2>
+        {props.selectedThread ? (
+          <div className="mt-4 space-y-4 text-sm">
+            <ContextRow label="Guest" value={guestName(props.selectedThread)} />
+            <ContextRow
+              label="Room / booking"
+              value={props.selectedThread.booking?.bookingRef || "Not linked"}
+            />
+            <ContextRow
+              label="Booking status"
+              value={
+                props.selectedThread.booking ? "Booking linked" : "Unavailable"
+              }
+            />
+            <ContextRow
+              label="VIP flag"
+              value={
+                /\bvip\b/i.test(
+                  `${props.selectedThread.subject} ${props.selectedThread.lastMessage?.body || ""}`,
+                )
+                  ? "VIP follow-up indicated"
+                  : "Not available"
+              }
+            />
+            <ContextRow
+              label="Open issues"
+              value={
+                ticket && !terminalTicket(ticket)
+                  ? "1 linked ticket"
+                  : "No open linked ticket"
+              }
+            />
+            <ContextRow
+              label="Linked tasks"
+              value="Available through linked tickets"
+            />
+            <ContextRow
+              label="Sentiment / urgency"
+              value={
+                ticket?.priority ? labelize(ticket.priority) : "Not analysed"
+              }
+            />
+            <button
+              type="button"
+              onClick={props.onGuest}
+              className="w-full rounded-xl border border-border px-3 py-2 text-xs font-semibold"
+            >
+              {props.canViewGuest
+                ? "Open guest details"
+                : "Guest details · Permission required"}
+            </button>
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-text-muted">
+            Select a conversation to view authorised guest context.
+          </p>
+        )}
+      </aside>
+    </section>
+  );
+}
+
+function MessageBubble({ message }: { message: ConversationMessage }) {
+  const guest = message.senderType === "GUEST";
+  const system = message.senderType === "SYSTEM";
+  return (
+    <article
+      className={`flex ${guest || system ? "justify-start" : "justify-end"}`}
+    >
+      <div
+        className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm ${system ? "border border-border bg-card text-text-muted" : guest ? "border border-border bg-card text-text-main" : "bg-primary-solid text-primary-contrast"}`}
+      >
+        <p>{message.body}</p>
+        <p
+          className={`mt-1 text-[10px] ${guest || system ? "text-text-muted" : "opacity-75"}`}
+        >
+          {system
+            ? "System note"
+            : guest
+              ? "Guest"
+              : message.senderUser
+                ? `${message.senderUser.firstName} ${message.senderUser.lastName}`
+                : "Staff"}{" "}
+          · {timestamp(message.createdAt)}
+        </p>
       </div>
+    </article>
+  );
+}
+function ContextRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border-b border-border pb-3">
+      <p className="text-xs font-semibold uppercase text-text-muted">{label}</p>
+      <p className="mt-1 text-sm text-text-main">{value}</p>
+    </div>
+  );
+}
+function Badge({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="rounded-full bg-bg px-2 py-0.5 text-[9px] font-semibold uppercase text-text-muted">
+      {children}
+    </span>
+  );
+}
+
+function TicketTable({
+  title,
+  detail,
+  tickets,
+  canManage,
+  canCreateTask,
+  empty = "No ticket data available.",
+  onOpen,
+  onAssign,
+  onAction,
+  onCreateTask,
+  onAsk,
+}: {
+  title: string;
+  detail: string;
+  tickets: Ticket[];
+  canManage: boolean;
+  canCreateTask: boolean;
+  empty?: string;
+  onOpen: (ticket: Ticket) => void;
+  onAssign: (ticket: Ticket) => void;
+  onAction: (ticket: Ticket, action: TicketAction) => void;
+  onCreateTask: (ticket: Ticket) => void;
+  onAsk: (ticket: Ticket) => void;
+}) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+      <div className="p-5">
+        <h2 className="font-semibold text-text-main">{title}</h2>
+        <p className="mt-1 text-sm text-text-muted">{detail}</p>
       </div>
-    </SupportLayout>
+      {tickets.length ? (
+        <div className="overflow-x-auto">
+          <table className="min-w-[1120px] w-full text-left text-xs">
+            <thead className="border-y border-border bg-bg text-text-muted">
+              <tr>
+                {[
+                  "Ticket",
+                  "Guest",
+                  "Department",
+                  "Priority",
+                  "Status",
+                  "Owner",
+                  "SLA",
+                  "Created",
+                  "Last update",
+                  "Actions",
+                ].map((heading) => (
+                  <th key={heading} className="px-4 py-3 font-semibold">
+                    {heading}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {tickets.map((ticket) => (
+                <tr key={ticket.id}>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => onOpen(ticket)}
+                      className="max-w-[210px] text-left font-semibold text-primary-700"
+                    >
+                      {ticket.conversation?.subject ||
+                        `Ticket ${ticket.id.slice(0, 8)}`}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3">
+                    {ticket.conversation?.guest
+                      ? `${ticket.conversation.guest.firstName} ${ticket.conversation.guest.lastName}`
+                      : "Not linked"}
+                  </td>
+                  <td className="px-4 py-3">{labelize(ticket.department)}</td>
+                  <td className="px-4 py-3">{labelize(ticket.priority)}</td>
+                  <td className="px-4 py-3">{labelize(ticket.status)}</td>
+                  <td className="px-4 py-3">
+                    {ticket.assignedTo
+                      ? `${ticket.assignedTo.firstName} ${ticket.assignedTo.lastName}`
+                      : "Unassigned"}
+                  </td>
+                  <td className="px-4 py-3">
+                    {ticket.status === "BREACHED" || isOverdue(ticket)
+                      ? "At risk / breached"
+                      : getTimeRemaining(ticket)?.display || "No SLA due"}
+                  </td>
+                  <td className="px-4 py-3">
+                    {timestamp(ticket.createdAtUtc)}
+                  </td>
+                  <td className="px-4 py-3">
+                    {timestamp(ticket.updatedAtUtc)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      <button
+                        type="button"
+                        onClick={() => onOpen(ticket)}
+                        className="rounded-lg border border-border px-2 py-1.5 font-semibold"
+                      >
+                        View details
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!canManage}
+                        title={!canManage ? "Permission required" : undefined}
+                        onClick={() => onAssign(ticket)}
+                        className="rounded-lg border border-border px-2 py-1.5 font-semibold disabled:opacity-45"
+                      >
+                        Assign
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!canManage || terminalTicket(ticket)}
+                        onClick={() => onAction(ticket, "escalate")}
+                        className="rounded-lg border border-border px-2 py-1.5 font-semibold disabled:opacity-45"
+                      >
+                        Escalate
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!canCreateTask}
+                        title={
+                          !canCreateTask ? "Permission required" : undefined
+                        }
+                        onClick={() => onCreateTask(ticket)}
+                        className="rounded-lg border border-border px-2 py-1.5 font-semibold disabled:opacity-45"
+                      >
+                        Create task
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!canManage || terminalTicket(ticket)}
+                        onClick={() => onAction(ticket, "resolve")}
+                        className="rounded-lg border border-border px-2 py-1.5 font-semibold disabled:opacity-45"
+                      >
+                        Resolve
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!canManage || ticket.status === "CLOSED"}
+                        onClick={() => onAction(ticket, "close")}
+                        className="rounded-lg border border-border px-2 py-1.5 font-semibold disabled:opacity-45"
+                      >
+                        Close
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onAsk(ticket)}
+                        className="rounded-lg border border-primary-200 bg-primary-50 px-2 py-1.5 font-semibold text-primary-700"
+                      >
+                        Ask LaFlo
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="border-t border-border p-10 text-center text-sm text-text-muted">
+          {empty}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function StateCard({
+  icon: Icon,
+  title,
+  detail,
+  action,
+}: {
+  icon: typeof Inbox;
+  title: string;
+  detail: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-border bg-card p-10 text-center shadow-sm">
+      <Icon className="mx-auto h-8 w-8 text-text-muted" />
+      <h2 className="mt-3 font-semibold text-text-main">{title}</h2>
+      <p className="mx-auto mt-2 max-w-xl text-sm text-text-muted">{detail}</p>
+      {action ? <div className="mt-5">{action}</div> : null}
+    </section>
+  );
+}
+function TaskDialog({
+  task,
+  pending,
+  onClose,
+  onConfirm,
+}: {
+  task: TaskDraft;
+  pending: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[95] grid place-items-center bg-text-main/45 p-4">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label="Create task from guest issue"
+        className="w-full max-w-lg rounded-3xl border border-border bg-card p-5 shadow-2xl"
+      >
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase text-primary-700">
+              Prefilled guest follow-up task
+            </p>
+            <h2 className="mt-1 text-lg font-semibold text-text-main">
+              Create task from guest issue
+            </h2>
+          </div>
+          <button type="button" aria-label="Close task form" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="mt-4 space-y-3 rounded-2xl border border-border p-4 text-sm">
+          <ContextRow label="Task" value={task.title} />
+          <ContextRow label="Reason" value={task.reason} />
+          <ContextRow label="Department" value={labelize(task.department)} />
+          <ContextRow label="Priority" value={labelize(task.priority)} />
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={pending}
+            className="rounded-xl border border-border px-4 py-2 text-sm font-semibold"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={pending}
+            className="rounded-xl bg-primary-solid px-4 py-2 text-sm font-semibold text-primary-contrast disabled:opacity-60"
+          >
+            {pending ? "Creating…" : "Create task"}
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
