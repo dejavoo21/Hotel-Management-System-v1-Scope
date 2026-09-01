@@ -269,31 +269,25 @@ describe("OperationsCenterPage", () => {
     });
   });
 
-  it("renders a summary-first command centre without mounting dense details", async () => {
+  it("renders the approved operations workspace with live actions and unavailable states", async () => {
     renderPage();
-    expect(
-      await screen.findByText("Today’s Operational Focus"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Department Snapshot")).toBeInTheDocument();
-    expect(screen.getByText("Operational Indicators")).toBeInTheDocument();
-    expect(screen.getByText("Operations Quick Actions")).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /Review tasks and advisories/ }),
-    ).toHaveAttribute("href", "/operations/tasks-advisories?status=open");
-    expect(screen.getByRole("link", { name: "Open Forecast Status details" })).toHaveAttribute("href", "/operations/operational-intelligence/weather-forecast");
-    expect(screen.getByRole("link", { name: "Open Demand Signal details" })).toHaveAttribute("href", "/operations/operational-intelligence/revenue-guidance");
-    expect(screen.getByRole("link", { name: "Open Active Alerts details" })).toHaveAttribute("href", "/security-center/alerts?status=active&severity=high");
-    expect(screen.getByRole("link", { name: "Open Open Tasks details" })).toHaveAttribute("href", "/operations/tasks-advisories?status=open");
+    expect(await screen.findByRole("heading", { name: "Operations Workspace" })).toBeInTheDocument();
+    expect(await screen.findByText("24-Hour Weather Forecast")).toBeInTheDocument();
+    expect(screen.getByText("Operational Advisories")).toBeInTheDocument();
+    expect(screen.getByText("Task Queue")).toBeInTheDocument();
+    expect(screen.getByText("Incident Overview")).toBeInTheDocument();
+    expect(screen.getByText("Room Readiness")).toBeInTheDocument();
+    expect(screen.getByText("Market & Revenue Snapshot")).toBeInTheDocument();
+    expect(screen.getByText("Security Snapshot")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Arrivals (Today)" })).toHaveAttribute("href", "/operations/tasks-advisories?view=arrivals");
+    expect(screen.getByRole("link", { name: "Open Active Alerts" })).toHaveAttribute("href", "/security-center?tab=alerts");
+    expect(screen.getByRole("link", { name: "Open Pending Tasks" })).toHaveAttribute("href", "/operations/tasks-advisories?tab=tasks");
+    expect(screen.getByRole("link", { name: "Open Revenue Signal" })).toHaveAttribute("href", "/operations/operational-intelligence/revenue-guidance");
+    expect(screen.getByText("PMS room inventory not connected")).toBeInTheDocument();
     expect(
       screen.queryByPlaceholderText("Ask an operational question..."),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByText("Recommendation Review"),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Review Recommendations/ })).toHaveAttribute(
-      "href",
-      "/hotel-insights?tab=recommendations",
-    );
+    expect(screen.getAllByText("Recommended Actions").length).toBeGreaterThan(0);
     expect(
       screen.queryByText("Detailed governance queue"),
     ).not.toBeInTheDocument();
@@ -301,9 +295,6 @@ describe("OperationsCenterPage", () => {
       screen.queryByText("Detailed market intelligence"),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getAllByRole("button", { name: "View Front Desk details" })[0]);
-    expect(screen.getByRole("dialog", { name: "Front Desk Intelligence" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Close Front Desk Intelligence" }));
     fireEvent.click(screen.getByRole("button", { name: "View all activity" }));
     const activityDrawer = screen.getByRole("dialog", { name: "Recent Operational Activity" });
     expect(activityDrawer).toBeInTheDocument();

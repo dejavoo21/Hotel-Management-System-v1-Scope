@@ -3,9 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
+  Activity,
   AlertTriangle,
   Bot,
   CalendarDays,
+  FileText,
   CheckCircle2,
   ChevronRight,
   Clock3,
@@ -16,6 +18,7 @@ import {
   RefreshCcw,
   Search,
   Send,
+  Settings2,
   ShieldAlert,
   Sparkles,
   TicketCheck,
@@ -53,6 +56,7 @@ type WorkspaceTab =
 type ConversationFilter =
   | "all"
   | "open"
+  | "unassigned"
   | "assigned"
   | "escalated"
   | "resolved";
@@ -242,6 +246,8 @@ export default function MessagesPageRedesigned() {
           ticket?.assignedToId === user?.id ||
           thread.assignedSupport?.userId === user?.id
         );
+      if (conversationFilter === "unassigned")
+        return !ticket?.assignedToId && !thread.assignedSupport?.userId;
       if (conversationFilter === "escalated")
         return Boolean(ticket && (isEscalated(ticket) || isOverdue(ticket)));
       if (conversationFilter === "resolved")
@@ -569,7 +575,9 @@ export default function MessagesPageRedesigned() {
 
   return (
     <div className="min-w-0 space-y-5 p-4 sm:p-6 lg:p-8">
-      <header className="flex flex-wrap items-start justify-between gap-4">
+      <header
+        className={`flex flex-wrap items-start justify-between gap-4 ${activeTab === "conversations" ? "xl:hidden" : ""}`}
+      >
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">
             Guest experience
@@ -607,7 +615,7 @@ export default function MessagesPageRedesigned() {
       <nav
         role="tablist"
         aria-label="Guest Experience Center sections"
-        className="flex gap-1 overflow-x-auto rounded-2xl border border-border bg-card p-1.5 shadow-sm"
+        className={`flex gap-1 overflow-x-auto rounded-2xl border border-border bg-card p-1.5 shadow-sm ${activeTab === "conversations" ? "xl:hidden" : ""}`}
       >
         {TABS.map((tab) => (
           <button
@@ -652,32 +660,57 @@ export default function MessagesPageRedesigned() {
         />
       ) : null}
       {!pageError && activeTab === "conversations" ? (
-        <div className="space-y-4">
-          <SupportIntelligenceStrip
-            openTickets={openTickets.length}
-            assigned={tickets.filter((ticket) => ticket.assignedToId).length}
-            slaBreaches={slaBreaches.length}
-            resolvedToday={tickets.filter(
-              (ticket) =>
-                terminalTicket(ticket) &&
-                new Date(ticket.updatedAtUtc).toDateString() ===
-                  new Date().toDateString(),
-            ).length}
-            priority={
-              escalations[0]?.conversation?.subject ||
-              openTickets[0]?.conversation?.subject ||
-              "No urgent guest issue identified"
-            }
-            updatedAt={lastUpdated}
-            onRefresh={refreshAll}
-            onOpenTickets={() => selectTab("tickets")}
-            onOpenAssigned={() => {
-              setConversationFilter("assigned");
-              selectTab("conversations");
+        <div className="xl:-mx-8 xl:-my-8 xl:grid xl:grid-cols-[172px_minmax(0,1fr)] xl:gap-4">
+          <GuestExperienceRail
+            openCount={threads.filter((item) => item.status === "OPEN").length}
+            ticketCount={openTickets.length}
+            escalationCount={escalations.length}
+            vipCount={vipFollowUps.length}
+            onOverview={() => selectTab("overview")}
+            onConversations={() => selectTab("conversations")}
+            onCalls={() => navigate("/calls")}
+            onTickets={() => selectTab("tickets")}
+            onUnavailable={(message) => toast(message)}
+            onFilter={(filter) => {
+              setSearch("");
+              setConversationFilter(filter);
             }}
-            onOpenEscalations={() => selectTab("escalations")}
+            onSearch={(value) => {
+              setConversationFilter("all");
+              setSearch(value);
+            }}
+            onPriority={(value) => {
+              setSearch("");
+              setPriorityFilter(value);
+            }}
+            onSettings={() => navigate("/settings?tab=integrations")}
           />
-          <ConversationWorkspace
+          <div className="min-w-0 space-y-3 xl:py-4 xl:pr-4">
+            <SupportIntelligenceStrip
+              openTickets={openTickets.length}
+              assigned={tickets.filter((ticket) => ticket.assignedToId).length}
+              slaBreaches={slaBreaches.length}
+              resolvedToday={tickets.filter(
+                (ticket) =>
+                  terminalTicket(ticket) &&
+                  new Date(ticket.updatedAtUtc).toDateString() ===
+                    new Date().toDateString(),
+              ).length}
+              priority={
+                escalations[0]?.conversation?.subject ||
+                openTickets[0]?.conversation?.subject ||
+                "No urgent guest issue identified"
+              }
+              updatedAt={lastUpdated}
+              onRefresh={refreshAll}
+              onOpenTickets={() => selectTab("tickets")}
+              onOpenAssigned={() => {
+                setConversationFilter("assigned");
+                selectTab("conversations");
+              }}
+              onOpenEscalations={() => selectTab("escalations")}
+            />
+            <ConversationWorkspace
             threads={filteredThreads}
             ticketsByConversation={ticketsByConversation}
             selectedThreadId={selectedThreadId}
@@ -735,7 +768,8 @@ export default function MessagesPageRedesigned() {
             }
             onAsk={askLaflo}
             messageEndRef={messageEndRef}
-          />
+            />
+          </div>
         </div>
       ) : null}
       {!pageError && activeTab === "tickets" ? (
@@ -953,6 +987,132 @@ function SupportIntelligenceStrip({
         ))}
       </div>
     </section>
+  );
+}
+
+function GuestExperienceRail({
+  openCount,
+  ticketCount,
+  escalationCount,
+  vipCount,
+  onOverview,
+  onConversations,
+  onCalls,
+  onTickets,
+  onUnavailable,
+  onFilter,
+  onSearch,
+  onPriority,
+  onSettings,
+}: {
+  openCount: number;
+  ticketCount: number;
+  escalationCount: number;
+  vipCount: number;
+  onOverview: () => void;
+  onConversations: () => void;
+  onCalls: () => void;
+  onTickets: () => void;
+  onUnavailable: (message: string) => void;
+  onFilter: (filter: ConversationFilter) => void;
+  onSearch: (value: string) => void;
+  onPriority: (value: PriorityFilter) => void;
+  onSettings: () => void;
+}) {
+  const primary = [
+    { label: "Activity", icon: Activity, action: onOverview },
+    { label: "Chat", icon: MessageSquareText, action: onConversations, active: true },
+    { label: "Calls", icon: Phone, action: onCalls },
+    { label: "Tickets", icon: TicketCheck, action: onTickets },
+    {
+      label: "Files",
+      icon: FileText,
+      action: () =>
+        onUnavailable(
+          "Files are unavailable because guest file storage is not connected.",
+        ),
+    },
+  ];
+  const views = [
+    { label: "My Open", count: openCount, action: () => onFilter("open") },
+    { label: "Unassigned", action: () => onFilter("unassigned") },
+    { label: "SLA Breach", count: escalationCount, action: () => onFilter("escalated") },
+    { label: "VIP Guests", count: vipCount, action: () => onSearch("VIP") },
+    { label: "All Tickets", count: ticketCount, action: onTickets },
+    { label: "Resolved", action: () => onFilter("resolved") },
+  ];
+  const smartViews = [
+    { label: "High Priority", action: () => onPriority("high") },
+    { label: "Billing Issues", action: () => onSearch("billing") },
+    { label: "Maintenance", action: () => onSearch("maintenance") },
+    { label: "Late Check-out", action: () => onSearch("late check-out") },
+  ];
+  return (
+    <aside className="hidden min-h-[calc(100vh-64px)] bg-slate-950 px-3 py-4 text-slate-200 xl:flex xl:flex-col">
+      <button
+        type="button"
+        onClick={onOverview}
+        className="mb-5 flex items-center gap-2 rounded-xl px-1 text-left"
+      >
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-sky-400 to-indigo-600 text-sm font-bold text-white shadow-lg shadow-blue-950/40">
+          L
+        </span>
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-white">
+          Guest Experience
+        </span>
+      </button>
+      <nav aria-label="Guest Experience Center workspace" className="space-y-1">
+        {primary.map(({ label, icon: Icon, action, active }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={action}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs font-medium transition ${active ? "bg-slate-800 text-white shadow-inner" : "text-slate-300 hover:bg-slate-900 hover:text-white"}`}
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+          </button>
+        ))}
+      </nav>
+      <div className="my-4 border-t border-slate-800" />
+      <p className="px-2 text-[9px] font-bold uppercase tracking-wider text-slate-500">Views</p>
+      <div className="mt-2 space-y-0.5">
+        {views.map(({ label, count, action }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={action}
+            className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-left text-[11px] text-slate-300 hover:bg-slate-900 hover:text-white"
+          >
+            <span>{label}</span>
+            {typeof count === "number" ? (
+              <span className="rounded-full bg-slate-700 px-1.5 py-0.5 text-[9px] text-white">{count}</span>
+            ) : null}
+          </button>
+        ))}
+      </div>
+      <div className="my-4 border-t border-slate-800" />
+      <p className="px-2 text-[9px] font-bold uppercase tracking-wider text-slate-500">Smart views</p>
+      <div className="mt-2 space-y-0.5">
+        {smartViews.map(({ label, action }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={action}
+            className="w-full rounded-lg px-2 py-2 text-left text-[11px] text-slate-300 hover:bg-slate-900 hover:text-white"
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={onSettings}
+        className="mt-auto flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs text-slate-300 hover:bg-slate-900 hover:text-white"
+      >
+        <Settings2 className="h-4 w-4" /> Settings
+      </button>
+    </aside>
   );
 }
 
@@ -1200,6 +1360,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
             >
               <option value="all">All statuses</option>
               <option value="open">Open</option>
+              <option value="unassigned">Unassigned</option>
               <option value="assigned">Assigned to me</option>
               <option value="escalated">Escalated / SLA</option>
               <option value="resolved">Resolved</option>

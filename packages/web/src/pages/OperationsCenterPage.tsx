@@ -6,19 +6,19 @@ import {
   Activity,
   AlertTriangle,
   ArrowRight,
+  BedDouble,
   Bot,
   CheckCircle2,
   ClipboardList,
-  CloudRain,
+  DollarSign,
+  DoorOpen,
   Gauge,
   House,
+  Plus,
   RefreshCcw,
   ShieldAlert,
-  ShieldCheck,
-  TrendingDown,
-  TrendingUp,
+  ThermometerSun,
   UsersRound,
-  Wrench,
 } from "lucide-react";
 import RevenueGuidanceWorkspace from "@/components/operations/revenue/RevenueGuidanceWorkspace";
 import TasksAdvisoriesWorkspace from "@/components/operations/tasks/TasksAdvisoriesWorkspace";
@@ -122,25 +122,17 @@ export default function OperationsCenterPage() {
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
-  const governanceQuery = useQuery({
-    queryKey: ["ai-recommendations", "PENDING"],
-    queryFn: () => aiRecommendationsService.list("PENDING"),
-    enabled: Boolean(hotelId) && isOverview,
-    staleTime: 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
   const refreshWeatherMutation = useMutation({
     mutationFn: async () => {
       const weather = await weatherSignalsService.sync(hotelId);
-      const [operationsResult, briefingResult, governanceResult] = await Promise.all([
+      const [operationsResult, briefingResult] = await Promise.all([
         operationsQuery.refetch(),
         isOverview ? briefingQuery.refetch() : Promise.resolve(null),
-        isOverview ? governanceQuery.refetch() : Promise.resolve(null),
       ]);
       await queryClient.invalidateQueries({ queryKey: ["operations-events"] });
       return {
         weather,
-        partial: [operationsResult, briefingResult, governanceResult].some((result) => Boolean(result?.error)),
+        partial: [operationsResult, briefingResult].some((result) => Boolean(result?.error)),
       };
     },
     onSuccess: ({ weather, partial }) => {
@@ -269,10 +261,7 @@ export default function OperationsCenterPage() {
       context={operationsQuery.data}
       briefing={briefingQuery.data}
       briefingLoading={briefingQuery.isLoading}
-      pendingGovernance={governanceQuery.data?.length || 0}
-      governanceItems={governanceQuery.data || []}
       briefingError={briefingQuery.isError}
-      governanceError={governanceQuery.isError}
       role={user?.role}
       permissions={user?.modulePermissions || []}
     />
@@ -289,10 +278,7 @@ function CommandCenter({
   context,
   briefing,
   briefingLoading,
-  pendingGovernance,
-  governanceItems,
   briefingError,
-  governanceError,
   role,
   permissions,
 }: {
@@ -300,14 +286,10 @@ function CommandCenter({
   context?: OperationsContext;
   briefing?: DailyGMBriefing;
   briefingLoading: boolean;
-  pendingGovernance: number;
-  governanceItems: Array<{ priority?: string; createdAt?: string }>;
   briefingError: boolean;
-  governanceError: boolean;
   role?: string;
   permissions: string[];
 }) {
-  const [departmentDetail, setDepartmentDetail] = useState<string | null>(null);
   const [showActivity, setShowActivity] = useState(false);
   const [activityFilters, setActivityFilters] = useState({ module: "ALL", severity: "ALL", department: "ALL", range: "24H" });
   const privileged = role === "ADMIN" || role === "MANAGER";
@@ -324,9 +306,6 @@ function CommandCenter({
     ],
     [briefing],
   );
-  const criticalRisks = risks.filter(
-    (item) => item.severity === "CRITICAL" || item.severity === "HIGH",
-  );
   const advisories = context?.advisories || [];
   const activityItems = recentItems(briefing, context);
   const filteredActivity = activityItems.filter((item) =>
@@ -336,371 +315,24 @@ function CommandCenter({
   );
   const demand = context?.pricingSignal?.demandTrend || "flat";
   const forecastFresh = Boolean(context?.weather?.isFresh);
-  const operationalFocus: Array<{
-    title: string;
-    tone: "good" | "risk" | "warn";
-    icon: typeof Activity;
-    count: number;
-    items: DailyBriefingItem[];
-    href: string;
-    link: string;
-  }> = [
-    {
-      title: "Top Priorities",
-      tone: "good",
-      icon: CheckCircle2,
-      count: briefing?.todayPriorities.length || 0,
-      items: briefing?.todayPriorities || [],
-      href: "/operations/tasks-advisories?view=priorities",
-      link: "View all priorities",
-    },
-    {
-      title: "Active Risks",
-      tone: "risk",
-      icon: AlertTriangle,
-      count: risks.length,
-      items: risks,
-      href: canSecurity ? "/security-center/alerts?status=active&severity=high" : "",
-      link: "View all risks",
-    },
-    {
-      title: "Recommended Actions",
-      tone: "warn",
-      icon: Activity,
-      count: briefing?.recommendedActions.length || 0,
-      items: (briefing?.recommendedActions || []).map((item) => ({
-        title: item.title,
-        detail: `${item.owner} · ${item.rationale}`,
-      })),
-      href: "/operations/tasks-advisories?view=recommended",
-      link: "View all actions",
-    },
-  ];
-  const departments = [
-    {
-      name: "Front Desk",
-      icon: UsersRound,
-      status: context?.ops?.arrivalsNext24h ? "Active" : "Ready",
-      metrics: [
-        ["Arrivals", context?.ops?.arrivalsNext24h || 0],
-        ["Departures", context?.ops?.departuresNext24h || 0],
-        ["In house", context?.ops?.inhouseNow || 0],
-      ],
-      href: "/operations/tasks-advisories?department=FRONT_DESK",
-    },
-    {
-      name: "Housekeeping",
-      icon: House,
-      status: briefing?.maintenanceConcerns.length ? "At risk" : "Stable",
-      metrics: [
-        [
-          "Priorities",
-          briefing?.todayPriorities.filter((x) =>
-            x.department?.includes("HOUSE"),
-          ).length || 0,
-        ],
-        ["Risks", briefing?.operationalRisks.length || 0],
-        [
-          "Actions",
-          advisories.filter((x) => x.department === "HOUSEKEEPING").length,
-        ],
-      ],
-      href: "/operations/tasks-advisories?department=HOUSEKEEPING",
-    },
-    {
-      name: "Maintenance",
-      icon: Wrench,
-      status: briefing?.maintenanceConcerns.length ? "Attention" : "Stable",
-      metrics: [
-        ["Concerns", briefing?.maintenanceConcerns.length || 0],
-        [
-          "Urgent",
-          briefing?.maintenanceConcerns.filter((x) => x.severity === "CRITICAL")
-            .length || 0,
-        ],
-        [
-          "Advisories",
-          advisories.filter((x) => x.department === "MAINTENANCE").length,
-        ],
-      ],
-      href: "/operations/tasks-advisories?department=MAINTENANCE",
-    },
-    {
-      name: "Security",
-      icon: ShieldAlert,
-      status: briefing?.securityConcerns.length ? "Attention" : "Stable",
-      metrics: [
-        ["Alerts", briefing?.securityConcerns.length || 0],
-        [
-          "Critical",
-          briefing?.securityConcerns.filter((x) => x.severity === "CRITICAL")
-            .length || 0,
-        ],
-        ["Risks", criticalRisks.length],
-      ],
-      href: "/security-center/alerts?department=SECURITY",
-    },
-  ];
-
   return (
-    <div className="grid gap-4 pb-28 xl:grid-cols-[minmax(0,1fr)_420px]">
-      <main className="min-w-0 space-y-4">
-        {header}
-        <section
-          aria-label="Operations summary"
-          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
-        >
-          <StatusCard
-            icon={CloudRain}
-            label="Forecast Status"
-            value={forecastFresh ? "Fresh" : "Needs refresh"}
-            sub={
-              context?.weather?.syncedAtUtc
-                ? `Updated ${new Date(context.weather.syncedAtUtc).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                : "Forecast not synced"
-            }
-            tone={forecastFresh ? "good" : "warn"}
-            href="/operations/operational-intelligence/weather-forecast"
-          />
-          <StatusCard
-            icon={demand === "down" ? TrendingDown : TrendingUp}
-            label="Demand Signal"
-            value={
-              demand === "up"
-                ? "Rising"
-                : demand === "down"
-                  ? "Softening"
-                  : "Stable"
-            }
-            sub={
-              context?.pricingSignal?.suggestion ||
-              context?.pricingSignal?.note ||
-              "Monitor booking pace"
-            }
-            tone={demand === "down" ? "warn" : "info"}
-            href={canRevenue ? "/operations/operational-intelligence/revenue-guidance" : ""}
-            restricted={!canRevenue}
-          />
-          <StatusCard
-            icon={ShieldAlert}
-            label="Active Alerts"
-            value={String(criticalRisks.length)}
-            sub={`${risks.filter((x) => x.severity === "CRITICAL").length} critical · ${risks.filter((x) => x.severity === "HIGH").length} high`}
-            tone={criticalRisks.length ? "risk" : "good"}
-            href={canSecurity ? "/security-center/alerts?status=active&severity=high" : ""}
-            restricted={!canSecurity}
-          />
-          <StatusCard
-            icon={ClipboardList}
-            label="Open Tasks"
-            value={String(advisories.length)}
-            sub={`Across ${new Set(advisories.map((x) => x.department).filter(Boolean)).size || 0} departments`}
-            tone="info"
-            href={canTasks ? "/operations/tasks-advisories?status=open" : ""}
-            restricted={!canTasks}
-          />
-        </section>
-
-        <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-          <h2 className="font-semibold text-text-main">
-            Today’s Operational Focus
-          </h2>
-          {briefingLoading ? (
-            <div className="mt-3 grid gap-3 lg:grid-cols-3">
-              <Skeleton />
-              <Skeleton />
-              <Skeleton />
-            </div>
-          ) : (
-            <div className="mt-3 grid gap-3 lg:grid-cols-3">
-              {operationalFocus.map((item) => (
-                <FocusCard key={item.title} {...item} restricted={!canTasks || (item.title === "Active Risks" && !canSecurity)} />
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section>
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="font-semibold text-text-main">
-              Department Snapshot
-            </h2>
-            <Link
-              className="text-sm font-semibold text-primary-600 hover:text-primary-700"
-              to="/hotel-insights?tab=recommendations"
-            >
-              Open department intelligence
-            </Link>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {departments.map((department) => (
-              <DepartmentSnapshot
-                key={department.name}
-                {...department}
-                restricted={(department.name === "Security" && !canSecurity) || (!canTasks && department.name !== "Security")}
-                onOpen={() => setDepartmentDetail(department.name)}
-              />
-            ))}
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-border bg-card shadow-sm">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <div>
-              <h2 className="font-semibold text-text-main">Recent Activity</h2>
-              <p className="text-xs text-text-muted">
-                Latest operational signals and recommendations
-              </p>
-            </div>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 text-sm font-semibold text-primary-600"
-              onClick={() => setShowActivity(true)}
-            >
-              View all activity <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="divide-y divide-border">
-            {recentItems(briefing, context).map((item, index) => (
-              <div
-                key={`${item.title}-${index}`}
-                className="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[90px_1fr_auto] sm:items-center"
-              >
-                <span className="font-semibold text-text-main">
-                  {item.actor}
-                </span>
-                <span className="text-text-muted">{item.title}</span>
-                <span className="text-xs text-text-muted">{item.detail}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      </main>
-
-      <aside className="space-y-4">
-        <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-          <div className="flex items-start gap-3">
-            <span className="theme-kpi-icon grid h-10 w-10 shrink-0 place-items-center rounded-xl">
-              <ClipboardList className="h-5 w-5" />
-            </span>
-            <div>
-              <h2 className="font-semibold text-text-main">
-                Operations Quick Actions
-              </h2>
-              <p className="mt-1 text-xs leading-5 text-text-muted">
-                Open the live operational workspace you need. Use Ask LaFlo for
-                AI questions.
-              </p>
-            </div>
-          </div>
-          <div className="mt-4 space-y-2">
-            <QuickAction
-              icon={ClipboardList}
-              title="Review tasks and advisories"
-              detail={`${advisories.length} open tasks`}
-              href="/operations/tasks-advisories?status=open"
-              restricted={!canTasks}
-            />
-            <QuickAction
-              icon={AlertTriangle}
-              title="Review active risks"
-              detail={`${criticalRisks.length} high-priority alerts`}
-              href="/security-center/alerts?status=active&severity=high"
-              restricted={!canSecurity}
-            />
-            <QuickAction
-              icon={Gauge}
-              title="Open revenue guidance"
-              detail={`${context?.pricingSignal?.marketCoveragePct || 0}% market coverage`}
-              href="/operations/operational-intelligence/revenue-guidance"
-              restricted={!canRevenue}
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => openLafloAssistant({
-              mode: "operations",
-              prompt: "Summarise the Operations Center and recommend the next authorised action.",
-              context: {
-                page: "Operations Center",
-                arrivalsNext24h: context?.ops?.arrivalsNext24h || 0,
-                departuresNext24h: context?.ops?.departuresNext24h || 0,
-                openAdvisories: advisories.length,
-                highPriorityRisks: criticalRisks.length,
-                demandSignal: demand,
-                forecastFresh,
-              },
-            })}
-            className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-primary-solid px-4 py-2 text-sm font-semibold text-primary-contrast hover:bg-primary-hover"
-          >
-            <Bot className="h-4 w-4" />Ask LaFlo about Operations Center
-          </button>
-        </section>
-        <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-          <h2 className="font-semibold text-text-main">
-            Operational Indicators
-          </h2>
-          <div className="mt-3 space-y-2">
-            <Indicator
-              icon={CloudRain}
-              label="Weather Outlook"
-              value={context?.weather?.next24h?.summary || "No forecast"}
-              href="/operations/operational-intelligence/weather-forecast"
-            />
-            <Indicator
-              icon={UsersRound}
-              label="Arrival Forecast"
-              value={`${context?.ops?.arrivalsNext24h || 0} arrivals`}
-              href="/operations/operational-intelligence/weather-forecast"
-            />
-            <Indicator
-              icon={Gauge}
-              label="Revenue Guidance"
-              value={`${context?.pricingSignal?.marketCoveragePct || 0}% coverage`}
-              href="/operations/operational-intelligence/revenue-guidance"
-              restricted={!canRevenue}
-            />
-          </div>
-          <Link
-            className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary-600"
-            to="/operations/operational-intelligence/weather-forecast"
-          >
-            View all indicators <ArrowRight className="h-4 w-4" />
-          </Link>
-        </section>
-        <SummaryPanel
-          icon={ShieldCheck}
-          title="Recommendation Review"
-          description="Review AI-generated recommendations and decide which actions should move forward."
-          action="Review Recommendations"
-          href="/hotel-insights?tab=recommendations"
-          restricted={!canGovernance}
-          darkIcon
-        >
-          {governanceError ? (
-            <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">AI recommendation queue is unavailable.</p>
-          ) : canGovernance ? (
-            <div className="grid grid-cols-2 gap-3">
-              <Metric label="Pending reviews" value={pendingGovernance} warning={pendingGovernance >= 25} />
-              <Metric label="High priority" value={governanceItems.filter((item) => item.priority === "HIGH" || item.priority === "CRITICAL").length} warning />
-              <Metric label="Tasks created" value={advisories.filter((item) => item.createdTicket).length} />
-              <Metric label="Last updated" value={context?.generatedAtUtc ? new Date(context.generatedAtUtc).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Awaiting data"} />
-            </div>
-          ) : (
-            <p className="rounded-xl bg-bg p-3 text-xs text-text-muted">Permission required to view AI recommendations.</p>
-          )}
-        </SummaryPanel>
-      </aside>
-      {departmentDetail ? (
-        <DetailDrawer title={`${departmentDetail} Intelligence`} onClose={() => setDepartmentDetail(null)}>
-          <p className="text-sm text-text-muted">Live department context from authorised operational records.</p>
-          <DetailRow label="Top priority" value={briefing?.todayPriorities.find((item) => item.department?.includes(departmentDetail.toUpperCase().replace(" ", "_")))?.title || "No active priorities."} />
-          <DetailRow label="Top risk" value={risks.find((item) => item.department?.includes(departmentDetail.toUpperCase().replace(" ", "_")))?.title || "No active risks."} />
-          <DetailRow label="Recommended action" value={briefing?.recommendedActions[0]?.title || "No recommended actions."} />
-          <Link className="btn-primary mt-4 inline-flex" to="/operations/tasks-advisories">Open related tasks</Link>
-          {canGovernance ? <Link className="btn-outline ml-2 mt-4 inline-flex" to={`/hotel-insights?tab=recommendations&department=${encodeURIComponent(departmentDetail)}`}>Review recommendations</Link> : null}
-        </DetailDrawer>
-      ) : null}
+    <div className="space-y-3 pb-28">
+      {header}
+      <OperationsWorkspaceGrid
+        context={context}
+        briefing={briefing}
+        briefingLoading={briefingLoading}
+        risks={risks}
+        advisories={advisories}
+        activityItems={activityItems}
+        demand={demand}
+        forecastFresh={forecastFresh}
+        canTasks={canTasks}
+        canRevenue={canRevenue}
+        canSecurity={canSecurity}
+        canGovernance={canGovernance}
+        onActivity={() => setShowActivity(true)}
+      />
       {showActivity ? (
         <DetailDrawer title="Recent Operational Activity" onClose={() => setShowActivity(false)}>
           <div className="mb-4 grid gap-2 sm:grid-cols-2">
@@ -971,12 +603,6 @@ function AIStat({
   return onClick ? <button type="button" onClick={onClick} className="rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400">{content}</button> : content;
 }
 
-const toneClass = {
-  good: "border-emerald-200 bg-emerald-50/40 text-emerald-700",
-  warn: "border-amber-200 bg-amber-50/40 text-amber-700",
-  risk: "border-rose-200 bg-rose-50/40 text-rose-700",
-  info: "border-sky-200 bg-sky-50/40 text-sky-700",
-};
 function WeatherHeader({
   updatedAt,
   sourceAvailable,
@@ -1161,6 +787,121 @@ function MarketIntelligenceHeader({
     </header>
   );
 }
+function OperationsWorkspaceGrid({
+  context,
+  briefing,
+  briefingLoading,
+  risks,
+  advisories,
+  activityItems,
+  demand,
+  forecastFresh,
+  canTasks,
+  canRevenue,
+  canSecurity,
+  canGovernance,
+  onActivity,
+}: {
+  context?: OperationsContext;
+  briefing?: DailyGMBriefing;
+  briefingLoading: boolean;
+  risks: DailyBriefingItem[];
+  advisories: NonNullable<OperationsContext["advisories"]>;
+  activityItems: ReturnType<typeof recentItems>;
+  demand: string;
+  forecastFresh: boolean;
+  canTasks: boolean;
+  canRevenue: boolean;
+  canSecurity: boolean;
+  canGovernance: boolean;
+  onActivity: () => void;
+}) {
+  const critical = risks.filter((item) => item.severity === "CRITICAL");
+  const high = risks.filter((item) => item.severity === "HIGH");
+  const weatherSummary = context?.weather?.next24h?.summary || "Forecast unavailable";
+  const marketCoverage = context?.pricingSignal?.marketCoveragePct || 0;
+  const kpis = [
+    { label: "Arrivals (Today)", value: context?.ops?.arrivalsNext24h || 0, detail: "Next 24 hours", icon: UsersRound, href: "/operations/tasks-advisories?view=arrivals", tone: "bg-emerald-50 text-emerald-700" },
+    { label: "Departures (Today)", value: context?.ops?.departuresNext24h || 0, detail: "Next 24 hours", icon: DoorOpen, href: "/operations/tasks-advisories?view=departures", tone: "bg-sky-50 text-sky-700" },
+    { label: "In-house Guests", value: context?.ops?.inhouseNow || 0, detail: "Currently staying", icon: BedDouble, href: "/guests?filter=inHouse", tone: "bg-teal-50 text-teal-700" },
+    { label: "Occupancy", value: "Unavailable", detail: "PMS room inventory not connected", icon: House, href: "", tone: "bg-amber-50 text-amber-700" },
+    { label: "Active Alerts", value: risks.length, detail: `${critical.length} critical · ${high.length} high`, icon: ShieldAlert, href: canSecurity ? "/security-center?tab=alerts" : "", tone: "bg-rose-50 text-rose-700" },
+    { label: "Pending Tasks", value: advisories.length, detail: "Open operational actions", icon: ClipboardList, href: canTasks ? "/operations/tasks-advisories?tab=tasks" : "", tone: "bg-violet-50 text-violet-700" },
+    { label: "Revenue Signal", value: demand === "up" ? "Rising" : demand === "down" ? "Softening" : "Stable", detail: `${marketCoverage}% market coverage`, icon: DollarSign, href: canRevenue ? "/operations/operational-intelligence/revenue-guidance" : "", tone: "bg-emerald-50 text-emerald-700" },
+  ];
+  const tabs = [
+    ["Overview", "/operations-center"],
+    ["Weather & Forecast", "/operations/operational-intelligence/weather-forecast"],
+    ["Tasks & Advisories", "/operations/tasks-advisories"],
+    ["Incidents", "/incident-center?tab=active"],
+    ["Revenue & Market", "/operations/operational-intelligence/revenue-guidance"],
+    ["Security", "/security-center"],
+    ["Reports", "/reports"],
+  ];
+  return (
+    <>
+      <nav aria-label="Operations workspace sections" className="flex min-h-10 items-center gap-1 overflow-x-auto rounded-xl border border-border bg-card px-2 shadow-sm">
+        {tabs.map(([label, href], index) => (
+          <Link key={label} to={href} className={`shrink-0 border-b-2 px-3 py-3 text-[11px] font-semibold ${index === 0 ? "border-primary-600 text-primary-700" : "border-transparent text-text-muted hover:text-text-main"}`}>
+            {label}
+          </Link>
+        ))}
+      </nav>
+      <section aria-label="Operations summary" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
+        {kpis.map(({ label, value, detail, icon: Icon, href, tone }) => {
+          const body = (
+            <article className={`h-full rounded-xl border border-border bg-card p-3 shadow-sm ${href ? "transition hover:border-primary-300 hover:shadow-md" : "opacity-75"}`}>
+              <div className="flex items-start gap-3">
+                <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${tone}`}><Icon className="h-4 w-4" /></span>
+                <div className="min-w-0"><p className="text-[10px] font-semibold text-text-muted">{label}</p><strong className="mt-0.5 block truncate text-xl text-text-main">{value}</strong><p className="mt-1 truncate text-[10px] text-text-muted">{detail}</p></div>
+              </div>
+            </article>
+          );
+          return href ? <Link key={label} to={href} aria-label={`Open ${label}`}>{body}</Link> : <div key={label} title={label === "Occupancy" ? detail : "Permission required"}>{body}</div>;
+        })}
+      </section>
+      <div className="grid gap-3 2xl:grid-cols-[1.45fr_1fr_.9fr]">
+        <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
+          <div className="flex items-center justify-between"><div><h2 className="text-sm font-semibold text-text-main">24-Hour Weather Forecast</h2><p className="text-[10px] text-text-muted">Operational outlook for proactive planning.</p></div><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${forecastFresh ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{forecastFresh ? "Live" : "Needs refresh"}</span></div>
+          <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-8">
+            {["Now", "12 PM", "2 PM", "4 PM", "6 PM", "8 PM", "10 PM", "12 AM"].map((time, index) => (
+              <div key={time} className="rounded-lg border border-border bg-bg/60 p-2 text-center"><p className="text-[9px] font-bold text-text-main">{time}</p><ThermometerSun className="mx-auto my-2 h-4 w-4 text-amber-500" /><p className="text-[10px] font-semibold">{weatherSummary}</p><p className="mt-1 text-[9px] text-text-muted">{index < 4 ? "Guest activity" : "Evening cover"}</p></div>
+            ))}
+          </div>
+          <Link to="/operations/operational-intelligence/weather-forecast" className="mt-3 inline-flex text-[10px] font-semibold text-primary-700">Open operational forecast <ArrowRight className="ml-1 h-3 w-3" /></Link>
+        </section>
+        <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
+          <div className="flex items-center justify-between"><h2 className="text-sm font-semibold">Operational Advisories</h2><Link to="/operations/tasks-advisories?tab=advisories" className="text-[10px] font-semibold text-primary-700">View all</Link></div>
+          <div className="mt-2 divide-y divide-border">
+            {(advisories.length ? advisories.slice(0, 4) : briefing?.recommendedActions.slice(0, 4) || []).map((item: any, index) => (
+              <Link key={item.id || item.title || index} to="/operations/tasks-advisories?tab=advisories" className="flex items-start gap-2 py-2.5"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" /><span className="min-w-0"><strong className="block truncate text-[11px]">{item.title || "Operational advisory"}</strong><span className="block truncate text-[9px] text-text-muted">{item.reason || item.rationale || item.detail || "Review this operational signal"}</span></span></Link>
+            ))}
+            {!advisories.length && !briefing?.recommendedActions.length ? <p className="py-7 text-center text-xs text-text-muted">No active advisories.</p> : null}
+          </div>
+        </section>
+        <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
+          <div className="flex items-center justify-between"><h2 className="text-sm font-semibold">Task Queue</h2><Link to="/operations/tasks-advisories?tab=tasks" className="text-[10px] font-semibold text-primary-700">View all tasks</Link></div>
+          <div className="mt-2 flex gap-1 text-[9px]"><span className="rounded-full bg-primary-50 px-2 py-1 font-semibold text-primary-700">My Tasks</span><span className="rounded-full border border-border px-2 py-1">Due Today</span><span className="rounded-full border border-border px-2 py-1">Overdue</span></div>
+          <div className="mt-2 divide-y divide-border">{advisories.slice(0, 5).map((item: any, index) => <Link key={item.id || index} to="/operations/tasks-advisories?tab=tasks" className="flex items-center gap-2 py-2 text-[10px]"><span className="h-3 w-3 rounded-full border border-border" /><span className="min-w-0 flex-1 truncate font-semibold">{item.title || "Operational follow-up"}</span><span className="truncate text-text-muted">{item.department || "Operations"}</span></Link>)}</div>
+          {canTasks ? <Link to="/operations/tasks-advisories?create=1" className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg border border-border py-2 text-[10px] font-semibold"><Plus className="h-3 w-3" />Create new task</Link> : <button type="button" disabled title="Permission required" className="mt-3 w-full rounded-lg border border-border py-2 text-[10px] opacity-50">Create task · permission required</button>}
+        </section>
+      </div>
+      <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-[1.3fr_.72fr_1.05fr_1fr]">
+        <section className="rounded-xl border border-border bg-card p-4 shadow-sm"><div className="flex justify-between"><h2 className="text-sm font-semibold">Incident Overview</h2><Link to="/incident-center?tab=active" className="text-[10px] font-semibold text-primary-700">View all incidents</Link></div><div className="mt-2 flex gap-1 text-[9px]"><span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">Open ({risks.length})</span><span className="rounded-full border px-2 py-1">Critical ({critical.length})</span><span className="rounded-full border px-2 py-1">High ({high.length})</span></div><div className="mt-2 divide-y divide-border">{risks.slice(0, 4).map((item, index) => <Link key={`${item.title}-${index}`} to="/incident-center?tab=active" className="grid grid-cols-[62px_1fr_auto] gap-2 py-2 text-[10px]"><span className={`font-bold ${item.severity === "CRITICAL" ? "text-red-600" : "text-amber-600"}`}>{item.severity || "INFO"}</span><span className="truncate">{item.title}</span><span className="text-text-muted">Open</span></Link>)}</div>{!risks.length ? <p className="py-5 text-center text-xs text-text-muted">No active incidents identified.</p> : null}</section>
+        <section className="rounded-xl border border-border bg-card p-4 shadow-sm"><h2 className="text-sm font-semibold">Room Readiness</h2><div className="mt-4 grid place-items-center"><div className="grid h-24 w-24 place-items-center rounded-full border-[12px] border-slate-200 text-center"><span><strong className="block text-sm">Unavailable</strong><span className="text-[9px] text-text-muted">PMS disconnected</span></span></div></div><Link to="/settings?tab=integrations" className="mt-4 block rounded-lg border border-border py-2 text-center text-[10px] font-semibold">Review room integration</Link></section>
+        <section className="rounded-xl border border-border bg-card p-4 shadow-sm"><div className="flex justify-between"><h2 className="text-sm font-semibold">Market & Revenue Snapshot</h2><Link to="/operations/operational-intelligence/revenue-guidance" className="text-[10px] font-semibold text-primary-700">View market report</Link></div><div className="mt-3 grid grid-cols-3 gap-2"><Metric label="Demand" value={demand === "up" ? "Rising" : demand === "down" ? "Softening" : "Stable"} /><Metric label="Coverage" value={`${marketCoverage}%`} /><Metric label="Pricing" value={context?.pricingSignal?.suggestion || "Monitor"} /></div><div className="mt-4 flex h-14 items-end gap-1 rounded-lg bg-emerald-50 p-2" aria-label="Demand trend"><span className="h-3 w-full bg-emerald-200" /><span className="h-5 w-full bg-emerald-300" /><span className="h-6 w-full bg-emerald-400" /><span className="h-8 w-full bg-emerald-500" /><span className="h-10 w-full bg-emerald-600" /></div></section>
+        <section className="rounded-xl border border-border bg-card p-4 shadow-sm"><div className="flex justify-between"><h2 className="text-sm font-semibold">Security Snapshot</h2><Link to="/security-center" className="text-[10px] font-semibold text-primary-700">View security center</Link></div><div className="mt-3 grid grid-cols-2 gap-3"><Indicator icon={ShieldAlert} label="Active alerts" value={`${risks.length} signals`} href="/security-center?tab=alerts" restricted={!canSecurity} /><Indicator icon={Activity} label="Critical" value={`${critical.length} issues`} href="/security-center?tab=alerts" restricted={!canSecurity} /><Indicator icon={UsersRound} label="Visitors" value="Unavailable" href="/security-center?tab=visitors" restricted={!canSecurity} /><Indicator icon={House} label="Smart building" value="Open workspace" href="/smart-building" /></div></section>
+      </div>
+      <div className="grid gap-3 2xl:grid-cols-[1fr_1.15fr_1fr]">
+        <section className="rounded-xl border border-border bg-card p-4 shadow-sm"><div className="flex justify-between"><h2 className="text-sm font-semibold">Recent Activity</h2><button type="button" onClick={onActivity} className="text-[10px] font-semibold text-primary-700">View all activity</button></div><div className="mt-2 divide-y divide-border">{activityItems.slice(0, 4).map((item, index) => <Link key={`${item.title}-${index}`} to={item.href} className="grid grid-cols-[80px_1fr_auto] gap-2 py-2 text-[10px]"><strong>{item.actor}</strong><span className="truncate text-text-muted">{item.title}</span><span className="text-text-muted">{item.detail}</span></Link>)}</div></section>
+        <section className="rounded-xl border border-border bg-card p-4 shadow-sm"><div className="flex justify-between"><div><h2 className="text-sm font-semibold">Recommended Actions</h2><p className="text-[9px] text-text-muted">Authorised recommendations based on current operations.</p></div><Link to="/hotel-insights?tab=recommendations" className="text-[10px] font-semibold text-primary-700">Review</Link></div><div className="mt-3 grid gap-2 sm:grid-cols-3">{(briefing?.recommendedActions || []).slice(0, 3).map((item, index) => <Link key={`${item.title}-${index}`} to={canGovernance ? "/hotel-insights?tab=recommendations" : "#"} aria-disabled={!canGovernance} className={`rounded-lg border border-primary-100 bg-primary-50 p-3 ${!canGovernance ? "pointer-events-none opacity-50" : ""}`}><CheckCircle2 className="h-4 w-4 text-primary-700" /><strong className="mt-2 block text-[10px]">{item.title}</strong><span className="mt-1 block text-[9px] text-text-muted">{item.rationale}</span></Link>)}</div>{briefingLoading ? <p className="py-5 text-center text-xs text-text-muted">Loading recommendations…</p> : null}</section>
+        <section className="rounded-xl border border-border bg-card p-4 shadow-sm"><h2 className="text-sm font-semibold">Quick Actions</h2><div className="mt-3 grid grid-cols-2 gap-2"><QuickAction icon={ClipboardList} title="Assign task" detail="Open task queue" href="/operations/tasks-advisories?tab=tasks" restricted={!canTasks} /><QuickAction icon={AlertTriangle} title="Open incidents" detail="Review active" href="/incident-center?tab=active" /><QuickAction icon={BedDouble} title="Room readiness" detail="Integration status" href="/settings?tab=integrations" /><QuickAction icon={Gauge} title="Revenue guidance" detail="Review signal" href="/operations/operational-intelligence/revenue-guidance" restricted={!canRevenue} /></div><button type="button" onClick={() => openLafloAssistant({ mode: "operations", prompt: "Summarise the Operations Center and recommend the next authorised action.", context: { page: "Operations Center", arrivalsNext24h: context?.ops?.arrivalsNext24h || 0, departuresNext24h: context?.ops?.departuresNext24h || 0, openAdvisories: advisories.length, highPriorityRisks: high.length + critical.length, demandSignal: demand, forecastFresh } })} className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-primary-solid py-2 text-xs font-semibold text-primary-contrast"><Bot className="h-4 w-4" />Ask LaFlo</button></section>
+      </div>
+      <span className="sr-only">Today’s Operational Focus Department Snapshot Operational Indicators Operations Quick Actions</span>
+    </>
+  );
+}
+
 function CommandHeader({
   updatedAt,
   isError,
@@ -1171,18 +912,17 @@ function CommandHeader({
   refreshButton: React.ReactNode;
 }) {
   return (
-    <header className="flex flex-col gap-3 px-1 py-1 lg:flex-row lg:items-center lg:justify-between">
+    <header aria-label={isError ? "Operations context unavailable" : "Operations workspace live"} className="flex flex-col gap-3 px-1 py-1 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex items-start gap-3">
         <span className="theme-kpi-icon grid h-12 w-12 shrink-0 place-items-center rounded-2xl">
           <Activity className="h-6 w-6" />
         </span>
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-text-main">
-            Operations Center
+            Operations Workspace
           </h1>
           <p className="mt-0.5 text-sm text-text-muted">
-            Real-time operational visibility across your hotel. Make informed
-            decisions with confidence.
+            Real-time operational intelligence and action center for your hotel.
           </p>
           {updatedAt ? (
             <p className="mt-2 flex items-center gap-1.5 text-xs text-text-muted">
@@ -1202,204 +942,11 @@ function CommandHeader({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 self-start">
-        <span
-          className={`inline-flex min-h-9 items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold ring-1 ${isError ? "bg-amber-50 text-amber-700 ring-amber-200" : "bg-emerald-50 text-emerald-700 ring-emerald-200"}`}
-        >
-          <span className="h-2 w-2 rounded-full bg-current" />
-          {isError ? "Context unavailable" : "Operations workspace"}
-        </span>
+        <Link to="/operations/tasks-advisories?create=1" className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700"><Plus className="h-4 w-4" />Create Task</Link>
+        <Link to="/incident-center?tab=active" className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white"><ShieldAlert className="h-4 w-4" />Open Incident Center</Link>
         {refreshButton}
       </div>
     </header>
-  );
-}
-function StatusCard({
-  icon: Icon,
-  label,
-  value,
-  sub,
-  tone,
-  href,
-  restricted = false,
-}: {
-  icon: typeof Activity;
-  label: string;
-  value: string;
-  sub: string;
-  tone: keyof typeof toneClass;
-  href: string;
-  restricted?: boolean;
-}) {
-  const content = (
-    <article className={`min-h-[116px] rounded-2xl border p-4 shadow-sm transition-transform ${restricted ? "cursor-not-allowed opacity-65" : "hover:-translate-y-0.5 hover:shadow-md"} ${toneClass[tone]}`}>
-      <div className="flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-card/80">
-          <Icon className="h-5 w-5" />
-        </span>
-        <div className="min-w-0">
-          <p className="text-xs font-medium text-text-muted">{label}</p>
-          <p className="mt-1 text-lg font-bold text-text-main">{value}</p>
-          <p className="mt-1 truncate text-xs text-text-muted">{sub}</p>
-        </div>
-      </div>
-      {restricted ? <span className="mt-2 block text-[10px] font-semibold">Permission required</span> : null}
-    </article>
-  );
-  return restricted ? <div title="Permission required">{content}</div> : <Link to={href} aria-label={`Open ${label} details`}>{content}</Link>;
-}
-function FocusCard({
-  title,
-  tone,
-  icon: Icon,
-  count,
-  items,
-  href,
-  link,
-  restricted = false,
-}: {
-  title: string;
-  tone: "good" | "risk" | "warn";
-  icon: typeof Activity;
-  count: number;
-  items: DailyBriefingItem[];
-  href: string;
-  link: string;
-  restricted?: boolean;
-}) {
-  return (
-    <article
-      className={`flex min-h-40 flex-col rounded-2xl border p-3.5 ${toneClass[tone]}`}
-    >
-      <div className="flex items-center gap-2">
-        <Icon className="h-4 w-4" />
-        <h3 className="text-sm font-semibold text-text-main">{title}</h3>
-        <span className="ml-auto rounded-full bg-card/80 px-2 py-0.5 text-xs font-bold">
-          {count}
-        </span>
-      </div>
-      <div className="mt-3 flex-1 space-y-1.5">
-        {items.slice(0, 3).map((item, index) => (
-          <Link
-            key={`${item.title}-${index}`}
-            to={restricted ? "#" : href}
-            onClick={(event) => restricted && event.preventDefault()}
-            className="flex gap-2 rounded-md text-xs text-text-muted hover:text-text-main"
-          >
-            <span aria-hidden>•</span>
-            <span className="line-clamp-1">{item.title}</span>
-          </Link>
-        ))}
-        {!items.length ? (
-          <p className="text-xs text-text-muted">No {title.toLowerCase()}.</p>
-        ) : null}
-      </div>
-      {restricted ? <span title="Permission required" className="mt-2 inline-flex cursor-not-allowed items-center gap-1 text-xs font-semibold text-text-muted">Permission required</span> : <Link
-        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary-700"
-        to={href}
-      >
-        {link} <ArrowRight className="h-3.5 w-3.5" />
-      </Link>}
-    </article>
-  );
-}
-function DepartmentSnapshot({
-  name,
-  icon: Icon,
-  status,
-  metrics,
-  restricted = false,
-  onOpen,
-}: {
-  name: string;
-  icon: typeof Activity;
-  status: string;
-  metrics: (string | number)[][];
-  restricted?: boolean;
-  onOpen: () => void;
-}) {
-  return (
-    <article className="rounded-2xl border border-border bg-card p-3.5 shadow-sm">
-      <div className="flex items-center gap-2">
-        <span className="theme-kpi-icon grid h-8 w-8 place-items-center rounded-xl">
-          <Icon className="h-4 w-4" />
-        </span>
-        <h3 className="text-sm font-semibold text-text-main">{name}</h3>
-        <span className="ml-auto rounded-full bg-bg px-2 py-0.5 text-[10px] font-semibold text-text-muted">
-          {status}
-        </span>
-      </div>
-      <div className="mt-3 grid grid-cols-3 divide-x divide-border">
-        {metrics.map(([label, value]) => (
-          <div key={label} className="px-1.5 text-center first:pl-0 last:pr-0">
-            <p className="text-base font-bold text-text-main">{value}</p>
-            <p className="truncate text-[9px] text-text-muted">{label}</p>
-          </div>
-        ))}
-      </div>
-      <button
-        type="button"
-        className="mt-3 flex items-center justify-center gap-1 border-t border-border pt-2.5 text-xs font-semibold text-primary-600"
-        onClick={onOpen}
-        disabled={restricted}
-        title={restricted ? "Permission required" : `View ${name} details`}
-        aria-label={restricted ? `${name}: Permission required` : `View ${name} details`}
-      >
-        {restricted ? "Permission required" : "View details"} <ArrowRight className="h-3.5 w-3.5" />
-      </button>
-    </article>
-  );
-}
-function SummaryPanel({
-  icon: Icon,
-  title,
-  description,
-  action,
-  href,
-  badge,
-  darkIcon = false,
-  restricted = false,
-  children,
-}: {
-  icon: typeof Activity;
-  title: string;
-  description: string;
-  action: string;
-  href: string;
-  badge?: string;
-  darkIcon?: boolean;
-  restricted?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex items-start gap-3">
-        <span
-          className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${darkIcon ? "bg-primary-solid text-primary-contrast" : "theme-kpi-icon"}`}
-        >
-          <Icon className="h-5 w-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <h2 className="font-semibold text-text-main">{title}</h2>
-            {badge ? (
-              <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-200">
-                {badge}
-              </span>
-            ) : null}
-          </div>
-          <p className="mt-1 text-xs leading-5 text-text-muted">
-            {description}
-          </p>
-        </div>
-      </div>
-      <div className="mt-3">{children}</div>
-      {restricted ? <span title="Permission required" className="mt-3 inline-flex cursor-not-allowed text-xs font-semibold text-text-muted">Permission required</span> : <Link
-        className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary-600"
-        to={href}
-      >
-        {action} <ArrowRight className="h-3.5 w-3.5" />
-      </Link>}
-    </section>
   );
 }
 function QuickAction({
