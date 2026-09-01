@@ -399,7 +399,7 @@ export default function DashboardLayout() {
   );
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin || !accessRequests) return;
     if (lastPendingCount.current === null) {
       lastPendingCount.current = pendingAccessCount;
       return;
@@ -408,10 +408,10 @@ export default function DashboardLayout() {
       toast.success('New access request received');
     }
     lastPendingCount.current = pendingAccessCount;
-  }, [pendingAccessCount, isAdmin]);
+  }, [accessRequests, pendingAccessCount, isAdmin]);
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin || !accessRequests) return;
     if (lastInfoReceivedCount.current === null) {
       lastInfoReceivedCount.current = infoReceivedCount;
       return;
@@ -420,7 +420,7 @@ export default function DashboardLayout() {
       toast.success('Access request response received');
     }
     lastInfoReceivedCount.current = infoReceivedCount;
-  }, [infoReceivedCount, isAdmin]);
+  }, [accessRequests, infoReceivedCount, isAdmin]);
 
   useEffect(() => {
     if (!showUserMenu) return;
