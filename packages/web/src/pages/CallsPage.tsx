@@ -7,6 +7,7 @@ import { messageService } from '@/services';
 import { useSocketPresence } from '@/hooks/useSocketPresence';
 import { usePresenceStore } from '@/stores/presenceStore';
 import { useAuthStore } from '@/stores/authStore';
+import GuestCallsWorkspace from '@/components/calls/GuestCallsWorkspace';
 
 type CallsTab = 'dialpad' | 'recents' | 'contacts';
 type ContactType = 'Staff' | 'Guest' | 'External';
@@ -200,7 +201,8 @@ export default function CallsPage() {
   };
 
   if (!room) {
-    return (
+    return <GuestCallsWorkspace />;
+    /* return (
       <div className="h-[calc(100vh-0px)] w-full bg-slate-50">
         <div className="mx-auto flex h-full w-full max-w-7xl gap-5 px-6 py-6">
           <aside className="w-full max-w-xs rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
@@ -400,7 +402,7 @@ export default function CallsPage() {
           </div>
         ) : null}
       </div>
-    );
+    ); */
   }
 
   if (incoming) {
