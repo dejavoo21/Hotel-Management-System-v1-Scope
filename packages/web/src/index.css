@@ -1100,8 +1100,8 @@
 
 @media (min-width: 1280px) {
   .guest-calls-workspace {
-    padding-top: 10px;
-    padding-inline: 34px;
+    padding-top: 10px !important;
+    padding-inline: 34px !important;
   }
 
   .guest-calls-workspace > section[aria-label='Call summary'] {
