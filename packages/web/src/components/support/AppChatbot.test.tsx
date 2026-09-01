@@ -1,9 +1,14 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { openLafloAssistant } from '@/lib/assistantEvents';
 import { useAuthStore } from '@/stores/authStore';
 import AppChatbot from './AppChatbot';
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="location">{location.pathname}{location.search}</output>;
+}
 
 const serviceMocks = vi.hoisted(() => ({
   status: vi.fn(),
@@ -85,5 +90,46 @@ describe('AppChatbot', () => {
         pageTitle: 'Security Center',
       }),
     })));
+  });
+
+  it('shows page-specific prompts and explains the current page without the AI provider', () => {
+    render(<MemoryRouter initialEntries={['/security-center?tab=alerts']}><AppChatbot /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Open Ask LaFlo' }));
+
+    expect(screen.getByText('Which alerts need attention?')).toBeInTheDocument();
+    expect(screen.getByText(/single workspace for CCTV/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText('What can I help with here?'));
+    expect(screen.getByText(/Security Center: A single workspace/i)).toBeInTheDocument();
+    expect(serviceMocks.chat).not.toHaveBeenCalled();
+  });
+
+  it('starts, advances, and stops a guided walkthrough', () => {
+    render(<MemoryRouter initialEntries={['/operations/tasks-advisories']}><AppChatbot /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Open Ask LaFlo' }));
+    fireEvent.click(screen.getByText('Help me create a task.'));
+
+    expect(screen.getByRole('region', { name: 'Walkthrough progress' })).toHaveTextContent('Step 1 of 4');
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByRole('region', { name: 'Walkthrough progress' })).toHaveTextContent('Step 2 of 4');
+    fireEvent.click(screen.getByRole('button', { name: 'Stop walkthrough' }));
+    expect(screen.queryByRole('region', { name: 'Walkthrough progress' })).not.toBeInTheDocument();
+    expect(screen.getByText('Walkthrough stopped. Your hotel records were not changed.')).toBeInTheDocument();
+  });
+
+  it('routes authorised actions and blocks restricted ones', () => {
+    const { rerender } = render(<MemoryRouter initialEntries={['/']}><AppChatbot /><LocationProbe /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Open Ask LaFlo' }));
+    fireEvent.change(screen.getByPlaceholderText('Ask anything about LaFlo…'), { target: { value: 'Open Operational Intelligence' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open Operational Intelligence' }));
+    expect(screen.getByTestId('location')).toHaveTextContent('/operational-intelligence');
+
+    act(() => useAuthStore.setState({ user: { id: 'staff-1', role: 'STAFF', email: 'staff@laflo.test', modulePermissions: ['bookings'] } as never }));
+    rerender(<MemoryRouter initialEntries={['/']}><AppChatbot /><LocationProbe /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Open Ask LaFlo' }));
+    fireEvent.change(screen.getByPlaceholderText('Ask anything about LaFlo…'), { target: { value: 'Open Security Center' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    fireEvent.click(screen.getByRole('button', { name: /Open Security Center · Permission required/ }));
+    expect(screen.getAllByText(/do not have permission/i)).toHaveLength(2);
   });
 });

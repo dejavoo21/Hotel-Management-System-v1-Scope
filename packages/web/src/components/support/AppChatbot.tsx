@@ -2,13 +2,20 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { ArrowRight, Bot, Download, Headphones, Mail, Plus, Send, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Bot, Compass, Download, Headphones, Mail, Plus, Send, Square, X } from 'lucide-react';
 import { assistantService, conciergeService, messageService } from '@/services';
 import type { AssistantMode } from '@/services/assistant';
 import { useAuthStore } from '@/stores/authStore';
 import { OPEN_LAFLO_ASSISTANT_EVENT, type OpenLafloAssistantDetail } from '@/lib/assistantEvents';
+import { canAccess } from '@/lib/access';
+import type { PermissionId } from '@/utils/userAccess';
+import { findAskLafloActions, resolveAskLafloAction } from '@/features/ask-laflo/actionRegistry';
+import { buildAskLafloContext } from '@/features/ask-laflo/context';
+import { getAskLafloPageKnowledge } from '@/features/ask-laflo/knowledgeMap';
+import { findAskLafloWalkthrough, askLafloWalkthroughs } from '@/features/ask-laflo/walkthroughs';
+import type { AskLafloActionResolution, AskLafloAgentMode, AskLafloWalkthrough } from '@/features/ask-laflo/types';
 
-type ChatAction = { label: string; path: string };
+type ChatAction = { label: string; path: string; actionId?: string; status?: AskLafloActionResolution['status'] };
 type ChatMessage = {
   id: string;
   role: 'assistant' | 'user';
@@ -18,7 +25,7 @@ type ChatMessage = {
   supportOffer?: boolean;
   supportSummary?: string;
 };
-type PersistedState = { conversationId: string | null; messages: ChatMessage[] };
+type PersistedState = { conversationId: string | null; messages: ChatMessage[]; walkthroughId?: string | null; walkthroughStep?: number };
 
 const WELCOME: ChatMessage = {
   id: 'welcome',
@@ -26,154 +33,16 @@ const WELCOME: ChatMessage = {
   text: 'Hi, I’m LaFlo. Ask me anything about this page, hotel operations, or how to use LaFlo.',
 };
 
-const MODE_LABELS: Record<AssistantMode, string> = {
-  general: 'Ask anything', operations: 'Operations', pricing: 'Pricing', weather: 'Weather', tasks: 'Tasks',
+const AGENT_MODE_LABELS: Record<AskLafloAgentMode, string> = {
+  guide: 'Guide', explain: 'Explain', action: 'Action', troubleshoot: 'Troubleshoot', context: 'Context',
 };
 
-const PAGE_NAMES: Record<string, string> = {
-  '/': 'Dashboard', '/bookings': 'Bookings', '/guests': 'Guests', '/rooms': 'Rooms',
-  '/housekeeping': 'Housekeeping', '/inventory': 'Inventory', '/calendar': 'Calendar',
-  '/financials': 'Financials', '/invoices': 'Invoices', '/expenses': 'Expenses',
-  '/reports': 'Reports', '/enterprise-command-center': 'Enterprise Command Center',
-  '/reviews': 'Reviews', '/concierge': 'Concierge', '/messages': 'Messages', '/calls': 'Calls',
-  '/users': 'User Management', '/settings': 'Settings',
-  '/settings?tab=integrations': 'Integration Manager', '/operations-center': 'Operations Center',
-  '/security-center': 'Security Center', '/operations/smart-building': 'Smart Building',
-  '/maintenance-center': 'Maintenance Center', '/incidents': 'Incident Center',
-  '/operations-center/search': 'Enterprise Search', '/ai/hotel-brain': 'Hotel Insights',
-  '/operations-center/weather': 'Weather', '/operations-center/tasks': 'Tasks',
-  '/operations-center/revenue': 'Operations Revenue',
-  '/operations-center/market-intelligence': 'Market Intelligence',
-  '/operations/enterprise-search': 'Enterprise Search',
-  '/operations/hotel-brain-console': 'Hotel Insights',
-  '/operations/ai-governance': 'AI Recommendations',
-  '/hotel-insights': 'Hotel Insights',
-  '/operational-intelligence': 'Operational Intelligence',
-  '/operations/tasks-advisories': 'Tasks & Advisories',
-  '/operations/operational-intelligence/weather-forecast': 'Weather & Forecast',
-  '/operations/operational-intelligence/market-intelligence': 'Market Intelligence',
-  '/operations/operational-intelligence/revenue-guidance': 'Revenue Guidance',
-};
-
-const PAGE_FOCUS_PROMPTS: Record<string, string> = {
-  '/': 'Show me today’s dashboard priorities',
-  '/enterprise-command-center': 'Which property needs attention first?',
-  '/bookings': 'Show me how to check in a guest',
-  '/guests': 'Explain the guest profile sections',
-  '/rooms': 'How do I update room readiness?',
-  '/housekeeping': 'What should Housekeeping prioritise?',
-  '/inventory': 'Show me how low-stock alerts work',
-  '/calendar': 'What events need attention today?',
-  '/financials': 'Explain the financial KPIs',
-  '/reports': 'Which report should I use?',
-  '/invoices': 'Explain invoice statuses',
-  '/expenses': 'How do I review pending expenses?',
-  '/reviews': 'Which feedback needs follow-up?',
-  '/concierge': 'What concierge requests are urgent?',
-  '/messages': 'How does live support work?',
-  '/calls': 'Explain the active call controls',
-  '/operations-center': 'What needs attention today?',
-  '/operations-center/search': 'What can Enterprise Search find?',
-  '/ai/hotel-brain': 'Summarise the information available to Ask LaFlo.',
-  '/operations-center/weather': 'What weather actions should we take today?',
-  '/operations-center/tasks': 'What tasks need attention?',
-  '/operations-center/revenue': 'Explain the Operations revenue view',
-  '/operations-center/market-intelligence': 'Explain the market indicators',
-  '/operations/enterprise-search': 'What can Enterprise Search find?',
-  '/operations/hotel-brain-console': 'Summarise the information available to Ask LaFlo.',
-  '/operations/ai-governance': 'Which AI recommendations require review?',
-  '/hotel-insights': 'Summarise the hotel insights and recommendations that need attention.',
-  '/operational-intelligence': 'What needs attention across hotel operations today?',
-  '/operations/tasks-advisories': 'What tasks and advisories need attention?',
-  '/operations/operational-intelligence/weather-forecast': 'What weather actions should we take today?',
-  '/operations/operational-intelligence/market-intelligence': 'Explain the market indicators',
-  '/operations/operational-intelligence/revenue-guidance': 'Explain the current revenue guidance',
-  '/security-center': 'What security issues need attention?',
-  '/security-center/cctv': 'How do I investigate an offline camera?',
-  '/security-center/access-logs': 'What access results need escalation?',
-  '/security-center/visitors': 'What visitor records need attention?',
-  '/security-center/alerts': 'Which alerts are most urgent?',
-  '/incidents': 'What incidents need attention now?',
-  '/operations/smart-building': 'How do non-IoT assets get monitored?',
-  '/maintenance-center': 'What maintenance issues are urgent?',
-  '/users': 'Explain roles and module permissions',
-  '/settings': 'Explain the Settings sections',
-  '/settings?tab=integrations': 'How do I configure and verify an integration?',
-};
-
-const NAV_TARGETS: Array<ChatAction & { keywords: string[]; permission?: string }> = [
-  { label: 'Open Bookings', path: '/bookings', keywords: ['booking', 'reservation', 'arrival', 'departure', 'check-in', 'check in'], permission: 'bookings' },
-  { label: 'Open Guests', path: '/guests', keywords: ['guest', 'profile'], permission: 'guests' },
-  { label: 'Open Rooms', path: '/rooms', keywords: ['room', 'occupancy'], permission: 'rooms' },
-  { label: 'Open Inventory', path: '/inventory', keywords: ['inventory', 'stock', 'supplies'], permission: 'inventory' },
-  { label: 'Open Calendar', path: '/calendar', keywords: ['calendar', 'schedule', 'event'], permission: 'calendar' },
-  { label: 'Open Housekeeping', path: '/housekeeping', keywords: ['housekeeping', 'clean', 'dirty', 'readiness'], permission: 'housekeeping' },
-  { label: 'Open Maintenance', path: '/maintenance-center', keywords: ['maintenance', 'repair', 'fault'], permission: 'maintenance_center' },
-  { label: 'Open CCTV', path: '/security-center/cctv', keywords: ['camera', 'cctv', 'nvr', 'onvif'], permission: 'security_center' },
-  { label: 'Open Security Center', path: '/security-center', keywords: ['security'], permission: 'security_center' },
-  { label: 'Open Financials', path: '/financials', keywords: ['finance', 'financial', 'revenue', 'payment', 'invoice'], permission: 'financials' },
-  { label: 'Open Reports', path: '/reports', keywords: ['report', 'reporting', 'export'], permission: 'financials' },
-  { label: 'Open Reviews', path: '/reviews', keywords: ['review', 'rating', 'sentiment'], permission: 'reviews' },
-  { label: 'Open Concierge', path: '/concierge', keywords: ['concierge', 'guest request'], permission: 'concierge' },
-  { label: 'Open Messages', path: '/messages', keywords: ['message', 'chat', 'conversation'], permission: 'messages' },
-  { label: 'Open Calls', path: '/calls', keywords: ['call', 'phone', 'voice'], permission: 'messages' },
-  { label: 'Open Incident Center', path: '/incidents', keywords: ['incident'], permission: 'incident_management' },
-  { label: 'Open Smart Building', path: '/operations/smart-building', keywords: ['smart building', 'sensor', 'hvac', 'energy'], permission: 'smart_building' },
-  { label: 'Open Integration Manager', path: '/settings?tab=integrations', keywords: ['integration manager', 'settings > integrations', 'settings, then integrations', 'setup flow', 'add camera / nvr'], permission: 'settings' },
-  { label: 'Open Settings', path: '/settings', keywords: ['setting', 'configuration'], permission: 'settings' },
-  { label: 'Open User Management', path: '/users', keywords: ['user', 'access request', 'permission'], permission: 'users' },
-  { label: 'Open Enterprise Search', path: '/operations/enterprise-search', keywords: ['search', 'find'], permission: 'bookings' },
-  { label: 'Open Hotel Insights', path: '/hotel-insights', keywords: ['hotel insights', 'evidence', 'recommendation', 'insight', 'analyse', 'analyze'], permission: 'bookings' },
-  { label: 'Open Operational Intelligence', path: '/operational-intelligence', keywords: ['operational intelligence', 'pressure', 'risk', 'signals', 'posture'], permission: 'bookings' },
-  { label: 'Open Weather', path: '/operations/operational-intelligence/weather-forecast', keywords: ['weather', 'forecast'], permission: 'bookings' },
-  { label: 'Open Tasks', path: '/operations/tasks-advisories', keywords: ['task', 'assigned work'], permission: 'bookings' },
-  { label: 'Open Command Center', path: '/enterprise-command-center', keywords: ['command center', 'enterprise command'], permission: 'dashboard' },
-];
-
-function getPageName(route: string) {
-  if (PAGE_NAMES[route]) return PAGE_NAMES[route];
-  const [pathname, query = ''] = route.split('?');
-  const baseName = PAGE_NAMES[pathname];
-  if (baseName) {
-    const tab = new URLSearchParams(query).get('tab');
-    if (!tab) return baseName;
-    const tabName = tab.split('-').map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(' ');
-    return `${baseName} · ${tabName}`;
-  }
-  const match = Object.entries(PAGE_NAMES)
-    .filter(([path]) => path !== '/' && pathname.startsWith(`${path}/`))
-    .sort(([a], [b]) => b.length - a.length)[0];
-  return match?.[1] || 'LaFlo';
-}
-
-function getPrompts(pathname: string) {
-  const page = getPageName(pathname);
-  const basePath = pathname.split('?')[0];
-  const matchingRoute = Object.keys(PAGE_FOCUS_PROMPTS)
-    .filter((route) => route === pathname || route === basePath || (route !== '/' && basePath.startsWith(`${route}/`)))
-    .sort((a, b) => b.length - a.length)[0];
-  const focusPrompt = PAGE_FOCUS_PROMPTS[matchingRoute || '/'] || 'What should I prioritise today?';
-  const prompts = [`Explain the ${page} page`, `What should I review first here?`, focusPrompt];
-  return prompts;
-}
-
-function getNavigationActions(text: string, role?: string, permissions?: string[]) {
-  const normalized = text.toLowerCase();
-  const canAccess = (permission?: string) => role === 'ADMIN' || !permission || permissions?.includes(permission);
-  const cameraSetupIntent =
-    /(camera|cctv|nvr|onvif)/.test(normalized) &&
-    /(add|install|connect|configure|set up|setup|integrate|discover|import)/.test(normalized);
-  const preferred: ChatAction[] = cameraSetupIntent && canAccess('settings')
-    ? [{ label: 'Open Integration Manager', path: '/settings?tab=integrations' }]
-    : [];
-  const matched = NAV_TARGETS.filter((target) => {
-    const allowed = role === 'ADMIN' || !target.permission || permissions?.includes(target.permission);
-    return allowed && target.keywords.some((keyword) => normalized.includes(keyword));
-  }).map(({ label, path }) => ({ label, path }));
-  return [...preferred, ...matched]
-    .filter((action, index, actions) => actions.findIndex((item) => item.path === action.path) === index)
-    .slice(0, 2);
-}
+const toChatAction = (action: AskLafloActionResolution): ChatAction => ({
+  label: action.status === 'restricted' ? `${action.displayName} · Permission required` : action.displayName,
+  path: action.route,
+  actionId: action.id,
+  status: action.status,
+});
 
 function describeError(error: unknown) {
   if (!axios.isAxiosError(error)) return 'The assistant could not respond. Please try again.';
@@ -193,6 +62,7 @@ export default function AppChatbot() {
   const { user } = useAuthStore();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<AssistantMode>('general');
+  const [agentMode, setAgentMode] = useState<AskLafloAgentMode>('context');
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -202,16 +72,17 @@ export default function AppChatbot() {
   const [handoffRequested, setHandoffRequested] = useState(false);
   const [handoffText, setHandoffText] = useState('');
   const [handoffLoading, setHandoffLoading] = useState(false);
+  const [walkthrough, setWalkthrough] = useState<AskLafloWalkthrough | null>(null);
+  const [walkthroughStep, setWalkthroughStep] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const currentRoute = `${location.pathname}${location.search}`;
-  const currentPage = useMemo(() => getPageName(currentRoute), [currentRoute]);
-  const assistantPage = typeof launchContext?.page === 'string' && launchContext.page.trim()
-    ? launchContext.page.trim()
-    : currentPage;
-  const prompts = useMemo(() => getPrompts(currentRoute), [currentRoute]);
+  const pageKnowledge = useMemo(() => getAskLafloPageKnowledge(currentRoute), [currentRoute]);
+  const runtimeContext = useMemo(() => buildAskLafloContext(currentRoute, user, launchContext), [currentRoute, launchContext, user]);
+  const assistantPage = runtimeContext.page;
+  const prompts = pageKnowledge.prompts.slice(0, 4);
   const storageKey = user?.id ? `laflo-assistant:${user.id}` : null;
 
   useEffect(() => {
@@ -226,6 +97,9 @@ export default function AppChatbot() {
       const parsed = JSON.parse(saved) as PersistedState;
       setMessages(Array.isArray(parsed.messages) && parsed.messages.length ? parsed.messages.slice(-40) : [WELCOME]);
       setConversationId(typeof parsed.conversationId === 'string' ? parsed.conversationId : null);
+      const savedWalkthrough = askLafloWalkthroughs.find((item) => item.id === parsed.walkthroughId) || null;
+      setWalkthrough(savedWalkthrough);
+      setWalkthroughStep(savedWalkthrough ? Math.min(parsed.walkthroughStep || 0, savedWalkthrough.steps.length - 1) : 0);
     } catch {
       setMessages([WELCOME]);
       setConversationId(null);
@@ -234,9 +108,9 @@ export default function AppChatbot() {
 
   useEffect(() => {
     if (!storageKey) return;
-    const state: PersistedState = { conversationId, messages: messages.slice(-40) };
+    const state: PersistedState = { conversationId, messages: messages.slice(-40), walkthroughId: walkthrough?.id || null, walkthroughStep };
     localStorage.setItem(storageKey, JSON.stringify(state));
-  }, [conversationId, messages, storageKey]);
+  }, [conversationId, messages, storageKey, walkthrough, walkthroughStep]);
 
   useEffect(() => {
     assistantService.status().then((status) => setAssistantLive(status.live)).catch(() => setAssistantLive(false));
@@ -279,8 +153,112 @@ export default function AppChatbot() {
     setLaunchContext(null);
     setHandoffRequested(false);
     setHandoffText('');
+    setWalkthrough(null);
+    setWalkthroughStep(0);
+    setAgentMode('context');
     setInput('');
     inputRef.current?.focus();
+  };
+
+  const addAssistantMessage = (text: string, actions?: ChatAction[], quickReplies?: string[]) => {
+    setMessages((previous) => [...previous, { id: `assistant-${Date.now()}-${previous.length}`, role: 'assistant', text, actions, quickReplies }]);
+  };
+
+  const startWalkthrough = (nextWalkthrough: AskLafloWalkthrough) => {
+    if (nextWalkthrough.permission && !canAccess(user, nextWalkthrough.permission as PermissionId)) {
+      setAgentMode('troubleshoot');
+      addAssistantMessage(`You do not have permission to complete “${nextWalkthrough.title}”. Ask an administrator or a team member with ${nextWalkthrough.permission.replace(/_/g, ' ')} access to help. No restricted records have been shown.`);
+      return;
+    }
+    setAgentMode('guide');
+    setWalkthrough(nextWalkthrough);
+    setWalkthroughStep(0);
+    addAssistantMessage(`I’ve started “${nextWalkthrough.title}”. ${nextWalkthrough.purpose}`);
+  };
+
+  const stopWalkthrough = () => {
+    setWalkthrough(null);
+    setWalkthroughStep(0);
+    setAgentMode('context');
+    addAssistantMessage('Walkthrough stopped. Your hotel records were not changed.');
+  };
+
+  const runAction = (action: ChatAction) => {
+    const resolution = action.actionId ? resolveAskLafloAction(action.actionId, user) : null;
+    if (resolution?.status === 'restricted' || action.status === 'restricted') {
+      setAgentMode('troubleshoot');
+      addAssistantMessage(`You do not have permission to use “${resolution?.displayName || action.label}”. No restricted information has been opened.`);
+      return;
+    }
+    if (resolution?.status === 'unavailable') {
+      setAgentMode('troubleshoot');
+      addAssistantMessage(resolution.fallback);
+      return;
+    }
+    if (resolution?.status === 'guided-only') {
+      const related = findAskLafloWalkthrough(`${resolution.displayName} ${resolution.aliases.join(' ')}`);
+      if (related) {
+        startWalkthrough(related);
+        return;
+      }
+      addAssistantMessage(`I can guide you, but I cannot complete “${resolution.displayName}” directly. ${resolution.fallback}`, [{ label: 'Take me there', path: resolution.route }]);
+      return;
+    }
+    if (resolution?.id === 'task.createFromAdvisory' && launchContext) {
+      navigate(resolution.route, {
+        state: {
+          requestedAction: 'create',
+          sourceSearchResult: {
+            id: launchContext.advisoryId,
+            title: launchContext.title || launchContext.advisoryTitle,
+            summary: launchContext.reason || launchContext.summary,
+            category: launchContext.department || launchContext.source,
+            severity: launchContext.priority,
+          },
+        },
+      });
+    } else {
+      navigate(action.path);
+    }
+    setOpen(false);
+  };
+
+  const answerPlatformRequest = (value: string): boolean => {
+    const normalized = value.toLowerCase();
+    const matchedWalkthrough = findAskLafloWalkthrough(value);
+    if (matchedWalkthrough && (agentMode === 'guide' || /(how|help|show|walk|guide|create|assign|approve|reject|acknowledge|resolve|connect|test|change|add|edit)/.test(normalized))) {
+      startWalkthrough(matchedWalkthrough);
+      return true;
+    }
+    if (agentMode === 'explain' || /what (does|is).*page|explain (this|the).*page|what can you help with here/.test(normalized)) {
+      setAgentMode('explain');
+      const actions = pageKnowledge.actions.map((id) => resolveAskLafloAction(id, user)).filter((item): item is AskLafloActionResolution => Boolean(item)).map(toChatAction);
+      addAssistantMessage(`${pageKnowledge.name}: ${pageKnowledge.description}${pageKnowledge.tabs.length ? ` Available sections include ${pageKnowledge.tabs.join(', ')}.` : ''}`, actions.slice(0, 3), pageKnowledge.prompts.slice(0, 3));
+      return true;
+    }
+    if (agentMode === 'troubleshoot' || /why (can('|’)t|cannot)|unavailable|disconnected|not working|what does this warning mean/.test(normalized)) {
+      setAgentMode('troubleshoot');
+      const restricted = runtimeContext.restrictedActions.map((item) => item.displayName);
+      const sourceNote = runtimeContext.sourceState === 'unavailable' ? 'The page reports that its live source is unavailable.' : runtimeContext.sourceState === 'stale' ? 'The page reports that its information may be out of date.' : 'Check the visible page state for a permission, unavailable, or disconnected message.';
+      addAssistantMessage(`${sourceNote}${restricted.length ? ` Your role cannot use: ${restricted.join(', ')}.` : ''} I will not claim an action succeeded unless the page shows the saved outcome.`, runtimeContext.availableActions.slice(0, 2).map(toChatAction), ['Try again', 'What can you help with here?']);
+      return true;
+    }
+    const actions = findAskLafloActions(value, user);
+    if (actions.length && (agentMode === 'action' || /^(open|go|take|show me where|navigate)|\bopen\b|take me there/.test(normalized))) {
+      setAgentMode('action');
+      const ready = actions.filter((item) => item.status !== 'restricted');
+      const restricted = actions.filter((item) => item.status === 'restricted');
+      addAssistantMessage(restricted.length && !ready.length ? 'You do not have permission to open that workspace.' : 'I found the authorised platform action. Choose it when you are ready.', actions.map(toChatAction));
+      return true;
+    }
+    if (/what information (are you using|can you use)|what (data|context|sources) (are you using|can you access)/.test(normalized)) {
+      setAgentMode('context');
+      const selected = runtimeContext.selectedRecord ? ' A selected record is included.' : '';
+      const filters = Object.keys(runtimeContext.visibleFilters).length ? ` Visible filters: ${Object.entries(runtimeContext.visibleFilters).map(([key, value]) => `${key}=${String(value)}`).join(', ')}.` : '';
+      addAssistantMessage(`I’m using your authorised ${pageKnowledge.name} context, the current route${runtimeContext.activeTab ? ` and ${runtimeContext.activeTab.replace(/-/g, ' ')} section` : ''}.${selected}${filters} Source state: ${runtimeContext.sourceState}. I do not include records or actions your role cannot access.`);
+      return true;
+    }
+    return false;
   };
 
   const sendMessage = async (text: string) => {
@@ -288,6 +266,7 @@ export default function AppChatbot() {
     if (!value || isSending) return;
     setMessages((previous) => [...previous, { id: `user-${Date.now()}`, role: 'user', text: value }]);
     setInput('');
+    if (answerPlatformRequest(value)) return;
     setIsSending(true);
     try {
       const routeParts = location.pathname.split('/').filter(Boolean);
@@ -299,6 +278,7 @@ export default function AppChatbot() {
         conversationId,
         context: {
           ...(launchContext || {}),
+          askLafloContext: runtimeContext,
           route: currentRoute,
           pageTitle: assistantPage,
           module: routeParts[0] || 'dashboard',
@@ -313,7 +293,7 @@ export default function AppChatbot() {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
         text: reply,
-        actions: getNavigationActions(`${value} ${reply}`, user?.role, user?.modulePermissions),
+        actions: findAskLafloActions(`${value} ${reply}`, user).map(toChatAction),
         quickReplies: Array.isArray(response.suggestedPrompts)
           ? response.suggestedPrompts.filter((prompt) => typeof prompt === 'string' && prompt.trim()).slice(0, 3)
           : [],
@@ -392,7 +372,7 @@ export default function AppChatbot() {
   return (
     <div className='fixed bottom-2 right-4 z-[80] sm:bottom-3 sm:right-6'>
       {open ? (
-        <section role='dialog' aria-label='Ask LaFlo' className='flex h-[min(680px,calc(100dvh-1.5rem))] max-h-[calc(100dvh-1.5rem)] w-[min(430px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl'>
+        <section role='dialog' aria-label='Ask LaFlo' className='flex h-[min(760px,calc(100dvh-1.5rem))] max-h-[calc(100dvh-1.5rem)] w-[min(470px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl'>
           <header className='flex shrink-0 items-center justify-between gap-3 bg-gradient-to-r from-primary-800 to-primary-600 px-4 py-3 text-primary-contrast'>
             <div className='flex min-w-0 items-center gap-3'>
               <span className='h-10 w-10 shrink-0 overflow-hidden rounded-xl shadow-sm ring-1 ring-white/20'>
@@ -415,13 +395,43 @@ export default function AppChatbot() {
               </button>
             </div>
           </header>
-          <div className='flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2'>
-            <span className='truncate text-xs text-slate-500'>Current context: <strong className='font-medium text-slate-700'>{assistantPage}</strong></span>
-            <select value={mode} onChange={(event) => setMode(event.target.value as AssistantMode)} className='h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700' aria-label='Assistant mode'>
-              {Object.entries(MODE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
+          <div className='shrink-0 border-b border-slate-100 bg-slate-50 px-3 py-2.5'>
+            <div className='flex items-center justify-between gap-2'>
+              <span className='truncate text-xs text-slate-500'>Current context: <strong className='font-medium text-slate-700'>{assistantPage}</strong>{runtimeContext.activeTab ? ` · ${runtimeContext.activeTab.replace(/-/g, ' ')}` : ''}</span>
+              <select value={agentMode} onChange={(event) => setAgentMode(event.target.value as AskLafloAgentMode)} className='h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700' aria-label='Ask LaFlo mode'>
+                {Object.entries(AGENT_MODE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </div>
+            <div className='mt-2 flex items-center gap-2 text-[10px] text-slate-500'>
+              <span className='inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 ring-1 ring-slate-200'><Compass className='h-3 w-3' />{pageKnowledge.name}</span>
+              <span className={`rounded-full px-2 py-1 ${runtimeContext.sourceState === 'restricted' ? 'bg-amber-100 text-amber-800' : runtimeContext.sourceState === 'unavailable' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>{runtimeContext.sourceState === 'unknown' ? 'Page context ready' : `${runtimeContext.sourceState} information`}</span>
+              {runtimeContext.selectedRecord ? <span className='rounded-full bg-blue-100 px-2 py-1 text-blue-700'>Record context</span> : null}
+            </div>
           </div>
           <div ref={listRef} className='min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-slate-50/60 p-3' aria-live='polite'>
+            {walkthrough ? (() => {
+              const currentStep = walkthrough.steps[walkthroughStep];
+              const isLastStep = walkthroughStep === walkthrough.steps.length - 1;
+              return (
+                <section aria-label='Walkthrough progress' className='rounded-2xl border border-blue-200 bg-blue-50 p-3 shadow-sm'>
+                  <div className='flex items-start justify-between gap-3'>
+                    <div><p className='text-[10px] font-bold uppercase tracking-wide text-blue-700'>Guide · Step {walkthroughStep + 1} of {walkthrough.steps.length}</p><h3 className='mt-1 text-sm font-semibold text-slate-900'>{walkthrough.title}</h3></div>
+                    <button type='button' onClick={stopWalkthrough} aria-label='Stop walkthrough' className='rounded-lg p-1.5 text-slate-500 hover:bg-white'><Square className='h-3.5 w-3.5' /></button>
+                  </div>
+                  <div className='mt-3 rounded-xl bg-white p-3 ring-1 ring-blue-100'>
+                    <p className='text-sm font-semibold text-slate-900'>{currentStep.title}</p>
+                    <p className='mt-1 text-xs leading-5 text-slate-600'>{currentStep.instruction}</p>
+                    {currentStep.target ? <p className='mt-2 text-[11px] text-blue-700'>Look for: <strong>{currentStep.target}</strong></p> : null}
+                    <p className='mt-2 text-[10px] text-slate-500'>Complete when: {currentStep.completionCondition}</p>
+                    <button type='button' onClick={() => navigate(currentStep.route)} className='mt-3 inline-flex items-center gap-1 rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white'>Take me there <ArrowRight className='h-3 w-3' /></button>
+                  </div>
+                  <div className='mt-3 flex items-center justify-between gap-2'>
+                    <button type='button' disabled={walkthroughStep === 0} onClick={() => setWalkthroughStep((step) => Math.max(0, step - 1))} className='inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-xs font-semibold text-blue-800 disabled:opacity-40'><ArrowLeft className='h-3 w-3' />Back</button>
+                    <button type='button' onClick={() => { if (isLastStep) { setWalkthrough(null); setWalkthroughStep(0); addAssistantMessage(`Walkthrough complete: ${walkthrough.title}. Confirm the visible page outcome before treating the work as finished.`); } else setWalkthroughStep((step) => step + 1); }} className='inline-flex items-center gap-1 rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white'>{isLastStep ? 'Finish guide' : 'Next'}<ArrowRight className='h-3 w-3' /></button>
+                  </div>
+                </section>
+              );
+            })() : null}
             {messages.map((message) => (
               <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className='max-w-[88%]'>
@@ -431,7 +441,7 @@ export default function AppChatbot() {
                   {message.actions?.length ? (
                     <div className='mt-2 flex flex-wrap gap-2'>
                       {message.actions.map((action) => (
-                        <button key={action.path} type='button' onClick={() => { navigate(action.path); setOpen(false); }} className='inline-flex items-center gap-1 rounded-lg border border-teal-200 bg-white px-2.5 py-1.5 text-xs font-medium text-teal-800 hover:bg-teal-50'>
+                        <button key={`${action.actionId || action.path}-${action.label}`} type='button' onClick={() => runAction(action)} className={`inline-flex items-center gap-1 rounded-lg border bg-white px-2.5 py-1.5 text-xs font-medium ${action.status === 'restricted' ? 'border-amber-200 text-amber-800 hover:bg-amber-50' : 'border-teal-200 text-teal-800 hover:bg-teal-50'}`}>
                           {action.label}<ArrowRight className='h-3 w-3' />
                         </button>
                       ))}
@@ -481,18 +491,21 @@ export default function AppChatbot() {
               </div>
             ))}
             {messages.length === 1 ? (
-              <div className='flex flex-wrap gap-2'>
+              <div className='space-y-2'>
+                <button type='button' onClick={() => void sendMessage('What can you help with here?')} className='w-full rounded-xl border border-slate-200 bg-white p-3 text-left hover:border-teal-300 hover:bg-teal-50'><span className='block text-xs font-semibold text-slate-800'>What can I help with here?</span><span className='mt-1 block text-[11px] leading-5 text-slate-500'>{pageKnowledge.description}</span></button>
+                <div className='flex flex-wrap gap-2'>
                 {prompts.map((prompt) => (
                   <button key={prompt} type='button' onClick={() => void sendMessage(prompt)} className='rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-600 hover:border-teal-300 hover:bg-teal-50' disabled={isSending}>
                     {prompt}
                   </button>
                 ))}
+                </div>
               </div>
             ) : null}
             {isSending ? (
               <div className='flex justify-start'>
                 <div className='inline-flex items-center gap-2 rounded-2xl rounded-bl-md border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-500'>
-                  <Bot className='h-4 w-4 animate-pulse text-teal-600' />Thinking…
+                  <Bot className='h-4 w-4 animate-pulse text-teal-600' />{agentMode === 'action' ? 'Running action…' : 'Working…'}
                 </div>
               </div>
             ) : null}
