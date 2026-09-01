@@ -83,6 +83,60 @@
 
 ---
 
+# Guest Calls approved-target corrective pass — design QA
+
+**Source visual truth**
+- `C:\Users\walea\Downloads\APPROVED_Guest_Calls_Target.png.png`
+
+**Implementation evidence**
+- Authenticated Railway production: `https://laflo-web-production.up.railway.app/calls?deploy=5058085a`
+- Branch and commit: `agent/auth-dashboard-stabilization` at `5058085a`
+- Railway deployment: `3c9f4719-c3a1-408e-8053-fa3c4198661d` (`SUCCESS`)
+- Viewport: 1672 × 942 CSS pixels, device pixel ratio 1
+- State: Onboarding User; provider-managed voice; Michael Chen selected; no verified device call history
+- Live screenshot: `C:\Users\walea\Documents\Codex\2026-08-27\can\guest-calls-live-5058085a.png`
+- Full-view comparison: `C:\Users\walea\Documents\Codex\2026-08-27\can\guest-calls-approved-vs-live-5058085a.jpg`
+
+## Full-view comparison evidence
+
+- The approved target and authenticated production capture were placed side by side in one comparison image and reviewed at the same viewport scale.
+- The corrective frame now matches the target composition: slim global rail, 362px local call rail, 915px four-card KPI strip, 678px dial/recent column, and a right guest-context panel that uses the remaining workspace width.
+- Target-aligned vertical proportions are present: 80px KPI strip, 393px dial area, 307px recent-calls area, and approximately 716px guest-context panel.
+- The final workspace begins at approximately x=102 for the local rail, x=482 for the main column, and x=1178 for the guest panel, matching the approved target's principal alignment lines.
+- Exactly one visible Ask LaFlo launcher remains. Guest-specific and empty-state duplicate launchers are hidden while their context is forwarded to the single global assistant.
+
+## Functional evidence
+
+- Dial entry accepts a number and renders it in the live input; Backspace changes `123` to `12`; Clear removes the number.
+- Dial Pad, Recents, and Contacts change the central workspace content and return to the dial view.
+- Room Directory opens an accessible unavailable-state dialog explaining that no verified extension is configured; no connection is fabricated.
+- The sole Ask LaFlo launcher opens the assistant with `Guest Calls` as current context and presents a calling/guest workflow prompt.
+- No outbound call was placed because that would create an external side effect; the connected/disconnected provider state remains visible and truthful.
+- Production console errors: 0.
+
+## Expected production-data differences
+
+- The reference contains illustrative call history and Sarah Johnson. Production correctly shows the authenticated tenant's Michael Chen record, six contacts, and a clear empty state for zero verified recent calls.
+- Production uses the live provider-managed voice number and real availability counts rather than the screenshot's illustrative values.
+- These data differences are not visual or functional defects and were not replaced with static mock content.
+
+## Comparison history
+
+- Initial production audit: the workspace was too loose, the main dial area was oversized, and multiple Ask LaFlo entry points were visible.
+- First correction: introduced target-sized columns and sections, but page-level utility padding still overrode the intended frame.
+- Final correction: applied the target frame padding at desktop specificity, producing the approved x/y alignment and removing the duplicate visible assistant action.
+
+## Severity summary
+
+- P0: 0
+- P1: 0
+- P2: 0
+- P3: production-data differences only; no corrective action required
+
+**final result: passed**
+
+---
+
 # Phase B Guest Experience Center — live production design QA
 
 **Source visual truth**
@@ -520,4 +574,3 @@
 - P0: 0; P1: 0; P2: 0. Production-data differences are non-blocking.
 
 **final result: passed**
-
