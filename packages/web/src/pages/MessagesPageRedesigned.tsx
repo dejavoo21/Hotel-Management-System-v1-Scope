@@ -200,10 +200,37 @@ export default function MessagesPageRedesigned() {
       ),
     [allThreads, ticketsByConversation],
   );
+  const ticketThreads = useMemo(
+    () => threads.filter((thread) => ticketsByConversation.has(thread.id)),
+    [threads, ticketsByConversation],
+  );
 
   useEffect(() => {
-    if (!selectedThreadId && threads.length) setSelectedThreadId(threads[0].id);
-  }, [selectedThreadId, threads]);
+    const candidates = activeTab === "tickets" ? ticketThreads : threads;
+    if (!candidates.length) {
+      if (selectedThreadId) setSelectedThreadId(null);
+      if (selectedTicketId) setSelectedTicketId(null);
+      return;
+    }
+    if (
+      !selectedThreadId ||
+      !candidates.some((thread) => thread.id === selectedThreadId)
+    ) {
+      setSelectedThreadId(candidates[0].id);
+      setSelectedTicketId(
+        activeTab === "tickets"
+          ? ticketsByConversation.get(candidates[0].id)?.id || null
+          : null,
+      );
+    }
+  }, [
+    activeTab,
+    selectedThreadId,
+    selectedTicketId,
+    threads,
+    ticketThreads,
+    ticketsByConversation,
+  ]);
 
   const selectedThreadSummary =
     threads.find((thread) => thread.id === selectedThreadId) || null;
@@ -1320,8 +1347,8 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
     ? props.ticketsByConversation.get(props.selectedThreadId)
     : null;
   return (
-    <section className="grid min-h-[680px] min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:grid-cols-[300px_minmax(360px,1fr)] xl:grid-cols-[310px_minmax(420px,1fr)_330px]">
-      <aside className="min-h-0 border-b border-border lg:border-b-0 lg:border-r">
+    <section className="grid min-h-[680px] min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:grid-cols-[300px_minmax(360px,1fr)] xl:h-[570px] xl:min-h-0 xl:grid-cols-[310px_minmax(420px,1fr)_330px]">
+      <aside className="flex min-h-0 flex-col border-b border-border lg:border-b-0 lg:border-r">
         <div className="space-y-3 border-b border-border p-3">
           <label className="relative block">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
@@ -1364,7 +1391,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
             </select>
           </div>
         </div>
-        <div className="max-h-[540px] overflow-y-auto lg:max-h-[680px]">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {props.threads.map((thread) => {
             const itemTicket = props.ticketsByConversation.get(thread.id);
             return (
@@ -1414,7 +1441,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
           ) : null}
         </div>
       </aside>
-      <main className="flex min-h-[600px] min-w-0 flex-col bg-bg/50">
+      <main className="flex min-h-[600px] min-w-0 flex-col bg-bg/50 xl:min-h-0">
         {props.selectedThread ? (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card p-4">
