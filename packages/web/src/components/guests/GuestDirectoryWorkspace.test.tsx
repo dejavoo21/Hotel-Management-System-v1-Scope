@@ -44,4 +44,31 @@ describe('GuestDirectoryWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save guest' }));
     await waitFor(() => expect(mocks.create.mock.calls[0]?.[0]).toMatchObject({ firstName: 'New', email: 'new@example.com' }));
   });
+
+  it('reconciles a stale zero summary with the live directory list', async () => {
+    mocks.summary.mockResolvedValue({ total: 0, vip: 0, inHouse: 0, returning: 0, contactable: 0, needsFollowUp: 0, totalLifetimeSpend: 0, averageSpend: 0, repeatStayRate: 0, recentlyAdded: [] });
+    renderPage();
+    await waitFor(() => expect(screen.getByRole('button', { name: /Guest Profiles/ })).toHaveTextContent('1'));
+    expect(screen.getByRole('button', { name: /VIP Guests/ })).toHaveTextContent('1');
+    expect(screen.getByRole('button', { name: /Returning Guests/ })).toHaveTextContent('1');
+  });
+
+  it('downloads an authorised CSV export through a document-backed link', async () => {
+    const createObjectURL = vi.fn(() => 'blob:guest-export');
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Export Guests' }));
+    await waitFor(() => expect(click).toHaveBeenCalled());
+    expect(createObjectURL).toHaveBeenCalled();
+    expect(mocks.guests).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, limit: 1000 }));
+    click.mockRestore();
+  });
+
+  it('does not mount a second fixed Ask LaFlo launcher', () => {
+    const { container } = renderPage();
+    expect(container.querySelector('button.fixed.bottom-5.right-6')).toBeNull();
+  });
 });

@@ -53,7 +53,23 @@ export default function GuestDirectoryWorkspace() {
   const bookingQuery = useQuery({ queryKey: ['guest-directory-bookings', selectedId], queryFn: () => bookingService.getBookings({ guestId: selectedId, page: 1, limit: 20 }), enabled: Boolean(selectedId), retry: false });
   const bookings = bookingQuery.data?.data || [];
   const currentBooking = bookings.find((booking) => booking.status === 'CHECKED_IN') || bookings[0];
-  const summary = summaryQuery.data;
+  const summary = useMemo(() => {
+    const source = summaryQuery.data;
+    const listedTotal = guestsQuery.data?.pagination.total || guests.length;
+    if (source?.total || !listedTotal) return source;
+    const vip = guests.filter((guest) => guest.vipStatus).length;
+    const inHouse = guests.filter((guest) => guest.bookings?.[0]?.status === 'CHECKED_IN').length;
+    const returning = guests.filter((guest) => guest.totalStays > 1).length;
+    const contactable = guests.filter((guest) => Boolean(guest.email || guest.phone)).length;
+    const needsFollowUp = guests.filter((guest) => Boolean(guest.notes)).length;
+    const totalLifetimeSpend = guests.reduce((total, guest) => total + numberValue(guest.totalSpent), 0);
+    return {
+      total: listedTotal, vip, inHouse, returning, contactable, needsFollowUp, totalLifetimeSpend,
+      averageSpend: listedTotal ? totalLifetimeSpend / listedTotal : 0,
+      repeatStayRate: listedTotal ? Math.round((returning / listedTotal) * 1000) / 10 : 0,
+      recentlyAdded: guests.filter((guest) => guest.createdAt).sort((left, right) => new Date(right.createdAt!).getTime() - new Date(left.createdAt!).getTime()).slice(0, 4).map(({ id, firstName, lastName, createdAt, vipStatus }) => ({ id, firstName, lastName, createdAt: createdAt!, vipStatus })),
+    };
+  }, [guests, guestsQuery.data?.pagination.total, summaryQuery.data]);
   const countries = useMemo(() => [...new Set(guests.map((guest) => guest.country).filter(Boolean) as string[])].sort(), [guests]);
   const money = (value: unknown) => new Intl.NumberFormat('en-ZA', { style: 'currency', currency: user?.hotel?.currency || 'USD', maximumFractionDigits: 2 }).format(numberValue(value));
   const unavailable = (title: string, body: string) => setDialog({ title, body });
@@ -83,7 +99,7 @@ export default function GuestDirectoryWorkspace() {
   const clearFilters = () => { setSearch(''); setQuick('all'); setCountry(''); setStatus(''); setLastStay(''); setShowMore(false); };
   const exportGuests = async () => {
     if (!canExport) return unavailable('Permission required', 'Guest export requires management and financial access.');
-    try { const result = await guestService.getGuests({ ...filters, page: 1, limit: 1000 }); const rows = result.data.map((guest) => [`${guest.firstName} ${guest.lastName}`, guest.email || '', guest.phone || '', guest.country || '', guest.vipStatus ? 'Yes' : 'No', guest.totalStays, numberValue(guest.totalSpent)]); const csv = [['Name','Email','Phone','Country','VIP','Total stays','Lifetime spend'], ...rows].map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(',')).join('\n'); const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); const link = document.createElement('a'); link.href = url; link.download = `laflo-guests-${new Date().toISOString().slice(0,10)}.csv`; link.click(); URL.revokeObjectURL(url); toast.success(`Exported ${rows.length} authorised guest profiles.`); } catch (error: any) { unavailable('Export unavailable', error?.response?.data?.error || 'Guest data could not be exported.'); }
+    try { const result = await guestService.getGuests({ ...filters, page: 1, limit: 1000 }); const rows = result.data.map((guest) => [`${guest.firstName} ${guest.lastName}`, guest.email || '', guest.phone || '', guest.country || '', guest.vipStatus ? 'Yes' : 'No', guest.totalStays, numberValue(guest.totalSpent)]); const csv = [['Name','Email','Phone','Country','VIP','Total stays','Lifetime spend'], ...rows].map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(',')).join('\n'); const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); const link = document.createElement('a'); link.href = url; link.download = `laflo-guests-${new Date().toISOString().slice(0,10)}.csv`; link.hidden = true; document.body.appendChild(link); link.click(); link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000); toast.success(`Exported ${rows.length} authorised guest profiles.`); } catch (error: any) { unavailable('Export unavailable', error?.response?.data?.error || 'Guest data could not be exported.'); }
   };
 
   const quickOptions: Array<{ id: QuickFilter; label: string; value: number; icon: typeof Star }> = [
@@ -105,7 +121,6 @@ export default function GuestDirectoryWorkspace() {
         <section className="theme-card rounded-2xl border p-4"><h2 className="flex items-center gap-2 text-sm font-semibold"><Bot className="h-4 w-4 text-primary-700" />Ask LaFlo Shortcuts</h2><div className="mt-3 space-y-2">{['Show VIP arrivals today','Which guests need follow-up?','Open guest preferences overview','Which guests have open issues?'].map((prompt) => <button key={prompt} onClick={() => ask(prompt)} className="w-full rounded-lg border border-border p-2 text-left text-xs font-semibold hover:bg-bg">{prompt}</button>)}</div></section>
       </aside>
     </div>
-    <button onClick={() => ask('Help me with this guest directory.')} className="fixed bottom-5 right-6 z-30 inline-flex items-center gap-2 rounded-full bg-primary-solid px-5 py-3 text-sm font-semibold text-primary-contrast shadow-xl"><Bot className="h-4 w-4" />Ask LaFlo</button>
     {selectedGuest ? <ProfileDrawer guest={selectedGuest} bookings={bookings} loading={bookingQuery.isLoading} currentBooking={currentBooking} canSeeSpend={canSeeSpend} money={money} close={closeGuest} call={() => callGuest(selectedGuest)} message={() => unavailable('Guest messaging unavailable', 'No guest conversation is linked to this profile. No message was sent.')} email={() => selectedGuest.email ? window.location.assign(`mailto:${selectedGuest.email}`) : unavailable('Email unavailable','This guest has no email address.')} note={() => openNote(selectedGuest)} task={() => openTask(selectedGuest)} edit={() => openEdit(selectedGuest)} ask={() => ask(`Summarise ${selectedGuest.firstName} ${selectedGuest.lastName}'s stay history.`, selectedGuest)} navigate={navigate} unavailable={unavailable} /> : null}
     {(modal === 'add' || modal === 'edit') ? <GuestFormModal mode={modal} form={form} setForm={setForm} submit={submitGuest} close={() => setModal(null)} pending={createGuest.isPending || updateGuest.isPending} /> : null}
     {modal === 'note' && selectedGuest ? <SimpleModal title={`Add note for ${selectedGuest.firstName}`} onClose={() => setModal(null)}><textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Guest preference or follow-up note" className="input min-h-28" /><button onClick={() => { if (!note.trim()) return toast.error('Enter a note first.'); updateGuest.mutate({ id: selectedGuest.id, payload: { notes: [selectedGuest.notes, `[${new Date().toLocaleString()} · ${user?.firstName || 'Staff'}] ${note.trim()}`].filter(Boolean).join('\n') } }); }} disabled={updateGuest.isPending} className="mt-3 w-full rounded-lg bg-primary-solid py-2 text-xs font-semibold text-primary-contrast">{updateGuest.isPending ? 'Saving…' : 'Save note'}</button></SimpleModal> : null}

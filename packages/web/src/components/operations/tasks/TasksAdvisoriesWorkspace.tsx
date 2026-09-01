@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -1222,7 +1222,21 @@ export default function TasksAdvisoriesWorkspace({
     if (!state && !priority && !department && !source && params.get("unassigned") !== "true") return;
     setRequest((current) => ({ state, priority, department, source, unassigned: params.get("unassigned") === "true", key: current.key + 1 }));
   }, [location.search]);
-  const handoff = location.state as SearchTaskHandoff | undefined;
+  const handoff = useMemo<SearchTaskHandoff | undefined>(() => {
+    const stateHandoff = location.state as SearchTaskHandoff | undefined;
+    if (stateHandoff?.sourceSearchResult) return stateHandoff;
+    if (new URLSearchParams(location.search).get("create") !== "1") return undefined;
+    return {
+      requestedAction: "create",
+      sourceSearchResult: {
+        id: "operations-center-manual-task",
+        title: "New operational task",
+        summary: "Create and assign a hotel operations task from the Operations Workspace.",
+        category: "OPERATIONS",
+        sourceModule: "OPERATIONS_CENTER",
+      },
+    };
+  }, [location.search, location.state]);
   const consumeHandoff = useCallback(() => {
     navigate(location.pathname, { replace: true, state: null });
   }, [location.pathname, navigate]);

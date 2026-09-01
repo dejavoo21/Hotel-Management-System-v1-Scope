@@ -273,14 +273,14 @@ describe("Guest Experience Center", () => {
     window.addEventListener(OPEN_LAFLO_ASSISTANT_EVENT, listener);
     renderPage("/messages?tab=tickets");
     expect(await screen.findByText("Late room readiness")).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Filter ticket priority"), {
+    fireEvent.change(screen.getByLabelText("Filter conversation priority"), {
       target: { value: "LOW" },
     });
     expect(
-      screen.getByText("No tickets match the current filters."),
+      screen.getByText("No conversations match the current search and filter."),
     ).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Filter ticket priority"), {
-      target: { value: "HIGH" },
+    fireEvent.change(screen.getByLabelText("Filter conversation priority"), {
+      target: { value: "high" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Create task" }));
     const dialog = screen.getByRole("dialog", {
@@ -314,16 +314,16 @@ describe("Guest Experience Center", () => {
     window.removeEventListener(OPEN_LAFLO_ASSISTANT_EVENT, listener);
   });
 
-  it("opens ticket details in the linked conversation workspace", async () => {
+  it("keeps ticket handling inside the linked three-column conversation workspace", async () => {
     renderPage("/messages?tab=tickets");
     await screen.findByText("Late room readiness");
-    fireEvent.click(screen.getByRole("button", { name: "View details" }));
     expect(screen.getByTestId("location")).toHaveTextContent(
-      "/messages?tab=conversations&thread=thread-1&ticket=ticket-1",
+      "/messages?tab=tickets",
     );
     expect(
       await screen.findByPlaceholderText("Type a guest reply"),
     ).toBeInTheDocument();
+    expect(screen.getByText("Guest Details")).toBeInTheDocument();
   });
 
   it("filters by priority, prepares the recommended response, and opens Guest Calls with guest context", async () => {

@@ -108,6 +108,8 @@ export default function OperationsCenterPage() {
   const focus = getFocusFromPath(location.pathname);
   const isOverview = focus === "overview";
   const meta = focusMeta[focus];
+  const [lastManualRefreshAt, setLastManualRefreshAt] = useState<Date | null>(null);
+  const [refreshFeedback, setRefreshFeedback] = useState<{ tone: "success" | "warning" | "error"; message: string } | null>(null);
   const operationsQuery = useQuery({
     queryKey: ["operationsContext", hotelId],
     queryFn: () => operationsService.getOperationsContext(hotelId),
@@ -135,29 +137,32 @@ export default function OperationsCenterPage() {
         partial: [operationsResult, briefingResult].some((result) => Boolean(result?.error)),
       };
     },
+    onMutate: () => setRefreshFeedback(null),
     onSuccess: ({ weather, partial }) => {
+      setLastManualRefreshAt(new Date());
+      setRefreshFeedback({ tone: partial ? "warning" : "success", message: partial ? "Forecast refreshed; some connected services reported an issue." : `Forecast refreshed successfully (${weather.daysStored} days stored).` });
       toast.success(
         partial
           ? "Forecast refreshed. Some services are not connected."
           : `Forecast refreshed (${weather.daysStored} days stored)`,
       );
     },
-    onError: (error) =>
-      toast.error(
-        (error as any)?.response?.data?.error ||
-          (error as Error)?.message ||
-          "Failed to refresh forecast",
-      ),
+    onError: (error) => {
+      const message = (error as any)?.response?.data?.error || (error as Error)?.message || "Failed to refresh forecast";
+      setRefreshFeedback({ tone: "error", message });
+      toast.error(message);
+    },
   });
-  const updatedAt = operationsQuery.data?.generatedAtUtc
+  const updatedAt = lastManualRefreshAt || (operationsQuery.data?.generatedAtUtc
     ? new Date(operationsQuery.data.generatedAtUtc)
-    : null;
+    : null);
 
   const canRefreshForecast =
     user?.role === "ADMIN" ||
     user?.role === "MANAGER" ||
     (user?.modulePermissions || []).includes("bookings");
   const refreshButton = (
+    <div className="flex flex-col items-end gap-1">
     <button
       type="button"
       onClick={() => refreshWeatherMutation.mutate()}
@@ -174,6 +179,10 @@ export default function OperationsCenterPage() {
       />
       {refreshWeatherMutation.isPending ? "Refreshing…" : "Refresh forecast"}
     </button>
+    <span role="status" aria-live="polite" className={`max-w-72 text-right text-[10px] ${refreshFeedback?.tone === "error" ? "text-rose-700" : refreshFeedback?.tone === "warning" ? "text-amber-700" : "text-emerald-700"}`}>
+      {refreshWeatherMutation.isPending ? "Refreshing connected forecast and operations data…" : refreshFeedback?.message || ""}
+    </span>
+    </div>
   );
   const header = isOverview ? (
     <CommandHeader

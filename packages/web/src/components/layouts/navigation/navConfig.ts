@@ -52,6 +52,7 @@ export const navSections: NavSection[] = [
       { id: 'security-center', label: 'Security Center', href: '/security-center', permission: 'security_center', icon: 'admin' },
       { id: 'incident-center', label: 'Incident Center', href: '/incidents?tab=overview', permission: 'incident_management', icon: 'admin' },
       { id: 'smart-building', label: 'Smart Building', href: '/operations/smart-building?tab=overview', permission: 'smart_building', icon: 'building' },
+      { id: 'ai-recommendations', label: 'AI Recommendations', href: '/operations/ai-governance', permission: 'bookings', icon: 'sparkles' },
       { id: 'hotel-insights', label: 'Hotel Insights', href: '/hotel-insights', permission: 'bookings', icon: 'sparkles' },
       { id: 'enterprise-search', label: 'Enterprise Search', href: '/operations/enterprise-search', permission: 'bookings', icon: 'search' },
     ],

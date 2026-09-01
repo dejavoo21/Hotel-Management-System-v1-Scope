@@ -306,6 +306,20 @@ describe("OperationsCenterPage", () => {
     expect(screen.getByLabelText("Activity module")).toHaveValue("ALL");
   });
 
+  it("shows a durable refresh outcome and updates the visible timestamp", async () => {
+    renderPage();
+    await screen.findByRole("heading", { name: "Operations Workspace" });
+    fireEvent.click(screen.getByRole("button", { name: "Refresh forecast" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Forecast refreshed successfully"));
+    expect(serviceMocks.syncWeather).toHaveBeenCalledWith("hotel-1");
+  });
+
+  it("opens a prefilled task form from the Operations Workspace create route", async () => {
+    renderPage("/operations/tasks-advisories?create=1");
+    const dialog = await screen.findByRole("dialog", { name: "Create task from advisory" });
+    expect(within(dialog).getByDisplayValue("New operational task")).toBeInTheDocument();
+  });
+
   it("replaces duplicate chat with an operational briefing while preserving governance and intelligence", async () => {
     const openAssistant = vi.fn();
     const governanceFilter = vi.fn();

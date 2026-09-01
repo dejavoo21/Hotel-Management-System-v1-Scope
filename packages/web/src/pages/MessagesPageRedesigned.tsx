@@ -323,13 +323,13 @@ export default function MessagesPageRedesigned() {
   const selectThread = (id: string) => {
     setSelectedThreadId(id);
     setSelectedTicketId(null);
-    setParams({ tab: "conversations", thread: id });
+    setParams({ tab: activeTab === "tickets" ? "tickets" : "conversations", thread: id });
   };
   const selectTicket = (ticket: Ticket) => {
     setSelectedTicketId(ticket.id);
     setSelectedThreadId(ticket.conversationId);
     setParams({
-      tab: "conversations",
+      tab: "tickets",
       thread: ticket.conversationId,
       ticket: ticket.id,
     });
@@ -580,7 +580,7 @@ export default function MessagesPageRedesigned() {
   return (
     <div className="min-w-0 space-y-5 p-4 sm:p-6 lg:p-8">
       <header
-        className={`flex flex-wrap items-start justify-between gap-4 ${activeTab === "conversations" ? "xl:hidden" : ""}`}
+        className={`flex flex-wrap items-start justify-between gap-4 ${activeTab === "conversations" || activeTab === "tickets" ? "xl:hidden" : ""}`}
       >
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">
@@ -619,7 +619,7 @@ export default function MessagesPageRedesigned() {
       <nav
         role="tablist"
         aria-label="Guest Experience Center sections"
-        className={`flex gap-1 overflow-x-auto rounded-2xl border border-border bg-card p-1.5 shadow-sm ${activeTab === "conversations" ? "xl:hidden" : ""}`}
+        className={`flex gap-1 overflow-x-auto rounded-2xl border border-border bg-card p-1.5 shadow-sm ${activeTab === "conversations" || activeTab === "tickets" ? "xl:hidden" : ""}`}
       >
         {TABS.map((tab) => (
           <button
@@ -663,7 +663,7 @@ export default function MessagesPageRedesigned() {
           onAsk={askLaflo}
         />
       ) : null}
-      {!pageError && activeTab === "conversations" ? (
+      {!pageError && (activeTab === "conversations" || activeTab === "tickets") ? (
         <div className="xl:-mx-8 xl:-my-8 xl:grid xl:grid-cols-[172px_minmax(0,1fr)] xl:gap-4">
           <GuestExperienceRail
             openCount={threads.filter((item) => item.status === "OPEN").length}
@@ -688,6 +688,7 @@ export default function MessagesPageRedesigned() {
               setPriorityFilter(value);
             }}
             onSettings={() => navigate("/settings?tab=integrations")}
+            activeWorkspace={activeTab}
           />
           <div className="min-w-0 space-y-3 xl:py-4 xl:pr-4">
             <SupportIntelligenceStrip
@@ -715,7 +716,7 @@ export default function MessagesPageRedesigned() {
               onOpenEscalations={() => selectTab("escalations")}
             />
             <ConversationWorkspace
-            threads={filteredThreads}
+            threads={activeTab === "tickets" ? filteredThreads.filter((thread) => ticketsByConversation.has(thread.id)) : filteredThreads}
             ticketsByConversation={ticketsByConversation}
             selectedThreadId={selectedThreadId}
             selectedThread={selectedThreadSummary}
@@ -775,30 +776,6 @@ export default function MessagesPageRedesigned() {
             />
           </div>
         </div>
-      ) : null}
-      {!pageError && activeTab === "tickets" ? (
-        <TicketTable
-          title="Tickets"
-          detail="Tickets created from guest conversations and operational requests."
-          tickets={tickets}
-          canManage={canManage}
-          canCreateTask={canCreateTask}
-          onOpen={selectTicket}
-          onAssign={(ticket) => {
-            if (!canManage || !user?.id)
-              return toast.error("Permission required to assign tickets.");
-            assignMutation.mutate({
-              threadId: ticket.conversationId,
-              userId: user.id,
-              ticketId: ticket.id,
-            });
-          }}
-          onAction={runTicketAction}
-          onCreateTask={makeTaskDraft}
-          onAsk={(ticket) =>
-            askLaflo("Ask LaFlo about this ticket.", { selectedTicket: ticket })
-          }
-        />
       ) : null}
       {!pageError && activeTab === "escalations" ? (
         <TicketTable
@@ -1008,6 +985,7 @@ function GuestExperienceRail({
   onSearch,
   onPriority,
   onSettings,
+  activeWorkspace,
 }: {
   openCount: number;
   ticketCount: number;
@@ -1022,12 +1000,13 @@ function GuestExperienceRail({
   onSearch: (value: string) => void;
   onPriority: (value: PriorityFilter) => void;
   onSettings: () => void;
+  activeWorkspace: "conversations" | "tickets";
 }) {
   const primary = [
     { label: "Activity", icon: Activity, action: onOverview },
-    { label: "Chat", icon: MessageSquareText, action: onConversations, active: true },
+    { label: "Chat", icon: MessageSquareText, action: onConversations, active: activeWorkspace === "conversations" },
     { label: "Calls", icon: Phone, action: onCalls },
-    { label: "Tickets", icon: TicketCheck, action: onTickets },
+    { label: "Tickets", icon: TicketCheck, action: onTickets, active: activeWorkspace === "tickets" },
     {
       label: "Files",
       icon: FileText,

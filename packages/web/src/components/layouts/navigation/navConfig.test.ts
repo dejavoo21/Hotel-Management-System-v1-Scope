@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { navSections } from './navConfig';
 
 describe('Operations navigation terminology', () => {
-  it('contains only the eight consolidated Operations workspaces', () => {
+  it('contains only the nine consolidated Operations workspaces', () => {
     const operations = navSections.find((section) => section.id === 'operations');
 
     expect(operations?.items?.map((item) => item.label)).toEqual([
@@ -12,6 +12,7 @@ describe('Operations navigation terminology', () => {
       'Security Center',
       'Incident Center',
       'Smart Building',
+      'AI Recommendations',
       'Hotel Insights',
       'Enterprise Search',
     ]);
@@ -20,7 +21,7 @@ describe('Operations navigation terminology', () => {
     );
   });
 
-  it('consolidates recommendations and hotel information under Hotel Insights', () => {
+  it('keeps recommendations and hotel information as distinct major workspaces', () => {
     const operations = navSections.find((section) => section.id === 'operations');
     const insightsWorkspace = operations?.items?.find((item) => item.id === 'hotel-insights');
 
@@ -28,7 +29,10 @@ describe('Operations navigation terminology', () => {
       label: 'Hotel Insights',
       href: '/hotel-insights',
     });
-    expect(operations?.items?.some((item) => item.label === 'AI Recommendations')).toBe(false);
+    expect(operations?.items?.find((item) => item.id === 'ai-recommendations')).toMatchObject({
+      label: 'AI Recommendations',
+      href: '/operations/ai-governance',
+    });
     expect(operations?.items?.some((item) => item.label === 'AI Governance')).toBe(false);
     expect(operations?.items?.some((item) => item.label === 'Hotel Brain Console')).toBe(false);
   });
