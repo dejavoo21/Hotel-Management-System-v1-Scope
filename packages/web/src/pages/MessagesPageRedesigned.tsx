@@ -1347,8 +1347,8 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
     ? props.ticketsByConversation.get(props.selectedThreadId)
     : null;
   return (
-    <section className="grid min-h-[680px] min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:grid-cols-[300px_minmax(360px,1fr)] xl:h-[570px] xl:min-h-0 xl:grid-cols-[310px_minmax(420px,1fr)_330px]">
-      <aside className="flex min-h-0 flex-col border-b border-border lg:border-b-0 lg:border-r">
+    <section className="grid min-h-[680px] min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:grid-cols-[300px_minmax(360px,1fr)] xl:h-[570px] xl:min-h-0 xl:grid-cols-[310px_minmax(420px,1fr)_330px] xl:grid-rows-[minmax(0,1fr)]">
+      <aside className="flex min-h-0 flex-col overflow-hidden border-b border-border lg:border-b-0 lg:border-r">
         <div className="space-y-3 border-b border-border p-3">
           <label className="relative block">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
@@ -1441,7 +1441,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
           ) : null}
         </div>
       </aside>
-      <main className="flex min-h-[600px] min-w-0 flex-col bg-bg/50 xl:min-h-0">
+      <main className="flex min-h-[600px] min-w-0 flex-col bg-bg/50 xl:h-full xl:min-h-0 xl:overflow-hidden">
         {props.selectedThread ? (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card p-4">
@@ -1689,7 +1689,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
           </div>
         )}
       </main>
-      <aside className="hidden min-w-0 border-l border-border bg-card xl:block">
+      <aside className="hidden min-h-0 min-w-0 overflow-hidden border-l border-border bg-card xl:block">
         <div className="grid grid-cols-2 border-b border-border px-3 pt-2">
           {[
             ["guest", "Guest Details"],
@@ -1706,7 +1706,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
           ))}
         </div>
         {props.selectedThread ? (
-          <div className="max-h-[680px] space-y-3 overflow-y-auto p-3 text-sm">
+          <div className="h-[calc(100%-49px)] space-y-3 overflow-y-auto p-3 text-sm">
             {contextTab === "guest" ? (
               <>
                 <section className="rounded-xl border border-border p-3">
