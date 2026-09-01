@@ -97,14 +97,14 @@ export interface GuestJourneyTimeline {
 }
 
 export const guestService = {
-  async getGuests(filters?: GuestFilters): Promise<PaginatedResponse<Guest>> {
+  async getGuests(filters?: GuestFilters): Promise<PaginatedResponse<Guest> & { data: Guest[] }> {
     const response = await api.get('/guests', {
       params: {
         ...filters,
         _ts: Date.now(),
       },
     });
-    return response.data;
+    return response.data as PaginatedResponse<Guest> & { data: Guest[] };
   },
 
   async getGuest(id: string): Promise<Guest> {

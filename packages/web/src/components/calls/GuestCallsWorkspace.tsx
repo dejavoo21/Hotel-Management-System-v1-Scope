@@ -43,9 +43,9 @@ export default function GuestCallsWorkspace() {
   const voice = useQuery({ queryKey: ['calling-provider-status'], queryFn: messageService.getSupportVoiceToken, retry: false });
   const agents = useQuery({ queryKey: ['support-agents'], queryFn: messageService.listSupportAgents, retry: false });
   const guestsQuery = useQuery({ queryKey: ['call-contacts'], queryFn: () => guestService.getGuests({ page: 1, limit: 100 }), retry: false });
-  const selectedGuest = useMemo(() => guestsQuery.data?.data.find((guest) => guest.id === selectedId) || null, [guestsQuery.data, selectedId]);
+  const selectedGuest = useMemo(() => guestsQuery.data?.data?.find((guest) => guest.id === selectedId) || null, [guestsQuery.data, selectedId]);
   const bookings = useQuery({ queryKey: ['call-guest-bookings', selectedId], queryFn: () => bookingService.getBookings({ guestId: selectedId, page: 1, limit: 5 }), enabled: Boolean(selectedId), retry: false });
-  const activeBooking = bookings.data?.data.find((booking) => booking.status === 'CHECKED_IN') || bookings.data?.data[0];
+  const activeBooking = bookings.data?.data?.find((booking) => booking.status === 'CHECKED_IN') || bookings.data?.data?.[0];
   const providerConnected = Boolean(voice.data?.enabled);
   const providerLabel = voice.isLoading ? 'Checking…' : providerConnected ? 'Connected' : 'Disconnected';
 
@@ -86,7 +86,8 @@ export default function GuestCallsWorkspace() {
     try {
       const result = await messageService.startSupportPhoneCall({ to: number });
       const contact = guest || selectedGuest;
-      setRecents((current) => [{ id: result.sid, number, name: contact ? `${contact.firstName} ${contact.lastName}` : number, guestId: contact?.id, type: contact ? 'guest' : 'external', direction: 'outgoing', status: result.status, createdAt: new Date().toISOString() }, ...current].slice(0, 50));
+      const recent: RecentCall = { id: result.sid, number, name: contact ? `${contact.firstName} ${contact.lastName}` : number, guestId: contact?.id, type: contact ? 'guest' : 'external', direction: 'outgoing', status: result.status, createdAt: new Date().toISOString() };
+      setRecents((current) => [recent, ...current].slice(0, 50));
       toast.success(`Outbound call ${result.status.toLowerCase()}.`);
     } catch (error: any) {
       openUnavailable('Call could not be started', error?.response?.data?.error || 'The calling provider returned an error. No successful call was recorded.');
