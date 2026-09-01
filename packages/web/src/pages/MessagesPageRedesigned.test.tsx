@@ -209,6 +209,32 @@ describe("Guest Experience Center", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps operational and assistant-generated threads out of the guest conversation workspace", async () => {
+    mocks.threads.mockResolvedValue([
+      thread,
+      {
+        ...thread,
+        id: "operations-thread",
+        subject: "Review active alerts and access anomalies",
+        guest: undefined,
+        booking: undefined,
+        lastMessage: {
+          ...thread.lastMessage,
+          id: "operations-message",
+          body: "Prioritize forced door events and camera coverage gaps.",
+          senderType: "SYSTEM",
+        },
+      },
+    ]);
+
+    renderPage("/messages?tab=conversations");
+
+    expect(await screen.findByText("Amina Patel")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Review active alerts and access anomalies"),
+    ).not.toBeInTheDocument();
+  });
+
   it("filters and selects conversations, sends a real reply, and assigns an owner", async () => {
     renderPage("/messages?tab=conversations");
     expect(

@@ -82,6 +82,16 @@ const REQUEST_CATEGORIES = new Set([
   "BILLING",
   "COMPLAINT",
 ]);
+const isGuestExperienceThread = (
+  thread: MessageThreadSummary,
+  ticket?: Ticket,
+) =>
+  Boolean(
+    thread.guest ||
+      thread.booking ||
+      /^Live Support\b/i.test(thread.subject) ||
+      (ticket && REQUEST_CATEGORIES.has(ticket.category)),
+  );
 const VIP_PATTERN = /\bvip\b/i;
 const terminalTicket = (ticket: Ticket) =>
   ticket.status === "RESOLVED" || ticket.status === "CLOSED";
@@ -164,7 +174,10 @@ export default function MessagesPageRedesigned() {
     queryFn: messageService.listSupportAgents,
     retry: false,
   });
-  const threads = useMemo(() => threadsQuery.data || [], [threadsQuery.data]);
+  const allThreads = useMemo(
+    () => threadsQuery.data || [],
+    [threadsQuery.data],
+  );
   const tickets = useMemo(
     () => ticketsQuery.data?.tickets || [],
     [ticketsQuery.data],
@@ -172,6 +185,16 @@ export default function MessagesPageRedesigned() {
   const ticketsByConversation = useMemo(
     () => new Map(tickets.map((ticket) => [ticket.conversationId, ticket])),
     [tickets],
+  );
+  const threads = useMemo(
+    () =>
+      allThreads.filter((thread) =>
+        isGuestExperienceThread(
+          thread,
+          ticketsByConversation.get(thread.id),
+        ),
+      ),
+    [allThreads, ticketsByConversation],
   );
 
   useEffect(() => {
