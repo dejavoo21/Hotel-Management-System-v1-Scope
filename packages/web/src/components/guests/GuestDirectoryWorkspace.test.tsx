@@ -53,6 +53,16 @@ describe('GuestDirectoryWorkspace', () => {
     expect(screen.getByRole('button', { name: /Returning Guests/ })).toHaveTextContent('1');
   });
 
+  it('uses live booking summaries when the guest list omits stay history', async () => {
+    mocks.bookings.mockImplementation((filters?: { guestId?: string }) => Promise.resolve({
+      data: filters?.guestId ? [] : [{ id: 'b1', bookingRef: 'BK100', status: 'CONFIRMED', checkInDate: '2026-03-05', checkOutDate: '2026-03-10', guest, room: { number: '1205' } }],
+      pagination: { page: 1, limit: 100, total: filters?.guestId ? 0 : 1, totalPages: 1, hasMore: false },
+    }));
+    renderPage();
+    expect(await screen.findByText('Room 1205', {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByText(/Last stay/)).toBeInTheDocument();
+  });
+
   it('downloads an authorised CSV export through a document-backed link', async () => {
     const createObjectURL = vi.fn(() => 'blob:guest-export');
     const revokeObjectURL = vi.fn();
