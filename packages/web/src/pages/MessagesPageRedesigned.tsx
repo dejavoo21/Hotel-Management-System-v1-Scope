@@ -220,8 +220,12 @@ export default function MessagesPageRedesigned() {
     refetchInterval: 8_000,
   });
   useEffect(() => {
-    if (typeof messageEndRef.current?.scrollIntoView === "function")
-      messageEndRef.current.scrollIntoView({ behavior: "smooth" });
+    const messageViewport = messageEndRef.current?.parentElement;
+    if (messageViewport && typeof messageViewport.scrollTo === "function")
+      messageViewport.scrollTo({
+        top: messageViewport.scrollHeight,
+        behavior: "smooth",
+      });
   }, [threadQuery.data?.messages.length]);
 
   const filteredThreads = useMemo(() => {
