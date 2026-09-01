@@ -83,6 +83,60 @@
 
 ---
 
+# Phase B Guest Experience Center — live production design QA
+
+**Source visual truth**
+- `C:\Users\walea\Downloads\ChatGPT Image Sep 1, 2026, 10_24_28 AM (2).png`
+- Approved desktop support-workspace reference supplied in the conversation.
+
+**Implementation screenshot**
+- `deliverables/phase-b-live-91fe3fd5.png`
+- Live URL: `https://laflo-web-production.up.railway.app/messages?tab=conversations`
+
+**Viewport and state**
+- Reference: 1679 × 942 pixels.
+- Live implementation: 1679 × 942 CSS viewport.
+- Authenticated production administrator, Conversations selected, real guest and live-support records loaded, global Ask LaFlo closed.
+
+## Full-view comparison evidence
+
+- The live page preserves the approved three-column support hierarchy: searchable conversation queue, active thread/action workspace, and guest/ticket context rail.
+- The LaFlo shell, pale mint workspace, white bordered cards, green operational accents, compact status badges, dense interaction layout, and floating Ask LaFlo entry point match the reference visual language.
+- The approved reference's second dark support rail is intentionally not reproduced. Phase B requires a native LaFlo Guest Experience Center and the platform already supplies the slim global icon rail; adding another permanent rail would recreate the disconnected support-product feel the user asked to remove.
+- The production capture has no horizontal overflow or clipped primary controls at the target desktop viewport.
+
+## Focused interaction evidence
+
+- All six page tabs update both selected content and the canonical `?tab=` route.
+- Conversation search and priority/status filters produce real filtered and no-results states.
+- Refresh reloads live data, advances the visible update timestamp, and reports success.
+- Guest selection updates the active conversation and guest/stay context.
+- Guest Calls opens with the selected guest phone number and source thread in the route context.
+- Ask LaFlo opens the shared assistant with Guest Experience Center page context; there is no duplicate chat assistant.
+- Recommended response fills the composer, while the disconnected compensation workflow reports an explicit billing-unavailable state.
+- Operations, pricing, and assistant-generated system threads were found in the initial live queue and removed from the Guest Experience workspace in commit `91fe3fd5`.
+
+## Findings and iteration history
+
+- Initial [P1]: operational advisories and assistant/system threads polluted the guest conversation queue.
+  - Fix: restrict visible Guest Experience threads to guest-linked, booking-linked, authorised guest-request-ticket, and live-support conversations.
+  - Regression coverage: added a test proving an Operations advisory thread is excluded while a guest thread remains visible.
+  - Post-fix live evidence: Sarah Johnson, John Smith, Michael Chen, and live-support records remain; `Review active alerts and access anomalies` is absent.
+- [P3]: the approved image's dark support rail was not copied. This is an intentional product-integration difference required by the Phase B brief, not a fidelity defect.
+- No actionable P0, P1, or P2 visual, responsive, interaction, or runtime findings remain.
+
+## Validation
+
+- Railway deployment `cf59a041-17fa-414d-b41c-0190d3ef7f9a`: SUCCESS.
+- Focused Guest Experience suite: 7 tests passed.
+- `npm run check`: passed, including API TypeScript and frontend production build.
+- Live console errors/warnings: 0.
+- Railway HTTP 4xx/5xx during the final verification window: 0.
+
+**final result: passed**
+
+---
+
 # Market Intelligence redesign — design QA
 
 **Source visual truth**
