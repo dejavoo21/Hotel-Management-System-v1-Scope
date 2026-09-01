@@ -484,3 +484,40 @@
 - No actionable P0/P1/P2 visual, interaction, responsive, security, or runtime findings remain.
 
 **final result: passed**
+
+---
+
+# Approved Operations and Guest Experience workspace targets — design QA
+
+**Source visual truth**
+- `C:\Users\walea\Downloads\APPROVED_Operations_Workspace_Target.png.png`
+- `C:\Users\walea\Downloads\APPROVED_Guest_Experience_Center_Target.png.png`
+- `C:\Users\walea\Downloads\APPROVED_Guest_Calls_Target.png.png`
+- `C:\Users\walea\Downloads\APPROVED_Guest_Directory_Target.png.png`
+
+**Implementation evidence**
+- Authenticated Railway production at `https://laflo-web-production.up.railway.app`
+- 1679 × 942 desktop viewport
+- Build `614be38e` on `agent/auth-dashboard-stabilization`
+- Each source and matching production capture were inspected together in the same comparison pass.
+
+## Findings
+
+- Operations Workspace matches the approved KPI strip, three-column operations row, intelligence row, activity/action row, page tabs, icon rail, and Ask LaFlo placement. Missing PMS and revenue connections are presented as explicit unavailable/disconnected states.
+- Guest Experience Center matches the approved page-local dark tool rail, intelligence strip, conversation list, active thread, guest context, task and insight panels, filters, and Ask LaFlo entry points. The message viewport scrolls independently and incomplete booking context is identified as not linked.
+- Guest Calls matches the approved local navigation column, KPI strip, dial pad, quick-call panel, recent-call area, guest context, call notes, and Ask LaFlo action. Unconnected extensions and empty call history use honest unavailable/empty states.
+- Guest Directory matches the approved five-card summary, search and filters, guest table, right insight rail, pagination, row actions, and Ask LaFlo shortcuts. Missing stay and spend data is not fabricated.
+- Production-only Export Guests is retained as a functional action without disrupting the approved hierarchy.
+
+## Validation
+
+- Canonical workspace tabs navigate correctly.
+- Conversation and guest filters update results or show a clear empty state.
+- Dial-pad and guest/call context controls are stateful; unavailable provider actions are explicit.
+- Ask LaFlo is present with page or record context on all four workspaces.
+- Authenticated production pass recorded zero browser console errors or warnings.
+- API TypeScript check and frontend TypeScript/Vite build passed.
+- P0: 0; P1: 0; P2: 0. Production-data differences are non-blocking.
+
+**final result: passed**
+
