@@ -133,6 +133,8 @@ describe("Guest Experience Center", () => {
     useAuthStore.setState({
       user: {
         id: "admin-1",
+        firstName: "Onboarding",
+        lastName: "User",
         email: "admin@laflo.test",
         role: "ADMIN",
         hotelId: "hotel-1",
@@ -265,6 +267,64 @@ describe("Guest Experience Center", () => {
     expect(
       screen.queryByText("Review active alerts and access anomalies"),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows each staff member's profile avatar and a connected issue timeline", async () => {
+    mocks.thread.mockResolvedValue({
+      ...thread,
+      messages: [
+        {
+          id: "message-admin",
+          body: "I am reviewing this now.",
+          senderType: "STAFF",
+          senderUser: {
+            id: "admin-1",
+            firstName: "Onboarding",
+            lastName: "User",
+            role: "ADMIN",
+          },
+          createdAt: "2026-09-01T08:05:00Z",
+        },
+        {
+          id: "message-agent",
+          body: "I will follow up with housekeeping.",
+          senderType: "STAFF",
+          senderUser: {
+            id: "agent-1",
+            firstName: "Maya",
+            lastName: "Singh",
+            role: "MANAGER",
+          },
+          createdAt: "2026-09-01T08:06:00Z",
+        },
+      ],
+    });
+
+    renderPage("/messages?tab=conversations");
+
+    expect(await screen.findByText("I am reviewing this now.")).toBeInTheDocument();
+    expect(screen.getByTitle("Onboarding User")).toHaveAttribute(
+      "data-avatar-user-id",
+      "admin-1",
+    );
+    expect(
+      await screen.findByRole("img", { name: "Onboarding User profile" }),
+    ).toHaveAttribute("data-avatar-user-id", "admin-1");
+    expect(screen.getByRole("img", { name: "Maya Singh profile" })).toHaveAttribute(
+      "data-avatar-user-id",
+      "agent-1",
+    );
+    expect(
+      screen.getByRole("article", { name: "Onboarding User message" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("article", { name: "Maya Singh message" }),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("list", { name: "Issue timeline" })).getAllByRole(
+        "listitem",
+      ),
+    ).toHaveLength(3);
   });
 
   it("filters and selects conversations, sends a real reply, and assigns an owner", async () => {

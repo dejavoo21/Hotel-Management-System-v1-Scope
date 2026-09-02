@@ -54,6 +54,7 @@ import type {
   MessageThreadDetail,
   MessageThreadSummary,
   SupportAgent,
+  User,
 } from "@/types";
 
 type WorkspaceTab =
@@ -107,6 +108,26 @@ const storedPaneWidth = (
   } catch {
     return fallback;
   }
+};
+
+const storedUserAvatar = (userId?: string | null) => {
+  if (!userId || typeof window === "undefined") return null;
+  try {
+    return (
+      window.localStorage.getItem(`laflo-user-avatar:${userId}`) ||
+      window.localStorage.getItem(`laflo-profile-avatar:${userId}`)
+    );
+  } catch {
+    return null;
+  }
+};
+
+const messageSenderName = (message: ConversationMessage) => {
+  if (message.senderType === "SYSTEM") return "System note";
+  if (message.senderType === "GUEST") return "Guest";
+  return message.senderUser
+    ? `${message.senderUser.firstName} ${message.senderUser.lastName}`.trim()
+    : "Staff";
 };
 
 const TABS: Array<{ id: WorkspaceTab; label: string }> = [
@@ -887,6 +908,7 @@ export default function MessagesPageRedesigned() {
             priorityFilter={priorityFilter}
             draft={draft}
             agents={agentsQuery.data || []}
+            currentUser={user}
             canMessage={canMessage}
             canManage={canManage}
             canCreateTask={canCreateTask}
@@ -1472,6 +1494,7 @@ type ConversationWorkspaceProps = {
   priorityFilter: PriorityFilter;
   draft: string;
   agents: SupportAgent[];
+  currentUser: User | null;
   canMessage: boolean;
   canManage: boolean;
   canCreateTask: boolean;
@@ -1783,7 +1806,12 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                 <p className="text-sm text-text-muted">Loading conversation…</p>
               ) : (
                 props.detail?.messages.map((message) => (
-                  <MessageBubble key={message.id} message={message} />
+                  <MessageBubble
+                    key={message.id}
+                    message={message}
+                    agents={props.agents}
+                    currentUser={props.currentUser}
+                  />
                 ))
               )}
               {!props.detailLoading && !props.detail?.messages.length ? (
@@ -2050,7 +2078,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                 </section>
                 <section className="guest-context-timeline rounded-xl border border-border p-3">
                   <h3 className="text-xs font-semibold text-text-main">Issue timeline</h3>
-                  <div className="mt-3 space-y-3 text-xs">
+                  <div className="mt-3 space-y-3 text-xs" role="list" aria-label="Issue timeline">
                     <TimelineItem icon={MessageSquareText} title="Issue reported" detail={timestamp(props.selectedThread.lastMessageAt)} />
                     <TimelineItem icon={UserRoundCheck} title="Owner status" detail={ticket?.assignedTo ? "Owner assigned" : "Awaiting owner"} />
                     <TimelineItem icon={Clock3} title="SLA status" detail={ticket && (ticket.status === "BREACHED" || isOverdue(ticket)) ? "Needs immediate attention" : "Within available target"} />
@@ -2127,7 +2155,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                   <h3 className="text-xs font-semibold text-text-main">
                     Issue timeline
                   </h3>
-                  <div className="mt-3 space-y-3 text-xs">
+                  <div className="mt-3 space-y-3 text-xs" role="list" aria-label="Issue timeline">
                     <TimelineItem icon={MessageSquareText} title="Issue reported" detail={timestamp(props.selectedThread.lastMessageAt)} />
                     <TimelineItem icon={UserRoundCheck} title="Owner status" detail={ticket?.assignedTo ? "Owner assigned" : "Awaiting owner"} />
                     <TimelineItem icon={Clock3} title="SLA status" detail={ticket && (ticket.status === "BREACHED" || isOverdue(ticket)) ? "Needs immediate attention" : "Within available target"} />
@@ -2205,7 +2233,7 @@ function TimelineItem({
   detail: string;
 }) {
   return (
-    <div className="guest-timeline-item flex gap-2">
+    <div className="guest-timeline-item flex gap-2" role="listitem">
       <span className="guest-timeline-icon grid h-7 w-7 shrink-0 place-items-center rounded-full bg-bg text-primary-700">
         <Icon className="h-3.5 w-3.5" />
       </span>
@@ -2250,13 +2278,71 @@ function ActionRow({
   );
 }
 
-function MessageBubble({ message }: { message: ConversationMessage }) {
+function MessageBubble({
+  message,
+  agents,
+  currentUser,
+}: {
+  message: ConversationMessage;
+  agents: SupportAgent[];
+  currentUser: User | null;
+}) {
   const guest = message.senderType === "GUEST";
   const system = message.senderType === "SYSTEM";
+  const senderName = messageSenderName(message);
+  const senderNameNormalized = senderName.toLocaleLowerCase();
+  const matchingAgent = agents.find(
+    (agent) =>
+      `${agent.firstName} ${agent.lastName}`.trim().toLocaleLowerCase() ===
+      senderNameNormalized,
+  );
+  const matchingCurrentUser =
+    currentUser &&
+    `${currentUser.firstName} ${currentUser.lastName}`
+      .trim()
+      .toLocaleLowerCase() === senderNameNormalized
+      ? currentUser
+      : null;
+  const senderUserId =
+    message.senderUser?.id || matchingAgent?.id || matchingCurrentUser?.id;
+  const isCurrentUserMessage = Boolean(
+    !guest &&
+      !system &&
+      currentUser &&
+      (senderUserId === currentUser.id || matchingCurrentUser),
+  );
+  const alignLeft = guest || system || !isCurrentUserMessage;
+  const avatarUrl = storedUserAvatar(senderUserId);
+  const showAvatar = !system;
+  const avatar = showAvatar ? (
+    <span
+      className="guest-message-avatar relative grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-primary-100 text-[10px] font-bold text-primary-700"
+      title={senderName}
+      data-avatar-user-id={senderUserId || "unresolved"}
+      role="img"
+      aria-label={`${senderName} profile`}
+    >
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt=""
+          aria-hidden="true"
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        initials(senderName)
+      )}
+      {matchingAgent?.online ? (
+        <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-card bg-success" aria-label="Online" />
+      ) : null}
+    </span>
+  ) : null;
   return (
     <article
-      className={`flex ${guest || system ? "justify-start" : "justify-end"}`}
+      aria-label={`${senderName} message`}
+      className={`flex items-end gap-2 ${alignLeft ? "justify-start" : "justify-end"}`}
     >
+      {showAvatar && alignLeft ? avatar : null}
       <div
         className={`guest-experience-message max-w-[80%] rounded-2xl px-3 py-2 text-xs ${system ? "is-system border border-border bg-card text-text-muted" : guest ? "is-guest border border-border bg-card text-text-main" : "is-staff bg-primary-solid text-primary-contrast"}`}
       >
@@ -2264,16 +2350,11 @@ function MessageBubble({ message }: { message: ConversationMessage }) {
         <p
           className={`mt-1 text-[10px] ${guest || system ? "text-text-muted" : "opacity-75"}`}
         >
-          {system
-            ? "System note"
-            : guest
-              ? "Guest"
-              : message.senderUser
-                ? `${message.senderUser.firstName} ${message.senderUser.lastName}`
-                : "Staff"}{" "}
+          {senderName}{" "}
           · {timestamp(message.createdAt)}
         </p>
       </div>
+      {showAvatar && !alignLeft ? avatar : null}
     </article>
   );
 }
