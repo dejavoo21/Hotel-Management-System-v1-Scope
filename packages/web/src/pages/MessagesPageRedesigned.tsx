@@ -31,7 +31,10 @@ import messageService from "@/services/messages";
 import ticketService from "@/services/tickets";
 import operationsService from "@/services/operations";
 import { canAccess } from "@/lib/access";
-import { openLafloAssistant } from "@/lib/assistantEvents";
+import {
+  openLafloAssistant,
+  setLafloAssistantContext,
+} from "@/lib/assistantEvents";
 import { useAuthStore } from "@/stores/authStore";
 import {
   getTimeRemaining,
@@ -240,6 +243,33 @@ export default function MessagesPageRedesigned() {
       ? ticketsByConversation.get(selectedThreadId)
       : undefined) ||
     null;
+  useEffect(() => {
+    setLafloAssistantContext({
+      page: "Guest Experience Center",
+      activeTab,
+      selectedConversationId: selectedThreadSummary?.id,
+      selectedConversation: selectedThreadSummary?.subject,
+      selectedGuest: selectedThreadSummary
+        ? guestName(selectedThreadSummary)
+        : undefined,
+      selectedTicketId: selectedTicket?.id,
+      availableActions: [
+        "reply to guest",
+        "assign owner",
+        "create task",
+        "call guest",
+        "escalate issue",
+      ],
+    });
+    return () => setLafloAssistantContext(null);
+  }, [
+    activeTab,
+    selectedThreadSummary?.id,
+    selectedThreadSummary?.subject,
+    selectedThreadSummary?.guest?.firstName,
+    selectedThreadSummary?.guest?.lastName,
+    selectedTicket?.id,
+  ]);
   const threadQuery = useQuery<MessageThreadDetail>({
     queryKey: ["guest-experience", "thread", selectedThreadId],
     queryFn: () => messageService.getThread(selectedThreadId!),
@@ -603,12 +633,18 @@ export default function MessagesPageRedesigned() {
     },
   ];
   const pageError = threadsQuery.isError && ticketsQuery.isError;
+  const workspaceMode =
+    activeTab === "conversations" || activeTab === "tickets";
 
   return (
-    <div className="min-w-0 space-y-5 p-4 sm:p-6 lg:p-8">
-      <header
-        className={`flex flex-wrap items-start justify-between gap-4 ${activeTab === "conversations" || activeTab === "tickets" ? "xl:hidden" : ""}`}
-      >
+    <div
+      className={
+        workspaceMode
+          ? "guest-experience-page min-w-0 p-4 sm:p-6 xl:p-0"
+          : "min-w-0 space-y-5 p-4 sm:p-6 lg:p-8"
+      }
+    >
+      {!workspaceMode ? <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-700">
             Guest experience
@@ -642,11 +678,11 @@ export default function MessagesPageRedesigned() {
             Refresh
           </button>
         </div>
-      </header>
-      <nav
+      </header> : null}
+      {!workspaceMode ? <nav
         role="tablist"
         aria-label="Guest Experience Center sections"
-        className={`flex gap-1 overflow-x-auto rounded-2xl border border-border bg-card p-1.5 shadow-sm ${activeTab === "conversations" || activeTab === "tickets" ? "xl:hidden" : ""}`}
+        className="flex gap-1 overflow-x-auto rounded-2xl border border-border bg-card p-1.5 shadow-sm"
       >
         {TABS.map((tab) => (
           <button
@@ -660,7 +696,7 @@ export default function MessagesPageRedesigned() {
             {tab.label}
           </button>
         ))}
-      </nav>
+      </nav> : null}
       {pageError ? (
         <StateCard
           icon={AlertTriangle}
@@ -691,7 +727,7 @@ export default function MessagesPageRedesigned() {
         />
       ) : null}
       {!pageError && (activeTab === "conversations" || activeTab === "tickets") ? (
-        <div className="xl:-mx-8 xl:-my-8 xl:grid xl:grid-cols-[172px_minmax(0,1fr)] xl:gap-4">
+        <div className="guest-experience-shell xl:grid xl:grid-cols-[172px_minmax(0,1fr)] xl:gap-4">
           <GuestExperienceRail
             openCount={threads.filter((item) => item.status === "OPEN").length}
             ticketCount={openTickets.length}
@@ -717,7 +753,7 @@ export default function MessagesPageRedesigned() {
             onSettings={() => navigate("/settings?tab=integrations")}
             activeWorkspace={activeTab}
           />
-          <div className="min-w-0 space-y-3 xl:py-4 xl:pr-4">
+          <div className="guest-experience-desktop-grid min-w-0 space-y-3">
             <SupportIntelligenceStrip
               openTickets={openTickets.length}
               assigned={tickets.filter((ticket) => ticket.assignedToId).length}
@@ -744,6 +780,9 @@ export default function MessagesPageRedesigned() {
             />
             <ConversationWorkspace
             threads={activeTab === "tickets" ? filteredThreads.filter((thread) => ticketsByConversation.has(thread.id)) : filteredThreads}
+            workspaceTab={activeTab}
+            conversationCount={threads.length}
+            ticketCount={ticketThreads.length}
             ticketsByConversation={ticketsByConversation}
             selectedThreadId={selectedThreadId}
             selectedThread={selectedThreadSummary}
@@ -762,6 +801,7 @@ export default function MessagesPageRedesigned() {
             onSearch={setSearch}
             onFilter={setConversationFilter}
             onPriorityFilter={setPriorityFilter}
+            onWorkspaceTab={selectTab}
             onSelect={selectThread}
             onDraft={setDraft}
             onSend={() => {
@@ -798,7 +838,6 @@ export default function MessagesPageRedesigned() {
                   )
                 : toast.error("Permission required to view guest details.")
             }
-            onAsk={askLaflo}
             messageEndRef={messageEndRef}
             />
           </div>
@@ -942,7 +981,7 @@ function SupportIntelligenceStrip({
     },
   ];
   return (
-    <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+    <section className="guest-experience-intelligence rounded-2xl border border-border bg-card p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-950 text-white">
@@ -1309,6 +1348,9 @@ function Insight({ label, value }: { label: string; value: string }) {
 
 type ConversationWorkspaceProps = {
   threads: MessageThreadSummary[];
+  workspaceTab: "conversations" | "tickets";
+  conversationCount: number;
+  ticketCount: number;
   ticketsByConversation: Map<string, Ticket>;
   selectedThreadId: string | null;
   selectedThread: MessageThreadSummary | null;
@@ -1327,6 +1369,7 @@ type ConversationWorkspaceProps = {
   onSearch: (value: string) => void;
   onFilter: (value: ConversationFilter) => void;
   onPriorityFilter: (value: PriorityFilter) => void;
+  onWorkspaceTab: (tab: WorkspaceTab) => void;
   onSelect: (id: string) => void;
   onDraft: (value: string) => void;
   onSend: () => void;
@@ -1337,7 +1380,6 @@ type ConversationWorkspaceProps = {
   onOpenTasks: () => void;
   onCall: () => void;
   onGuest: () => void;
-  onAsk: (prompt: string, extra?: Record<string, unknown>) => void;
   messageEndRef: React.Ref<HTMLDivElement>;
 };
 
@@ -1347,16 +1389,35 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
     ? props.ticketsByConversation.get(props.selectedThreadId)
     : null;
   return (
-    <section className="grid min-h-[680px] min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:grid-cols-[300px_minmax(360px,1fr)] xl:h-[570px] xl:min-h-0 xl:grid-cols-[310px_minmax(420px,1fr)_330px] xl:grid-rows-[minmax(0,1fr)]">
-      <aside className="flex min-h-0 flex-col overflow-hidden border-b border-border lg:border-b-0 lg:border-r">
-        <div className="space-y-3 border-b border-border p-3">
+    <section className="guest-experience-conversation-workspace grid min-h-[680px] min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:grid-cols-[300px_minmax(360px,1fr)]">
+      <aside className="guest-experience-list flex min-h-0 flex-col overflow-hidden border-b border-border lg:border-b-0 lg:border-r xl:rounded-2xl xl:border xl:border-border xl:bg-card" aria-label="Guest conversations">
+        <div className="grid grid-cols-2 border-b border-border" role="tablist" aria-label="Conversation workspace type">
+          {[
+            ["conversations", "Conversations", props.conversationCount],
+            ["tickets", "Tickets", props.ticketCount],
+          ].map(([id, label, count]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={props.workspaceTab === id}
+              onClick={() => props.onWorkspaceTab(id as WorkspaceTab)}
+              className={`border-b-2 px-3 py-3 text-xs font-semibold ${props.workspaceTab === id ? "border-primary-600 text-primary-700" : "border-transparent text-text-muted"}`}
+            >
+              {label} <span className="ml-1 rounded-full bg-bg px-1.5 py-0.5 text-[9px]">{count}</span>
+            </button>
+          ))}
+        </div>
+        <div className="space-y-2 border-b border-border p-3">
           <label className="relative block">
+            <span className="sr-only">Search conversations</span>
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
             <input
               value={props.search}
               onChange={(event) => props.onSearch(event.target.value)}
               placeholder="Search conversations"
-              className="w-full rounded-xl border border-border bg-bg py-2.5 pl-9 pr-3 text-sm text-text-main"
+              aria-label="Search conversations"
+              className="w-full rounded-lg border border-border bg-bg py-2 pl-9 pr-3 text-xs text-text-main"
             />
           </label>
           <div className="grid grid-cols-2 gap-2">
@@ -1366,7 +1427,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                 props.onFilter(event.target.value as ConversationFilter)
               }
               aria-label="Filter conversations"
-              className="min-w-0 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-text-main"
+              className="min-w-0 rounded-lg border border-border bg-card px-2 py-1.5 text-[11px] font-semibold text-text-main"
             >
               <option value="all">All statuses</option>
               <option value="open">Open</option>
@@ -1381,7 +1442,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                 props.onPriorityFilter(event.target.value as PriorityFilter)
               }
               aria-label="Filter conversation priority"
-              className="min-w-0 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-text-main"
+              className="min-w-0 rounded-lg border border-border bg-card px-2 py-1.5 text-[11px] font-semibold text-text-main"
             >
               <option value="all">All priorities</option>
               <option value="urgent">Urgent</option>
@@ -1441,7 +1502,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
           ) : null}
         </div>
       </aside>
-      <main className="flex min-h-[600px] min-w-0 flex-col bg-bg/50 xl:h-full xl:min-h-0 xl:overflow-hidden">
+      <section className="guest-experience-thread flex min-h-[600px] min-w-0 flex-col bg-bg/50 xl:rounded-2xl xl:border xl:border-border" aria-label="Active guest conversation">
         {props.selectedThread ? (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card p-4">
@@ -1469,44 +1530,10 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                   </p>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    props.onAsk("Summarise this guest issue.", {
-                      selectedConversationId: props.selectedThread?.id,
-                    })
-                  }
-                  className="rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-xs font-semibold text-primary-700"
-                >
-                  Ask LaFlo
-                </button>
-                {props.canManage && props.agents.length ? (
-                  <select
-                    aria-label="Assign conversation owner"
-                    defaultValue=""
-                    onChange={(event) =>
-                      event.target.value && props.onAssign(event.target.value)
-                    }
-                    className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold"
-                  >
-                    <option value="">Assign owner</option>
-                    {props.agents.map((agent) => (
-                      <option key={agent.id} value={agent.id}>
-                        {agent.firstName} {agent.lastName}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <button
-                    type="button"
-                    disabled
-                    title="Permission required"
-                    className="rounded-lg border border-border px-3 py-2 text-xs font-semibold opacity-50"
-                  >
-                    Assign
-                  </button>
-                )}
+              <div className="flex gap-1">
+                <button type="button" onClick={props.onCall} aria-label="Call selected guest" className="rounded-lg p-2 text-text-muted hover:bg-bg"><Phone className="h-4 w-4" /></button>
+                <button type="button" onClick={() => props.onUnavailable("Video calling is unavailable because a compatible video provider is not connected.")} aria-label="Video call unavailable" className="rounded-lg p-2 text-text-muted hover:bg-bg"><UsersRound className="h-4 w-4" /></button>
+                <button type="button" onClick={() => props.onUnavailable("Guest email is unavailable from this conversation workspace.")} aria-label="Email guest unavailable" className="rounded-lg p-2 text-text-muted hover:bg-bg"><Inbox className="h-4 w-4" /></button>
               </div>
             </div>
             {ticket ? (
@@ -1527,7 +1554,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                 </span>
               </div>
             ) : null}
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
               {props.detailLoading ? (
                 <p className="text-sm text-text-muted">Loading conversation…</p>
               ) : (
@@ -1546,26 +1573,47 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
               <div className="mb-2 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() =>
-                    props.onUnavailable(
-                      "Internal notes are unavailable because the note service is not connected.",
-                    )
-                  }
+                  onClick={() => props.onUnavailable("Approval is unavailable because this conversation has no pending approval workflow.")}
                   className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold"
                 >
-                  Add internal note
+                  Approve
                 </button>
                 <button
                   type="button"
-                  onClick={() =>
-                    props.onUnavailable(
-                      "File attachments are unavailable because file storage is not connected.",
-                    )
-                  }
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold"
+                  disabled={!props.canManage}
+                  title={!props.canManage ? "Permission required" : undefined}
+                  onClick={() => props.onTicketAction("escalate")}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-45"
                 >
-                  Attach file unavailable
+                  Escalate
                 </button>
+                {props.canManage && props.agents.length ? (
+                  <select
+                    aria-label="Assign conversation owner"
+                    defaultValue=""
+                    onChange={(event) => {
+                      if (event.target.value) props.onAssign(event.target.value);
+                      event.target.value = "";
+                    }}
+                    className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold"
+                  >
+                    <option value="">Assign</option>
+                    {props.agents.map((agent) => (
+                      <option key={agent.id} value={agent.id}>
+                        {agent.firstName} {agent.lastName}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    title={!props.canManage ? "Permission required" : "No assignable owners available"}
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold opacity-45"
+                  >
+                    Assign
+                  </button>
+                )}
                 <button
                   type="button"
                   disabled={!props.canCreateTask}
@@ -1587,12 +1635,10 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                 </button>
                 <button
                   type="button"
-                  disabled={!props.canManage}
-                  title={!props.canManage ? "Permission required" : undefined}
-                  onClick={() => props.onTicketAction("escalate")}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-45"
+                  onClick={() => props.onUnavailable("Guest charging is unavailable because an authorised billing workflow is not connected.")}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold"
                 >
-                  Escalate
+                  Charge guest
                 </button>
                 <button
                   type="button"
@@ -1612,6 +1658,13 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                 >
                   Close
                 </button>
+                <button
+                  type="button"
+                  onClick={() => props.onUnavailable("Internal notes are unavailable because the note service is not connected.")}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold"
+                >
+                  Add note
+                </button>
               </div>
               <form
                 onSubmit={(event) => {
@@ -1621,6 +1674,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                 className="flex gap-2"
               >
                 <input
+                  aria-label="Type a guest reply"
                   value={props.draft}
                   onChange={(event) => props.onDraft(event.target.value)}
                   disabled={!props.canMessage || props.sending}
@@ -1688,9 +1742,9 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
             Select a conversation to view its thread.
           </div>
         )}
-      </main>
-      <aside className="hidden min-h-0 min-w-0 overflow-hidden border-l border-border bg-card xl:block">
-        <div className="grid grid-cols-2 border-b border-border px-3 pt-2">
+      </section>
+      <aside className="guest-experience-context hidden min-h-0 min-w-0 overflow-hidden border-l border-border bg-card xl:block xl:rounded-2xl xl:border xl:border-border" aria-label="Guest and ticket context">
+        <div className="grid grid-cols-2 border-b border-border px-3 pt-2" role="tablist" aria-label="Guest context views">
           {[
             ["guest", "Guest Details"],
             ["ticket", "Ticket Insights"],
@@ -1698,6 +1752,8 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
             <button
               key={id}
               type="button"
+              role="tab"
+              aria-selected={contextTab === id}
               onClick={() => setContextTab(id as "guest" | "ticket")}
               className={`border-b-2 px-2 py-3 text-xs font-semibold ${contextTab === id ? "border-primary-600 text-primary-700" : "border-transparent text-text-muted"}`}
             >
@@ -1706,10 +1762,10 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
           ))}
         </div>
         {props.selectedThread ? (
-          <div className="h-[calc(100%-49px)] space-y-3 overflow-y-auto p-3 text-sm">
+          <div className="guest-experience-context-body h-[calc(100%-49px)] space-y-3 overflow-y-auto p-3 text-sm">
             {contextTab === "guest" ? (
               <>
-                <section className="rounded-xl border border-border p-3">
+                <section className="guest-context-profile rounded-xl border border-border p-3">
                   <div className="flex items-center gap-3">
                     <span className="grid h-10 w-10 place-items-center rounded-full bg-primary-100 text-xs font-bold text-primary-700">
                       {initials(guestName(props.selectedThread))}
@@ -1740,7 +1796,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                     </button>
                   </div>
                 </section>
-                <section className="rounded-xl border border-border p-3">
+                <section className="guest-context-stay rounded-xl border border-border p-3">
                   <h3 className="text-xs font-semibold text-text-main">
                     Stay information
                   </h3>
@@ -1767,7 +1823,27 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                     />
                   </div>
                 </section>
-                <section className="rounded-xl border border-border p-3">
+                <section className="guest-context-timeline rounded-xl border border-border p-3">
+                  <h3 className="text-xs font-semibold text-text-main">Issue timeline</h3>
+                  <div className="mt-3 space-y-3 text-xs">
+                    <TimelineItem icon={MessageSquareText} title="Issue reported" detail={timestamp(props.selectedThread.lastMessageAt)} />
+                    <TimelineItem icon={UserRoundCheck} title="Owner status" detail={ticket?.assignedTo ? "Owner assigned" : "Awaiting owner"} />
+                    <TimelineItem icon={Clock3} title="SLA status" detail={ticket && (ticket.status === "BREACHED" || isOverdue(ticket)) ? "Needs immediate attention" : "Within available target"} />
+                  </div>
+                </section>
+                <section className="guest-context-status rounded-xl border border-border p-3">
+                  <h3 className="text-xs font-semibold text-text-main">Ticket status</h3>
+                  {ticket ? (
+                    <div className="mt-3 space-y-3">
+                      <ContextRow label="Status" value={labelize(ticket.status)} />
+                      <ContextRow label="Priority" value={labelize(ticket.priority)} />
+                      <ContextRow label="SLA" value={ticket.status === "BREACHED" || isOverdue(ticket) ? "At risk / breached" : getTimeRemaining(ticket)?.display || "No SLA due"} />
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-xs text-text-muted">No ticket is linked to this conversation.</p>
+                  )}
+                </section>
+                <section className="guest-context-related rounded-xl border border-border p-3">
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="text-xs font-semibold text-text-main">Related tasks</h3>
                     <button
@@ -1793,7 +1869,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
               </>
             ) : (
               <>
-                <section className="rounded-xl border border-border p-3">
+                <section className="guest-context-status rounded-xl border border-border p-3">
                   <h3 className="text-xs font-semibold text-text-main">Ticket status</h3>
                   {ticket ? (
                     <div className="mt-3 space-y-3">
@@ -1822,7 +1898,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                     </p>
                   )}
                 </section>
-                <section className="rounded-xl border border-border p-3">
+                <section className="guest-context-timeline rounded-xl border border-border p-3">
                   <h3 className="text-xs font-semibold text-text-main">
                     Issue timeline
                   </h3>
@@ -1834,7 +1910,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                 </section>
               </>
             )}
-            <section className="rounded-xl border border-primary-200 bg-primary-50 p-3">
+            <section className="guest-context-suggestions rounded-xl border border-primary-200 bg-primary-50 p-3">
               <h3 className="flex items-center gap-2 text-xs font-semibold text-text-main">
                 <Sparkles className="h-4 w-4 text-primary-700" /> Suggested next actions
               </h3>
@@ -1863,7 +1939,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                 />
               </div>
             </section>
-            <section className="rounded-xl border border-border p-3">
+            <section className="guest-context-response rounded-xl border border-border p-3">
               <h3 className="flex items-center gap-2 text-xs font-semibold text-text-main">
                 <Bot className="h-4 w-4 text-primary-700" /> Recommended response
               </h3>
@@ -1957,7 +2033,7 @@ function MessageBubble({ message }: { message: ConversationMessage }) {
       className={`flex ${guest || system ? "justify-start" : "justify-end"}`}
     >
       <div
-        className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm ${system ? "border border-border bg-card text-text-muted" : guest ? "border border-border bg-card text-text-main" : "bg-primary-solid text-primary-contrast"}`}
+        className={`max-w-[80%] rounded-2xl px-3 py-2 text-xs ${system ? "border border-border bg-card text-text-muted" : guest ? "border border-border bg-card text-text-main" : "bg-primary-solid text-primary-contrast"}`}
       >
         <p>{message.body}</p>
         <p

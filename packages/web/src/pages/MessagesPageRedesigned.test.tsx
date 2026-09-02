@@ -8,7 +8,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { OPEN_LAFLO_ASSISTANT_EVENT } from "@/lib/assistantEvents";
+import { SET_LAFLO_ASSISTANT_CONTEXT_EVENT } from "@/lib/assistantEvents";
 import { useAuthStore } from "@/stores/authStore";
 import MessagesPageRedesigned from "./MessagesPageRedesigned";
 
@@ -268,9 +268,9 @@ describe("Guest Experience Center", () => {
     expect(mocks.assignTicket).toHaveBeenCalledWith("ticket-1", "agent-1");
   });
 
-  it("creates a linked task, confirms ticket outcomes, and opens Ask LaFlo with structured context", async () => {
+  it("creates a linked task, confirms ticket outcomes, and supplies structured context to the single global Ask LaFlo assistant", async () => {
     const listener = vi.fn();
-    window.addEventListener(OPEN_LAFLO_ASSISTANT_EVENT, listener);
+    window.addEventListener(SET_LAFLO_ASSISTANT_CONTEXT_EVENT, listener);
     renderPage("/messages?tab=tickets");
     expect(await screen.findByText("Late room readiness")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Filter conversation priority"), {
@@ -300,18 +300,18 @@ describe("Guest Experience Center", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Resolve" }));
     await waitFor(() => expect(mocks.resolve).toHaveBeenCalledWith("ticket-1"));
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "Ask LaFlo" }).at(-1)!,
-    );
-    expect((listener.mock.calls[0][0] as CustomEvent).detail).toMatchObject({
-      context: {
+    await waitFor(() =>
+      expect(
+        (listener.mock.calls.at(-1)?.[0] as CustomEvent).detail,
+      ).toMatchObject({
         page: "Guest Experience Center",
         activeTab: "tickets",
-        selectedTicket: { id: "ticket-1" },
-        currentFilters: { conversationFilter: "all" },
-      },
-    });
-    window.removeEventListener(OPEN_LAFLO_ASSISTANT_EVENT, listener);
+        selectedConversationId: "thread-1",
+        selectedTicketId: "ticket-1",
+      }),
+    );
+    expect(screen.queryByRole("button", { name: "Ask LaFlo" })).not.toBeInTheDocument();
+    window.removeEventListener(SET_LAFLO_ASSISTANT_CONTEXT_EVENT, listener);
   });
 
   it("keeps ticket handling inside the linked three-column conversation workspace", async () => {
