@@ -432,6 +432,30 @@ describe("Guest Experience Center", () => {
     expect(screen.getByText("Guest Details")).toBeInTheDocument();
   });
 
+  it("reflows ticket insights without reserving an empty guest-details column", async () => {
+    renderPage("/messages?tab=conversations");
+    await screen.findByText("Late room readiness");
+
+    fireEvent.click(screen.getByRole("tab", { name: "Ticket Insights" }));
+
+    const context = screen.getByRole("complementary", {
+      name: "Guest and ticket context",
+    });
+    expect(
+      context.querySelector(".guest-experience-context-body"),
+    ).toHaveAttribute("data-context-tab", "ticket");
+    expect(within(context).getByText("Ticket status")).toBeInTheDocument();
+    expect(
+      within(context).getByRole("list", { name: "Issue timeline" }),
+    ).toBeInTheDocument();
+    expect(
+      within(context).getByText("Suggested next actions"),
+    ).toBeInTheDocument();
+    expect(
+      within(context).getByText("Recommended response"),
+    ).toBeInTheDocument();
+  });
+
   it("keeps every approved command-center region mounted for compact desktop layouts", async () => {
     renderPage("/messages?tab=conversations");
     await screen.findByText("Late room readiness");

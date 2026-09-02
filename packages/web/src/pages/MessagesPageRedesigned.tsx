@@ -2015,7 +2015,10 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
           ))}
         </div>
         {props.selectedThread ? (
-          <div className="guest-experience-context-body h-[calc(100%-49px)] space-y-3 overflow-y-auto p-3 text-sm">
+          <div
+            className="guest-experience-context-body h-[calc(100%-49px)] space-y-3 overflow-y-auto p-3 text-sm"
+            data-context-tab={contextTab}
+          >
             {contextTab === "guest" ? (
               <>
                 <section className="guest-context-profile rounded-xl border border-border p-3">

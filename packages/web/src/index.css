@@ -1746,6 +1746,26 @@
     grid-row: 4;
   }
 
+  .guest-experience-context-body[data-context-tab="ticket"] .guest-context-status {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .guest-experience-context-body[data-context-tab="ticket"] .guest-context-timeline {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .guest-experience-context-body[data-context-tab="ticket"] .guest-context-suggestions {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .guest-experience-context-body[data-context-tab="ticket"] .guest-context-response {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
   .guest-experience-pane-resizer {
     display: block;
   }
