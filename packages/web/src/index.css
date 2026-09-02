@@ -1108,7 +1108,9 @@
  * the hotel's primary brand colour. Green remains reserved for success and
  * the single Ask LaFlo launcher, matching the approved visual hierarchy. */
 .guest-experience-page {
-  background: rgb(var(--color-bg));
+  background:
+    radial-gradient(circle at 88% 5%, rgb(224 242 254 / 0.38), transparent 34%),
+    linear-gradient(135deg, rgb(248 250 252), rgb(240 253 250 / 0.42));
 }
 
 .guest-experience-page .guest-experience-rail {
@@ -1143,23 +1145,33 @@
 }
 
 .guest-experience-page .guest-intelligence-card:nth-child(1) {
-  border-top: 3px solid rgb(34 197 94 / 0.75);
-  background: linear-gradient(180deg, rgb(240 253 244 / 0.78), rgb(255 255 255) 44%);
+  border-top: 2px solid rgb(34 197 94 / 0.58);
+  background: rgb(255 255 255);
 }
 
 .guest-experience-page .guest-intelligence-card:nth-child(2) {
-  border-top: 3px solid rgb(var(--color-support-action) / 0.75);
-  background: linear-gradient(180deg, rgb(var(--color-support-action-soft)), rgb(255 255 255) 44%);
+  border-top: 2px solid rgb(var(--color-support-action) / 0.58);
+  background: rgb(255 255 255);
 }
 
 .guest-experience-page .guest-intelligence-card:nth-child(3) {
-  border-top: 3px solid rgb(239 68 68 / 0.72);
-  background: linear-gradient(180deg, rgb(254 242 242 / 0.82), rgb(255 255 255) 44%);
+  border-top: 2px solid rgb(239 68 68 / 0.58);
+  background: rgb(255 255 255);
 }
 
 .guest-experience-page .guest-intelligence-card:nth-child(4) {
-  border-top: 3px solid rgb(139 92 246 / 0.72);
-  background: linear-gradient(180deg, rgb(245 243 255 / 0.84), rgb(255 255 255) 44%);
+  border-top: 2px solid rgb(139 92 246 / 0.58);
+  background: rgb(255 255 255);
+}
+
+.guest-experience-page .guest-intelligence-card:nth-child(1) > p:last-child,
+.guest-experience-page .guest-intelligence-card:nth-child(2) > p:last-child,
+.guest-experience-page .guest-intelligence-card:nth-child(4) > p:last-child {
+  color: rgb(22 163 74);
+}
+
+.guest-experience-page .guest-intelligence-card:nth-child(3) > p:last-child {
+  color: rgb(220 38 38);
 }
 
 .guest-experience-page .guest-workspace-tab.is-active,
@@ -1169,7 +1181,7 @@
 }
 
 .guest-experience-page .guest-conversation-row.is-selected {
-  background: rgb(var(--color-support-action-soft));
+  background: rgb(239 246 255);
   box-shadow: inset 3px 0 0 rgb(var(--color-support-action));
 }
 
@@ -1211,7 +1223,7 @@
 }
 
 .guest-experience-page .guest-experience-thread {
-  background: linear-gradient(180deg, rgb(248 250 252), rgb(255 255 255));
+  background: rgb(255 255 255);
 }
 
 .guest-experience-page .guest-experience-composer {
@@ -1258,7 +1270,7 @@
 
 .guest-experience-page .guest-experience-message.is-staff {
   border: 1px solid rgb(var(--color-support-action) / 0.16);
-  background: rgb(var(--color-support-action) / 0.1);
+  background: rgb(219 234 254 / 0.82);
   color: rgb(var(--color-text-main));
 }
 
@@ -1277,8 +1289,8 @@
 
 .guest-experience-page .guest-context-suggestions,
 .guest-experience-page .guest-context-response {
-  border-color: rgb(var(--color-support-assist) / 0.16);
-  background: linear-gradient(145deg, rgb(250 245 255), rgb(245 243 255));
+  border-color: rgb(var(--color-support-assist) / 0.24);
+  background: linear-gradient(145deg, rgb(250 245 255), rgb(245 243 255 / 0.92));
 }
 
 .guest-experience-page .guest-context-suggestions button,
@@ -1287,28 +1299,28 @@
 }
 
 .guest-experience-page .guest-context-profile {
-  border-color: rgb(34 197 94 / 0.2);
-  background: linear-gradient(145deg, rgb(247 254 231 / 0.72), rgb(255 255 255) 58%);
+  border-color: rgb(var(--color-border) / 0.9);
+  background: rgb(255 255 255);
 }
 
 .guest-experience-page .guest-context-stay {
-  border-color: rgb(var(--color-support-action) / 0.18);
-  background: linear-gradient(145deg, rgb(var(--color-support-action-soft)), rgb(255 255 255) 58%);
+  border-color: rgb(var(--color-border) / 0.9);
+  background: rgb(255 255 255);
 }
 
 .guest-experience-page .guest-context-related {
-  border-color: rgb(14 165 233 / 0.2);
-  background: linear-gradient(145deg, rgb(240 249 255), rgb(255 255 255) 60%);
+  border-color: rgb(var(--color-border) / 0.9);
+  background: rgb(255 255 255);
 }
 
 .guest-experience-page .guest-context-timeline {
-  border-color: rgb(245 158 11 / 0.2);
-  background: linear-gradient(145deg, rgb(255 251 235 / 0.72), rgb(255 255 255) 58%);
+  border-color: rgb(var(--color-border) / 0.9);
+  background: rgb(255 255 255);
 }
 
 .guest-experience-page .guest-context-status {
-  border-color: rgb(244 63 94 / 0.14);
-  background: linear-gradient(145deg, rgb(255 241 242 / 0.48), rgb(255 255 255) 60%);
+  border-color: rgb(var(--color-border) / 0.9);
+  background: rgb(255 255 255);
 }
 
 .guest-experience-page .guest-timeline-item:nth-child(1) .guest-timeline-icon {
@@ -1334,6 +1346,41 @@
 .guest-experience-page .guest-suggested-action > span:first-child {
   background: rgb(243 232 255);
   color: rgb(126 34 206);
+}
+
+.guest-experience-pane-resizer {
+  position: relative;
+  z-index: 5;
+  display: none;
+  min-width: 8px;
+  min-height: 0;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.guest-experience-pane-resizer > span {
+  position: absolute;
+  inset-block: 8px;
+  left: 50%;
+  width: 2px;
+  border-radius: 999px;
+  background: rgb(var(--color-border) / 0.72);
+  transform: translateX(-50%);
+  transition: width 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.guest-experience-pane-resizer:hover > span,
+.guest-experience-pane-resizer:focus-visible > span,
+.guest-experience-pane-resizer.is-dragging > span {
+  width: 4px;
+  background: rgb(var(--color-support-action) / 0.82);
+  box-shadow: 0 0 0 3px rgb(var(--color-support-action) / 0.1);
+}
+
+.guest-experience-pane-resizer:focus-visible {
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgb(var(--color-support-action) / 0.45);
 }
 
 /*
@@ -1542,9 +1589,15 @@
 
   .guest-experience-desktop-grid {
     display: grid;
-    grid-template-columns: 272px minmax(420px, 503px) minmax(0, 1fr);
+    grid-template-columns:
+      var(--guest-list-width, 272px)
+      8px
+      minmax(420px, 1fr)
+      8px
+      var(--guest-context-width, 580px);
     grid-template-rows: 168px minmax(0, 1fr);
-    gap: 8px;
+    column-gap: 0;
+    row-gap: 8px;
     height: 100%;
     min-height: 0;
     overflow: hidden;
@@ -1556,7 +1609,7 @@
   }
 
   .guest-experience-intelligence {
-    grid-column: 1 / 3;
+    grid-column: 1 / 4;
     grid-row: 1;
     height: 168px;
     overflow: hidden;
@@ -1577,14 +1630,14 @@
   }
 
   .guest-experience-thread {
-    grid-column: 2;
+    grid-column: 3;
     grid-row: 2;
     min-height: 0;
     overflow: hidden;
   }
 
   .guest-experience-context {
-    grid-column: 3;
+    grid-column: 5;
     grid-row: 1 / 3;
     min-height: 0;
   }
@@ -1631,6 +1684,20 @@
 
   .guest-context-status {
     grid-row: 4;
+  }
+
+  .guest-experience-pane-resizer {
+    display: block;
+  }
+
+  .guest-experience-pane-resizer--list {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .guest-experience-pane-resizer--context {
+    grid-column: 4;
+    grid-row: 1 / 3;
   }
 
   .guest-calls-workspace {
@@ -1681,5 +1748,28 @@
     height: 47px;
     min-height: 47px;
     padding-block: 0;
+  }
+}
+
+@media (min-width: 1280px) and (max-width: 1499px) {
+  .guest-experience-desktop-grid {
+    grid-template-columns: 252px minmax(380px, 1fr) minmax(340px, 42vw);
+    column-gap: 8px;
+  }
+
+  .guest-experience-intelligence {
+    grid-column: 1 / 3;
+  }
+
+  .guest-experience-thread {
+    grid-column: 2;
+  }
+
+  .guest-experience-context {
+    grid-column: 3;
+  }
+
+  .guest-experience-pane-resizer {
+    display: none;
   }
 }

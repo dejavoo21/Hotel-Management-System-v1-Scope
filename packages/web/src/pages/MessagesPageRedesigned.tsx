@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -71,6 +78,35 @@ type TaskDraft = {
   department: Ticket["department"];
   priority: "low" | "medium" | "high";
   sourceId: string;
+};
+
+const DEFAULT_GUEST_LIST_WIDTH = 272;
+const DEFAULT_GUEST_CONTEXT_WIDTH = 580;
+const MIN_GUEST_LIST_WIDTH = 220;
+const MAX_GUEST_LIST_WIDTH = 420;
+const MIN_GUEST_CONTEXT_WIDTH = 360;
+const MAX_GUEST_CONTEXT_WIDTH = 720;
+const GUEST_LIST_WIDTH_KEY = "laflo.guest-experience.list-width";
+const GUEST_CONTEXT_WIDTH_KEY = "laflo.guest-experience.context-width";
+
+const clampPaneWidth = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
+
+const storedPaneWidth = (
+  key: string,
+  fallback: number,
+  min: number,
+  max: number,
+) => {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const storedValue = window.localStorage.getItem(key);
+    if (storedValue === null) return fallback;
+    const value = Number(storedValue);
+    return Number.isFinite(value) ? clampPaneWidth(value, min, max) : fallback;
+  } catch {
+    return fallback;
+  }
 };
 
 const TABS: Array<{ id: WorkspaceTab; label: string }> = [
@@ -158,7 +194,42 @@ export default function MessagesPageRedesigned() {
   const [draft, setDraft] = useState("");
   const [taskDraft, setTaskDraft] = useState<TaskDraft | null>(null);
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [guestListWidth, setGuestListWidth] = useState(() =>
+    storedPaneWidth(
+      GUEST_LIST_WIDTH_KEY,
+      DEFAULT_GUEST_LIST_WIDTH,
+      MIN_GUEST_LIST_WIDTH,
+      MAX_GUEST_LIST_WIDTH,
+    ),
+  );
+  const [guestContextWidth, setGuestContextWidth] = useState(() =>
+    storedPaneWidth(
+      GUEST_CONTEXT_WIDTH_KEY,
+      DEFAULT_GUEST_CONTEXT_WIDTH,
+      MIN_GUEST_CONTEXT_WIDTH,
+      MAX_GUEST_CONTEXT_WIDTH,
+    ),
+  );
   const messageEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(GUEST_LIST_WIDTH_KEY, String(guestListWidth));
+    } catch {
+      // Resizing remains functional when browser storage is unavailable.
+    }
+  }, [guestListWidth]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        GUEST_CONTEXT_WIDTH_KEY,
+        String(guestContextWidth),
+      );
+    } catch {
+      // Resizing remains functional when browser storage is unavailable.
+    }
+  }, [guestContextWidth]);
 
   const canMessage = canAccess(user, "messages");
   const canManage =
@@ -753,7 +824,15 @@ export default function MessagesPageRedesigned() {
             onSettings={() => navigate("/settings?tab=integrations")}
             activeWorkspace={activeTab}
           />
-          <div className="guest-experience-desktop-grid min-w-0 space-y-3">
+          <div
+            className="guest-experience-desktop-grid min-w-0 space-y-3"
+            style={
+              {
+                "--guest-list-width": `${guestListWidth}px`,
+                "--guest-context-width": `${guestContextWidth}px`,
+              } as CSSProperties
+            }
+          >
             <SupportIntelligenceStrip
               openTickets={openTickets.length}
               assigned={tickets.filter((ticket) => ticket.assignedToId).length}
@@ -789,6 +868,10 @@ export default function MessagesPageRedesigned() {
               }}
             />
             <ConversationWorkspace
+            listPaneWidth={guestListWidth}
+            contextPaneWidth={guestContextWidth}
+            onListPaneWidth={setGuestListWidth}
+            onContextPaneWidth={setGuestContextWidth}
             threads={activeTab === "tickets" ? filteredThreads.filter((thread) => ticketsByConversation.has(thread.id)) : filteredThreads}
             workspaceTab={activeTab}
             conversationCount={threads.length}
@@ -1368,6 +1451,10 @@ function Insight({ label, value }: { label: string; value: string }) {
 }
 
 type ConversationWorkspaceProps = {
+  listPaneWidth: number;
+  contextPaneWidth: number;
+  onListPaneWidth: (width: number) => void;
+  onContextPaneWidth: (width: number) => void;
   threads: MessageThreadSummary[];
   workspaceTab: "conversations" | "tickets";
   conversationCount: number;
@@ -1406,9 +1493,121 @@ type ConversationWorkspaceProps = {
 
 function ConversationWorkspace(props: ConversationWorkspaceProps) {
   const [contextTab, setContextTab] = useState<"guest" | "ticket">("guest");
+  const [activeResizePane, setActiveResizePane] = useState<
+    "list" | "context" | null
+  >(null);
+  const resizeDragRef = useRef<{
+    pane: "list" | "context";
+    startX: number;
+    startWidth: number;
+  } | null>(null);
   const ticket = props.selectedThreadId
     ? props.ticketsByConversation.get(props.selectedThreadId)
     : null;
+
+  const updatePaneWidth = (pane: "list" | "context", width: number) => {
+    if (pane === "list") {
+      props.onListPaneWidth(
+        clampPaneWidth(width, MIN_GUEST_LIST_WIDTH, MAX_GUEST_LIST_WIDTH),
+      );
+      return;
+    }
+    props.onContextPaneWidth(
+      clampPaneWidth(
+        width,
+        MIN_GUEST_CONTEXT_WIDTH,
+        MAX_GUEST_CONTEXT_WIDTH,
+      ),
+    );
+  };
+
+  const startPaneResize = (
+    pane: "list" | "context",
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    resizeDragRef.current = {
+      pane,
+      startX: event.clientX,
+      startWidth:
+        pane === "list" ? props.listPaneWidth : props.contextPaneWidth,
+    };
+    setActiveResizePane(pane);
+  };
+
+  const movePaneResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = resizeDragRef.current;
+    if (!drag) return;
+    const delta = event.clientX - drag.startX;
+    updatePaneWidth(
+      drag.pane,
+      drag.startWidth + (drag.pane === "list" ? delta : -delta),
+    );
+  };
+
+  const endPaneResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    resizeDragRef.current = null;
+    setActiveResizePane(null);
+  };
+
+  const resizePaneWithKeyboard = (
+    pane: "list" | "context",
+    key: string,
+  ) => {
+    if (key !== "ArrowLeft" && key !== "ArrowRight") return;
+    const direction = key === "ArrowRight" ? 1 : -1;
+    const current =
+      pane === "list" ? props.listPaneWidth : props.contextPaneWidth;
+    updatePaneWidth(
+      pane,
+      current + direction * (pane === "list" ? 16 : -16),
+    );
+  };
+
+  const resetPaneWidth = (pane: "list" | "context") =>
+    updatePaneWidth(
+      pane,
+      pane === "list" ? DEFAULT_GUEST_LIST_WIDTH : DEFAULT_GUEST_CONTEXT_WIDTH,
+    );
+
+  const paneSeparator = (pane: "list" | "context") => {
+    const isList = pane === "list";
+    const width = isList ? props.listPaneWidth : props.contextPaneWidth;
+    const label = isList
+      ? "Resize conversation list"
+      : "Resize guest context panel";
+    return (
+      <div
+        role="separator"
+        tabIndex={0}
+        aria-label={label}
+        aria-orientation="vertical"
+        aria-valuemin={isList ? MIN_GUEST_LIST_WIDTH : MIN_GUEST_CONTEXT_WIDTH}
+        aria-valuemax={isList ? MAX_GUEST_LIST_WIDTH : MAX_GUEST_CONTEXT_WIDTH}
+        aria-valuenow={width}
+        title="Drag to resize. Double-click to reset."
+        className={`guest-experience-pane-resizer guest-experience-pane-resizer--${pane} ${activeResizePane === pane ? "is-dragging" : ""}`}
+        onPointerDown={(event) => startPaneResize(pane, event)}
+        onPointerMove={movePaneResize}
+        onPointerUp={endPaneResize}
+        onPointerCancel={endPaneResize}
+        onDoubleClick={() => resetPaneWidth(pane)}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+            event.preventDefault();
+            resizePaneWithKeyboard(pane, event.key);
+          }
+        }}
+      >
+        <span aria-hidden="true" />
+      </div>
+    );
+  };
+
   return (
     <section className="guest-experience-conversation-workspace grid min-h-[680px] min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:grid-cols-[300px_minmax(360px,1fr)]">
       <aside className="guest-experience-list flex min-h-0 flex-col overflow-hidden border-b border-border lg:border-b-0 lg:border-r xl:rounded-2xl xl:border xl:border-border xl:bg-card" aria-label="Guest conversations">
@@ -1523,6 +1722,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
           ) : null}
         </div>
       </aside>
+      {paneSeparator("list")}
       <section className="guest-experience-thread flex min-h-[600px] min-w-0 flex-col bg-bg/50 xl:rounded-2xl xl:border xl:border-border" aria-label="Active guest conversation">
         {props.selectedThread ? (
           <>
@@ -1764,6 +1964,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
           </div>
         )}
       </section>
+      {paneSeparator("context")}
       <aside className="guest-experience-context hidden min-h-0 min-w-0 overflow-hidden border-l border-border bg-card xl:block xl:rounded-2xl xl:border xl:border-border" aria-label="Guest and ticket context">
         <div className="grid grid-cols-2 border-b border-border px-3 pt-2" role="tablist" aria-label="Guest context views">
           {[

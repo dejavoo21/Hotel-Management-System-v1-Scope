@@ -127,6 +127,8 @@ function renderPage(entry = "/messages?tab=overview") {
 describe("Guest Experience Center", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.removeItem("laflo.guest-experience.list-width");
+    window.localStorage.removeItem("laflo.guest-experience.context-width");
     vi.spyOn(window, "confirm").mockReturnValue(true);
     useAuthStore.setState({
       user: {
@@ -178,6 +180,36 @@ describe("Guest Experience Center", () => {
       department: "HOUSEKEEPING",
       conversationId: "thread-1",
     });
+  });
+
+  it("resizes desktop workspace panes with keyboard controls and resets them", async () => {
+    renderPage("/messages?tab=conversations");
+    await screen.findByText("Amina Patel");
+
+    const listSeparator = screen.getByRole("separator", {
+      name: "Resize conversation list",
+    });
+    const contextSeparator = screen.getByRole("separator", {
+      name: "Resize guest context panel",
+    });
+
+    expect(listSeparator).toHaveAttribute("aria-valuenow", "272");
+    expect(contextSeparator).toHaveAttribute("aria-valuenow", "580");
+
+    fireEvent.keyDown(listSeparator, { key: "ArrowRight" });
+    expect(listSeparator).toHaveAttribute("aria-valuenow", "288");
+
+    fireEvent.keyDown(contextSeparator, { key: "ArrowLeft" });
+    expect(contextSeparator).toHaveAttribute("aria-valuenow", "596");
+
+    fireEvent.doubleClick(listSeparator);
+    expect(listSeparator).toHaveAttribute("aria-valuenow", "272");
+
+    expect(
+      document
+        .querySelector<HTMLElement>(".guest-experience-desktop-grid")
+        ?.style.getPropertyValue("--guest-context-width"),
+    ).toBe("596px");
   });
 
   it("uses the LaFlo-native page title, consistent live metrics, and functional route tabs", async () => {
