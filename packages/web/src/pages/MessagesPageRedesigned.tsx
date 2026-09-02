@@ -770,6 +770,12 @@ export default function MessagesPageRedesigned() {
                 "No urgent guest issue identified"
               }
               updatedAt={lastUpdated}
+              refreshing={
+                threadsQuery.isFetching ||
+                ticketsQuery.isFetching ||
+                agentsQuery.isFetching ||
+                threadQuery.isFetching
+              }
               onRefresh={refreshAll}
               onOpenTickets={() => selectTab("tickets")}
               onOpenAssigned={() => {
@@ -777,6 +783,10 @@ export default function MessagesPageRedesigned() {
                 selectTab("conversations");
               }}
               onOpenEscalations={() => selectTab("escalations")}
+              onOpenResolved={() => {
+                setConversationFilter("resolved");
+                selectTab("conversations");
+              }}
             />
             <ConversationWorkspace
             threads={activeTab === "tickets" ? filteredThreads.filter((thread) => ticketsByConversation.has(thread.id)) : filteredThreads}
@@ -934,10 +944,12 @@ function SupportIntelligenceStrip({
   resolvedToday,
   priority,
   updatedAt,
+  refreshing,
   onRefresh,
   onOpenTickets,
   onOpenAssigned,
   onOpenEscalations,
+  onOpenResolved,
 }: {
   openTickets: number;
   assigned: number;
@@ -945,10 +957,12 @@ function SupportIntelligenceStrip({
   resolvedToday: number;
   priority: string;
   updatedAt: Date;
+  refreshing: boolean;
   onRefresh: () => Promise<void>;
   onOpenTickets: () => void;
   onOpenAssigned: () => void;
   onOpenEscalations: () => void;
+  onOpenResolved: () => void;
 }) {
   const items = [
     {
@@ -977,14 +991,14 @@ function SupportIntelligenceStrip({
       value: resolvedToday,
       detail: "Completed follow-ups",
       icon: CheckCircle2,
-      action: onOpenTickets,
+      action: onOpenResolved,
     },
   ];
   return (
     <section className="guest-experience-intelligence rounded-2xl border border-border bg-card p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-950 text-white">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-950 text-white">
             <Sparkles className="h-5 w-5" />
           </span>
           <div className="min-w-0">
@@ -996,18 +1010,22 @@ function SupportIntelligenceStrip({
                 Live
               </span>
             </div>
-            <p className="mt-1 max-w-3xl truncate text-xs text-text-muted">
-              Priority: {priority}
+            <p className="guest-intelligence-summary mt-1 max-w-3xl truncate text-xs text-text-muted">
+              {openTickets} open {openTickets === 1 ? "issue" : "issues"}, {assigned} assigned, and {slaBreaches} at risk of SLA breach. Priority: {priority}
             </p>
           </div>
         </div>
         <button
           type="button"
           onClick={() => void onRefresh()}
-          className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-semibold text-text-main"
+          disabled={refreshing}
+          aria-busy={refreshing}
+          className="guest-intelligence-refresh inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-semibold text-text-main disabled:opacity-60"
         >
-          <RefreshCcw className="h-3.5 w-3.5" />
-          Updated {updatedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          <RefreshCcw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+          {refreshing
+            ? "Refreshing"
+            : `Updated ${updatedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
         </button>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -1016,7 +1034,7 @@ function SupportIntelligenceStrip({
             key={label}
             type="button"
             onClick={action}
-            className="group rounded-xl border border-border bg-bg/70 p-3 text-left transition hover:border-primary-300 hover:bg-primary-50"
+            className="guest-intelligence-card group rounded-xl border border-border bg-bg/70 p-3 text-left transition"
           >
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -1097,16 +1115,16 @@ function GuestExperienceRail({
     { label: "Late Check-out", action: () => onSearch("late check-out") },
   ];
   return (
-    <aside className="hidden min-h-[calc(100vh-64px)] bg-slate-950 px-3 py-4 text-slate-200 xl:flex xl:flex-col">
+    <aside className="guest-experience-rail hidden min-h-[calc(100vh-64px)] bg-slate-950 px-3 py-4 text-slate-200 xl:flex xl:flex-col">
       <button
         type="button"
         onClick={onOverview}
-        className="mb-5 flex items-center gap-2 rounded-xl px-1 text-left"
+        className="guest-experience-rail-brand mb-5 flex items-center gap-2 rounded-xl px-1 text-left"
       >
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-sky-400 to-indigo-600 text-sm font-bold text-white shadow-lg shadow-blue-950/40">
           L
         </span>
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-white">
+        <span className="guest-experience-rail-brand-label text-[10px] font-semibold uppercase tracking-wide text-white">
           Guest Experience
         </span>
       </button>
@@ -1116,16 +1134,18 @@ function GuestExperienceRail({
             key={label}
             type="button"
             onClick={action}
-            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs font-medium transition ${active ? "bg-slate-800 text-white shadow-inner" : "text-slate-300 hover:bg-slate-900 hover:text-white"}`}
+            aria-current={active ? "page" : undefined}
+            title={label}
+            className={`guest-experience-rail-action flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs font-medium transition ${active ? "is-active bg-slate-800 text-white shadow-inner" : "text-slate-300 hover:bg-slate-900 hover:text-white"}`}
           >
             <Icon className="h-4 w-4" />
-            {label}
+            <span className="guest-experience-rail-action-label">{label}</span>
           </button>
         ))}
       </nav>
-      <div className="my-4 border-t border-slate-800" />
-      <p className="px-2 text-[9px] font-bold uppercase tracking-wider text-slate-500">Views</p>
-      <div className="mt-2 space-y-0.5">
+      <div className="guest-experience-rail-divider my-4 border-t border-slate-800" />
+      <p className="guest-experience-rail-section-label px-2 text-[9px] font-bold uppercase tracking-wider text-slate-500">Views</p>
+      <div className="guest-experience-rail-views mt-2 space-y-0.5">
         {views.map(({ label, count, action }) => (
           <button
             key={label}
@@ -1140,9 +1160,9 @@ function GuestExperienceRail({
           </button>
         ))}
       </div>
-      <div className="my-4 border-t border-slate-800" />
-      <p className="px-2 text-[9px] font-bold uppercase tracking-wider text-slate-500">Smart views</p>
-      <div className="mt-2 space-y-0.5">
+      <div className="guest-experience-rail-divider guest-experience-rail-smart-divider my-4 border-t border-slate-800" />
+      <p className="guest-experience-rail-section-label guest-experience-rail-smart-label px-2 text-[9px] font-bold uppercase tracking-wider text-slate-500">Smart views</p>
+      <div className="guest-experience-rail-smart-views mt-2 space-y-0.5">
         {smartViews.map(({ label, action }) => (
           <button
             key={label}
@@ -1157,9 +1177,10 @@ function GuestExperienceRail({
       <button
         type="button"
         onClick={onSettings}
-        className="mt-auto flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs text-slate-300 hover:bg-slate-900 hover:text-white"
+        title="Settings"
+        className="guest-experience-rail-settings mt-auto flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs text-slate-300 hover:bg-slate-900 hover:text-white"
       >
-        <Settings2 className="h-4 w-4" /> Settings
+        <Settings2 className="h-4 w-4" /> <span>Settings</span>
       </button>
     </aside>
   );
@@ -1402,7 +1423,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
               role="tab"
               aria-selected={props.workspaceTab === id}
               onClick={() => props.onWorkspaceTab(id as WorkspaceTab)}
-              className={`border-b-2 px-3 py-3 text-xs font-semibold ${props.workspaceTab === id ? "border-primary-600 text-primary-700" : "border-transparent text-text-muted"}`}
+              className={`guest-workspace-tab border-b-2 px-3 py-3 text-xs font-semibold ${props.workspaceTab === id ? "is-active border-primary-600 text-primary-700" : "border-transparent text-text-muted"}`}
             >
               {label} <span className="ml-1 rounded-full bg-bg px-1.5 py-0.5 text-[9px]">{count}</span>
             </button>
@@ -1460,7 +1481,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                 type="button"
                 key={thread.id}
                 onClick={() => props.onSelect(thread.id)}
-                className={`w-full border-b border-border p-3 text-left ${props.selectedThreadId === thread.id ? "bg-primary-50" : "hover:bg-bg"}`}
+                className={`guest-conversation-row w-full border-b border-border p-3 text-left ${props.selectedThreadId === thread.id ? "is-selected bg-primary-50" : "hover:bg-bg"}`}
               >
                 <div className="flex gap-3">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-100 text-xs font-bold text-primary-700">
@@ -1569,8 +1590,8 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
               ) : null}
               <div ref={props.messageEndRef} />
             </div>
-            <div className="border-t border-border bg-card p-3">
-              <div className="mb-2 flex flex-wrap gap-2">
+            <div className="guest-experience-composer border-t border-border bg-card p-3">
+              <div className="guest-experience-action-toolbar mb-2 flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => props.onUnavailable("Approval is unavailable because this conversation has no pending approval workflow.")}
@@ -1690,7 +1711,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                   disabled={
                     !props.canMessage || !props.draft.trim() || props.sending
                   }
-                  className="rounded-xl bg-primary-solid px-4 py-2 text-sm font-semibold text-primary-contrast disabled:opacity-50"
+                  className="guest-experience-reply-button rounded-xl bg-primary-solid px-4 py-2 text-sm font-semibold text-primary-contrast disabled:opacity-50"
                 >
                   {props.sending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -1755,7 +1776,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
               role="tab"
               aria-selected={contextTab === id}
               onClick={() => setContextTab(id as "guest" | "ticket")}
-              className={`border-b-2 px-2 py-3 text-xs font-semibold ${contextTab === id ? "border-primary-600 text-primary-700" : "border-transparent text-text-muted"}`}
+              className={`guest-context-tab border-b-2 px-2 py-3 text-xs font-semibold ${contextTab === id ? "is-active border-primary-600 text-primary-700" : "border-transparent text-text-muted"}`}
             >
               {label}
             </button>
@@ -2033,7 +2054,7 @@ function MessageBubble({ message }: { message: ConversationMessage }) {
       className={`flex ${guest || system ? "justify-start" : "justify-end"}`}
     >
       <div
-        className={`max-w-[80%] rounded-2xl px-3 py-2 text-xs ${system ? "border border-border bg-card text-text-muted" : guest ? "border border-border bg-card text-text-main" : "bg-primary-solid text-primary-contrast"}`}
+        className={`guest-experience-message max-w-[80%] rounded-2xl px-3 py-2 text-xs ${system ? "is-system border border-border bg-card text-text-muted" : guest ? "is-guest border border-border bg-card text-text-main" : "is-staff bg-primary-solid text-primary-contrast"}`}
       >
         <p>{message.body}</p>
         <p

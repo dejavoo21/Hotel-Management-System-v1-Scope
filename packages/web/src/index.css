@@ -31,6 +31,12 @@
   /* Accent - Lime green for success highlights only */
   --color-accent: 132 204 22;
 
+  /* Guest Experience workspace accents */
+  --color-support-action: 37 99 235;
+  --color-support-action-soft: 239 246 255;
+  --color-support-assist: 124 58 237;
+  --color-support-rail: 20 44 72;
+
   /* Primary scale - Sky blue */
   --color-primary-50: 240 249 255;
   --color-primary-100: 224 242 254;
@@ -1098,6 +1104,89 @@
   display: none;
 }
 
+/* Guest Experience Center has a blue support-workflow accent independent of
+ * the hotel's primary brand colour. Green remains reserved for success and
+ * the single Ask LaFlo launcher, matching the approved visual hierarchy. */
+.guest-experience-page {
+  background: rgb(var(--color-bg));
+}
+
+.guest-experience-page .guest-experience-rail {
+  background: rgb(var(--color-support-rail));
+  box-shadow: inset -1px 0 0 rgb(255 255 255 / 0.05);
+}
+
+.guest-experience-page .guest-experience-rail-action.is-active {
+  background: rgb(255 255 255 / 0.1);
+  box-shadow: inset 3px 0 0 rgb(var(--color-support-action));
+}
+
+.guest-experience-page .guest-experience-intelligence,
+.guest-experience-page .guest-experience-list,
+.guest-experience-page .guest-experience-thread,
+.guest-experience-page .guest-experience-context {
+  border-color: rgb(var(--color-border) / 0.88);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.035);
+}
+
+.guest-experience-page .guest-intelligence-card {
+  border-color: rgb(var(--color-border) / 0.78);
+  background: rgb(var(--color-bg-card));
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.025);
+}
+
+.guest-experience-page .guest-intelligence-card:hover,
+.guest-experience-page .guest-intelligence-refresh:hover {
+  border-color: rgb(var(--color-support-action) / 0.35);
+  background: rgb(var(--color-support-action-soft));
+}
+
+.guest-experience-page .guest-workspace-tab.is-active,
+.guest-experience-page .guest-context-tab.is-active {
+  border-color: rgb(var(--color-support-action));
+  color: rgb(var(--color-support-action));
+}
+
+.guest-experience-page .guest-conversation-row.is-selected {
+  background: rgb(var(--color-support-action-soft));
+  box-shadow: inset 3px 0 0 rgb(var(--color-support-action));
+}
+
+.guest-experience-page .guest-experience-thread {
+  background: rgb(var(--color-surface-muted) / 0.52);
+}
+
+.guest-experience-page .guest-experience-message.is-staff {
+  border: 1px solid rgb(var(--color-support-action) / 0.16);
+  background: rgb(var(--color-support-action) / 0.1);
+  color: rgb(var(--color-text-main));
+}
+
+.guest-experience-page .guest-experience-message.is-system {
+  background: rgb(var(--color-bg-card));
+}
+
+.guest-experience-page .guest-experience-reply-button {
+  background: rgb(var(--color-support-action));
+  color: white;
+}
+
+.guest-experience-page .guest-experience-reply-button:hover:not(:disabled) {
+  background: rgb(29 78 216);
+}
+
+.guest-experience-page .guest-context-suggestions,
+.guest-experience-page .guest-context-response {
+  border-color: rgb(var(--color-support-assist) / 0.16);
+  background: rgb(var(--color-support-assist) / 0.045);
+}
+
+.guest-experience-page .guest-context-suggestions button,
+.guest-experience-page .guest-context-response button {
+  border-color: rgb(var(--color-support-assist) / 0.16);
+}
+
 /*
  * Keep the approved command-centre composition available inside the Codex
  * in-app browser and other compact desktop workspaces.  The panel is commonly
@@ -1123,6 +1212,7 @@
 
   .guest-experience-shell > aside {
     display: flex !important;
+    flex-direction: column;
     height: 100%;
     min-height: 0;
     padding: 12px 6px;
@@ -1144,10 +1234,16 @@
     line-height: 1.25;
   }
 
+  .guest-experience-rail-smart-divider,
+  .guest-experience-rail-smart-label,
+  .guest-experience-rail-smart-views {
+    display: none;
+  }
+
   .guest-experience-desktop-grid {
     display: grid;
-    grid-template-columns: 182px minmax(286px, 1fr) 210px;
-    grid-template-rows: 148px minmax(0, 1fr);
+    grid-template-columns: clamp(170px, 22vw, 250px) minmax(292px, 1fr) clamp(210px, 26vw, 320px);
+    grid-template-rows: 154px minmax(0, 1fr);
     gap: 6px;
     height: 100%;
     min-height: 0;
@@ -1162,7 +1258,7 @@
   .guest-experience-intelligence {
     grid-column: 1 / 3;
     grid-row: 1;
-    height: 148px;
+    height: 154px;
     overflow: hidden;
     padding: 10px;
   }
@@ -1317,6 +1413,10 @@
     overflow: hidden;
   }
 
+  .guest-experience-intelligence > div.mt-4 > button span {
+    display: none;
+  }
+
   .guest-experience-conversation-workspace {
     display: contents;
   }
@@ -1366,10 +1466,22 @@
   }
 
   .guest-context-profile,
-  .guest-context-related,
-  .guest-context-status:first-child,
-  .guest-context-suggestions:first-of-type {
+  .guest-context-related {
     grid-row: 1;
+  }
+
+  .guest-context-stay,
+  .guest-context-suggestions {
+    grid-row: 2;
+  }
+
+  .guest-context-timeline,
+  .guest-context-response {
+    grid-row: 3;
+  }
+
+  .guest-context-status {
+    grid-row: 4;
   }
 
   .guest-calls-workspace {

@@ -351,6 +351,34 @@ describe("Guest Experience Center", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows a real refresh state and applies the resolved KPI filter", async () => {
+    let resolveRefresh!: (value: Array<typeof thread>) => void;
+    const refreshPromise = new Promise<Array<typeof thread>>((resolve) => {
+      resolveRefresh = resolve;
+    });
+    renderPage("/messages?tab=conversations");
+    await screen.findByText("Late room readiness");
+
+    const refresh = await screen.findByRole("button", { name: /Updated/ });
+    mocks.threads.mockImplementationOnce(() => refreshPromise);
+    fireEvent.click(refresh);
+    expect(
+      await screen.findByRole("button", { name: "Refreshing" }),
+    ).toBeDisabled();
+    resolveRefresh([thread]);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Updated/ })).toBeEnabled(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Resolved today/ }));
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      "/messages?tab=conversations",
+    );
+    expect(
+      screen.getByText("No conversations match the current search and filter."),
+    ).toBeInTheDocument();
+  });
+
   it("filters by priority, prepares the recommended response, and opens Guest Calls with guest context", async () => {
     renderPage("/messages?tab=conversations");
     await screen.findByText("My room is not ready.");
