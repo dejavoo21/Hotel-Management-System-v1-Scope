@@ -1484,7 +1484,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                 className={`guest-conversation-row w-full border-b border-border p-3 text-left ${props.selectedThreadId === thread.id ? "is-selected bg-primary-50" : "hover:bg-bg"}`}
               >
                 <div className="flex gap-3">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-100 text-xs font-bold text-primary-700">
+                  <span className="guest-conversation-avatar grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-100 text-xs font-bold text-primary-700">
                     {initials(guestName(thread))}
                   </span>
                   <div className="min-w-0 flex-1">
@@ -1502,7 +1502,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                     <p className="truncate text-xs text-text-muted">
                       {thread.lastMessage?.body || thread.subject}
                     </p>
-                    <div className="mt-2 flex flex-wrap gap-1">
+                    <div className="guest-conversation-badges mt-2 flex flex-wrap gap-1">
                       <Badge>{thread.status}</Badge>
                       <Badge>{itemTicket?.priority || "NORMAL"}</Badge>
                       <Badge>
@@ -1528,7 +1528,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
           <>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card p-4">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-100 text-sm font-bold text-primary-700">
+                <span className="guest-thread-avatar grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-100 text-sm font-bold text-primary-700">
                   {initials(guestName(props.selectedThread))}
                 </span>
                 <div className="min-w-0">
@@ -1788,7 +1788,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
               <>
                 <section className="guest-context-profile rounded-xl border border-border p-3">
                   <div className="flex items-center gap-3">
-                    <span className="grid h-10 w-10 place-items-center rounded-full bg-primary-100 text-xs font-bold text-primary-700">
+                    <span className="guest-profile-avatar grid h-10 w-10 place-items-center rounded-full bg-primary-100 text-xs font-bold text-primary-700">
                       {initials(guestName(props.selectedThread))}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -2001,8 +2001,8 @@ function TimelineItem({
   detail: string;
 }) {
   return (
-    <div className="flex gap-2">
-      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-bg text-primary-700">
+    <div className="guest-timeline-item flex gap-2">
+      <span className="guest-timeline-icon grid h-7 w-7 shrink-0 place-items-center rounded-full bg-bg text-primary-700">
         <Icon className="h-3.5 w-3.5" />
       </span>
       <div>
@@ -2028,7 +2028,7 @@ function ActionRow({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-2 rounded-lg border border-primary-200 bg-card p-2 text-left"
+      className="guest-suggested-action flex w-full items-center gap-2 rounded-lg border border-primary-200 bg-card p-2 text-left"
     >
       <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary-50 text-primary-700">
         <Icon className="h-4 w-4" />
