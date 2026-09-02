@@ -1631,6 +1631,23 @@
     overflow: hidden;
   }
 
+  .guest-experience-intelligence > div:first-child {
+    flex-wrap: nowrap;
+  }
+
+  .guest-experience-intelligence > div:first-child > button {
+    flex-shrink: 0;
+  }
+
+  .guest-experience-intelligence > div.mt-4 {
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .guest-experience-intelligence > div.mt-4 > button {
+    padding: 10px;
+  }
+
   .guest-experience-intelligence > div.mt-4 > button span {
     display: none;
   }
