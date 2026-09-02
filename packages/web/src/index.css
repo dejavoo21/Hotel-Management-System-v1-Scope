@@ -1102,7 +1102,7 @@
   /* Guest Experience Center mirrors the approved support-workspace composition. */
   .guest-experience-page {
     height: calc(100vh - 64px);
-    margin-top: -20px;
+    margin-block: -20px;
     overflow: hidden;
   }
 
