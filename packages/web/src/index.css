@@ -1098,6 +1098,185 @@
   display: none;
 }
 
+/*
+ * Keep the approved command-centre composition available inside the Codex
+ * in-app browser and other compact desktop workspaces.  The panel is commonly
+ * 800-1100px wide, so waiting for Tailwind's 1280px `xl` breakpoint collapsed
+ * the experience into a long mobile feed even on desktop.
+ */
+@media (min-width: 800px) and (max-width: 1279px) {
+  .guest-experience-page {
+    height: calc(100vh - 64px);
+    margin-block: -20px;
+    overflow: hidden;
+    padding: 0 !important;
+  }
+
+  .guest-experience-shell {
+    display: grid;
+    grid-template-columns: 108px minmax(0, 1fr);
+    gap: 6px;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .guest-experience-shell > aside {
+    display: flex !important;
+    height: 100%;
+    min-height: 0;
+    padding: 12px 6px;
+  }
+
+  .guest-experience-shell > aside nav button,
+  .guest-experience-shell > aside > div button,
+  .guest-experience-shell > aside > button:last-child {
+    gap: 6px;
+    padding-inline: 6px;
+  }
+
+  .guest-experience-shell > aside > button:first-child {
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .guest-experience-shell > aside > button:first-child span:last-child {
+    line-height: 1.25;
+  }
+
+  .guest-experience-desktop-grid {
+    display: grid;
+    grid-template-columns: 182px minmax(286px, 1fr) 210px;
+    grid-template-rows: 148px minmax(0, 1fr);
+    gap: 6px;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    padding: 8px 0;
+  }
+
+  .guest-experience-desktop-grid > * {
+    margin-top: 0 !important;
+  }
+
+  .guest-experience-intelligence {
+    grid-column: 1 / 3;
+    grid-row: 1;
+    height: 148px;
+    overflow: hidden;
+    padding: 10px;
+  }
+
+  .guest-experience-intelligence > div:first-child {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .guest-experience-intelligence > div:first-child > button {
+    flex-shrink: 0;
+    padding: 6px 8px;
+    font-size: 10px;
+  }
+
+  .guest-experience-intelligence > div.mt-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .guest-experience-intelligence > div.mt-4 > button {
+    min-width: 0;
+    padding: 7px;
+  }
+
+  .guest-experience-intelligence > div.mt-4 > button p:nth-child(2) {
+    font-size: 18px;
+    line-height: 1.15;
+  }
+
+  .guest-experience-intelligence > div.mt-4 > button span {
+    display: none;
+  }
+
+  .guest-experience-intelligence > div.mt-4 > button > p:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .guest-experience-conversation-workspace {
+    display: contents;
+  }
+
+  .guest-experience-list {
+    grid-column: 1;
+    grid-row: 2;
+    min-height: 0;
+    border: 1px solid rgb(var(--color-border));
+    border-radius: 12px;
+    background: rgb(var(--color-bg-card));
+  }
+
+  .guest-experience-list > div.space-y-2 {
+    padding: 8px;
+  }
+
+  .guest-experience-list > div.min-h-0 button {
+    padding: 8px;
+  }
+
+  .guest-experience-list > div.min-h-0 button span.h-10 {
+    width: 30px;
+    height: 30px;
+  }
+
+  .guest-experience-thread {
+    grid-column: 2;
+    grid-row: 2;
+    min-height: 0;
+    overflow: hidden;
+    border: 1px solid rgb(var(--color-border));
+    border-radius: 12px;
+  }
+
+  .guest-experience-thread > div:first-child,
+  .guest-experience-thread > div:last-child {
+    padding: 8px;
+  }
+
+  .guest-experience-thread > div:last-child > div.mb-2 {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 3px;
+  }
+
+  .guest-experience-thread > div:last-child > div.mb-2 > * {
+    flex: 0 0 auto;
+  }
+
+  .guest-experience-thread details {
+    display: none;
+  }
+
+  .guest-experience-context {
+    display: block !important;
+    grid-column: 3;
+    grid-row: 1 / 3;
+    min-height: 0;
+    border: 1px solid rgb(var(--color-border));
+    border-radius: 12px;
+  }
+
+  .guest-experience-context-body {
+    display: block;
+    padding: 8px;
+  }
+
+  .guest-experience-context-body > section {
+    min-width: 0;
+  }
+}
+
 @media (min-width: 1280px) {
   /* Guest Experience Center mirrors the approved support-workspace composition. */
   .guest-experience-page {

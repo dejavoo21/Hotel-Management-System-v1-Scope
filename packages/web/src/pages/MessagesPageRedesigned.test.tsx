@@ -326,6 +326,31 @@ describe("Guest Experience Center", () => {
     expect(screen.getByText("Guest Details")).toBeInTheDocument();
   });
 
+  it("keeps every approved command-center region mounted for compact desktop layouts", async () => {
+    renderPage("/messages?tab=conversations");
+    await screen.findByText("Late room readiness");
+
+    expect(
+      screen.getByRole("navigation", {
+        name: "Guest Experience Center workspace",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("complementary", { name: "Guest conversations" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Active guest conversation" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("complementary", {
+        name: "Guest and ticket context",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Guest Experience Intelligence" }),
+    ).toBeInTheDocument();
+  });
+
   it("filters by priority, prepares the recommended response, and opens Guest Calls with guest context", async () => {
     renderPage("/messages?tab=conversations");
     await screen.findByText("My room is not ready.");
