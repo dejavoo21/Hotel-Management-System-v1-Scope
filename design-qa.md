@@ -61,4 +61,17 @@
 - [x] Pass TypeScript/build validation and focused tests.
 - [x] Deploy and verify the authenticated Railway production page.
 
+## Compact In-App Browser Iteration — 2026-09-02
+
+- Target viewport: 887 × 642 CSS pixels, matching the current Codex in-app browser panel.
+- Earlier evidence: the deployed `3774c358` build enters the mobile feed at 887 pixels, collapses the dark support rail, uses a 2 × 2 KPI grid, and moves the active thread and context below the fold.
+- Fix deployed: the 800–1279px compact command-center breakpoint preserves the support rail, four horizontal KPIs, conversation list, active thread, and context panel while retaining internal scrolling and all existing live actions.
+- Automated evidence: the focused Guest Experience Center suite passes 8/8 tests; repository `npm run check` passes Prisma generation, API TypeScript, frontend TypeScript, and the Vite production build.
+- Release evidence: commit `23e334f2` was pushed to `agent/auth-dashboard-stabilization`; Railway deployment `4430b4a2-0000-4489-b87a-7f9be3c894f6` reached SUCCESS.
+- Live evidence: authenticated production capture at 887 × 642 is `C:\Users\walea\Documents\Codex\2026-08-27\can\.audit\guest-experience-live-23e334f2-887.png`; approved-versus-live comparison is `C:\Users\walea\Documents\Codex\2026-08-27\can\.audit\guest-experience-approved-vs-23e334f2-887.jpg`.
+- The live page has no page-level horizontal overflow and keeps all five required regions visible: local support rail, intelligence strip, conversation list, active conversation, and guest/ticket context.
+- Live interactions verified: Conversations and Tickets update canonical query routes; searching for Sarah displays Sarah Johnson; Ticket Insights and Guest Details both select and change context correctly.
+- Console evidence: zero warning/error entries were recorded in the post-deployment visual pass.
+- Responsive note: at 887 pixels the interface deliberately uses denser typography and truncation than the 1672-pixel approved source while preserving its information hierarchy and workspace composition.
+
 final result: passed
