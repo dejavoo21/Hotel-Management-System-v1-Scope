@@ -1102,6 +1102,7 @@
   /* Guest Experience Center mirrors the approved support-workspace composition. */
   .guest-experience-page {
     height: calc(100vh - 64px);
+    margin-top: -20px;
     overflow: hidden;
   }
 
@@ -1109,12 +1110,10 @@
     height: 100%;
     grid-template-rows: minmax(0, 1fr);
     overflow: hidden;
-    padding: 0 14px;
   }
 
   .guest-experience-shell > aside {
-    height: calc(100vh - 94px);
-    margin-top: 15px;
+    height: 100%;
   }
 
   .guest-experience-desktop-grid {
