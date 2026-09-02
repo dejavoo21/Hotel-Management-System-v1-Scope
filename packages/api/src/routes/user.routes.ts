@@ -29,6 +29,20 @@ const updateUserSchema = z.object({
   lastName: z.string().min(1).max(100).optional(),
   role: z.enum(['ADMIN', 'MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING']).optional(),
   isActive: z.boolean().optional(),
+  avatarUrl: z
+    .string()
+    .max(7_000_000, 'Profile picture is too large')
+    .regex(/^data:image\/(?:png|jpeg|webp);base64,/, 'Unsupported profile picture format')
+    .nullable()
+    .optional(),
+});
+
+const updateAvatarSchema = z.object({
+  avatarUrl: z
+    .string()
+    .max(7_000_000, 'Profile picture is too large')
+    .regex(/^data:image\/(?:png|jpeg|webp);base64,/, 'Unsupported profile picture format')
+    .nullable(),
 });
 
 const resetPasswordSchema = z.object({
@@ -55,6 +69,7 @@ const updatePermissionsSchema = z.object({
 
 // All routes require authentication and users module access
 router.use(authenticate);
+router.patch('/me/avatar', validate(updateAvatarSchema), userController.updateOwnAvatar);
 router.use(requireModuleAccess('users'));
 
 // Routes

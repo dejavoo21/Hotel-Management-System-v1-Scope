@@ -213,7 +213,7 @@ export default function UsersPage() {
     setEditTitle(getUserTitles()[selectedUser.id] || '');
     setEditSuperAdmin(isSuperAdminUser(selectedUser.id, selectedUser.role as UserRole | undefined));
     setEditTwoFactor(Boolean(selectedUser.twoFactorEnabled));
-    setEditUserAvatar(getStoredUserAvatar(selectedUser.id));
+    setEditUserAvatar(selectedUser.avatarUrl || getStoredUserAvatar(selectedUser.id));
     const prefsMap = loadSecurityPrefsMap();
     const prefs = prefsMap[selectedUser.id];
     setEditPassphraseEnabled(Boolean(prefs?.passphraseEnabled));
@@ -229,7 +229,7 @@ export default function UsersPage() {
       try {
         window.localStorage.setItem(userAvatarKey(selectedUser.id), value);
         setEditUserAvatar(value);
-        toast.success('Profile photo updated');
+        toast.success('Profile photo selected. Save changes to share it with staff.');
       } catch {
         toast.error('Failed to save profile photo');
       }
@@ -242,7 +242,7 @@ export default function UsersPage() {
     try {
       window.localStorage.removeItem(userAvatarKey(selectedUser.id));
       setEditUserAvatar(null);
-      toast.success('Profile photo removed');
+      toast.success('Profile photo will be removed when you save changes');
     } catch {
       toast.error('Failed to remove profile photo');
     }
@@ -542,6 +542,7 @@ export default function UsersPage() {
                     lastName: formData.get('lastName') as string,
                     email: formData.get('email') as string,
                     role: formData.get('role') as User['role'],
+                    avatarUrl: editUserAvatar,
                     twoFactorEnabled: editTwoFactor,
                     modulePermissions: editPermissions,
                   },
@@ -831,5 +832,4 @@ export default function UsersPage() {
     </div>
   );
 }
-
 

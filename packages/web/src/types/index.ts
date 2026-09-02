@@ -36,6 +36,7 @@ export interface User {
   email: string;
   firstName: string;
   lastName: string;
+  avatarUrl?: string | null;
   role: 'ADMIN' | 'MANAGER' | 'RECEPTIONIST' | 'HOUSEKEEPING';
   hotelId: string;
   hotel: {
@@ -298,7 +299,7 @@ export interface ConversationMessage {
   body: string;
   senderType: 'GUEST' | 'STAFF' | 'SYSTEM';
   createdAt: string;
-  senderUser?: { id?: string; firstName: string; lastName: string; role: string };
+  senderUser?: { id?: string; firstName: string; lastName: string; role: string; avatarUrl?: string | null };
   guest?: { firstName: string; lastName: string };
 }
 
@@ -348,6 +349,7 @@ export interface SupportAgent {
   id: string;
   firstName: string;
   lastName: string;
+  avatarUrl?: string | null;
   role: string;
   online: boolean;
   lastSeenAt?: string;

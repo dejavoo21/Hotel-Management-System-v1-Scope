@@ -21,6 +21,11 @@ export const authService = {
     return response.data.data;
   },
 
+  async updateAvatar(avatarUrl: string | null): Promise<{ avatarUrl: string | null }> {
+    const response = await api.patch('/users/me/avatar', { avatarUrl });
+    return response.data.data;
+  },
+
   async listSessions(refreshToken: string): Promise<ActiveSession[]> {
     const response = await api.post('/auth/sessions/list', { refreshToken });
     return response.data.data;

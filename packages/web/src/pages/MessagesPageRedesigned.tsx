@@ -2312,7 +2312,11 @@ function MessageBubble({
       (senderUserId === currentUser.id || matchingCurrentUser),
   );
   const alignLeft = guest || system || !isCurrentUserMessage;
-  const avatarUrl = storedUserAvatar(senderUserId);
+  const avatarUrl =
+    message.senderUser?.avatarUrl ||
+    matchingAgent?.avatarUrl ||
+    matchingCurrentUser?.avatarUrl ||
+    storedUserAvatar(senderUserId);
   const showAvatar = !system;
   const avatarTone = guest
     ? "bg-emerald-100 text-emerald-700"

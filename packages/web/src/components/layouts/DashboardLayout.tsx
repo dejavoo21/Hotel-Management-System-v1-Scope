@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { usePresenceStore } from '@/stores/presenceStore';
@@ -17,6 +17,7 @@ import {
 import AppChatbot from '@/components/support/AppChatbot';
 import { PresenceDot, PresenceMenu } from '@/components/presence';
 import { useSocketPresence } from '@/hooks/useSocketPresence';
+import { useProfileAvatar } from '@/hooks/useProfileAvatar';
 
 type NavigationItem = {
   name: string;
@@ -232,7 +233,7 @@ export default function DashboardLayout() {
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [globalSearchActiveIndex, setGlobalSearchActiveIndex] = useState(0);
-  const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
+  const { profileAvatar, onAvatarChange, removeAvatar } = useProfileAvatar();
   const [openSections, setOpenSections] = useState({
     operations: true,
     guest: true,
@@ -275,47 +276,7 @@ export default function DashboardLayout() {
   const settingsFlyoutRef = useRef<HTMLDivElement | null>(null);
   const [accessRequestAck, setAccessRequestAck] = useState(() => loadAccessRequestAckMap());
 
-  const avatarStorageKey = `laflo-profile-avatar:${user?.id || 'guest'}`;
-
   useEffect(() => onAccessRequestAckChanged(() => setAccessRequestAck(loadAccessRequestAckMap())), []);
-
-  useEffect(() => {
-    try {
-      const value = localStorage.getItem(avatarStorageKey);
-      setProfileAvatar(value || null);
-    } catch {
-      setProfileAvatar(null);
-    }
-  }, [avatarStorageKey]);
-
-  const onAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === 'string' ? reader.result : null;
-      if (!result) return;
-      try {
-        localStorage.setItem(avatarStorageKey, result);
-      } catch {
-        toast.error('Failed to save profile picture');
-        return;
-      }
-      setProfileAvatar(result);
-      toast.success('Profile picture updated');
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const removeAvatar = () => {
-    try {
-      localStorage.removeItem(avatarStorageKey);
-      setProfileAvatar(null);
-      toast.success('Profile picture removed');
-    } catch {
-      toast.error('Failed to remove profile picture');
-    }
-  };
 
   const { data: accessRequests } = useQuery({
     queryKey: ['accessRequests', 'badge'],

@@ -20,6 +20,7 @@ interface LoginResult {
     firstName: string;
     lastName: string;
     role: string;
+    avatarUrl?: string | null;
     hotelId: string;
     hotel: {
       id: string;
@@ -178,6 +179,7 @@ export async function login(
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
+      avatarUrl: user.avatarUrl,
       hotelId: user.hotelId,
       hotel: user.hotel,
       modulePermissions: user.modulePermissions || [],
@@ -409,6 +411,7 @@ export async function loginWithBackupCode(
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
+      avatarUrl: user.avatarUrl,
       hotelId: user.hotelId,
       hotel: user.hotel,
       modulePermissions: user.modulePermissions || [],
@@ -739,6 +742,7 @@ export async function loginWithEmailOtp(
       firstName: otp.user.firstName,
       lastName: otp.user.lastName,
       role: otp.user.role,
+      avatarUrl: otp.user.avatarUrl,
       hotelId: otp.user.hotelId,
       hotel: (otp.user as any).hotel,
       modulePermissions: otp.user.modulePermissions || [],
@@ -857,6 +861,7 @@ export async function getUserById(userId: string) {
       email: true,
       firstName: true,
       lastName: true,
+      avatarUrl: true,
       role: true,
       hotelId: true,
       isActive: true,

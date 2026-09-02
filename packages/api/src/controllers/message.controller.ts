@@ -118,7 +118,7 @@ const serializeThreadSummary = (
       body: string;
       senderType: string;
       createdAt: Date;
-      senderUser: { firstName: string; lastName: string; role: string } | null;
+      senderUser: { firstName: string; lastName: string; role: string; avatarUrl: string | null } | null;
       guest: { firstName: string; lastName: string } | null;
     }>;
   }
@@ -221,7 +221,7 @@ export async function listThreads(
           orderBy: { createdAt: 'desc' },
           take: 10,
           include: {
-            senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
+            senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
             guest: { select: { firstName: true, lastName: true } },
           },
         },
@@ -253,7 +253,7 @@ export async function getThread(
         messages: {
           orderBy: { createdAt: 'asc' },
           include: {
-            senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
+            senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
             guest: { select: { firstName: true, lastName: true } },
           },
         },
@@ -333,7 +333,7 @@ export async function getOrCreateLiveSupportThread(
           orderBy: { createdAt: 'desc' },
           take: 20,
           include: {
-            senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
+            senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
             guest: { select: { firstName: true, lastName: true } },
           },
         },
@@ -362,7 +362,7 @@ export async function getOrCreateLiveSupportThread(
             orderBy: { createdAt: 'desc' },
             take: 20,
             include: {
-              senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
+              senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
               guest: { select: { firstName: true, lastName: true } },
             },
           },
@@ -391,7 +391,7 @@ export async function getOrCreateLiveSupportThread(
               body: notes.join('\n'),
             },
             include: {
-              senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
+              senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
               guest: { select: { firstName: true, lastName: true } },
             },
           }),
@@ -402,7 +402,7 @@ export async function getOrCreateLiveSupportThread(
               body: BOT_HANDOFF_CONNECTING,
             },
             include: {
-              senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
+              senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
               guest: { select: { firstName: true, lastName: true } },
             },
           }),
@@ -413,7 +413,7 @@ export async function getOrCreateLiveSupportThread(
               body: BOT_HANDOFF_WAITING,
             },
             include: {
-              senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
+              senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
               guest: { select: { firstName: true, lastName: true } },
             },
           }),
@@ -706,6 +706,7 @@ export async function listSupportAgents(
         id: true,
         firstName: true,
         lastName: true,
+        avatarUrl: true,
         role: true,
         lastLoginAt: true,
       },
@@ -772,6 +773,7 @@ export async function listSupportAgents(
         id: agent.id,
         firstName: agent.firstName,
         lastName: agent.lastName,
+        avatarUrl: agent.avatarUrl,
         role: agent.role,
         online:
           agent.id === req.user!.id ||
@@ -843,7 +845,7 @@ export async function assignSupportAgent(
           body: `${ASSIGNMENT_PREFIX} ${assignmentPayload}`,
         },
         include: {
-          senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
+          senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
           guest: { select: { firstName: true, lastName: true } },
         },
       });
@@ -882,7 +884,7 @@ export async function assignSupportAgent(
           orderBy: { createdAt: 'desc' },
           take: 20,
           include: {
-            senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
+            senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
             guest: { select: { firstName: true, lastName: true } },
           },
         },
@@ -927,7 +929,7 @@ export async function createMessage(
         body: body.trim(),
       },
       include: {
-        senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
+        senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
       },
     });
 

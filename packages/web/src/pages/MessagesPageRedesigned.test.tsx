@@ -282,6 +282,7 @@ describe("Guest Experience Center", () => {
             firstName: "Onboarding",
             lastName: "User",
             role: "ADMIN",
+            avatarUrl: "data:image/png;base64,onboarding-photo",
           },
           createdAt: "2026-09-01T08:05:00Z",
         },
@@ -294,6 +295,7 @@ describe("Guest Experience Center", () => {
             firstName: "Maya",
             lastName: "Singh",
             role: "MANAGER",
+            avatarUrl: "data:image/png;base64,maya-photo",
           },
           createdAt: "2026-09-01T08:06:00Z",
         },
@@ -310,10 +312,16 @@ describe("Guest Experience Center", () => {
     expect(
       await screen.findByRole("img", { name: "Onboarding User profile" }),
     ).toHaveAttribute("data-avatar-user-id", "admin-1");
+    expect(
+      screen.getByRole("img", { name: "Onboarding User profile" }).querySelector("img"),
+    ).toHaveAttribute("src", "data:image/png;base64,onboarding-photo");
     expect(screen.getByRole("img", { name: "Maya Singh profile" })).toHaveAttribute(
       "data-avatar-user-id",
       "agent-1",
     );
+    expect(
+      screen.getByRole("img", { name: "Maya Singh profile" }).querySelector("img"),
+    ).toHaveAttribute("src", "data:image/png;base64,maya-photo");
     expect(
       screen.getByRole("article", { name: "Onboarding User message" }),
     ).toBeInTheDocument();
