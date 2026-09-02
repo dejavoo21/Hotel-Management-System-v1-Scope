@@ -272,6 +272,12 @@ describe("Guest Experience Center", () => {
     expect(
       await screen.findByText("My room is not ready."),
     ).toBeInTheDocument();
+    expect(screen.getByText("Guest Experience Center")).toBeInTheDocument();
+    expect(screen.getByText(/1 active conversation/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Assign conversation owner")).toHaveClass(
+      "guest-experience-action-control",
+      "guest-experience-assign-control",
+    );
     fireEvent.change(screen.getByPlaceholderText("Search conversations"), {
       target: { value: "missing" },
     });

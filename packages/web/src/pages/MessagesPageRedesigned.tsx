@@ -834,6 +834,7 @@ export default function MessagesPageRedesigned() {
             }
           >
             <SupportIntelligenceStrip
+              activeConversations={threads.filter((item) => item.status === "OPEN").length}
               openTickets={openTickets.length}
               assigned={tickets.filter((ticket) => ticket.assignedToId).length}
               slaBreaches={slaBreaches.length}
@@ -1021,6 +1022,7 @@ export default function MessagesPageRedesigned() {
 }
 
 function SupportIntelligenceStrip({
+  activeConversations,
   openTickets,
   assigned,
   slaBreaches,
@@ -1034,6 +1036,7 @@ function SupportIntelligenceStrip({
   onOpenEscalations,
   onOpenResolved,
 }: {
+  activeConversations: number;
   openTickets: number;
   assigned: number;
   slaBreaches: number;
@@ -1094,7 +1097,7 @@ function SupportIntelligenceStrip({
               </span>
             </div>
             <p className="guest-intelligence-summary mt-1 max-w-3xl truncate text-xs text-text-muted">
-              {openTickets} open {openTickets === 1 ? "issue" : "issues"}, {assigned} assigned, and {slaBreaches} at risk of SLA breach. Priority: {priority}
+              {activeConversations} active {activeConversations === 1 ? "conversation" : "conversations"}, {openTickets} open {openTickets === 1 ? "ticket" : "tickets"}, {assigned} assigned, and {slaBreaches} at risk of SLA breach. Priority: {priority}
             </p>
           </div>
         </div>
@@ -1208,7 +1211,7 @@ function GuestExperienceRail({
           L
         </span>
         <span className="guest-experience-rail-brand-label text-[10px] font-semibold uppercase tracking-wide text-white">
-          Guest Experience
+          Guest Experience Center
         </span>
       </button>
       <nav aria-label="Guest Experience Center workspace" className="space-y-1">
@@ -1791,11 +1794,11 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
               <div ref={props.messageEndRef} />
             </div>
             <div className="guest-experience-composer border-t border-border bg-card p-3">
-              <div className="guest-experience-action-toolbar mb-2 flex flex-wrap gap-2">
+              <div className="guest-experience-action-toolbar mb-2 flex flex-wrap gap-1.5">
                 <button
                   type="button"
                   onClick={() => props.onUnavailable("Approval is unavailable because this conversation has no pending approval workflow.")}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold"
+                  className="guest-experience-action-control rounded-lg border border-border font-semibold"
                 >
                   Approve
                 </button>
@@ -1804,7 +1807,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                   disabled={!props.canManage}
                   title={!props.canManage ? "Permission required" : undefined}
                   onClick={() => props.onTicketAction("escalate")}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-45"
+                  className="guest-experience-action-control rounded-lg border border-border font-semibold disabled:opacity-45"
                 >
                   Escalate
                 </button>
@@ -1816,7 +1819,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                       if (event.target.value) props.onAssign(event.target.value);
                       event.target.value = "";
                     }}
-                    className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold"
+                    className="guest-experience-action-control guest-experience-assign-control rounded-lg border border-border bg-card font-semibold"
                   >
                     <option value="">Assign</option>
                     {props.agents.map((agent) => (
@@ -1830,7 +1833,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                     type="button"
                     disabled
                     title={!props.canManage ? "Permission required" : "No assignable owners available"}
-                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold opacity-45"
+                    className="guest-experience-action-control guest-experience-assign-control rounded-lg border border-border font-semibold opacity-45"
                   >
                     Assign
                   </button>
@@ -1842,14 +1845,14 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                     !props.canCreateTask ? "Permission required" : undefined
                   }
                   onClick={props.onCreateTask}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-45"
+                  className="guest-experience-action-control rounded-lg border border-border font-semibold disabled:opacity-45"
                 >
                   Create task
                 </button>
                 <button
                   type="button"
                   onClick={props.onCall}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold"
+                  className="guest-experience-action-control rounded-lg border border-border font-semibold"
                 >
                   <Phone className="mr-1 inline h-3.5 w-3.5" />
                   Call guest
@@ -1857,7 +1860,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                 <button
                   type="button"
                   onClick={() => props.onUnavailable("Guest charging is unavailable because an authorised billing workflow is not connected.")}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold"
+                  className="guest-experience-action-control rounded-lg border border-border font-semibold"
                 >
                   Charge guest
                 </button>
@@ -1866,7 +1869,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                   disabled={!props.canManage}
                   title={!props.canManage ? "Permission required" : undefined}
                   onClick={() => props.onTicketAction("resolve")}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-45"
+                  className="guest-experience-action-control rounded-lg border border-border font-semibold disabled:opacity-45"
                 >
                   Resolve
                 </button>
@@ -1875,14 +1878,14 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                   disabled={!props.canManage}
                   title={!props.canManage ? "Permission required" : undefined}
                   onClick={() => props.onTicketAction("close")}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-45"
+                  className="guest-experience-action-control rounded-lg border border-border font-semibold disabled:opacity-45"
                 >
                   Close
                 </button>
                 <button
                   type="button"
                   onClick={() => props.onUnavailable("Internal notes are unavailable because the note service is not connected.")}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold"
+                  className="guest-experience-action-control rounded-lg border border-border font-semibold"
                 >
                   Add note
                 </button>
