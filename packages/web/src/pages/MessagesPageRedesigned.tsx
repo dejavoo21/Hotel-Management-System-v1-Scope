@@ -2314,9 +2314,14 @@ function MessageBubble({
   const alignLeft = guest || system || !isCurrentUserMessage;
   const avatarUrl = storedUserAvatar(senderUserId);
   const showAvatar = !system;
+  const avatarTone = guest
+    ? "bg-emerald-100 text-emerald-700"
+    : isCurrentUserMessage
+      ? "bg-primary-100 text-primary-700"
+      : "bg-violet-100 text-violet-700";
   const avatar = showAvatar ? (
     <span
-      className="guest-message-avatar relative grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-primary-100 text-[10px] font-bold text-primary-700"
+      className={`guest-message-avatar relative grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full text-[10px] font-bold ${avatarTone}`}
       title={senderName}
       data-avatar-user-id={senderUserId || "unresolved"}
       role="img"

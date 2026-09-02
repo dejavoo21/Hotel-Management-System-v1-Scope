@@ -1353,7 +1353,7 @@
   bottom: -12px;
   width: 2px;
   border-radius: 999px;
-  background: rgb(var(--color-border) / 0.95);
+  background: rgb(var(--color-primary-700) / 0.32);
 }
 
 .guest-experience-page .guest-timeline-icon {
