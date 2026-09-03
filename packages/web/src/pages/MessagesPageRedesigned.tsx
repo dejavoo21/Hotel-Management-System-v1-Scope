@@ -1821,7 +1821,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
               ) : null}
               <div ref={props.messageEndRef} />
             </div>
-            <div className="guest-experience-composer border-t border-border bg-card p-3">
+            <div className="guest-experience-composer shrink-0 border-t border-border bg-card p-3">
               <div className="guest-experience-action-toolbar mb-2 flex flex-wrap gap-1.5">
                 <button
                   type="button"

@@ -456,6 +456,36 @@ describe("Guest Experience Center", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps the complete action toolbar and reply composer visible when actions wrap", async () => {
+    renderPage("/messages?tab=conversations");
+    await screen.findByText("Late room readiness");
+
+    const composer = screen.getByPlaceholderText("Type a guest reply").closest(
+      ".guest-experience-composer",
+    );
+    expect(composer).toHaveClass("shrink-0");
+    for (const action of [
+      "Approve",
+      "Escalate",
+      "Create task",
+      "Call guest",
+      "Charge guest",
+      "Resolve",
+      "Close",
+      "Add note",
+    ]) {
+      expect(
+        within(composer as HTMLElement).getByRole("button", { name: action }),
+      ).toBeInTheDocument();
+    }
+    expect(
+      within(composer as HTMLElement).getByLabelText("Assign conversation owner"),
+    ).toBeInTheDocument();
+    expect(
+      within(composer as HTMLElement).getByRole("button", { name: "Reply" }),
+    ).toBeInTheDocument();
+  });
+
   it("keeps every approved command-center region mounted for compact desktop layouts", async () => {
     renderPage("/messages?tab=conversations");
     await screen.findByText("Late room readiness");
