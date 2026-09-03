@@ -1,55 +1,58 @@
-**Source visual truth path**
-- `c:\Users\walea\Downloads\ChatGPT Image Jul 13, 2026, 10_13_50 PM.png`
+# Design QA — Guest Experience Center Ticket Insights
 
-**Implementation screenshot path**
-- `C:\tmp\laflo-login-redesign-2.png`
+- Source visual truth: `C:\Users\walea\AppData\Local\Temp\codex-clipboard-33532791-6022-47a9-91a6-6ce1bd71383c.png`
+- Browser-rendered implementation: `https://laflo-web-production.up.railway.app/messages?tab=conversations&deploy=83e9f42a`
+- Deployment: Railway web deployment `63cd468e-764d-46f9-bd2d-0fc77af43f58` (`SUCCESS`)
+- Source pixels: 1904 × 916
+- Implementation capture: 887 × 641 in the current Codex in-app Browser surface
+- CSS viewport/density: current in-app Browser viewport, device scale not exposed by the selected browser surface
+- State: authenticated as Onboarding User, Conversations selected, Ticket Insights selected, Live Support — Onboarding User conversation selected
 
-**Viewport**
-- 1792 × 1024
+## Full-view comparison evidence
 
-**State**
-- `/login`, unauthenticated, password mode, Remember me checked.
+The source showed a two-column Ticket Insights grid whose entire upper-left cell was blank while the action cards occupied the upper-right cell. The deployed implementation places Ticket status at the start of the first track and Issue timeline directly beneath it; Suggested next actions and Recommended response occupy the adjacent track at the desktop breakpoint. In the narrower in-app Browser capture the same content collapses into a continuous single-column sequence instead of reserving an empty column.
 
-**Full-view comparison evidence**
-- Source mockup and implementation screenshot were opened and compared at the same viewport and login state.
-- The implementation now uses the supplied mockup image as the left-side hero crop, matching the large LaFlo branding, hotel illustration, reception scene, and translucent dashboard cards.
-- The right-side form matches the target structure: large "Welcome back" heading, subtitle, icon inputs, checked Remember me control, Forgot password / Use verification code links, teal sign-in CTA, and Request access row.
+The source and live implementation were opened together in one comparison input. Their full-view dimensions differ because the in-app Browser surface cannot be resized to the 1904 × 916 source viewport, so the QA judgment is limited to the marked Ticket Insights region and responsive reflow rather than pixel-level page-wide fidelity.
 
-**Focused region comparison evidence**
-- A separate focused crop was not needed because the full-view screenshot clearly shows the important fidelity surfaces: hero imagery, form placement, input icons, checkbox state, button style, and page split.
+## Focused region comparison evidence
 
-**Findings**
-- No actionable P0/P1/P2 findings remain.
+The marked blank area is now occupied by live ticket state:
 
-**Required fidelity surface review**
-- Fonts and typography: Login heading, labels, body text, links, and button text use heavier weights and larger sizing to match the mockup hierarchy. The exact font may differ from the image-generated reference, but hierarchy and density are aligned.
-- Spacing and layout rhythm: The page split, top-aligned form, 600px form width, field spacing, CTA spacing, and lower access row now match the visual target closely.
-- Colors and visual tokens: The login button, checkbox, green link color, dark navy headings, muted body copy, and input border colors are aligned to the mockup.
-- Image quality and asset fidelity: The supplied reference image is used directly for the left hero panel, preserving the exact logo, illustration, and dashboard artwork.
-- Copy and content: Login copy and control labels match the target while preserving the app's existing placeholders and authentication behavior.
+- Ticket status communicates the linked-ticket empty state.
+- Issue timeline communicates report time, owner state, and SLA state with a connected vertical sequence.
+- Suggested next actions remains actionable and moves alongside or below the status content according to available width.
+- Recommended response remains available and successfully populated the guest reply composer during live testing.
 
-**Comparison history**
-- Initial render placed the right-side form too low and left Remember me unchecked by default.
-- Fixes made:
-  - Moved the auth form upward with desktop top alignment.
-  - Changed Remember me to default checked when no stored preference exists.
-- Post-fix evidence: `C:\tmp\laflo-login-redesign-2.png`.
+## Required fidelity surfaces
 
-**Implementation Checklist**
-- [x] Replace left auth panel with target LaFlo visual.
-- [x] Match login form typography, icon inputs, checkbox, links, CTA, and spacing.
-- [x] Preserve existing login, OTP, forgot-password, and request-access behavior.
-- [x] Build successfully.
-- [x] Browser-rendered local screenshot captured.
+- Fonts and typography: unchanged from the approved Guest Experience Center implementation; headings, labels, and compact operational copy retain the established hierarchy and truncation behavior.
+- Spacing and layout rhythm: fixed. Ticket Insights now starts at grid row one and no longer inherits the Guest Details-only row reservations.
+- Colors and visual tokens: unchanged; ticket state remains neutral, timeline states use blue/amber/green, and guided actions retain the approved lavender treatment.
+- Image quality and asset fidelity: no assets were added or replaced by approximations in this correction.
+- Copy and content: the formerly empty region now shows real ticket status, ownership/SLA timeline, actions, and an explicit no-linked-ticket state.
 
-**Follow-up Polish**
-- P3: If desired, replace the cropped full mockup image with separate production-grade brand/hero assets later so the left panel is not dependent on a screenshot-style composite.
+## Interaction and runtime verification
 
-**Primary interactions tested**
-- Page renders at `/login`.
-- Existing form controls remain present and interactive in the DOM.
+- Ticket Insights tab switched successfully in production.
+- Recommended response populated the live reply composer and enabled Reply.
+- Conversation, ticket-state, timeline, and suggestion content loaded from the production API.
+- Staff profile images rendered for Onboarding User and John Paul in the selected conversation.
+- Browser diagnostics after the production reload showed the current socket connected and conversation data present. A historical transient WebSocket connection error was followed by a successful reconnect and did not block the verified workflow.
+- Focused component suite: 12/12 passing.
+- Repository `npm run check`: passing, including API generation/typecheck and the production web build.
 
-**Console errors checked**
-- No blocking render errors were observed during local Playwright capture.
+## Comparison history
 
-**final result: passed**
+1. P1 — Empty Ticket Insights grid track. The ticket-only state inherited row placement intended for Guest Details, leaving the upper-left region blank.
+2. Fix — Added the active context tab as an explicit layout state and assigned ticket status/timeline and suggestion/response cards to contiguous grid rows.
+3. Post-fix evidence — The Railway production capture shows Ticket status and Issue timeline beginning immediately below the Ticket Insights tabs, with no reserved blank region. Narrower widths reflow continuously.
+
+## Findings
+
+No actionable P0, P1, or P2 findings remain for the marked Ticket Insights layout defect.
+
+## Follow-up polish
+
+The full approved-screen fidelity audit should still use a browser surface matching the 1904 × 916 reference viewport; this focused correction does not claim a new page-wide pixel match.
+
+final result: passed

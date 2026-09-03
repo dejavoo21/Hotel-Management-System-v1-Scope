@@ -112,6 +112,57 @@ export async function getCurrentUser(
   }
 }
 
+export async function listSessions(
+  req: AuthenticatedRequest,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Not authenticated' });
+      return;
+    }
+    const sessions = await authService.listActiveSessions(req.user.id, req.body.refreshToken);
+    res.json({ success: true, data: sessions });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function revokeOtherSessions(
+  req: AuthenticatedRequest,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Not authenticated' });
+      return;
+    }
+    const count = await authService.revokeOtherSessions(req.user.id, req.body.refreshToken);
+    res.json({ success: true, data: { count }, message: 'Other sessions signed out' });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function revokeSession(
+  req: AuthenticatedRequest,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Not authenticated' });
+      return;
+    }
+    await authService.revokeSession(req.user.id, req.body.refreshToken, req.params.sessionId);
+    res.json({ success: true, message: 'Session signed out' });
+  } catch (error) {
+    next(error);
+  }
+}
+
 /**
  * Change user password
  */
@@ -391,7 +442,9 @@ export async function verifyEmailOtp(
       email,
       code,
       purpose || 'LOGIN',
-      Boolean(rememberDevice)
+      Boolean(rememberDevice),
+      req.ip || req.socket.remoteAddress,
+      req.headers['user-agent']
     );
     res.json({ success: true, data: result, message: 'Login successful' });
   } catch (error) {

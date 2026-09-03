@@ -104,6 +104,9 @@ router.post('/login', validate(loginSchema), authController.login);
 router.post('/logout', authenticate, authController.logout);
 router.post('/refresh', validate(refreshSchema), authController.refreshToken);
 router.get('/me', authenticate, authController.getCurrentUser);
+router.post('/sessions/list', authenticate, validate(refreshSchema), authController.listSessions);
+router.post('/sessions/revoke-others', authenticate, validate(refreshSchema), authController.revokeOtherSessions);
+router.post('/sessions/:sessionId/revoke', authenticate, validate(refreshSchema), authController.revokeSession);
 router.patch('/me/presence', authenticate, validate(updatePresenceSchema), authController.updatePresence);
 router.patch('/password', authenticate, validate(changePasswordSchema), authController.changePassword);
 

@@ -2,8 +2,38 @@ import { prisma } from '../config/database.js';
 import { Prisma } from '@prisma/client';
 import type { WeatherContext } from './weatherContext.provider.js';
 import { getWeatherContextForHotel } from './weatherContext.provider.js';
+import { syncWeatherSignalsForHotel } from './weatherSignal.service.js';
 import { generatePricingForecastSnapshot } from './pricingForecast.service.js';
 import { routeOpsAdvisory } from './opsRouting.rules.js';
+
+const weatherRefreshInFlight = new Map<string, Promise<void>>();
+const weatherRefreshAttemptedAt = new Map<string, number>();
+const WEATHER_REFRESH_RETRY_MS = 10 * 60 * 1000;
+
+async function getWeatherContextWithRefresh(hotelId: string): Promise<WeatherContext | null> {
+  let weather = await getWeatherContextForHotel(hotelId).catch(() => null);
+  if (weather?.isFresh && weather.current?.temperatureC != null) return weather;
+
+  const lastAttempt = weatherRefreshAttemptedAt.get(hotelId) || 0;
+  if (Date.now() - lastAttempt < WEATHER_REFRESH_RETRY_MS) return weather;
+
+  let refresh = weatherRefreshInFlight.get(hotelId);
+  if (!refresh) {
+    weatherRefreshAttemptedAt.set(hotelId, Date.now());
+    refresh = syncWeatherSignalsForHotel(hotelId)
+      .then(() => undefined)
+      .finally(() => weatherRefreshInFlight.delete(hotelId));
+    weatherRefreshInFlight.set(hotelId, refresh);
+  }
+
+  try {
+    await refresh;
+    weather = await getWeatherContextForHotel(hotelId).catch(() => weather);
+  } catch {
+    // Preserve the last known context, but callers will keep it visibly marked stale.
+  }
+  return weather;
+}
 
 export type WeatherActionPriority = 'low' | 'medium' | 'high';
 export type WeatherActionCategory =
@@ -319,7 +349,7 @@ export async function getOperationsContext(hotelId: string) {
   };
 
   const [weather, ops, pricingForecast] = await Promise.all([
-    getWeatherContextForHotel(hotelId).catch(() => null),
+    getWeatherContextWithRefresh(hotelId),
     getOpsContextForHotel(hotelId).catch(() => defaultOps),
     resolvePricingForecast(hotelId).catch(() => ({
       mode: 'LIVE_FALLBACK' as const,
@@ -401,12 +431,15 @@ export async function getOperationsContext(hotelId: string) {
     weather: weather
       ? {
           syncedAtUtc: weather.syncedAtUtc,
+          city: weather.city,
+          country: weather.country,
           timezone: weather.timezone,
           location: weather.location,
           daysAvailable: weather.daysAvailable,
           isFresh: weather.isFresh,
           stale: weather.stale,
           staleHours: weather.staleHours,
+          current: weather.current,
           next24h: weather.next24h,
         }
       : null,

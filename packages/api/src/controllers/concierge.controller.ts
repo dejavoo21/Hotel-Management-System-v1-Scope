@@ -16,10 +16,9 @@ async function notifySupportOnHandoff(params: {
   priority: string;
   requestId: string;
 }) {
-  const emails =
-    config.supportNotifyEmails.length > 0
-      ? config.supportNotifyEmails
-      : config.accessRequestNotifyEmails;
+  // Assistant handoffs are a support workflow. Never fall back to the
+  // onboarding/access-request mailbox when support delivery is unavailable.
+  const emails = config.supportNotifyEmails;
   const phones = config.supportNotifyPhones;
 
   if (emails.length === 0 && phones.length === 0) {
@@ -53,6 +52,7 @@ async function notifySupportOnHandoff(params: {
       subject: `[LaFlo] Chatbot handoff: ${params.title}`,
       html,
       text,
+      mailbox: 'support',
     });
   }
 

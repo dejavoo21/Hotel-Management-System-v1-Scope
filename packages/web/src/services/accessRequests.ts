@@ -34,6 +34,10 @@ export const accessRequestService = {
     const response = await api.post(`/access-requests/${id}/approve`, role ? { role } : undefined);
     return response.data?.data || { inviteEmailSent: false };
   },
+  async resendSetup(id: string, role?: string): Promise<ApproveAccessResult> {
+    const response = await api.post(`/access-requests/${id}/approve`, role ? { role } : undefined);
+    return response.data?.data || { inviteEmailSent: false };
+  },
   async reject(id: string, notes: string): Promise<void> {
     await api.post(`/access-requests/${id}/reject`, { notes });
   },
@@ -58,7 +62,9 @@ export const accessRequestService = {
       }`,
       { responseType: 'blob' }
     );
-    const contentType = response.headers?.['content-type'] || 'application/octet-stream';
+    const contentTypeHeader = response.headers?.['content-type'];
+    const contentType =
+      typeof contentTypeHeader === 'string' ? contentTypeHeader : 'application/octet-stream';
     const disposition = response.headers?.['content-disposition'] as string | undefined;
     const filenameMatch = disposition?.match(/filename\*?=(?:UTF-8''|\"?)([^\";]+)/i);
     const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : `attachment-${index + 1}`;

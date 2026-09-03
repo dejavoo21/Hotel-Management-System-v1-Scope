@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { getExplicitPermissions, isSuperAdminUser, type PermissionId, type UserRole } from '@/utils/userAccess';
@@ -14,32 +15,38 @@ import ResetPasswordPage from '@/pages/auth/ResetPasswordPage';
 import RequestAccessPage from '@/pages/auth/RequestAccessPage';
 
 // Dashboard Pages
-import DashboardPage from '@/pages/DashboardPage';
-import EnterpriseCommandCenterPage from '@/pages/EnterpriseCommandCenterPage';
-import RoomsPage from '@/pages/RoomsPage';
-import BookingsPage from '@/pages/BookingsPage';
-import BookingDetailPage from '@/pages/BookingDetailPage';
-import GuestsPage from '@/pages/GuestsPage';
-import HousekeepingPage from '@/pages/HousekeepingPage';
-import ReportsPage from '@/pages/ReportsPage';
-import InvoicesPage from '@/pages/InvoicesPage';
-import ExpensesPage from '@/pages/ExpensesPage';
-import SettingsPage from '@/pages/SettingsPage';
-import UsersPage from '@/pages/UsersPage';
-import ReviewsPage from '@/pages/ReviewsPage';
-import ConciergePage from '@/pages/ConciergePage';
-import InventoryPage from '@/pages/InventoryPage';
-import CalendarPage from '@/pages/CalendarPage';
-import MessagesPage from '@/pages/MessagesPageRedesigned';
-import CallsPage from '@/pages/CallsPage';
-import OperationsCenterPage from '@/pages/OperationsCenterPage';
-import EnterpriseSearchPage from '@/pages/EnterpriseSearchPage';
-import HotelBrainPage from '@/pages/HotelBrainPage';
-import SecurityCenterPage from '@/pages/SecurityCenterPage';
-import MaintenanceCenterPage from '@/pages/MaintenanceCenterPage';
-import SmartBuildingPage from '@/pages/SmartBuildingPage';
-import IncidentCenterPage from '@/features/incidents/IncidentCenterPage';
-import NotAuthorizedPage from '@/pages/NotAuthorizedPage';
+const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
+const EnterpriseCommandCenterPage = lazy(() => import('@/pages/EnterpriseCommandCenterPage'));
+const RoomsPage = lazy(() => import('@/pages/RoomsPage'));
+const BookingsPage = lazy(() => import('@/pages/BookingsPage'));
+const BookingDetailPage = lazy(() => import('@/pages/BookingDetailPage'));
+const GuestsPage = lazy(() => import('@/pages/GuestsPage'));
+const HousekeepingPage = lazy(() => import('@/pages/HousekeepingPage'));
+const ReportsPage = lazy(() => import('@/pages/ReportsPage'));
+const FinancialsPage = lazy(() => import('@/pages/FinancialsPage'));
+const InvoicesPage = lazy(() => import('@/pages/InvoicesPage'));
+const ExpensesPage = lazy(() => import('@/pages/ExpensesPage'));
+const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
+const UsersPage = lazy(() => import('@/pages/UsersPage'));
+const ReviewsPage = lazy(() => import('@/pages/ReviewsPage'));
+const ConciergePage = lazy(() => import('@/pages/ConciergePage'));
+const InventoryPage = lazy(() => import('@/pages/InventoryPage'));
+const CalendarPage = lazy(() => import('@/pages/CalendarPage'));
+const MessagesPage = lazy(() => import('@/pages/MessagesPageRedesigned'));
+const CallsPage = lazy(() => import('@/pages/CallsPage'));
+const OperationsCenterPage = lazy(() => import('@/pages/OperationsCenterPage'));
+const EnterpriseSearchPage = lazy(() => import('@/pages/EnterpriseSearchPage'));
+const HotelBrainPage = lazy(() => import('@/pages/HotelBrainPage'));
+const OperationalIntelligencePage = lazy(() => import('@/pages/OperationalIntelligencePage'));
+const SecurityCenterPage = lazy(() => import('@/pages/SecurityCenterPage'));
+const MaintenanceCenterPage = lazy(() => import('@/pages/MaintenanceCenterPage'));
+const SmartBuildingPage = lazy(() => import('@/pages/SmartBuildingPage'));
+const IncidentCenterPage = lazy(() => import('@/features/incidents/IncidentCenterPage'));
+const NotAuthorizedPage = lazy(() => import('@/pages/NotAuthorizedPage'));
+
+function RouteFallback() {
+  return <div className="flex min-h-[40vh] items-center justify-center" role="status" aria-label="Loading workspace"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-600 border-t-transparent" /></div>;
+}
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -153,10 +160,19 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function HotelInsightsRedirect({ tab }: { tab?: 'recommendations' }) {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  if (tab) params.set('tab', tab);
+  const query = params.toString();
+  return <Navigate to={`/hotel-insights${query ? `?${query}` : ''}`} replace />;
+}
+
 export default function App() {
   return (
     <>
       <SkipLink />
+      <Suspense fallback={<RouteFallback />}>
       <Routes>
       {/* Auth Routes */}
       <Route element={<AuthLayout />}>
@@ -208,32 +224,68 @@ export default function App() {
         <Route path="bookings/:id" element={<ModuleRoute requiredModule="bookings"><BookingDetailPage /></ModuleRoute>} />
         <Route path="inventory" element={<ModuleRoute requiredModule="inventory"><InventoryPage /></ModuleRoute>} />
         <Route path="messages" element={<ModuleRoute requiredModule="messages"><MessagesPage /></ModuleRoute>} />
+        <Route path="guest-experience" element={<Navigate to="/messages?tab=overview" replace />} />
+        <Route path="guest-experience-center" element={<Navigate to="/messages?tab=overview" replace />} />
         <Route path="calls" element={<ModuleRoute requiredModule="messages"><CallsPage /></ModuleRoute>} />
         <Route path="operations" element={<Navigate to="/operations-center" replace />} />
-        <Route path="operations/ai" element={<Navigate to="/operations-center/ai" replace />} />
-        <Route path="operations/revenue" element={<Navigate to="/operations-center/revenue" replace />} />
-        <Route path="operations/weather" element={<Navigate to="/operations-center/weather" replace />} />
-        <Route path="operations/tasks" element={<Navigate to="/operations-center/tasks" replace />} />
-        <Route path="operations/market-intelligence" element={<Navigate to="/operations-center/market-intelligence" replace />} />
+        <Route path="operations/ai" element={<HotelInsightsRedirect tab="recommendations" />} />
+        <Route path="operations/ai-workspace" element={<HotelInsightsRedirect tab="recommendations" />} />
+        <Route path="operations/operations-concierge" element={<HotelInsightsRedirect tab="recommendations" />} />
+        <Route path="operations/revenue" element={<Navigate to="/operations/operational-intelligence/revenue-guidance" replace />} />
+        <Route path="operations/weather" element={<Navigate to="/operations/operational-intelligence/weather-forecast" replace />} />
+        <Route path="operations/tasks" element={<Navigate to="/operations/tasks-advisories" replace />} />
+        <Route path="operations/market-intelligence" element={<Navigate to="/operations/operational-intelligence/market-intelligence" replace />} />
         <Route path="operations-center" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
-        <Route path="operations-center/search" element={<ModuleRoute requiredModule="bookings"><EnterpriseSearchPage /></ModuleRoute>} />
-        <Route path="operations-center/ai" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
-        <Route path="ai/hotel-brain" element={<ModuleRoute requiredModule="bookings"><HotelBrainPage /></ModuleRoute>} />
-        <Route path="operations-center/revenue" element={<ModuleRoute requiredModule="financials"><OperationsCenterPage /></ModuleRoute>} />
-        <Route path="operations-center/weather" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
-        <Route path="operations-center/tasks" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
-        <Route path="operations-center/market-intelligence" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="operations/enterprise-search" element={<ModuleRoute requiredModule="bookings"><EnterpriseSearchPage /></ModuleRoute>} />
+        <Route path="operational-intelligence" element={<ModuleRoute requiredModule="bookings"><OperationalIntelligencePage /></ModuleRoute>} />
+        <Route path="operations/operational-intelligence" element={<Navigate to="/operational-intelligence" replace />} />
+        <Route path="operational-intelligence/weather" element={<Navigate to="/operations/operational-intelligence/weather-forecast" replace />} />
+        <Route path="weather-forecast" element={<Navigate to="/operations/operational-intelligence/weather-forecast" replace />} />
+        <Route path="market-intelligence" element={<Navigate to="/operations/operational-intelligence/market-intelligence" replace />} />
+        <Route path="revenue-guidance" element={<Navigate to="/operations/operational-intelligence/revenue-guidance" replace />} />
+        <Route path="hotel-insights" element={<ModuleRoute requiredModule="bookings"><HotelBrainPage /></ModuleRoute>} />
+        <Route path="hotel-brain" element={<HotelInsightsRedirect />} />
+        <Route path="hotel-brain-console" element={<HotelInsightsRedirect />} />
+        <Route path="ai-governance" element={<HotelInsightsRedirect tab="recommendations" />} />
+        <Route path="ai-recommendations" element={<HotelInsightsRedirect tab="recommendations" />} />
+        <Route path="operations/ai-governance" element={<HotelInsightsRedirect tab="recommendations" />} />
+        <Route path="operations/ai-recommendations" element={<HotelInsightsRedirect tab="recommendations" />} />
+        <Route path="operations/hotel-brain-console" element={<HotelInsightsRedirect />} />
+        <Route path="operations/tasks-advisories" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="operations/operational-intelligence/weather-forecast" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="operations/operational-intelligence/market-intelligence" element={<ModuleRoute requiredModule="bookings"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="operations/operational-intelligence/revenue-guidance" element={<ModuleRoute requiredModule="financials"><OperationsCenterPage /></ModuleRoute>} />
+        <Route path="operations-center/search" element={<Navigate to="/operations/enterprise-search" replace />} />
+        <Route path="operations-center/ai" element={<HotelInsightsRedirect tab="recommendations" />} />
+        <Route path="ai/hotel-brain" element={<HotelInsightsRedirect />} />
+        <Route path="operations-center/revenue" element={<Navigate to="/operations/operational-intelligence/revenue-guidance" replace />} />
+        <Route path="operations-center/weather" element={<Navigate to="/operations/operational-intelligence/weather-forecast" replace />} />
+        <Route path="operations-center/tasks" element={<Navigate to="/operations/tasks-advisories" replace />} />
+        <Route path="operations-center/market-intelligence" element={<Navigate to="/operations/operational-intelligence/market-intelligence" replace />} />
         <Route path="incidents" element={<ModuleRoute requiredModule="incident_management"><IncidentCenterPage /></ModuleRoute>} />
+        <Route path="incidents/active" element={<Navigate to="/incidents?tab=active" replace />} />
+        <Route path="incidents/critical" element={<Navigate to="/incidents?tab=critical" replace />} />
+        <Route path="incidents/assigned-to-me" element={<Navigate to="/incidents?tab=assigned-to-me" replace />} />
+        <Route path="incidents/resolved" element={<Navigate to="/incidents?tab=resolved" replace />} />
+        <Route path="incidents/closed" element={<Navigate to="/incidents?tab=closed" replace />} />
         <Route path="security-center" element={<ModuleRoute requiredModule="security_center"><SecurityCenterPage /></ModuleRoute>} />
+        <Route path="security-center/cctv" element={<Navigate to="/security-center?tab=cctv" replace />} />
+        <Route path="security-center/access-logs" element={<Navigate to="/security-center?tab=access-logs" replace />} />
+        <Route path="security-center/visitors" element={<Navigate to="/security-center?tab=visitors" replace />} />
+        <Route path="security-center/alerts" element={<Navigate to="/security-center?tab=alerts" replace />} />
         <Route path="security-center/:tab" element={<ModuleRoute requiredModule="security_center"><SecurityCenterPage /></ModuleRoute>} />
-        <Route path="operations/security/cctv" element={<Navigate to="/security-center/cctv" replace />} />
-        <Route path="operations/security/access-logs" element={<Navigate to="/security-center/access-logs" replace />} />
-        <Route path="operations/security/visitors" element={<Navigate to="/security-center/visitors" replace />} />
-        <Route path="operations/security/alerts" element={<Navigate to="/security-center/alerts" replace />} />
+        <Route path="operations/security/cctv" element={<Navigate to="/security-center?tab=cctv" replace />} />
+        <Route path="operations/security/access-logs" element={<Navigate to="/security-center?tab=access-logs" replace />} />
+        <Route path="operations/security/visitors" element={<Navigate to="/security-center?tab=visitors" replace />} />
+        <Route path="operations/security/alerts" element={<Navigate to="/security-center?tab=alerts" replace />} />
         <Route path="operations/smart-building" element={<ModuleRoute requiredModule="smart_building"><SmartBuildingPage /></ModuleRoute>} />
         <Route path="smart-building" element={<Navigate to="/operations/smart-building" replace />} />
-        <Route path="operations/smart-building/doors" element={<ModuleRoute requiredModule="smart_building"><SmartBuildingPage /></ModuleRoute>} />
-        <Route path="operations/smart-building/sensors" element={<ModuleRoute requiredModule="smart_building"><SmartBuildingPage /></ModuleRoute>} />
+        <Route path="smart-building/doors" element={<Navigate to="/operations/smart-building?tab=doors" replace />} />
+        <Route path="smart-building/sensors" element={<Navigate to="/operations/smart-building?tab=sensors" replace />} />
+        <Route path="smart-building/devices" element={<Navigate to="/operations/smart-building?tab=devices" replace />} />
+        <Route path="operations/smart-building/doors" element={<Navigate to="/operations/smart-building?tab=doors" replace />} />
+        <Route path="operations/smart-building/sensors" element={<Navigate to="/operations/smart-building?tab=sensors" replace />} />
+        <Route path="operations/smart-building/devices" element={<Navigate to="/operations/smart-building?tab=devices" replace />} />
         <Route path="operations/smart-building/energy" element={<ModuleRoute requiredModule="smart_building"><SmartBuildingPage /></ModuleRoute>} />
         <Route path="operations/smart-building/hvac" element={<ModuleRoute requiredModule="smart_building"><SmartBuildingPage /></ModuleRoute>} />
         <Route path="operations/smart-building/assets" element={<ModuleRoute requiredModule="smart_building"><SmartBuildingPage /></ModuleRoute>} />
@@ -246,7 +298,7 @@ export default function App() {
         <Route path="guests" element={<ModuleRoute requiredModule="guests"><GuestsPage /></ModuleRoute>} />
         <Route path="housekeeping" element={<ModuleRoute requiredModule="housekeeping"><HousekeepingPage /></ModuleRoute>} />
         <Route path="reports" element={<ModuleRoute requiredModule="financials"><ReportsPage /></ModuleRoute>} />
-        <Route path="financials" element={<Navigate to="/reports" replace />} />
+        <Route path="financials" element={<ModuleRoute requiredModule="financials"><FinancialsPage /></ModuleRoute>} />
         <Route path="invoices" element={<ModuleRoute requiredModule="financials"><InvoicesPage /></ModuleRoute>} />
         <Route path="expenses" element={<ModuleRoute requiredModule="financials"><ExpensesPage /></ModuleRoute>} />
         <Route path="reviews" element={<ModuleRoute requiredModule="reviews"><ReviewsPage /></ModuleRoute>} />
@@ -259,6 +311,7 @@ export default function App() {
       {/* 404 */}
       <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </>
   );
 }

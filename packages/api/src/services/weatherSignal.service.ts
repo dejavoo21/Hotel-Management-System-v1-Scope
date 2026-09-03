@@ -4,6 +4,7 @@ import { config } from '../config/index.js';
 type ForecastEntry = {
   dt: number;
   main?: {
+    temp?: number;
     temp_min?: number;
     temp_max?: number;
     humidity?: number;
@@ -23,6 +24,18 @@ type ForecastResponse = {
   list?: ForecastEntry[];
 };
 
+type CurrentWeatherResponse = {
+  dt?: number;
+  main?: {
+    temp?: number;
+    feels_like?: number;
+  };
+  weather?: Array<{
+    main?: string;
+    description?: string;
+  }>;
+};
+
 type DailyAggregate = {
   dateLocal: string;
   timezone: string;
@@ -34,6 +47,11 @@ type DailyAggregate = {
     precipitationProbMax: number | null;
     weatherMain: string | null;
     weatherDesc: string | null;
+    currentTempC: number | null;
+    currentFeelsLikeC: number | null;
+    currentWeatherMain: string | null;
+    currentWeatherDesc: string | null;
+    currentObservedAtUtc: string | null;
   };
   rawJson: {
     entries: number;
@@ -43,13 +61,33 @@ type DailyAggregate = {
 
 const OWM_GEO_URL = 'https://api.openweathermap.org/geo/1.0/direct';
 const OWM_FORECAST_URL = 'https://api.openweathermap.org/data/2.5/forecast';
+const OWM_CURRENT_URL = 'https://api.openweathermap.org/data/2.5/weather';
 
-function normalizeCountryForOpenWeather(country: string): string {
+const OPENWEATHER_COUNTRY_CODES: Record<string, string> = {
+  'SOUTH AFRICA': 'ZA',
+  'UNITED KINGDOM': 'GB',
+  UK: 'GB',
+  'UNITED STATES': 'US',
+  'UNITED STATES OF AMERICA': 'US',
+  USA: 'US',
+};
+
+export function normalizeCountryForOpenWeather(country: string): string {
   const normalized = country.trim().toUpperCase();
-  if (normalized === 'USA' || normalized === 'UNITED STATES' || normalized === 'UNITED STATES OF AMERICA') {
-    return 'US';
-  }
-  return country.trim();
+  return OPENWEATHER_COUNTRY_CODES[normalized] || (normalized.length === 2 ? normalized : country.trim());
+}
+
+function distanceKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+  const dLat = toRadians(b.lat - a.lat);
+  const dLon = toRadians(b.lon - a.lon);
+  const lat1 = toRadians(a.lat);
+  const lat2 = toRadians(b.lat);
+  const haversine =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
 }
 
 function assertOpenWeatherKey(): string {
@@ -124,10 +162,6 @@ export async function geocodeHotelIfMissing(hotelId: string) {
     throw new Error('Hotel city, country, and timezone are required');
   }
 
-  if (hotel.latitude != null && hotel.longitude != null) {
-    return hotel;
-  }
-
   const apiKey = assertOpenWeatherKey();
   const countryHint = normalizeCountryForOpenWeather(hotel.country);
   const geoQueries = [`${hotel.city},${countryHint}`];
@@ -135,18 +169,33 @@ export async function geocodeHotelIfMissing(hotelId: string) {
     geoQueries.push(`${hotel.city},${hotel.country}`);
   }
 
-  let geo: Array<{ lat: number; lon: number }> = [];
+  let geo: Array<{ lat: number; lon: number; country?: string }> = [];
   for (const query of geoQueries) {
     const q = encodeURIComponent(query);
-    geo = await getJson<Array<{ lat: number; lon: number }>>(
+    const candidates = await getJson<Array<{ lat: number; lon: number; country?: string }>>(
       `${OWM_GEO_URL}?q=${q}&limit=1&appid=${encodeURIComponent(apiKey)}`
     );
+    geo = countryHint.length === 2
+      ? candidates.filter((candidate) => candidate.country?.toUpperCase() === countryHint.toUpperCase())
+      : candidates;
     if (geo.length) break;
   }
   if (!geo.length) {
+    if (hotel.latitude != null && hotel.longitude != null) return hotel;
     throw new Error(
       `No geocoding result for ${hotel.city}, ${hotel.country}. Try ISO country code (example: US).`
     );
+  }
+
+  if (
+    hotel.latitude != null &&
+    hotel.longitude != null &&
+    distanceKm(
+      { lat: hotel.latitude, lon: hotel.longitude },
+      { lat: geo[0].lat, lon: geo[0].lon }
+    ) <= 75
+  ) {
+    return hotel;
   }
 
   return prisma.hotel.update({
@@ -219,6 +268,11 @@ export function aggregateForecastByHotelDate(
         precipitationProbMax: bucket.pop.length ? Number((Math.max(...bucket.pop) * 100).toFixed(2)) : null,
         weatherMain: mostFrequent(bucket.weatherMain),
         weatherDesc: mostFrequent(bucket.weatherDesc),
+        currentTempC: null,
+        currentFeelsLikeC: null,
+        currentWeatherMain: null,
+        currentWeatherDesc: null,
+        currentObservedAtUtc: null,
       },
       rawJson: {
         entries: bucket.utcTimes.length,
@@ -235,10 +289,27 @@ export async function syncWeatherSignalsForHotel(hotelId: string) {
     throw new Error('Hotel location coordinates are missing');
   }
 
-  const forecast = await getJson<ForecastResponse>(
-    `${OWM_FORECAST_URL}?lat=${hotel.latitude}&lon=${hotel.longitude}&units=metric&appid=${encodeURIComponent(apiKey)}`
-  );
+  const [forecast, current] = await Promise.all([
+    getJson<ForecastResponse>(
+      `${OWM_FORECAST_URL}?lat=${hotel.latitude}&lon=${hotel.longitude}&units=metric&appid=${encodeURIComponent(apiKey)}`
+    ),
+    getJson<CurrentWeatherResponse>(
+      `${OWM_CURRENT_URL}?lat=${hotel.latitude}&lon=${hotel.longitude}&units=metric&appid=${encodeURIComponent(apiKey)}`
+    ),
+  ]);
   const aggregates = aggregateForecastByHotelDate(forecast, hotel.timezone);
+  const observedAt = typeof current.dt === 'number' ? new Date(current.dt * 1000) : new Date();
+  const currentDateLocal = formatHotelLocalDate(observedAt, hotel.timezone);
+  const currentDay = aggregates.find((day) => day.dateLocal === currentDateLocal) || aggregates[0];
+  if (currentDay) {
+    currentDay.metricsJson.currentTempC =
+      typeof current.main?.temp === 'number' ? Number(current.main.temp.toFixed(2)) : null;
+    currentDay.metricsJson.currentFeelsLikeC =
+      typeof current.main?.feels_like === 'number' ? Number(current.main.feels_like.toFixed(2)) : null;
+    currentDay.metricsJson.currentWeatherMain = current.weather?.[0]?.main || null;
+    currentDay.metricsJson.currentWeatherDesc = current.weather?.[0]?.description || null;
+    currentDay.metricsJson.currentObservedAtUtc = observedAt.toISOString();
+  }
   const fetchedAtUtc = new Date();
 
   for (const day of aggregates) {

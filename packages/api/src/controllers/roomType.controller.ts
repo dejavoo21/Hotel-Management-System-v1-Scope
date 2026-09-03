@@ -111,7 +111,7 @@ export async function deleteRoomType(
       data: { isActive: false },
     });
 
-    res.json({ success: true, message: 'Room type deleted' });
+    res.json({ success: true, message: 'Room type disabled' });
   } catch (error) {
     next(error);
   }

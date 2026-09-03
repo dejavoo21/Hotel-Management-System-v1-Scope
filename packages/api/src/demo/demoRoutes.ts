@@ -525,6 +525,7 @@ const mockAccessRequests = [
     adminNotes: 'VIP request',
     status: 'PENDING',
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   },
   {
     id: 'access-2',
@@ -536,6 +537,8 @@ const mockAccessRequests = [
     adminNotes: 'Requires approval from manager',
     status: 'INFO_RECEIVED',
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    lastReplyAt: new Date().toISOString(),
   },
 ];
 
@@ -1463,7 +1466,7 @@ router.post('/bookings', authenticateDemo, (req: Request, res: Response) => {
 });
 
 // Access Request Routes
-router.get('/access-requests', authenticateDemo, (_req: Request, res: Response) => {
+router.get('/access-requests', authenticateDemo, requireDemoAdmin, (_req: Request, res: Response) => {
   res.json({
     success: true,
     data: mockAccessRequests,
@@ -1486,6 +1489,7 @@ router.post('/access-requests', (req: Request, res: Response) => {
     adminNotes: null,
     status: 'PENDING',
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
 
   mockAccessRequests.push(newRequest);
@@ -1552,7 +1556,7 @@ router.post('/access-requests', (req: Request, res: Response) => {
   });
 });
 
-router.get('/access-requests/:id/replies', authenticateDemo, (req: Request, res: Response) => {
+router.get('/access-requests/:id/replies', authenticateDemo, requireDemoAdmin, (req: Request, res: Response) => {
   const replies = mockAccessRequestReplies.filter((reply) => reply.accessRequestId === req.params.id);
   res.json({
     success: true,
@@ -1562,147 +1566,108 @@ router.get('/access-requests/:id/replies', authenticateDemo, (req: Request, res:
 
 const respondSuccess = (res: Response) => res.json({ success: true });
 
-// Approve access request - creates the user and sends them login credentials
-router.post('/access-requests/:id/approve', authenticateDemo, async (req: Request, res: Response) => {
-  const requestIndex = mockAccessRequests.findIndex((r) => r.id === req.params.id);
+const normalizeDemoAccessRole = (value?: string) => {
+  const normalized = String(value || '').trim().toUpperCase().replace(/[\s/-]+/g, '_');
+  if (['ADMIN', 'MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING'].includes(normalized)) return normalized;
+  if (['GENERAL_MANAGER', 'HOTEL_MANAGER', 'FRONT_DESK_MANAGER'].includes(normalized)) return 'MANAGER';
+  if (['FRONT_DESK', 'RECEPTION'].includes(normalized)) return 'RECEPTIONIST';
+  return 'RECEPTIONIST';
+};
+
+// Approve or resend setup while retaining the request as an auditable review record.
+router.post('/access-requests/:id/approve', authenticateDemo, requireDemoAdmin, async (req: Request, res: Response) => {
+  const requestIndex = mockAccessRequests.findIndex((request) => request.id === req.params.id);
   if (requestIndex === -1) {
     return res.status(404).json({ success: false, error: 'Access request not found' });
   }
 
   const accessRequest = mockAccessRequests[requestIndex] as any;
-  
-  // Check if user already exists
-  const existingUser = mockUsers.find((u) => u.email.toLowerCase() === accessRequest.email.toLowerCase());
-  if (existingUser) {
-    let inviteEmailSent = false;
-    let deliveryWarning: string | null = null;
-    try {
-      const resetToken = jwt.sign(
-        { userId: existingUser.id, type: 'password-reset' },
-        config.jwt.secret,
-        { expiresIn: '1h' }
-      );
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-      demoResetTokenStore.set(resetToken, { userId: existingUser.id, expiresAt });
-      const resetUrl = `${config.appUrl || 'https://laflo-web-production.up.railway.app'}/reset-password?token=${resetToken}`;
-
-      const alreadyExistsEmail = renderLafloEmail({
-        preheader: `Your access request was approved. Set a new password to continue. Reference AR-${accessRequest.id}.`,
-        title: 'Access approved',
-        greeting: `Hello ${accessRequest.fullName || 'there'},`,
-        intro:
-          'Your request has been approved, and this email is already registered. Use the button below to set a new password and continue.',
-        meta: [
-          { label: 'Email', value: existingUser.email },
-          { label: 'Reference', value: `AR-${accessRequest.id}` },
-        ],
-        cta: {
-          label: 'Set password',
-          url: resetUrl,
-        },
-      });
-
-      await sendEmail({
-        to: accessRequest.email,
-        subject: `Your LaFlo access is approved [AR-${accessRequest.id}]`,
-        html: alreadyExistsEmail.html,
-        text: alreadyExistsEmail.text,
-      });
-      inviteEmailSent = true;
-    } catch (error) {
-      deliveryWarning =
-        'Access approved, but invite email could not be delivered. User should use Forgot password on login.';
-      console.error('[APPROVE] ERROR Failed to send approval email for existing user:', error);
-    }
-
-    // Update status to approved and remove from list
-    mockAccessRequests.splice(requestIndex, 1);
-    return res.json({
-      success: true,
-      message: inviteEmailSent ? 'Access approved for existing user, login email sent' : 'Access approved for existing user, email delivery pending',
-      data: {
-        existingUser: true,
-        inviteEmailSent,
-        deliveryWarning,
-        loginUrl: `${config.appUrl || 'https://laflo-web-production.up.railway.app'}/login`,
-      },
-    });
+  const administrator = (req as any).user;
+  if (String(administrator.email).toLowerCase() === String(accessRequest.email).toLowerCase()) {
+    return res.status(403).json({ success: false, error: 'You cannot approve or elevate your own access request.' });
   }
 
-  // Generate password (use stored temp password if available, or generate new one)
-  const tempPassword = accessRequest._tempPassword || `Temp${Math.random().toString(36).slice(2, 10)}A1!`;
-  const passwordHash = await bcrypt.hash(tempPassword, 10);
-
-  // Parse name from fullName
-  const nameParts = accessRequest.fullName.split(' ');
+  const assignedRole = normalizeDemoAccessRole(req.body?.role || accessRequest.role);
+  const nameParts = String(accessRequest.fullName || 'User').trim().split(/\s+/);
   const firstName = nameParts[0] || 'User';
-  const lastName = nameParts.slice(1).join(' ') || '';
+  const lastName = nameParts.slice(1).join(' ');
+  let user = mockUsers.find((candidate) => candidate.email.toLowerCase() === accessRequest.email.toLowerCase()) as any;
+  const existingUser = Boolean(user);
 
-  // Create the user
-  const newUser = {
-    id: `user-${Date.now()}`,
-    email: accessRequest.email.toLowerCase(),
-    firstName,
-    lastName,
-    role: accessRequest.requestedRole || accessRequest.role || 'RECEPTIONIST',
-    positionTitle: accessRequest._positionTitle || null,
-    passwordHash,
-    isActive: true,
-    twoFactorEnabled: false,
-    mustChangePassword: true,
-    hotelId: mockHotel.id,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    lastLoginAt: null,
-  };
+  if (!user) {
+    user = {
+      id: `user-${Date.now()}`,
+      email: accessRequest.email.toLowerCase(),
+      firstName,
+      lastName,
+      role: assignedRole,
+      positionTitle: accessRequest._positionTitle || null,
+      passwordHash: await bcrypt.hash(`Pending${Math.random().toString(36).slice(2, 12)}A1!`, 10),
+      isActive: true,
+      twoFactorEnabled: false,
+      mustChangePassword: true,
+      hotelId: mockHotel.id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastLoginAt: null,
+    };
+    mockUsers.push(user);
+  } else {
+    user.firstName = firstName;
+    user.lastName = lastName;
+    user.role = assignedRole;
+    user.hotelId = mockHotel.id;
+    user.isActive = true;
+    user.mustChangePassword = true;
+    user.updatedAt = new Date();
+  }
 
-  mockUsers.push(newUser);
-  console.log(`[APPROVE] Created user from access request: ${newUser.email}`);
+  const resetToken = jwt.sign(
+    { userId: user.id, type: 'password-reset' },
+    config.jwt.secret,
+    { expiresIn: '1h' }
+  );
+  demoResetTokenStore.set(resetToken, { userId: user.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) });
+  const resetUrl = `${config.appUrl || 'https://laflo-web-production.up.railway.app'}/reset-password?token=${resetToken}`;
 
   let inviteEmailSent = false;
   let deliveryWarning: string | null = null;
-  // Send approval email with login credentials
   try {
-    const approved = renderLafloEmail({
-      preheader: `Your access is approved. Reference AR-${accessRequest.id}.`,
+    const setupEmail = renderLafloEmail({
+      preheader: `Your access is approved. Set your password to continue. Reference AR-${accessRequest.id}.`,
       title: 'Access approved',
       greeting: `Hello ${firstName},`,
-      intro:
-        'Great news. Your access request to LaFlo has been approved. Use the credentials below and change your password after you sign in.',
+      intro: 'Your LaFlo access is ready. Use the secure button below to set your password before signing in.',
       meta: [
         { label: 'Email', value: accessRequest.email },
-        { label: 'Temporary password', value: tempPassword },
+        { label: 'Role', value: assignedRole },
         { label: 'Reference', value: `AR-${accessRequest.id}` },
       ],
-      cta: {
-        label: 'Log in',
-        url: `${config.appUrl || 'https://laflo-web-production.up.railway.app'}/login`,
-      },
-      footerNote: 'If you did not request access, contact an administrator.',
+      cta: { label: 'Set your password', url: resetUrl },
+      footerNote: 'This setup link is personal to you and expires in 60 minutes.',
     });
-
     await sendEmail({
       to: accessRequest.email,
       subject: `Your LaFlo access is approved [AR-${accessRequest.id}]`,
-      html: approved.html,
-      text: approved.text,
+      html: setupEmail.html,
+      text: setupEmail.text,
     });
     inviteEmailSent = true;
-    console.log(`[APPROVE] OK Approval email with credentials sent to ${accessRequest.email}`);
   } catch (error) {
-    deliveryWarning =
-      'Access approved, but invite email could not be delivered. User should use Forgot password on login.';
-    console.error('[APPROVE] ERROR Failed to send approval email:', error);
-  }// Update status and remove from pending list
-  mockAccessRequests.splice(requestIndex, 1);
+    deliveryWarning = 'Access approved, but invite email could not be delivered. User should use Forgot password on login.';
+    console.error('[APPROVE] Failed to send password setup email:', error);
+  }
+
+  accessRequest.status = 'APPROVED';
+  accessRequest.role = assignedRole;
+  accessRequest.updatedAt = new Date().toISOString();
   saveDemoStore();
 
-  res.json({
+  return res.json({
     success: true,
-    message: inviteEmailSent ? 'User approved and credentials email sent' : 'User approved, email delivery pending',
+    message: inviteEmailSent ? 'Access approved and password setup invite sent' : 'Access approved, email delivery pending',
     data: {
-      user: newUser,
-      existingUser: false,
+      existingUser,
       inviteEmailSent,
       deliveryWarning,
       loginUrl: `${config.appUrl || 'https://laflo-web-production.up.railway.app'}/login`,
@@ -1873,18 +1838,20 @@ router.post('/auth/password/reset', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/access-requests/:id/reject', authenticateDemo, (req: Request, res: Response) => {
+router.post('/access-requests/:id/reject', authenticateDemo, requireDemoAdmin, (req: Request, res: Response) => {
   const requestIndex = mockAccessRequests.findIndex((r) => r.id === req.params.id);
   if (requestIndex === -1) {
     return res.status(404).json({ success: false, error: 'Access request not found' });
   }
-  mockAccessRequests[requestIndex].status = 'REJECTED';
-  mockAccessRequests.splice(requestIndex, 1);
+  const request = mockAccessRequests[requestIndex] as any;
+  request.status = 'REJECTED';
+  request.adminNotes = req.body?.notes || null;
+  request.updatedAt = new Date().toISOString();
   saveDemoStore();
   res.json({ success: true, message: 'Access request rejected' });
 });
 
-router.post('/access-requests/:id/request-info', authenticateDemo, async (req: Request, res: Response) => {
+router.post('/access-requests/:id/request-info', authenticateDemo, requireDemoAdmin, async (req: Request, res: Response) => {
   const requestIndex = mockAccessRequests.findIndex((r) => r.id === req.params.id);
   if (requestIndex === -1) {
     return res.status(404).json({ success: false, error: 'Access request not found' });
@@ -1895,6 +1862,7 @@ router.post('/access-requests/:id/request-info', authenticateDemo, async (req: R
   
   // Update status and save the notes
   mockAccessRequests[requestIndex].status = 'NEEDS_INFO';
+  (mockAccessRequests[requestIndex] as any).updatedAt = new Date().toISOString();
   if (notes) {
     mockAccessRequests[requestIndex].adminNotes = notes;
   }
@@ -1931,7 +1899,7 @@ router.post('/access-requests/:id/request-info', authenticateDemo, async (req: R
 });
 
 // Simulate receiving a reply from user (for demo purposes)
-router.post('/access-requests/:id/simulate-reply', authenticateDemo, (req: Request, res: Response) => {
+router.post('/access-requests/:id/simulate-reply', authenticateDemo, requireDemoAdmin, (req: Request, res: Response) => {
   const requestIndex = mockAccessRequests.findIndex((r) => r.id === req.params.id);
   if (requestIndex === -1) {
     return res.status(404).json({ success: false, error: 'Access request not found' });
@@ -1957,6 +1925,8 @@ router.post('/access-requests/:id/simulate-reply', authenticateDemo, (req: Reque
   
   // Update status to INFO_RECEIVED
   mockAccessRequests[requestIndex].status = 'INFO_RECEIVED';
+  (mockAccessRequests[requestIndex] as any).lastReplyAt = newReply.receivedAt;
+  (mockAccessRequests[requestIndex] as any).updatedAt = newReply.receivedAt;
   saveDemoStore();
   
   console.log(`[SIMULATE-REPLY] Reply added for ${accessRequest.email}, status changed to INFO_RECEIVED`);
@@ -1965,7 +1935,7 @@ router.post('/access-requests/:id/simulate-reply', authenticateDemo, (req: Reque
 });
 
 // Add reply to access request (for real IMAP integration)
-router.post('/access-requests/:id/replies', authenticateDemo, (req: Request, res: Response) => {
+router.post('/access-requests/:id/replies', authenticateDemo, requireDemoAdmin, (req: Request, res: Response) => {
   const requestIndex = mockAccessRequests.findIndex((r) => r.id === req.params.id);
   if (requestIndex === -1) {
     return res.status(404).json({ success: false, error: 'Access request not found' });
@@ -1988,12 +1958,14 @@ router.post('/access-requests/:id/replies', authenticateDemo, (req: Request, res
   
   mockAccessRequestReplies.push(newReply);
   mockAccessRequests[requestIndex].status = 'INFO_RECEIVED';
+  (mockAccessRequests[requestIndex] as any).lastReplyAt = newReply.receivedAt;
+  (mockAccessRequests[requestIndex] as any).updatedAt = newReply.receivedAt;
   saveDemoStore();
   
   res.status(201).json({ success: true, data: newReply });
 });
 
-router.delete('/access-requests/:id', authenticateDemo, (req: Request, res: Response) => {
+router.delete('/access-requests/:id', authenticateDemo, requireDemoAdmin, (req: Request, res: Response) => {
   const requestIndex = mockAccessRequests.findIndex((r) => r.id === req.params.id);
   if (requestIndex === -1) {
     return res.status(404).json({ success: false, error: 'Access request not found' });
@@ -3494,6 +3466,14 @@ function authenticateDemo(req: Request, res: Response, next: Function) {
   } catch {
     return res.status(401).json({ success: false, error: 'Invalid token' });
   }
+}
+
+function requireDemoAdmin(req: Request, res: Response, next: Function) {
+  const user = (req as any).user;
+  if (!user || user.role !== 'ADMIN') {
+    return res.status(403).json({ success: false, error: 'Administrator access is required' });
+  }
+  next();
 }
 
 // ==================== REVIEWS ====================

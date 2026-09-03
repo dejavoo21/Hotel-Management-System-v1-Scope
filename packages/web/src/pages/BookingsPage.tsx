@@ -19,6 +19,8 @@ import {
   validatePostcode,
   validateSecurityCode,
 } from '@/components/payments/cardInputs';
+import { CalendarCheck, CircleDollarSign, LogIn, ReceiptText } from 'lucide-react';
+import { ModuleFilterPanel, ModuleMetricGrid, ModulePageHeader } from '@/components/core/ModuleLandingUi';
 
 type StatusFilter = 'all' | 'CONFIRMED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED' | 'NO_SHOW';
 
@@ -215,13 +217,40 @@ export default function BookingsPage() {
 
   const bookings = bookingsData?.data || [];
   const pagination = bookingsData?.pagination;
-
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: user?.hotel?.currency || 'USD',
     }).format(amount);
   };
+  const bookingMetrics = [
+    {
+      label: 'Bookings in view',
+      value: pagination?.total ?? bookings.length,
+      detail: statusFilter === 'all' ? 'Across all reservation statuses' : formatEnumLabel(statusFilter),
+      icon: <CalendarCheck className="h-4 w-4" />,
+    },
+    {
+      label: 'Confirmed',
+      value: bookings.filter((booking) => booking.status === 'CONFIRMED').length,
+      detail: 'Ready for arrival preparation',
+      icon: <ReceiptText className="h-4 w-4" />,
+      tone: 'blue' as const,
+    },
+    {
+      label: 'Checked in',
+      value: bookings.filter((booking) => booking.status === 'CHECKED_IN').length,
+      detail: 'Currently active stays in view',
+      icon: <LogIn className="h-4 w-4" />,
+    },
+    {
+      label: 'Outstanding balance',
+      value: formatCurrency(bookings.reduce((sum, booking) => sum + Math.max(booking.totalAmount - booking.paidAmount, 0), 0)),
+      detail: 'Balance due for visible bookings',
+      icon: <CircleDollarSign className="h-4 w-4" />,
+      tone: 'amber' as const,
+    },
+  ];
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -298,22 +327,21 @@ export default function BookingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Bookings</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Manage reservations and check-ins
-          </p>
-        </div>
-        <button onClick={openCreateModal} className="btn-primary">
+      <ModulePageHeader
+        eyebrow="Front office"
+        title="Bookings & reservations"
+        description="Track arrivals, stays, payments, and reservation status from one operational view."
+        action={<button onClick={openCreateModal} className="btn-primary">
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
           New Booking
-        </button>
-      </div>
+        </button>}
+      />
 
-      <div className="card">
+      <ModuleMetricGrid metrics={bookingMetrics} />
+
+      <ModuleFilterPanel>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <svg
@@ -351,7 +379,7 @@ export default function BookingsPage() {
             <option value="NO_SHOW">No Show</option>
           </select>
         </div>
-      </div>
+      </ModuleFilterPanel>
 
       <div className="table-container">
         {isLoading ? (

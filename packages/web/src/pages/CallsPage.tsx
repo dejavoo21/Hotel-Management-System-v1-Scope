@@ -1,119 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import GuestCallsWorkspace from '@/components/calls/GuestCallsWorkspace';
 import SupportVideoPanel from '@/components/calls/SupportVideoPanel';
-import DialPad from '@/components/calls/DialPad';
-import { messageService } from '@/services';
 import { useSocketPresence } from '@/hooks/useSocketPresence';
 import { usePresenceStore } from '@/stores/presenceStore';
 import { useAuthStore } from '@/stores/authStore';
-
-type CallsTab = 'dialpad' | 'recents' | 'contacts';
-type ContactType = 'Staff' | 'Guest' | 'External';
-
-type CallContact = {
-  id: string;
-  name: string;
-  phone: string;
-  type: ContactType;
-};
-
-type RecentCall = {
-  id: string;
-  number: string;
-  createdAt: string;
-};
-
-const CONTACTS_KEY = 'laflo-calls-contacts';
-const RECENTS_KEY = 'laflo-calls-recents';
-
-const sanitizePhone = (value?: string) => {
-  const input = (value || '').toUpperCase();
-  let output = '';
-  const LETTER_TO_DIGIT: Record<string, string> = {
-    A: '2', B: '2', C: '2', D: '3', E: '3', F: '3', G: '4', H: '4', I: '4',
-    J: '5', K: '5', L: '5', M: '6', N: '6', O: '6', P: '7', Q: '7', R: '7', S: '7',
-    T: '8', U: '8', V: '8', W: '9', X: '9', Y: '9', Z: '9',
-  };
-  for (const ch of input) {
-    if (/\d/.test(ch)) {
-      output += ch;
-      continue;
-    }
-    if (ch === '+' && output.length === 0) {
-      output += ch;
-      continue;
-    }
-    if (LETTER_TO_DIGIT[ch]) output += LETTER_TO_DIGIT[ch];
-  }
-  return output;
-};
-
-function loadJson<T>(key: string, fallback: T): T {
-  if (typeof window === 'undefined') return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
 
 export default function CallsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { emitCallAccept, emitCallDecline, emitCallInvite, emitPresenceSet } = useSocketPresence();
-  const { user } = useAuthStore();
+  const user = useAuthStore((state) => state.user);
   const presenceMap = usePresenceStore((state) => state.presenceMap);
-
   const room = searchParams.get('room') || '';
   const callId = searchParams.get('callId') || '';
   const incoming = searchParams.get('incoming') === '1';
   const from = searchParams.get('from') || '';
   const returnTo = searchParams.get('returnTo') || '/messages';
-
-  const [activeTab, setActiveTab] = useState<CallsTab>('dialpad');
-  const [dial, setDial] = useState('');
-  const [recents, setRecents] = useState<RecentCall[]>([]);
-  const [contacts, setContacts] = useState<CallContact[]>([]);
-  const [contactQuery, setContactQuery] = useState('');
-  const [showAddContact, setShowAddContact] = useState(false);
-  const [newContactName, setNewContactName] = useState('');
-  const [newContactPhone, setNewContactPhone] = useState('');
-  const [newContactType, setNewContactType] = useState<ContactType>('External');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteUserIds, setInviteUserIds] = useState<string[]>([]);
-
-  const dialable = useMemo(() => sanitizePhone(dial), [dial]);
   const ringIntervalRef = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-
-  const filteredContacts = useMemo(() => {
-    const q = contactQuery.trim().toLowerCase();
-    if (!q) return contacts;
-    return contacts.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.phone.toLowerCase().includes(q) || c.type.toLowerCase().includes(q)
-    );
-  }, [contacts, contactQuery]);
-  const onlineUsers = useMemo(() => {
-    return Array.from(presenceMap.values()).filter((entry) => entry.isOnline && entry.userId !== user?.id);
-  }, [presenceMap, user?.id]);
-
-  useEffect(() => {
-    setContacts(loadJson<CallContact[]>(CONTACTS_KEY, []));
-    setRecents(loadJson<RecentCall[]>(RECENTS_KEY, []));
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(CONTACTS_KEY, JSON.stringify(contacts));
-  }, [contacts]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(RECENTS_KEY, JSON.stringify(recents));
-  }, [recents]);
+  const onlineUsers = useMemo(() => Array.from(presenceMap.values()).filter((entry) => entry.isOnline && entry.userId !== user?.id), [presenceMap, user?.id]);
 
   useEffect(() => {
     if (!room || incoming) return;
@@ -122,408 +31,31 @@ export default function CallsPage() {
 
   useEffect(() => {
     if (!incoming || !room) return;
-
     const playTone = () => {
       try {
         const Ctx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
         if (!Ctx) return;
         if (!audioContextRef.current) audioContextRef.current = new Ctx();
-        const ctx = audioContextRef.current;
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, ctx.currentTime);
-        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.36);
-      } catch {
-        // ignore audio playback errors
-      }
+        const context = audioContextRef.current;
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.frequency.setValueAtTime(880, context.currentTime);
+        gain.gain.setValueAtTime(0.0001, context.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.08, context.currentTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.35);
+        oscillator.connect(gain); gain.connect(context.destination); oscillator.start(); oscillator.stop(context.currentTime + 0.36);
+      } catch { /* browser audio may be blocked until user interaction */ }
     };
-
     playTone();
     ringIntervalRef.current = window.setInterval(playTone, 1100);
-
-    return () => {
-      if (ringIntervalRef.current) {
-        window.clearInterval(ringIntervalRef.current);
-        ringIntervalRef.current = null;
-      }
-    };
+    return () => { if (ringIntervalRef.current) window.clearInterval(ringIntervalRef.current); };
   }, [incoming, room]);
 
-  const placeExternalCall = async (rawNumber: string) => {
-    const normalized = sanitizePhone(rawNumber);
-    if (!/^\+?\d{7,15}$/.test(normalized)) {
-      toast.error('Enter a valid phone number.');
-      return;
-    }
-
-    try {
-      const started = await messageService.startSupportPhoneCall({ to: normalized });
-      setDial(normalized);
-      setRecents((prev) => [
-        { id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, number: normalized, createdAt: new Date().toISOString() },
-        ...prev,
-      ].slice(0, 20));
-      toast.success(`Call started (${started.sid.slice(-8)})`);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Failed to start call');
-    }
-  };
-
-  const addContact = () => {
-    const name = newContactName.trim();
-    const phone = sanitizePhone(newContactPhone);
-    if (!name) {
-      toast.error('Contact name is required.');
-      return;
-    }
-    if (!/^\+?\d{7,15}$/.test(phone)) {
-      toast.error('Enter a valid contact phone number.');
-      return;
-    }
-
-    setContacts((prev) => [
-      { id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, name, phone, type: newContactType },
-      ...prev,
-    ]);
-    setNewContactName('');
-    setNewContactPhone('');
-    setNewContactType('External');
-    setShowAddContact(false);
-    toast.success('Contact added');
-  };
-
-  if (!room) {
-    return (
-      <div className="h-[calc(100vh-0px)] w-full bg-slate-50">
-        <div className="mx-auto flex h-full w-full max-w-7xl gap-5 px-6 py-6">
-          <aside className="w-full max-w-xs rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="px-2 pb-2 text-lg font-semibold text-slate-900">Calls</div>
-            <div className="space-y-1">
-              <button
-                type="button"
-                onClick={() => setActiveTab('dialpad')}
-                className={`w-full rounded-xl px-3 py-2 text-left text-sm font-semibold ${
-                  activeTab === 'dialpad' ? 'bg-sky-50 text-sky-700' : 'text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                Dial pad
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('recents')}
-                className={`w-full rounded-xl px-3 py-2 text-left text-sm font-semibold ${
-                  activeTab === 'recents' ? 'bg-sky-50 text-sky-700' : 'text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                Recents
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('contacts')}
-                className={`w-full rounded-xl px-3 py-2 text-left text-sm font-semibold ${
-                  activeTab === 'contacts' ? 'bg-sky-50 text-sky-700' : 'text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                Contacts
-              </button>
-            </div>
-          </aside>
-
-          <main className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            {activeTab === 'dialpad' ? (
-              <div className="flex h-full flex-col items-center justify-center">
-                <div className="mb-4 text-center">
-                  <div className="text-xl font-semibold text-slate-900">Dial pad</div>
-                  <div className="mt-1 text-sm text-slate-500">Call external numbers quickly</div>
-                </div>
-                <DialPad
-                  value={dial}
-                  onChange={setDial}
-                  disabled={!/^\+?\d{7,15}$/.test(dialable)}
-                  onCall={() => void placeExternalCall(dial)}
-                  onOpenContacts={() => setActiveTab('contacts')}
-                />
-              </div>
-            ) : null}
-
-            {activeTab === 'recents' ? (
-              <div className="h-full">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-slate-900">Recent calls</h2>
-                  <button
-                    type="button"
-                    onClick={() => setRecents([])}
-                    className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                  >
-                    Clear all
-                  </button>
-                </div>
-                <div className="mt-4 space-y-2">
-                  {recents.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
-                      No recent calls yet.
-                    </div>
-                  ) : (
-                    recents.map((entry) => (
-                      <div key={entry.id} className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
-                        <div>
-                          <div className="font-semibold text-slate-900">{entry.number}</div>
-                          <div className="text-xs text-slate-500">{new Date(entry.createdAt).toLocaleString()}</div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDial(entry.number);
-                              setActiveTab('dialpad');
-                            }}
-                            className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                          >
-                            Use
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void placeExternalCall(entry.number)}
-                            className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-700"
-                          >
-                            Call
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            ) : null}
-
-            {activeTab === 'contacts' ? (
-              <div className="h-full">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="text-xl font-semibold text-slate-900">Contacts</h2>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddContact(true)}
-                    className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
-                  >
-                    Add contact
-                  </button>
-                </div>
-
-                <div className="mt-4">
-                  <input
-                    value={contactQuery}
-                    onChange={(e) => setContactQuery(e.target.value)}
-                    placeholder="Search contacts"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-sky-500"
-                  />
-                </div>
-
-                <div className="mt-4 space-y-2">
-                  {filteredContacts.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
-                      No contacts found.
-                    </div>
-                  ) : (
-                    filteredContacts.map((contact) => (
-                      <div key={contact.id} className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
-                        <div>
-                          <div className="font-semibold text-slate-900">{contact.name}</div>
-                          <div className="text-xs text-slate-500">{contact.phone}  {contact.type}</div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => void placeExternalCall(contact.phone)}
-                          className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-700"
-                        >
-                          Call
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            ) : null}
-          </main>
-        </div>
-
-        {showAddContact ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-lg">
-              <h3 className="text-lg font-semibold text-slate-900">Add contact</h3>
-              <div className="mt-4 space-y-3">
-                <input
-                  value={newContactName}
-                  onChange={(e) => setNewContactName(e.target.value)}
-                  placeholder="Name"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-sky-500"
-                />
-                <input
-                  value={newContactPhone}
-                  onChange={(e) => setNewContactPhone(e.target.value)}
-                  placeholder="Phone number"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-sky-500"
-                />
-                <select
-                  value={newContactType}
-                  onChange={(e) => setNewContactType(e.target.value as ContactType)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-sky-500"
-                >
-                  <option value="Staff">Staff</option>
-                  <option value="Guest">Guest</option>
-                  <option value="External">External</option>
-                </select>
-              </div>
-              <div className="mt-5 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddContact(false)}
-                  className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={addContact}
-                  className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
-                >
-                  Save
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </div>
-    );
-  }
+  if (!room) return <GuestCallsWorkspace />;
 
   if (incoming) {
-    return (
-      <div className="flex h-[calc(100vh-0px)] w-full items-center justify-center bg-slate-950 text-white">
-        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-6">
-          <div className="text-sm text-white/60">Incoming call</div>
-          <div className="mt-1 text-xl font-semibold">Internal call</div>
-          {from ? <div className="mt-1 text-sm text-white/60">From: {from}</div> : null}
-
-          <div className="mt-6 flex gap-3">
-            <button
-              className="flex-1 rounded-xl bg-sky-600 py-2.5 font-semibold hover:bg-sky-700"
-              onClick={() => {
-                emitCallAccept(room, callId || undefined);
-                navigate(
-                  `/calls?room=${encodeURIComponent(room)}${callId ? `&callId=${encodeURIComponent(callId)}` : ''}&returnTo=${encodeURIComponent(returnTo)}`,
-                  { replace: true }
-                );
-              }}
-            >
-              Accept
-            </button>
-            <button
-              className="flex-1 rounded-xl bg-white/10 py-2.5 font-semibold hover:bg-white/15"
-              onClick={() => {
-                emitCallDecline(room, callId || undefined);
-                navigate(returnTo, { replace: true });
-              }}
-            >
-              Decline
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return <div className="flex h-full min-h-[70vh] items-center justify-center bg-slate-950 p-4 text-white"><section className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-6"><p className="text-sm text-white/60">Incoming call</p><h1 className="mt-1 text-xl font-semibold">Internal call</h1>{from ? <p className="mt-1 text-sm text-white/60">From: {from}</p> : null}<div className="mt-6 flex gap-3"><button onClick={() => { emitCallAccept(room, callId || undefined); navigate(`/calls?room=${encodeURIComponent(room)}${callId ? `&callId=${encodeURIComponent(callId)}` : ''}&returnTo=${encodeURIComponent(returnTo)}`, { replace: true }); }} className="flex-1 rounded-xl bg-primary-solid py-2.5 font-semibold">Accept</button><button onClick={() => { emitCallDecline(room, callId || undefined); navigate(returnTo, { replace: true }); }} className="flex-1 rounded-xl bg-white/10 py-2.5 font-semibold">Decline</button></div></section></div>;
   }
 
-  return (
-    <div className="h-[calc(100vh-0px)] w-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
-      <SupportVideoPanel
-        roomName={room}
-        callId={callId}
-        title="Call"
-        fullPage
-        onInvitePeople={() => {
-          setInviteUserIds([]);
-          setShowInviteModal(true);
-        }}
-        onHangup={() => {
-          emitPresenceSet('AVAILABLE');
-          navigate(returnTo, { replace: true });
-        }}
-      />
-      {showInviteModal ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900 p-5 text-white shadow-xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold">Add people</h3>
-              <button
-                type="button"
-                onClick={() => setShowInviteModal(false)}
-                className="rounded-lg border border-white/20 px-2.5 py-1 text-xs hover:bg-white/10"
-              >
-                Close
-              </button>
-            </div>
-            <div className="mt-3 max-h-64 space-y-2 overflow-auto">
-              {onlineUsers.length === 0 ? (
-                <div className="rounded-lg border border-white/10 px-3 py-2 text-sm text-white/70">
-                  No online users available.
-                </div>
-              ) : (
-                onlineUsers.map((entry) => {
-                  const checked = inviteUserIds.includes(entry.userId);
-                  return (
-                    <label key={entry.userId} className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/10 px-3 py-2">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) => {
-                          setInviteUserIds((prev) =>
-                            e.target.checked
-                              ? Array.from(new Set([...prev, entry.userId]))
-                              : prev.filter((id) => id !== entry.userId)
-                          );
-                        }}
-                      />
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium">{entry.email}</div>
-                        <div className="text-xs text-white/60">{entry.effectiveStatus}</div>
-                      </div>
-                    </label>
-                  );
-                })
-              )}
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowInviteModal(false)}
-                className="rounded-lg border border-white/20 px-3 py-1.5 text-sm hover:bg-white/10"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={!callId || inviteUserIds.length === 0}
-                onClick={() => {
-                  if (!callId || inviteUserIds.length === 0) return;
-                  emitCallInvite({ callId, userIds: inviteUserIds });
-                  toast.success(`Invited ${inviteUserIds.length} participant${inviteUserIds.length > 1 ? 's' : ''}`);
-                  setShowInviteModal(false);
-                  setInviteUserIds([]);
-                }}
-                className="rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
-              >
-                Invite
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
+  return <div className="h-full min-h-[70vh] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800"><SupportVideoPanel roomName={room} callId={callId} title="Call" fullPage onInvitePeople={() => { setInviteUserIds([]); setShowInviteModal(true); }} onHangup={() => { emitPresenceSet('AVAILABLE'); navigate(returnTo, { replace: true }); }} />{showInviteModal ? <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4"><section className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900 p-5 text-white shadow-xl"><div className="flex items-center justify-between"><h2 className="font-semibold">Add people</h2><button onClick={() => setShowInviteModal(false)} className="rounded-lg border border-white/20 px-3 py-1 text-xs">Close</button></div><div className="mt-3 max-h-64 space-y-2 overflow-auto">{onlineUsers.length ? onlineUsers.map((entry) => <label key={entry.userId} className="flex items-center gap-3 rounded-lg border border-white/10 px-3 py-2 text-sm"><input type="checkbox" checked={inviteUserIds.includes(entry.userId)} onChange={(event) => setInviteUserIds((current) => event.target.checked ? [...new Set([...current, entry.userId])] : current.filter((id) => id !== entry.userId))} /><span>{entry.email}</span></label>) : <p className="rounded-lg border border-white/10 p-3 text-sm text-white/70">No online users available.</p>}</div><button disabled={!callId || !inviteUserIds.length} onClick={() => { emitCallInvite({ callId, userIds: inviteUserIds }); toast.success(`Invited ${inviteUserIds.length} participant${inviteUserIds.length === 1 ? '' : 's'}.`); setShowInviteModal(false); }} className="mt-4 w-full rounded-xl bg-primary-solid py-2.5 text-sm font-semibold disabled:opacity-40">Send invite</button></section></div> : null}</div>;
 }

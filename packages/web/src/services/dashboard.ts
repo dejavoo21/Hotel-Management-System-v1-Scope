@@ -5,6 +5,8 @@ import type {
   DashboardDeparture,
   HousekeepingSummary,
   PriorityAlert,
+  DashboardRevenuePoint,
+  DashboardBookingMixItem,
 } from '@/types';
 
 export const dashboardService = {
@@ -29,7 +31,17 @@ export const dashboardService = {
   },
 
   async getAlerts(): Promise<PriorityAlert[]> {
-    const response = await api.get('/dashboard/alerts');
+    const response = await api.get('/dashboard/priorities');
+    return response.data.data;
+  },
+
+  async getRevenueTrend(): Promise<DashboardRevenuePoint[]> {
+    const response = await api.get('/dashboard/revenue-trend');
+    return response.data.data;
+  },
+
+  async getBookingMix(): Promise<DashboardBookingMixItem[]> {
+    const response = await api.get('/dashboard/booking-mix');
     return response.data.data;
   },
 };
