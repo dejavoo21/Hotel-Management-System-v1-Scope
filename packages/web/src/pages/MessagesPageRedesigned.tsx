@@ -19,14 +19,17 @@ import {
   ChevronRight,
   Clock3,
   Inbox,
+  ImagePlus,
   Loader2,
   MessageSquareText,
+  Paperclip,
   Phone,
   RefreshCcw,
   Search,
   Send,
   Settings2,
   ShieldAlert,
+  Smile,
   Sparkles,
   TicketCheck,
   UserRoundCheck,
@@ -1918,25 +1921,117 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                   Add note
                 </button>
               </div>
+              <div
+                className="guest-experience-composer-tabs mb-2 flex items-center gap-5 border-b border-border"
+                role="tablist"
+                aria-label="Message composer mode"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected="true"
+                  className="border-b-2 border-primary-solid px-1 pb-2 text-xs font-semibold text-primary-solid"
+                >
+                  Reply
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected="false"
+                  aria-label="Internal Note unavailable — note service disconnected"
+                  onClick={() =>
+                    props.onUnavailable(
+                      "Internal notes are unavailable because the note service is not connected.",
+                    )
+                  }
+                  className="flex items-center gap-1.5 px-1 pb-2 text-xs font-semibold text-text-muted"
+                >
+                  Internal Note
+                  <span className="rounded-full bg-danger/10 px-1.5 py-0.5 text-[9px] font-semibold text-danger">
+                    Disconnected
+                  </span>
+                </button>
+              </div>
               <form
                 onSubmit={(event) => {
                   event.preventDefault();
                   props.onSend();
                 }}
-                className="flex gap-2"
+                className="guest-experience-reply-form flex items-end gap-2"
               >
-                <input
-                  aria-label="Type a guest reply"
-                  value={props.draft}
-                  onChange={(event) => props.onDraft(event.target.value)}
-                  disabled={!props.canMessage || props.sending}
-                  placeholder={
-                    props.canMessage
-                      ? "Type a guest reply"
-                      : "Permission required to send guest messages"
-                  }
-                  className="min-w-0 flex-1 rounded-xl border border-border bg-bg px-3 py-2.5 text-sm"
-                />
+                <div className="min-w-0 flex-1 rounded-xl border border-border bg-bg focus-within:border-primary-solid">
+                  <input
+                    aria-label="Type a guest reply"
+                    value={props.draft}
+                    onChange={(event) => props.onDraft(event.target.value)}
+                    disabled={!props.canMessage || props.sending}
+                    placeholder={
+                      props.canMessage
+                        ? "Type a guest reply"
+                        : "Permission required to send guest messages"
+                    }
+                    className="w-full min-w-0 bg-transparent px-3 pb-1.5 pt-2.5 text-sm outline-none"
+                  />
+                  <div className="flex min-h-8 items-center justify-between gap-2 px-2 pb-1.5">
+                    <div className="flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        aria-label="Attach file unavailable — storage service disconnected"
+                        title="Unavailable: storage service disconnected"
+                        onClick={() =>
+                          props.onUnavailable(
+                            "File attachments are unavailable because storage is not connected.",
+                          )
+                        }
+                        className="rounded-md p-1.5 text-text-muted hover:bg-card"
+                      >
+                        <Paperclip className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Add image unavailable — storage service disconnected"
+                        title="Unavailable: storage service disconnected"
+                        onClick={() =>
+                          props.onUnavailable(
+                            "Image attachments are unavailable because storage is not connected.",
+                          )
+                        }
+                        className="rounded-md p-1.5 text-text-muted hover:bg-card"
+                      >
+                        <ImagePlus className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Add emoji"
+                        disabled={!props.canMessage || props.sending}
+                        onClick={() =>
+                          props.onDraft(
+                            `${props.draft}${props.draft ? " " : ""}🙂`,
+                          )
+                        }
+                        className="rounded-md p-1.5 text-text-muted hover:bg-card disabled:opacity-45"
+                      >
+                        <Smile className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Insert suggested reply"
+                        disabled={!props.canMessage || props.sending}
+                        onClick={() =>
+                          props.onDraft(
+                            "I’m reviewing this now and will update you as soon as the next step is confirmed.",
+                          )
+                        }
+                        className="rounded-md p-1.5 text-text-muted hover:bg-card disabled:opacity-45"
+                      >
+                        <MessageSquareText className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <span className="rounded-full bg-danger/10 px-2 py-0.5 text-[9px] font-semibold text-danger">
+                      Files disconnected
+                    </span>
+                  </div>
+                </div>
                 <button
                   type="submit"
                   disabled={

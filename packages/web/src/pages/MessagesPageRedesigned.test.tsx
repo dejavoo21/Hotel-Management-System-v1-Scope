@@ -484,6 +484,56 @@ describe("Guest Experience Center", () => {
     expect(
       within(composer as HTMLElement).getByRole("button", { name: "Reply" }),
     ).toBeInTheDocument();
+    expect(
+      within(composer as HTMLElement).getByRole("tab", { name: "Reply" }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(
+      within(composer as HTMLElement).getByRole("tab", {
+        name: /Internal Note unavailable/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(composer as HTMLElement).getByRole("button", {
+        name: /Attach file unavailable/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(composer as HTMLElement).getByRole("button", {
+        name: /Add image unavailable/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(composer as HTMLElement).getByRole("button", {
+        name: "Add emoji",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(composer as HTMLElement).getByRole("button", {
+        name: "Insert suggested reply",
+      }),
+    ).toBeInTheDocument();
+    expect(within(composer as HTMLElement).getByText("Files disconnected"))
+      .toBeInTheDocument();
+
+    const replyField = within(composer as HTMLElement).getByLabelText(
+      "Type a guest reply",
+    );
+    fireEvent.click(
+      within(composer as HTMLElement).getByRole("button", {
+        name: "Insert suggested reply",
+      }),
+    );
+    expect(replyField).toHaveValue(
+      "I’m reviewing this now and will update you as soon as the next step is confirmed.",
+    );
+    fireEvent.click(
+      within(composer as HTMLElement).getByRole("button", {
+        name: "Add emoji",
+      }),
+    );
+    expect(replyField).toHaveValue(
+      "I’m reviewing this now and will update you as soon as the next step is confirmed. 🙂",
+    );
   });
 
   it("keeps every approved command-center region mounted for compact desktop layouts", async () => {
