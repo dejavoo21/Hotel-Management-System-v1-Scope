@@ -40,10 +40,10 @@ describe('GuestCallsWorkspace', () => {
     expect(input).toHaveValue('123456789*0');
     fireEvent.click(screen.getByLabelText('Clear number'));
     expect(input).toHaveValue('');
-    fireEvent.change(input, { target: { value: '+441234567890' } });
+    fireEvent.input(input, { target: { value: '+441234567890' } });
     expect(input).toHaveValue('+441234567890');
     fireEvent.keyDown(input, { key: 'Backspace' });
-    fireEvent.change(input, { target: { value: '+44123456789' } });
+    fireEvent.input(input, { target: { value: '+44123456789' } });
     expect(input).toHaveValue('+44123456789');
   });
 
@@ -52,7 +52,7 @@ describe('GuestCallsWorkspace', () => {
     await screen.findByText('Calling is not connected.');
     fireEvent.click(screen.getByRole('button', { name: /Call unavailable/ }));
     expect(toast.error).toHaveBeenCalledWith('Enter a phone number or extension first.');
-    fireEvent.change(screen.getByLabelText('Phone number or extension'), { target: { value: '+441234567890' } });
+    fireEvent.input(screen.getByLabelText('Phone number or extension'), { target: { value: '+441234567890' } });
     fireEvent.click(screen.getByRole('button', { name: /Call unavailable/ }));
     expect(await screen.findByRole('dialog', { name: 'Calling is not connected' })).toBeInTheDocument();
     expect(mocks.call).not.toHaveBeenCalled();

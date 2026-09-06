@@ -1905,6 +1905,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) 280px;
     gap: 16px;
+    align-content: start;
     align-items: start;
   }
 

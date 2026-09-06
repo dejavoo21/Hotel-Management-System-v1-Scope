@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   AlertCircle, ArrowRightLeft, Bot, Building2, Clock3, ContactRound, Delete, Mail,
-  MessageSquare, Phone, PhoneCall, PhoneMissed, Search, UserRoundCheck, UsersRound,
+  MessageSquare, Phone, PhoneCall, PhoneMissed, Plus, Search, UserRoundCheck, UsersRound,
 } from 'lucide-react';
 import { bookingService, guestService, messageService } from '@/services';
 import { openLafloAssistant, setLafloAssistantContext } from '@/lib/assistantEvents';
@@ -37,6 +37,7 @@ export default function GuestCallsWorkspace() {
   const [tab, setTab] = useState<CallsTab>('dialpad');
   const [filter, setFilter] = useState<CallFilter>('all');
   const [dial, setDial] = useState(() => normalize(params.get('number') || ''));
+  const dialInputRef = useRef<HTMLInputElement>(null);
   const [selectedId, setSelectedId] = useState(params.get('guestId') || '');
   const [recents, setRecents] = useState<RecentCall[]>(loadRecents);
   const [busy, setBusy] = useState(false);
@@ -52,12 +53,17 @@ export default function GuestCallsWorkspace() {
   const activeBooking = bookings.data?.data?.find((booking) => booking.status === 'CHECKED_IN') || bookings.data?.data?.[0];
   const providerConnected = Boolean(voice.data?.enabled);
   const providerLabel = voice.isLoading ? 'Checking…' : providerConnected ? 'Connected' : 'Disconnected';
+  const updateDial = (nextValue: string) => {
+    const normalized = normalize(nextValue);
+    setDial(normalized);
+    if (dialInputRef.current) dialInputRef.current.value = normalized;
+  };
   const appendDialCharacter = (character: string) => {
     if (!/^[0-9*#]$/.test(character)) return;
-    setDial((value) => normalize(`${value}${character}`));
+    updateDial(`${dialInputRef.current?.value ?? dial}${character}`);
   };
-  const removeLastDialCharacter = () => setDial((value) => value.slice(0, -1));
-  const clearDial = () => setDial('');
+  const removeLastDialCharacter = () => updateDial((dialInputRef.current?.value ?? dial).slice(0, -1));
+  const clearDial = () => updateDial('');
 
   useEffect(() => { localStorage.setItem(RECENTS_KEY, JSON.stringify(recents.slice(0, 50))); }, [recents]);
   useEffect(() => {
@@ -88,7 +94,7 @@ export default function GuestCallsWorkspace() {
 
   const selectGuest = (guest: Guest) => {
     setSelectedId(guest.id);
-    if (guest.phone) setDial(normalize(guest.phone));
+    if (guest.phone) updateDial(guest.phone);
   };
   const openUnavailable = (title: string, body: string) => setDialog({ title, body });
   const placeCall = async (override?: string, guest?: Guest | null) => {
@@ -147,9 +153,9 @@ export default function GuestCallsWorkspace() {
       </aside>
 
       <main className="min-w-0 space-y-4">
-        {tab === 'dialpad' ? <section className="theme-card rounded-2xl border p-4"><div className="flex items-center justify-between"><div><h2 className="font-semibold">Dial Pad</h2><p className="text-xs text-text-muted">Enter a number or select a guest contact.</p></div><button type="button" onClick={() => openUnavailable('Save contact', 'A shared contact provider is not connected. Guest profiles can be created from Guest Directory.')} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold">Save Contact</button></div>
+        {tab === 'dialpad' ? <section className="theme-card rounded-2xl border p-4"><div className="flex items-center justify-between"><div><h2 className="font-semibold">Dial Pad</h2><p className="text-xs text-text-muted">Enter a number or select a guest contact.</p></div><button type="button" onClick={() => openUnavailable('Save contact', 'A shared contact provider is not connected. Guest profiles can be created from Guest Directory.')} className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-semibold"><Plus className="h-4 w-4" />Save Contact</button></div>
           {!providerConnected && !voice.isLoading ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><span><strong>Calling is not connected.</strong> Connect a calling provider before placing calls.</span><span className="flex gap-2"><button onClick={() => navigate('/settings?tab=integrations')} className="font-semibold underline">Open Integration Manager</button><button onClick={() => ask('How do I connect calling?')} className="font-semibold underline">Ask LaFlo</button></span></div> : null}
-          <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]"><div><div className="flex rounded-xl border border-border bg-bg"><span className="grid w-16 place-items-center border-r border-border text-xs font-semibold">+ Intl</span><input type="tel" inputMode="tel" autoComplete="tel" aria-label="Phone number or extension" value={dial} onChange={(event) => setDial(normalize(event.target.value))} placeholder="Enter number or extension" className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm outline-none" /><button type="button" aria-label="Clear number" onClick={clearDial} className="px-3 text-text-muted">×</button></div><div className="mt-3 grid grid-cols-3 gap-2">{keys.map(([key, letters]) => <button key={key} type="button" aria-label={`Dial ${key}`} onClick={() => appendDialCharacter(key)} className="rounded-xl border border-border bg-card py-2 text-base font-semibold hover:bg-bg">{key}<span aria-hidden="true" className="block text-[9px] font-medium text-text-muted">{letters || ' '}</span></button>)}</div><div className="mt-3 grid grid-cols-3 gap-2"><button type="button" onClick={removeLastDialCharacter} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border py-2 text-xs font-semibold"><Delete className="h-4 w-4" />Backspace</button><button type="button" disabled={busy || voice.isLoading} aria-label={providerConnected ? 'Call entered number' : 'Call unavailable — provider disconnected'} onClick={() => void placeCall()} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-solid py-2 text-xs font-semibold text-primary-contrast disabled:opacity-50"><Phone className="h-4 w-4" />{busy ? 'Connecting…' : voice.isLoading ? 'Checking…' : providerConnected ? 'Call' : 'Unavailable'}</button><button type="button" onClick={() => openUnavailable('Transfer unavailable', 'Call transfer is unavailable until a compatible calling provider is connected.')} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border py-2 text-xs font-semibold"><ArrowRightLeft className="h-4 w-4" />Transfer</button></div></div>
+          <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]"><div><div className="flex rounded-xl border border-border bg-bg"><span className="grid w-16 place-items-center border-r border-border text-xs font-semibold">+ Intl</span><input ref={dialInputRef} type="tel" inputMode="tel" autoComplete="tel" aria-label="Phone number or extension" defaultValue={dial} onInput={(event) => updateDial(event.currentTarget.value)} placeholder="Enter number or extension" className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm outline-none" /><button type="button" aria-label="Clear number" onClick={clearDial} className="px-3 text-text-muted">×</button></div><div className="mt-3 grid grid-cols-3 gap-2">{keys.map(([key, letters]) => <button key={key} type="button" aria-label={`Dial ${key}`} onClick={() => appendDialCharacter(key)} className="rounded-xl border border-border bg-card py-2 text-base font-semibold hover:bg-bg">{key}<span aria-hidden="true" className="block text-[9px] font-medium text-text-muted">{letters || ' '}</span></button>)}</div><div className="mt-3 grid grid-cols-3 gap-2"><button type="button" onClick={removeLastDialCharacter} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border py-2 text-xs font-semibold"><Delete className="h-4 w-4" />Backspace</button><button type="button" disabled={busy || voice.isLoading} aria-label={providerConnected ? 'Call entered number' : 'Call unavailable — provider disconnected'} onClick={() => void placeCall()} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-solid py-2 text-xs font-semibold text-primary-contrast disabled:opacity-50"><Phone className="h-4 w-4" />{busy ? 'Connecting…' : voice.isLoading ? 'Checking…' : providerConnected ? 'Call' : 'Unavailable'}</button><button type="button" onClick={() => openUnavailable('Transfer unavailable', 'Call transfer is unavailable until a compatible calling provider is connected.')} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border py-2 text-xs font-semibold"><ArrowRightLeft className="h-4 w-4" />Transfer</button></div></div>
             <div><h3 className="text-xs font-bold uppercase tracking-wide text-text-muted">Quick call</h3><div className="mt-2 space-y-2">{['Room Directory','Front Desk','Housekeeping','Maintenance'].map((label) => <button key={label} onClick={() => openUnavailable(label, 'No verified extension is available. Connect or configure the hotel extension directory first.')} className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-left text-xs font-semibold hover:border-primary-300">{label}<span className="mt-0.5 block font-normal text-text-muted">Extension unavailable</span></button>)}</div><button type="button" onClick={() => openUnavailable('Extension directory unavailable', 'Connect or configure the hotel extension directory to view all extensions.')} className="mt-2 w-full rounded-lg border border-border px-3 py-2 text-xs font-semibold">View all extensions</button></div></div>
         </section> : null}
         {tab === 'contacts' ? <section className="theme-card rounded-2xl border p-4"><h2 className="font-semibold">Guest contacts</h2><div className="relative mt-3"><Search className="absolute left-3 top-3 h-4 w-4 text-text-muted" /><input value={contactSearch} onChange={(e) => setContactSearch(e.target.value)} placeholder="Search guest contacts" className="input pl-9" /></div><div className="mt-3 max-h-[480px] divide-y divide-border overflow-auto">{guestsQuery.isLoading ? <p className="p-4 text-sm text-text-muted">Loading contacts…</p> : guestsQuery.isError ? <p className="p-4 text-sm text-rose-700">Guest contacts are unavailable.</p> : filteredGuests.length ? filteredGuests.map((guest) => <button key={guest.id} onClick={() => { selectGuest(guest); setTab('dialpad'); }} className="flex w-full items-center justify-between px-2 py-3 text-left hover:bg-bg"><span><strong className="block text-sm">{guest.firstName} {guest.lastName}</strong><span className="text-xs text-text-muted">{guest.phone || 'No phone number'}</span></span><span className="text-xs font-semibold text-primary-700">Select</span></button>) : <p className="p-4 text-sm text-text-muted">No contacts found.</p>}</div></section> : null}
