@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SET_LAFLO_ASSISTANT_CONTEXT_EVENT } from '@/lib/assistantEvents';
 import { useAuthStore } from '@/stores/authStore';
@@ -12,6 +13,7 @@ vi.mock('@/services', () => ({
   guestService: { getGuests: mocks.guests, updateGuest: mocks.update },
   bookingService: { getBookings: mocks.bookings },
 }));
+vi.mock('react-hot-toast', () => ({ default: { error: vi.fn(), success: vi.fn() } }));
 
 const renderPage = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={['/calls']}><GuestCallsWorkspace /></MemoryRouter></QueryClientProvider>);
 
@@ -25,17 +27,35 @@ describe('GuestCallsWorkspace', () => {
     mocks.bookings.mockResolvedValue({ data: [], pagination: { page: 1, limit: 5, total: 0, totalPages: 0, hasMore: false } });
   });
 
-  it('supports keypad entry and reports the real disconnected state', async () => {
+  it('appends every dial-pad character and supports keyboard, backspace, and clear', async () => {
     renderPage();
     expect(screen.getByRole('heading', { name: 'Guest Calls' })).toBeInTheDocument();
     expect(await screen.findByText('Calling is not connected.')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '1' }));
-    fireEvent.click(screen.getByRole('button', { name: '2 ABC' }));
-    expect(screen.getByLabelText('Phone number or extension')).toHaveValue('12');
+    for (const key of ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#']) {
+      fireEvent.click(screen.getByRole('button', { name: `Dial ${key}` }));
+    }
+    const input = screen.getByLabelText('Phone number or extension');
+    expect(input).toHaveValue('123456789*0#');
     fireEvent.click(screen.getByRole('button', { name: /Backspace/ }));
-    expect(screen.getByLabelText('Phone number or extension')).toHaveValue('1');
+    expect(input).toHaveValue('123456789*0');
     fireEvent.click(screen.getByLabelText('Clear number'));
-    expect(screen.getByLabelText('Phone number or extension')).toHaveValue('');
+    expect(input).toHaveValue('');
+    fireEvent.change(input, { target: { value: '+441234567890' } });
+    expect(input).toHaveValue('+441234567890');
+    fireEvent.keyDown(input, { key: 'Backspace' });
+    fireEvent.change(input, { target: { value: '+44123456789' } });
+    expect(input).toHaveValue('+44123456789');
+  });
+
+  it('blocks empty calls and reports a disconnected provider without starting a call', async () => {
+    renderPage();
+    await screen.findByText('Calling is not connected.');
+    fireEvent.click(screen.getByRole('button', { name: /Call unavailable/ }));
+    expect(toast.error).toHaveBeenCalledWith('Enter a phone number or extension first.');
+    fireEvent.change(screen.getByLabelText('Phone number or extension'), { target: { value: '+441234567890' } });
+    fireEvent.click(screen.getByRole('button', { name: /Call unavailable/ }));
+    expect(await screen.findByRole('dialog', { name: 'Calling is not connected' })).toBeInTheDocument();
+    expect(mocks.call).not.toHaveBeenCalled();
   });
 
   it('provides Guest Calls context to the single global Ask LaFlo launcher', async () => {
