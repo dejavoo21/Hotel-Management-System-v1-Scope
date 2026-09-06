@@ -843,6 +843,7 @@ function OperationsWorkspaceGrid({
     ["Weather & Forecast", "/operations/operational-intelligence/weather-forecast"],
     ["Tasks & Advisories", "/operations/tasks-advisories"],
     ["Incidents", "/incident-center?tab=active"],
+    ["Housekeeping", "/housekeeping"],
     ["Revenue & Market", "/operations/operational-intelligence/revenue-guidance"],
     ["Security", "/security-center"],
     ["Reports", "/reports"],
