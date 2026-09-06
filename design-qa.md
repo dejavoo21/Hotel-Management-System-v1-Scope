@@ -1,4 +1,41 @@
-# Design QA — Guest Experience Center Ticket Insights
+# Design QA — Three Approved LaFlo Workspaces
+
+Date: 2026-09-04
+
+## Current scope and evidence
+
+- Operations reference: `C:\Users\walea\Downloads\APPROVED_Operations_Workspace_Target.png.png`
+- Calls reference: `C:\Users\walea\Downloads\APPROVED_Guest_Calls_Target.png.png`
+- Directory reference: `C:\Users\walea\Downloads\APPROVED_Guest_Directory_Target.png.png`
+- Baseline screenshots: `.artifacts/three-page-design-qa/01-operations-baseline.png`, `02-calls-baseline.png`, `03-guests-baseline.png`.
+- Preview: `http://127.0.0.1:4173/`, using the configured production API. Preview currently requires its own sign-in; the existing live Railway session remains authenticated.
+- Post-change screenshots and same-viewport comparisons have NOT yet been completed.
+
+## Changes awaiting visual acceptance
+
+- Distinct emerald, rose, blue, amber, and violet KPI icon treatments.
+- Calls responsive columns adjusted to avoid clipping the guest context panel.
+- Directory insights rail aligned with the page header; title icon and left-aligned KPI icons added.
+- Operations KPI composition adjusted; hourly weather slots now explicitly avoid fabricating temperatures from daily summary data.
+
+## Checks
+
+- Calls: 3 tests passed.
+- Directory: 6 tests passed after latest layout changes.
+- Operations overview: isolated regression test passed; 14 unrelated tests skipped in that run. Full suite is not claimed as passing.
+- Production build passed again after the final directory/weather refinements (TypeScript, Vite, and PWA generation; exit code 0).
+- Git whitespace check passed.
+- No commit, push, or Railway deployment for this three-page pass yet.
+
+## Remaining gate
+
+Sign into the local preview, capture all three screens at the approved dimensions, compare source and implementation together, fix remaining material differences, then deploy and verify all three production routes.
+
+final result: blocked
+
+---
+
+# Historical QA — Guest Experience Center Ticket Insights
 
 - Source visual truth: `C:\Users\walea\AppData\Local\Temp\codex-clipboard-33532791-6022-47a9-91a6-6ce1bd71383c.png`
 - Browser-rendered implementation: `https://laflo-web-production.up.railway.app/messages?tab=conversations&deploy=83e9f42a`
@@ -55,4 +92,4 @@ No actionable P0, P1, or P2 findings remain for the marked Ticket Insights layou
 
 The full approved-screen fidelity audit should still use a browser surface matching the 1904 × 916 reference viewport; this focused correction does not claim a new page-wide pixel match.
 
-final result: passed
+Historical Ticket Insights result: passed

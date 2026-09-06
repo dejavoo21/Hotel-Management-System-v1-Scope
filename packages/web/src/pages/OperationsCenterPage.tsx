@@ -325,7 +325,7 @@ function CommandCenter({
   const demand = context?.pricingSignal?.demandTrend || "flat";
   const forecastFresh = Boolean(context?.weather?.isFresh);
   return (
-    <div className="space-y-3 pb-28">
+    <div className="operations-command-center space-y-3 pb-28">
       {header}
       <OperationsWorkspaceGrid
         context={context}
@@ -832,8 +832,8 @@ function OperationsWorkspaceGrid({
   const kpis = [
     { label: "Arrivals (Today)", value: context?.ops?.arrivalsNext24h || 0, detail: "Next 24 hours", icon: UsersRound, href: "/operations/tasks-advisories?view=arrivals", tone: "bg-emerald-50 text-emerald-700" },
     { label: "Departures (Today)", value: context?.ops?.departuresNext24h || 0, detail: "Next 24 hours", icon: DoorOpen, href: "/operations/tasks-advisories?view=departures", tone: "bg-sky-50 text-sky-700" },
-    { label: "In-house Guests", value: context?.ops?.inhouseNow || 0, detail: "Currently staying", icon: BedDouble, href: "/guests?filter=inHouse", tone: "bg-teal-50 text-teal-700" },
-    { label: "Occupancy", value: "Unavailable", detail: "PMS room inventory not connected", icon: House, href: "", tone: "bg-amber-50 text-amber-700" },
+    { label: "Occupancy", value: "Unavailable", detail: "PMS room inventory not connected", icon: BedDouble, href: "", tone: "bg-emerald-50 text-emerald-700" },
+    { label: "Open Incidents", value: risks.length, detail: `${critical.length} critical · ${high.length} high`, icon: AlertTriangle, href: "/incident-center?tab=active", tone: "bg-orange-50 text-orange-700" },
     { label: "Active Alerts", value: risks.length, detail: `${critical.length} critical · ${high.length} high`, icon: ShieldAlert, href: canSecurity ? "/security-center?tab=alerts" : "", tone: "bg-rose-50 text-rose-700" },
     { label: "Pending Tasks", value: advisories.length, detail: "Open operational actions", icon: ClipboardList, href: canTasks ? "/operations/tasks-advisories?tab=tasks" : "", tone: "bg-violet-50 text-violet-700" },
     { label: "Revenue Signal", value: demand === "up" ? "Rising" : demand === "down" ? "Softening" : "Stable", detail: `${marketCoverage}% market coverage`, icon: DollarSign, href: canRevenue ? "/operations/operational-intelligence/revenue-guidance" : "", tone: "bg-emerald-50 text-emerald-700" },
@@ -872,11 +872,12 @@ function OperationsWorkspaceGrid({
       <div className="grid gap-3 2xl:grid-cols-[1.45fr_1fr_.9fr]">
         <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
           <div className="flex items-center justify-between"><div><h2 className="text-sm font-semibold text-text-main">24-Hour Weather Forecast</h2><p className="text-[10px] text-text-muted">Operational outlook for proactive planning.</p></div><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${forecastFresh ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{forecastFresh ? "Live" : "Needs refresh"}</span></div>
-          <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-8">
-            {["Now", "12 PM", "2 PM", "4 PM", "6 PM", "8 PM", "10 PM", "12 AM"].map((time, index) => (
-              <div key={time} className="rounded-lg border border-border bg-bg/60 p-2 text-center"><p className="text-[9px] font-bold text-text-main">{time}</p><ThermometerSun className="mx-auto my-2 h-4 w-4 text-amber-500" /><p className="text-[10px] font-semibold">{weatherSummary}</p><p className="mt-1 text-[9px] text-text-muted">{index < 4 ? "Guest activity" : "Evening cover"}</p></div>
+          <div className="operations-hourly-forecast mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6 2xl:grid-cols-12">
+            {["Now", "12 PM", "2 PM", "4 PM", "6 PM", "8 PM", "10 PM", "12 AM", "2 AM", "4 AM", "6 AM", "8 AM"].map((time, index) => (
+              <div key={time} className="rounded-lg border border-border bg-bg/60 p-2 text-center"><p className="text-[9px] font-bold text-text-main">{time}</p><ThermometerSun className={`mx-auto my-1.5 h-4 w-4 ${index === 0 ? "text-amber-500" : "text-slate-300"}`} /><p className="text-[10px] font-semibold">{index === 0 && context?.weather?.current?.temperatureC != null ? `${Math.round(context.weather.current.temperatureC)}°C` : "—"}</p><p className="mt-1 truncate text-[9px] text-text-muted">{index === 0 ? "Current" : "No hourly data"}</p></div>
             ))}
           </div>
+          <p className="mt-2 text-[10px] text-text-muted">{weatherSummary} · Hourly values are unavailable from the connected summary feed.</p>
           <Link to="/operations/operational-intelligence/weather-forecast" className="mt-3 inline-flex text-[10px] font-semibold text-primary-700">Open operational forecast <ArrowRight className="ml-1 h-3 w-3" /></Link>
         </section>
         <section className="rounded-xl border border-border bg-card p-4 shadow-sm">

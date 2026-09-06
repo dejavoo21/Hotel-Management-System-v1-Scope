@@ -363,6 +363,7 @@ describe("Guest Experience Center", () => {
       expect(mocks.send).toHaveBeenCalledWith(
         "thread-1",
         "We are checking now.",
+        [],
       ),
     );
     fireEvent.change(screen.getByLabelText("Assign conversation owner"), {
@@ -494,12 +495,12 @@ describe("Guest Experience Center", () => {
     ).toBeInTheDocument();
     expect(
       within(composer as HTMLElement).getByRole("button", {
-        name: /Attach file unavailable/i,
+        name: "Attach file",
       }),
     ).toBeInTheDocument();
     expect(
       within(composer as HTMLElement).getByRole("button", {
-        name: /Add image unavailable/i,
+        name: "Add image",
       }),
     ).toBeInTheDocument();
     expect(
@@ -512,7 +513,7 @@ describe("Guest Experience Center", () => {
         name: "Insert suggested reply",
       }),
     ).toBeInTheDocument();
-    expect(within(composer as HTMLElement).getByText("Files disconnected"))
+    expect(within(composer as HTMLElement).getByText("Files ready"))
       .toBeInTheDocument();
 
     const replyField = within(composer as HTMLElement).getByLabelText(
@@ -523,12 +524,22 @@ describe("Guest Experience Center", () => {
         name: "Insert suggested reply",
       }),
     );
+    fireEvent.click(
+      within(composer as HTMLElement).getByRole("menuitem", {
+        name: "I’m reviewing this now and will update you as soon as the next step is confirmed.",
+      }),
+    );
     expect(replyField).toHaveValue(
       "I’m reviewing this now and will update you as soon as the next step is confirmed.",
     );
     fireEvent.click(
       within(composer as HTMLElement).getByRole("button", {
         name: "Add emoji",
+      }),
+    );
+    fireEvent.click(
+      within(composer as HTMLElement).getByRole("menuitem", {
+        name: "Insert 🙂",
       }),
     );
     expect(replyField).toHaveValue(

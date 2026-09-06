@@ -15,6 +15,52 @@ const ASSIGNMENT_PREFIX = '[SUPPORT_ASSIGNED]';
 const BOT_HANDOFF_CONNECTING = 'I am now connecting you with one of our live Customer Support Agents for further assistance.';
 const BOT_HANDOFF_WAITING = 'Hi, thank you for requesting to chat with an agent. Our agent will be with you shortly.';
 const VOICE_TOKEN_TTL_SECONDS = 60 * 60;
+const MAX_MESSAGE_ATTACHMENTS = 4;
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+// Base64 expands payloads by roughly one third; keep the JSON request under
+// the application's 10 MB parser limit.
+const MAX_TOTAL_ATTACHMENT_BYTES = 7 * 1024 * 1024;
+const ALLOWED_ATTACHMENT_TYPES = new Set([
+  'image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf',
+  'text/plain', 'text/csv',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+]);
+
+type MessageAttachmentPayload = {
+  filename: string;
+  contentType: string;
+  size: number;
+  contentBase64: string;
+};
+
+function validateMessageAttachments(value: unknown): MessageAttachmentPayload[] | string {
+  if (value == null) return [];
+  if (!Array.isArray(value) || value.length > MAX_MESSAGE_ATTACHMENTS) {
+    return `A maximum of ${MAX_MESSAGE_ATTACHMENTS} attachments is allowed`;
+  }
+  let total = 0;
+  const attachments: MessageAttachmentPayload[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object') return 'Invalid attachment';
+    const candidate = item as Partial<MessageAttachmentPayload>;
+    const filename = typeof candidate.filename === 'string' ? candidate.filename.trim().slice(0, 180) : '';
+    const contentType = typeof candidate.contentType === 'string' ? candidate.contentType : '';
+    const size = Number(candidate.size);
+    const contentBase64 = typeof candidate.contentBase64 === 'string' ? candidate.contentBase64 : '';
+    if (!filename || !ALLOWED_ATTACHMENT_TYPES.has(contentType)) return 'Unsupported attachment type';
+    if (!Number.isInteger(size) || size < 1 || size > MAX_ATTACHMENT_BYTES) return 'Attachment exceeds the 5 MB limit';
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(contentBase64)) return 'Invalid attachment data';
+    const decodedBytes = Buffer.from(contentBase64, 'base64').byteLength;
+    if (decodedBytes !== size) return 'Attachment size does not match its data';
+    total += size;
+    if (total > MAX_TOTAL_ATTACHMENT_BYTES) return 'Attachments exceed the 7 MB total limit';
+    attachments.push({ filename, contentType, size, contentBase64 });
+  }
+  return attachments;
+}
 
 type LiveSupportEmailParams = {
   conversationId: string;
@@ -298,6 +344,7 @@ export async function getThread(
           createdAt: message.createdAt,
           senderUser: message.senderUser,
           guest: message.guest,
+          attachments: message.attachments || undefined,
         })),
       },
     });
@@ -905,10 +952,16 @@ export async function createMessage(
   try {
     const hotelId = req.user!.hotelId;
     const { id } = req.params;
-    const { body } = req.body as { body?: string };
+    const { body, attachments: rawAttachments } = req.body as { body?: string; attachments?: unknown };
+    const attachments = validateMessageAttachments(rawAttachments);
 
-    if (!body || !body.trim()) {
-      res.status(400).json({ success: false, error: 'Message body is required' });
+    if (typeof attachments === 'string') {
+      res.status(400).json({ success: false, error: attachments });
+      return;
+    }
+
+    if ((!body || !body.trim()) && attachments.length === 0) {
+      res.status(400).json({ success: false, error: 'Message body or attachment is required' });
       return;
     }
 
@@ -926,7 +979,8 @@ export async function createMessage(
         conversationId: conversation.id,
         senderType: 'STAFF',
         senderUserId: req.user!.id,
-        body: body.trim(),
+        body: (body || '').trim(),
+        attachments: attachments.length ? attachments : undefined,
       },
       include: {
         senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
@@ -955,6 +1009,7 @@ export async function createMessage(
         senderType: message.senderType,
         createdAt: message.createdAt,
         senderUser: message.senderUser,
+        attachments: message.attachments || undefined,
       },
       message: 'Message sent',
     });

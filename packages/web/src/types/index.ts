@@ -301,6 +301,14 @@ export interface ConversationMessage {
   createdAt: string;
   senderUser?: { id?: string; firstName: string; lastName: string; role: string; avatarUrl?: string | null };
   guest?: { firstName: string; lastName: string };
+  attachments?: MessageAttachment[];
+}
+
+export interface MessageAttachment {
+  filename: string;
+  contentType: string;
+  size: number;
+  contentBase64: string;
 }
 
 export interface MessageThreadSummary {

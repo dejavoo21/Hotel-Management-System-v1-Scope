@@ -1079,6 +1079,71 @@
   box-shadow: 0 1px 2px rgb(15 23 42 / 0.035);
 }
 
+.call-summary-icon,
+.guest-directory-summary-icon {
+  border: 1px solid transparent;
+}
+
+.call-summary-card--emerald .call-summary-icon,
+.call-mini-card--emerald svg,
+.guest-directory-summary-card--emerald .guest-directory-summary-icon {
+  background: #ecfdf5;
+  border-color: #d1fae5;
+  color: #059669;
+}
+
+.call-summary-card--rose .call-summary-icon,
+.call-mini-card--rose svg,
+.guest-directory-summary-card--rose .guest-directory-summary-icon {
+  background: #fff1f2;
+  border-color: #ffe4e6;
+  color: #f43f5e;
+}
+
+.call-summary-card--sky .call-summary-icon,
+.call-mini-card--sky svg,
+.guest-directory-summary-card--sky .guest-directory-summary-icon {
+  background: #eff6ff;
+  border-color: #dbeafe;
+  color: #2583e9;
+}
+
+.call-summary-card--violet .call-summary-icon,
+.call-mini-card--violet svg,
+.guest-directory-summary-card--violet .guest-directory-summary-icon {
+  background: #f5f3ff;
+  border-color: #ede9fe;
+  color: #8b5cf6;
+}
+
+.guest-directory-summary-card--amber .guest-directory-summary-icon {
+  background: #fff7e6;
+  border-color: #fde7b2;
+  color: #d97706;
+}
+
+.guest-directory-workspace {
+  background:
+    radial-gradient(circle at 4% 4%, rgb(247 254 231 / 0.46), transparent 25%),
+    radial-gradient(circle at 92% 6%, rgb(224 242 254 / 0.32), transparent 28%);
+}
+
+.guest-directory-header,
+.guest-directory-summary-card {
+  border-color: rgb(var(--color-border) / 0.82);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.035);
+}
+
+.guest-directory-title-icon {
+  box-shadow: inset 0 0 0 1px rgb(34 197 94 / 0.08);
+}
+
+.operations-command-center {
+  background:
+    radial-gradient(circle at 5% 1%, rgb(247 254 231 / 0.34), transparent 22%),
+    radial-gradient(circle at 96% 2%, rgb(224 242 254 / 0.24), transparent 25%);
+}
+
 .guest-calls-workspace > div.grid > aside,
 .guest-calls-workspace > div.grid > main > section {
   border-color: rgb(var(--color-border) / 0.82);
@@ -1797,7 +1862,7 @@
 
   .guest-calls-workspace > div.grid {
     gap: 18px;
-    grid-template-columns: 362px minmax(560px, 678px) minmax(400px, 1fr);
+    grid-template-columns: minmax(300px, 23%) minmax(480px, 44%) minmax(340px, 1fr);
   }
 
   .guest-calls-workspace > div.grid > aside:first-child {
@@ -1835,7 +1900,99 @@
   }
 }
 
+@media (min-width: 1280px) {
+  .guest-directory-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .guest-directory-workspace > * {
+    margin-top: 0 !important;
+  }
+
+  .guest-directory-header,
+  .guest-directory-summary {
+    grid-column: 1;
+  }
+
+  .guest-directory-workspace > div.grid {
+    display: contents;
+  }
+
+  .guest-directory-workspace > div.grid > main {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .guest-directory-workspace > div.grid > aside {
+    grid-column: 2;
+    grid-row: 1 / 4;
+  }
+
+  .guest-directory-summary-card > span {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    align-items: center;
+  }
+
+  .guest-directory-summary-card {
+    min-height: 104px;
+    box-shadow: none;
+  }
+
+  .guest-directory-summary-card .guest-directory-summary-icon {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+  }
+}
+
 @media (min-width: 1280px) and (max-width: 1499px) {
+  .guest-calls-workspace {
+    padding-inline: 18px !important;
+  }
+
+  .guest-calls-workspace > section[aria-label='Call summary'] {
+    margin-left: 300px;
+    width: calc(100% - 300px);
+  }
+
+  .guest-calls-workspace > div.grid {
+    gap: 10px;
+    grid-template-columns: 290px minmax(430px, 1fr) 300px;
+  }
+
+  .guest-calls-workspace > div.grid > aside:first-child {
+    min-height: 792px;
+  }
+
+  .guest-calls-workspace main > section:first-child > div.mt-4.grid {
+    grid-template-columns: minmax(0, 1fr) 178px;
+    gap: 8px;
+  }
+
+  .guest-directory-workspace > div.grid {
+    grid-template-columns: minmax(0, 1fr) 270px;
+    gap: 12px;
+  }
+
+  .guest-directory-workspace table {
+    min-width: 840px;
+    font-size: 10px;
+  }
+
+  .guest-directory-workspace table th,
+  .guest-directory-workspace table td {
+    padding-inline: 8px;
+  }
+
+  .guest-directory-workspace table td:first-child,
+  .guest-directory-workspace table th:first-child {
+    padding-left: 12px;
+  }
+
   .guest-experience-desktop-grid {
     grid-template-columns: 252px minmax(380px, 1fr) minmax(340px, 42vw);
     column-gap: 8px;

@@ -54,6 +54,7 @@ import {
 } from "@/services/tickets";
 import type {
   ConversationMessage,
+  MessageAttachment,
   MessageThreadDetail,
   MessageThreadSummary,
   SupportAgent,
@@ -88,6 +89,31 @@ const DEFAULT_GUEST_LIST_WIDTH = 272;
 const DEFAULT_GUEST_CONTEXT_WIDTH = 580;
 const MIN_GUEST_LIST_WIDTH = 220;
 const MAX_GUEST_LIST_WIDTH = 420;
+const MAX_MESSAGE_ATTACHMENTS = 4;
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+const ALLOWED_FILE_TYPES = ".pdf,.txt,.csv,.doc,.docx,.xls,.xlsx,image/png,image/jpeg,image/webp,image/gif";
+const QUICK_EMOJIS = ["🙂", "👍", "🙏", "✅", "😊", "👋"];
+const SAVED_REPLIES = [
+  "I’m reviewing this now and will update you as soon as the next step is confirmed.",
+  "Thank you for letting us know. I’ve shared this with the responsible team and will keep you updated.",
+  "I’m sorry for the inconvenience. We’re working on this now and will confirm as soon as it is resolved.",
+];
+
+const fileToAttachment = (file: File): Promise<MessageAttachment> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error(`Could not read ${file.name}`));
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      resolve({
+        filename: file.name,
+        contentType: file.type,
+        size: file.size,
+        contentBase64: result.slice(result.indexOf(",") + 1),
+      });
+    };
+    reader.readAsDataURL(file);
+  });
 const MIN_GUEST_CONTEXT_WIDTH = 360;
 const MAX_GUEST_CONTEXT_WIDTH = 720;
 const GUEST_LIST_WIDTH_KEY = "laflo.guest-experience.list-width";
@@ -216,6 +242,7 @@ export default function MessagesPageRedesigned() {
     params.get("ticket"),
   );
   const [draft, setDraft] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState<MessageAttachment[]>([]);
   const [taskDraft, setTaskDraft] = useState<TaskDraft | null>(null);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [guestListWidth, setGuestListWidth] = useState(() =>
@@ -544,9 +571,10 @@ export default function MessagesPageRedesigned() {
 
   const sendMutation = useMutation({
     mutationFn: () =>
-      messageService.createMessage(selectedThreadId!, draft.trim()),
+      messageService.createMessage(selectedThreadId!, draft.trim(), pendingAttachments),
     onSuccess: async () => {
       setDraft("");
+      setPendingAttachments([]);
       await Promise.all([threadQuery.refetch(), threadsQuery.refetch()]);
       toast.success("Reply sent.");
     },
@@ -910,6 +938,7 @@ export default function MessagesPageRedesigned() {
             filter={conversationFilter}
             priorityFilter={priorityFilter}
             draft={draft}
+            attachments={pendingAttachments}
             agents={agentsQuery.data || []}
             currentUser={user}
             canMessage={canMessage}
@@ -923,9 +952,10 @@ export default function MessagesPageRedesigned() {
             onWorkspaceTab={selectTab}
             onSelect={selectThread}
             onDraft={setDraft}
+            onAttachments={setPendingAttachments}
             onSend={() => {
-              if (!draft.trim()) {
-                toast.error("Enter a reply before sending.");
+              if (!draft.trim() && pendingAttachments.length === 0) {
+                toast.error("Enter a reply or add an attachment before sending.");
                 return;
               }
               sendMutation.mutate();
@@ -1496,6 +1526,7 @@ type ConversationWorkspaceProps = {
   filter: ConversationFilter;
   priorityFilter: PriorityFilter;
   draft: string;
+  attachments: MessageAttachment[];
   agents: SupportAgent[];
   currentUser: User | null;
   canMessage: boolean;
@@ -1509,6 +1540,7 @@ type ConversationWorkspaceProps = {
   onWorkspaceTab: (tab: WorkspaceTab) => void;
   onSelect: (id: string) => void;
   onDraft: (value: string) => void;
+  onAttachments: (attachments: MessageAttachment[]) => void;
   onSend: () => void;
   onUnavailable: (message: string) => void;
   onAssign: (userId: string) => void;
@@ -1522,6 +1554,10 @@ type ConversationWorkspaceProps = {
 
 function ConversationWorkspace(props: ConversationWorkspaceProps) {
   const [contextTab, setContextTab] = useState<"guest" | "ticket">("guest");
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [savedRepliesOpen, setSavedRepliesOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const [activeResizePane, setActiveResizePane] = useState<
     "list" | "context" | null
   >(null);
@@ -1533,6 +1569,32 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
   const ticket = props.selectedThreadId
     ? props.ticketsByConversation.get(props.selectedThreadId)
     : null;
+
+  const addFiles = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const availableSlots = MAX_MESSAGE_ATTACHMENTS - props.attachments.length;
+    const selected = Array.from(files).slice(0, availableSlots);
+    if (files.length > availableSlots) {
+      toast.error(`A maximum of ${MAX_MESSAGE_ATTACHMENTS} attachments is allowed.`);
+    }
+    const valid = selected.filter((file) => {
+      if (!file.type || !ALLOWED_FILE_TYPES.includes(file.type)) {
+        toast.error(`${file.name} is not a supported file type.`);
+        return false;
+      }
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        toast.error(`${file.name} exceeds the 5 MB limit.`);
+        return false;
+      }
+      return true;
+    });
+    try {
+      const next = await Promise.all(valid.map(fileToAttachment));
+      props.onAttachments([...props.attachments, ...next]);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "An attachment could not be read.");
+    }
+  };
 
   const updatePaneWidth = (pane: "list" | "context", width: number) => {
     if (pane === "list") {
@@ -1960,6 +2022,19 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                 className="guest-experience-reply-form flex items-end gap-2"
               >
                 <div className="min-w-0 flex-1 rounded-xl border border-border bg-bg focus-within:border-primary-solid">
+                  {props.attachments.length ? (
+                    <div className="flex flex-wrap gap-1.5 px-2 pt-2" aria-label="Pending attachments">
+                      {props.attachments.map((attachment, index) => (
+                        <span key={`${attachment.filename}-${index}`} className="inline-flex max-w-[220px] items-center gap-1 rounded-lg border border-primary-200 bg-primary-50 px-2 py-1 text-[10px] text-primary-700">
+                          <Paperclip className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{attachment.filename}</span>
+                          <button type="button" aria-label={`Remove ${attachment.filename}`} onClick={() => props.onAttachments(props.attachments.filter((_, itemIndex) => itemIndex !== index))} className="rounded p-0.5 hover:bg-primary-100">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                   <input
                     aria-label="Type a guest reply"
                     value={props.draft}
@@ -1973,30 +2048,26 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                     className="w-full min-w-0 bg-transparent px-3 pb-1.5 pt-2.5 text-sm outline-none"
                   />
                   <div className="flex min-h-8 items-center justify-between gap-2 px-2 pb-1.5">
-                    <div className="flex items-center gap-0.5">
+                    <div className="relative flex items-center gap-0.5">
+                      <input ref={fileInputRef} type="file" multiple accept={ALLOWED_FILE_TYPES} aria-label="Choose files to attach" className="sr-only" onChange={(event) => { void addFiles(event.target.files); event.currentTarget.value = ""; }} />
+                      <input ref={imageInputRef} type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Choose images to attach" className="sr-only" onChange={(event) => { void addFiles(event.target.files); event.currentTarget.value = ""; }} />
                       <button
                         type="button"
-                        aria-label="Attach file unavailable — storage service disconnected"
-                        title="Unavailable: storage service disconnected"
-                        onClick={() =>
-                          props.onUnavailable(
-                            "File attachments are unavailable because storage is not connected.",
-                          )
-                        }
-                        className="rounded-md p-1.5 text-text-muted hover:bg-card"
+                        aria-label="Attach file"
+                        title="Attach file"
+                        disabled={!props.canMessage || props.sending || props.attachments.length >= MAX_MESSAGE_ATTACHMENTS}
+                        onClick={() => fileInputRef.current?.click()}
+                        className="rounded-md p-1.5 text-text-muted hover:bg-card disabled:opacity-45"
                       >
                         <Paperclip className="h-3.5 w-3.5" />
                       </button>
                       <button
                         type="button"
-                        aria-label="Add image unavailable — storage service disconnected"
-                        title="Unavailable: storage service disconnected"
-                        onClick={() =>
-                          props.onUnavailable(
-                            "Image attachments are unavailable because storage is not connected.",
-                          )
-                        }
-                        className="rounded-md p-1.5 text-text-muted hover:bg-card"
+                        aria-label="Add image"
+                        title="Add image"
+                        disabled={!props.canMessage || props.sending || props.attachments.length >= MAX_MESSAGE_ATTACHMENTS}
+                        onClick={() => imageInputRef.current?.click()}
+                        className="rounded-md p-1.5 text-text-muted hover:bg-card disabled:opacity-45"
                       >
                         <ImagePlus className="h-3.5 w-3.5" />
                       </button>
@@ -2004,11 +2075,7 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                         type="button"
                         aria-label="Add emoji"
                         disabled={!props.canMessage || props.sending}
-                        onClick={() =>
-                          props.onDraft(
-                            `${props.draft}${props.draft ? " " : ""}🙂`,
-                          )
-                        }
+                        onClick={() => { setEmojiOpen((open) => !open); setSavedRepliesOpen(false); }}
                         className="rounded-md p-1.5 text-text-muted hover:bg-card disabled:opacity-45"
                       >
                         <Smile className="h-3.5 w-3.5" />
@@ -2017,25 +2084,31 @@ function ConversationWorkspace(props: ConversationWorkspaceProps) {
                         type="button"
                         aria-label="Insert suggested reply"
                         disabled={!props.canMessage || props.sending}
-                        onClick={() =>
-                          props.onDraft(
-                            "I’m reviewing this now and will update you as soon as the next step is confirmed.",
-                          )
-                        }
+                        onClick={() => { setSavedRepliesOpen((open) => !open); setEmojiOpen(false); }}
                         className="rounded-md p-1.5 text-text-muted hover:bg-card disabled:opacity-45"
                       >
                         <MessageSquareText className="h-3.5 w-3.5" />
                       </button>
+                      {emojiOpen ? (
+                        <div className="absolute bottom-9 left-14 z-30 flex gap-1 rounded-xl border border-border bg-card p-2 shadow-lg" role="menu" aria-label="Choose emoji">
+                          {QUICK_EMOJIS.map((emoji) => <button key={emoji} type="button" role="menuitem" aria-label={`Insert ${emoji}`} onClick={() => { props.onDraft(`${props.draft}${props.draft ? " " : ""}${emoji}`); setEmojiOpen(false); }} className="rounded-md p-1.5 text-base hover:bg-bg">{emoji}</button>)}
+                        </div>
+                      ) : null}
+                      {savedRepliesOpen ? (
+                        <div className="absolute bottom-9 left-20 z-30 w-80 space-y-1 rounded-xl border border-border bg-card p-2 shadow-lg" role="menu" aria-label="Saved replies">
+                          {SAVED_REPLIES.map((reply) => <button key={reply} type="button" role="menuitem" onClick={() => { props.onDraft(reply); setSavedRepliesOpen(false); }} className="block w-full rounded-lg px-2 py-1.5 text-left text-xs text-text-main hover:bg-bg">{reply}</button>)}
+                        </div>
+                      ) : null}
                     </div>
-                    <span className="rounded-full bg-danger/10 px-2 py-0.5 text-[9px] font-semibold text-danger">
-                      Files disconnected
+                    <span className="rounded-full bg-success/10 px-2 py-0.5 text-[9px] font-semibold text-success">
+                      {props.attachments.length ? `${props.attachments.length} ready` : "Files ready"}
                     </span>
                   </div>
                 </div>
                 <button
                   type="submit"
                   disabled={
-                    !props.canMessage || !props.draft.trim() || props.sending
+                    !props.canMessage || (!props.draft.trim() && props.attachments.length === 0) || props.sending
                   }
                   className="guest-experience-reply-button rounded-xl bg-primary-solid px-4 py-2 text-sm font-semibold text-primary-contrast disabled:opacity-50"
                 >
@@ -2454,6 +2527,24 @@ function MessageBubble({
         className={`guest-experience-message max-w-[80%] rounded-2xl px-3 py-2 text-xs ${system ? "is-system border border-border bg-card text-text-muted" : guest ? "is-guest border border-border bg-card text-text-main" : "is-staff bg-primary-solid text-primary-contrast"}`}
       >
         <p>{message.body}</p>
+        {message.attachments?.length ? (
+          <div className="mt-2 grid gap-1.5">
+            {message.attachments.map((attachment, index) => {
+              const href = `data:${attachment.contentType};base64,${attachment.contentBase64}`;
+              return attachment.contentType.startsWith("image/") ? (
+                <a key={`${attachment.filename}-${index}`} href={href} download={attachment.filename} className="block overflow-hidden rounded-lg border border-white/30 bg-card/80">
+                  <img src={href} alt={attachment.filename} className="max-h-48 w-full object-cover" />
+                  <span className="block truncate px-2 py-1 text-[10px] text-text-main">{attachment.filename}</span>
+                </a>
+              ) : (
+                <a key={`${attachment.filename}-${index}`} href={href} download={attachment.filename} className="flex items-center gap-2 rounded-lg border border-white/30 bg-card/80 px-2 py-1.5 text-[10px] text-text-main">
+                  <FileText className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{attachment.filename}</span>
+                </a>
+              );
+            })}
+          </div>
+        ) : null}
         <p
           className={`mt-1 text-[10px] ${guest || system ? "text-text-muted" : "opacity-75"}`}
         >
