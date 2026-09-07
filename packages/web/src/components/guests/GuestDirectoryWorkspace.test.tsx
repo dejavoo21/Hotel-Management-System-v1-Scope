@@ -83,4 +83,23 @@ describe('GuestDirectoryWorkspace', () => {
     const { container } = renderPage();
     expect(container.querySelector('button.fixed.bottom-5.right-6')).toBeNull();
   });
+
+  it('keeps the approved insights rail compact at desktop size', async () => {
+    mocks.summary.mockResolvedValue({
+      total: 4, vip: 1, inHouse: 1, returning: 2, contactable: 4, needsFollowUp: 0,
+      totalLifetimeSpend: 2500.5, averageSpend: 625.125, repeatStayRate: 50,
+      recentlyAdded: [
+        { id: 'r1', firstName: 'Recent', lastName: 'One', createdAt: '2026-03-04' },
+        { id: 'r2', firstName: 'Recent', lastName: 'Two', createdAt: '2026-03-03' },
+        { id: 'r3', firstName: 'Recent', lastName: 'Three', createdAt: '2026-03-02' },
+        { id: 'r4', firstName: 'Recent', lastName: 'Four', createdAt: '2026-03-01' },
+      ],
+    });
+    renderPage();
+    expect(await screen.findByRole('button', { name: /Recent One/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Recent Three/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Recent Four/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open guest preferences overview' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Which guests have open issues?' })).not.toBeInTheDocument();
+  });
 });
