@@ -1266,7 +1266,7 @@ function GuestExperienceRail({
           L
         </span>
         <span className="guest-experience-rail-brand-label text-[10px] font-semibold uppercase tracking-wide text-white">
-          Guest Experience Center
+          Support Hub
         </span>
       </button>
       <nav aria-label="Guest Experience Center workspace" className="space-y-1">

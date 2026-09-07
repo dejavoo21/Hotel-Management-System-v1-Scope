@@ -26,9 +26,11 @@ describe('GuestDirectoryWorkspace', () => {
   });
 
   it('formats decimal spend numerically and applies KPI filters', async () => {
-    renderPage();
+    const { container } = renderPage();
     expect(screen.getByRole('heading', { name: 'Guest Directory' })).toBeInTheDocument();
     await waitFor(() => expect(document.body.textContent?.replace(/\D/g, '')).toContain('250050'));
+    expect(container.querySelector('img[src="/assets/guests/sarah-johnson.png"]')).toBeInTheDocument();
+    expect(container.querySelector('img[src="/assets/flags/za.png"]')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /VIP Guests/ }));
     await waitFor(() => expect(mocks.guests).toHaveBeenLastCalledWith(expect.objectContaining({ vipStatus: true })));
   });

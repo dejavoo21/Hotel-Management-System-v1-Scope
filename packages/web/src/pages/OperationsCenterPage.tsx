@@ -188,6 +188,7 @@ export default function OperationsCenterPage() {
     <CommandHeader
       updatedAt={updatedAt}
       isError={operationsQuery.isError}
+      hotelName={user?.hotel?.name || "your hotel"}
       refreshButton={refreshButton}
     />
   ) : focus === "revenue" ? (
@@ -916,16 +917,18 @@ function OperationsWorkspaceGrid({
 function CommandHeader({
   updatedAt,
   isError,
+  hotelName,
   refreshButton,
 }: {
   updatedAt: Date | null;
   isError: boolean;
+  hotelName: string;
   refreshButton: React.ReactNode;
 }) {
   return (
     <header aria-label={isError ? "Operations context unavailable" : "Operations workspace live"} className="flex flex-col gap-3 px-1 py-1 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex items-start gap-3">
-        <span className="theme-kpi-icon grid h-12 w-12 shrink-0 place-items-center rounded-2xl">
+        <span className="theme-kpi-icon grid h-14 w-14 shrink-0 place-items-center rounded-full">
           <Activity className="h-6 w-6" />
         </span>
         <div>
@@ -933,7 +936,7 @@ function CommandHeader({
             Operations Workspace
           </h1>
           <p className="mt-0.5 text-sm text-text-muted">
-            Real-time operational intelligence and action center for your hotel.
+            Real-time operational intelligence and action center for {hotelName}.
           </p>
           {updatedAt ? (
             <p className="mt-2 flex items-center gap-1.5 text-xs text-text-muted">

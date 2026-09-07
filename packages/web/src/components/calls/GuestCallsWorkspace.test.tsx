@@ -67,6 +67,12 @@ describe('GuestCallsWorkspace', () => {
     window.removeEventListener(SET_LAFLO_ASSISTANT_CONTEXT_EVENT, listener);
   });
 
+  it('uses the approved portrait asset for a known guest contact', async () => {
+    mocks.guests.mockResolvedValue({ data: [{ id: 'g1', firstName: 'Sarah', lastName: 'Johnson', phone: '+27111234567', email: 'sarah@example.com', vipStatus: true }], pagination: { page: 1, limit: 100, total: 1, totalPages: 1, hasMore: false } });
+    const { container } = renderPage();
+    await waitFor(() => expect(container.querySelector('img[src="/assets/guests/sarah-johnson.png"]')).toBeInTheDocument());
+  });
+
   it('does not mount a second fixed Ask LaFlo launcher', () => {
     const { container } = renderPage();
     expect(container.querySelector('button.fixed.bottom-5.right-6')).toBeNull();
