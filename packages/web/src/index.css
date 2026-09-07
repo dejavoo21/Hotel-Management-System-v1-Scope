@@ -1142,11 +1142,16 @@
   background: transparent;
 }
 
-/* The approved Operations Workspace is a dense command centre at desktop
- * widths: the seven KPIs stay on one line and the three primary panels share
- * a consistent 236px band.  Keep the normal responsive stacking below this
- * breakpoint so the interface remains usable on smaller screens. */
-@media (min-width: 1280px) {
+/* The approved Operations Workspace uses a neutral canvas even when a user
+ * has selected a decorative app background. */
+.app-workspace-background:has(> .operations-command-center) {
+  background-color: rgb(var(--color-bg));
+  background-image: none;
+}
+
+/* The reference canvas is 1672px wide. Only enable its dense seven-column
+ * composition when the viewport can accommodate it without clipping copy. */
+@media (min-width: 1536px) {
   .operations-command-center {
     margin-top: -0.875rem;
   }
