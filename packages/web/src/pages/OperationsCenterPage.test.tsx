@@ -279,6 +279,7 @@ describe("OperationsCenterPage", () => {
     expect(screen.getByText("Room Readiness")).toBeInTheDocument();
     expect(screen.getByText("Market & Revenue Snapshot")).toBeInTheDocument();
     expect(screen.getByText("Security Snapshot")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Customize layout" })).toHaveAttribute("href", "/settings?tab=appearance");
     expect(screen.getByRole("link", { name: "Open Arrivals (Today)" })).toHaveAttribute("href", "/operations/tasks-advisories?view=arrivals");
     expect(screen.getByRole("link", { name: "Open Active Alerts" })).toHaveAttribute("href", "/security-center?tab=alerts");
     expect(screen.getByRole("link", { name: "Open Pending Tasks" })).toHaveAttribute("href", "/operations/tasks-advisories?tab=tasks");

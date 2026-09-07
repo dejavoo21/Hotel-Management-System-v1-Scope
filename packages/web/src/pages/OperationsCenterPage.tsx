@@ -15,6 +15,7 @@ import {
   House,
   Plus,
   RefreshCcw,
+  Settings2,
   ShieldAlert,
   ThermometerSun,
   UsersRound,
@@ -873,6 +874,10 @@ function OperationsWorkspaceGrid({
             {label}
           </Link>
         ))}
+        <Link to="/settings?tab=appearance" className="ml-auto inline-flex shrink-0 items-center gap-1.5 px-3 py-3 text-[11px] font-semibold text-text-muted hover:text-text-main">
+          <Settings2 className="h-3.5 w-3.5" />
+          Customize layout
+        </Link>
       </nav>
       <section aria-label="Operations summary" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
         {kpis.map(({ label, value, detail, icon: Icon, href, tone }) => {
