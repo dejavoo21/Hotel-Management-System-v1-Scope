@@ -285,6 +285,9 @@ describe("OperationsCenterPage", () => {
     expect(screen.getByRole("link", { name: "Open Pending Tasks" })).toHaveAttribute("href", "/operations/tasks-advisories?tab=tasks");
     expect(screen.getByRole("link", { name: "Open Revenue Signal" })).toHaveAttribute("href", "/operations/operational-intelligence/revenue-guidance");
     expect(screen.getByText("PMS room inventory not connected")).toBeInTheDocument();
+    expect(screen.getByLabelText("Operations summary")).toHaveClass("operations-summary-grid");
+    expect(screen.getByText("Operational Advisories").closest(".operations-primary-grid")).not.toBeNull();
+    expect(screen.getAllByText("Now")[0].closest(".operations-hour")).not.toBeNull();
     expect(
       screen.queryByPlaceholderText("Ask an operational question..."),
     ).not.toBeInTheDocument();

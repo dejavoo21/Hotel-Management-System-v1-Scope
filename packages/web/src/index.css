@@ -1139,9 +1139,35 @@
 }
 
 .operations-command-center {
-  background:
-    radial-gradient(circle at 5% 1%, rgb(247 254 231 / 0.34), transparent 22%),
-    radial-gradient(circle at 96% 2%, rgb(224 242 254 / 0.24), transparent 25%);
+  background: transparent;
+}
+
+/* The approved Operations Workspace is a dense command centre at desktop
+ * widths: the seven KPIs stay on one line and the three primary panels share
+ * a consistent 236px band.  Keep the normal responsive stacking below this
+ * breakpoint so the interface remains usable on smaller screens. */
+@media (min-width: 1280px) {
+  .operations-command-center {
+    margin-top: -0.875rem;
+  }
+
+  .operations-summary-card {
+    min-height: 7.125rem;
+  }
+
+  .operations-primary-grid {
+    height: 14.75rem;
+  }
+
+  .operations-primary-grid > section {
+    overflow: hidden;
+  }
+
+  .operations-hour {
+    min-height: 6rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
 }
 
 .guest-calls-workspace > div.grid > aside,

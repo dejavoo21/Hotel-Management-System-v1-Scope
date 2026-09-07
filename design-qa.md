@@ -23,10 +23,12 @@ Date: 2026-09-07
 
 ### Operations Workspace
 
-- Header, action buttons, section tabs, seven KPI cards, forecast/advisory/task row, operational snapshot row, and bottom activity/action row match the approved hierarchy and density.
+- A new authenticated production capture at a 1280 × 720 CSS viewport exposed a responsive fidelity defect: the seven KPI cards wrapped into two rows and the weather panel occupied the full first content band instead of sharing it with Operational Advisories and Task Queue.
+- The pending workspace change moves the approved desktop grid from the 1536px breakpoint to 1280px, restores the seven-card KPI row, the three-column forecast/advisory/task band, the four-card operational snapshot row, and the three-column activity/action footer at standard desktop widths.
+- Desktop KPI and primary-band heights are now pinned to the approved proportions, and the extra Operations-only background tint has been removed.
 - Emerald, blue, amber, rose, and violet icon treatments preserve the approved visual grouping.
 - `Customize layout`, task, incident, housekeeping, revenue, security, and recommendation surfaces are links or controls rather than a static image.
-- Commit `403f6b48` tightens the recommendation card so title and rationale remain inside the approved-height bottom row. It is deployed and verified in production.
+- Commit `403f6b48` remains the deployed baseline. The new responsive correction has passed focused tests and the production build, but is not yet deployed or visually accepted in production.
 
 ### Guest Calls
 
@@ -64,13 +66,13 @@ Date: 2026-09-07
 - Railway deployment `e60f5f77-52d1-44aa-97c6-e3c895f24998`: `SUCCESS` for the final Guest Directory rail fit.
 - All four final production routes were reloaded at 1672 × 942 in the authenticated in-app browser. No console errors were present in the final captures.
 
-## Final assessment
+## Current assessment
 
-The approved hierarchy, spacing, color system, icons, portraits, status treatments, desktop composition, and core controls are present across all four pages. Live tenant records, counts, dates, selected guest/conversation, and unavailable integration states intentionally differ from the static approved fixtures; the implementation does not fabricate successful calls, linked tickets, reservations, occupancy, or revenue data to mimic the screenshots.
+The Operations Workspace had one remaining P1 responsive-layout mismatch at the current 1280px in-app desktop viewport. The code correction and focused/build checks pass, but the changed build has not yet been deployed, captured, and compared against the approved target. Live tenant records and unavailable integration states will continue to differ from the static fixture without fabricating data.
 
-No actionable P0, P1, or P2 visual-fidelity findings remain at the approved desktop viewport.
+The other three approved workspaces are unchanged by this correction.
 
-final result: passed
+final result: blocked — awaiting deployment and authenticated production visual comparison of the Operations Workspace correction
 
 ---
 
