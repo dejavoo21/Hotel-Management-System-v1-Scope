@@ -30,7 +30,7 @@ describe('GuestCallsWorkspace', () => {
   it('appends every dial-pad character and supports keyboard, backspace, and clear', async () => {
     renderPage();
     expect(screen.getByRole('heading', { name: 'Guest Calls' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Call summary' })).toHaveClass('xl:grid-cols-[360px_repeat(4,minmax(0,1fr))]');
+    expect(screen.getByRole('region', { name: 'Call summary' })).toHaveClass('xl:grid-cols-4');
     expect(await screen.findByText('Calling is not connected.')).toBeInTheDocument();
     for (const key of ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#']) {
       fireEvent.click(screen.getByRole('button', { name: `Dial ${key}` }));

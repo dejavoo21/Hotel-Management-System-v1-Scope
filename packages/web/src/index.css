@@ -1855,8 +1855,8 @@
   }
 
   .guest-calls-workspace > section[aria-label='Call summary'] {
-    margin-left: 380px;
-    width: min(915px, calc(100% - 376px));
+    margin-left: calc(23% + 18px);
+    width: min(915px, calc(77% - 18px));
     height: 80px;
   }
 
