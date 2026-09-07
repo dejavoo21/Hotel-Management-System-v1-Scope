@@ -1,37 +1,76 @@
-# Design QA — Three Approved LaFlo Workspaces
+# Design QA — Four Approved LaFlo Workspaces
 
-Date: 2026-09-04
+Date: 2026-09-07
 
-## Current scope and evidence
+## Source truth and implementation evidence
 
+- Guest Experience reference: `C:\Users\walea\Downloads\APPROVED_Guest_Experience_Center_Target.png.png`
 - Operations reference: `C:\Users\walea\Downloads\APPROVED_Operations_Workspace_Target.png.png`
 - Calls reference: `C:\Users\walea\Downloads\APPROVED_Guest_Calls_Target.png.png`
 - Directory reference: `C:\Users\walea\Downloads\APPROVED_Guest_Directory_Target.png.png`
-- Baseline screenshots: `.artifacts/three-page-design-qa/01-operations-baseline.png`, `02-calls-baseline.png`, `03-guests-baseline.png`.
-- Preview: `http://127.0.0.1:4173/`, using the configured production API. Preview currently requires its own sign-in; the existing live Railway session remains authenticated.
-- Post-change screenshots and same-viewport comparisons have NOT yet been completed.
+- Authenticated final live captures: `C:\Users\walea\Documents\Codex\2026-08-27\can\qa-live\guest-experience-final.png`, `operations-workspace-final.png`, `guest-calls-final.png`, and `guest-directory-final.png`.
+- Same-canvas comparison evidence: `C:\Users\walea\Documents\Codex\2026-08-27\can\qa-live\compare-guest-experience.png`, `compare-operations-workspace.png`, `compare-guest-calls.png`, and `compare-guest-directory.png`.
+- Approved images are 1672 × 941. Production was inspected in the authenticated Codex in-app browser at approximately 1668 × 940, with the same desktop composition and current live account data.
 
-## Changes awaiting visual acceptance
+## Full-view comparison findings
 
-- Distinct emerald, rose, blue, amber, and violet KPI icon treatments.
-- Calls responsive columns adjusted to avoid clipping the guest context panel.
-- Directory insights rail aligned with the page header; title icon and left-aligned KPI icons added.
-- Operations KPI composition adjusted; hourly weather slots now explicitly avoid fabricating temperatures from daily summary data.
+### Guest Experience Center
 
-## Checks
+- The deployed page preserves the approved three-panel service layout: conversation queue, resizable chat workspace, and guest/ticket context rail.
+- The dark navy Guest Experience Center navigation, blue selection state, multicolor status badges, pastel action panels, staff portraits, and connected issue timeline are present.
+- Reply controls, conversation selection, tabs, assignment/actions, recommended response, and panel resizing remain functional.
+- Live counts, guest identity, ticket availability, and integration states differ from the static approved fixture by design; unavailable integrations are disclosed rather than represented as successful.
 
-- Calls: 3 tests passed.
-- Directory: 6 tests passed after latest layout changes.
-- Operations overview: isolated regression test passed; 14 unrelated tests skipped in that run. Full suite is not claimed as passing.
-- Production build passed again after the final directory/weather refinements (TypeScript, Vite, and PWA generation; exit code 0).
-- Git whitespace check passed.
-- No commit, push, or Railway deployment for this three-page pass yet.
+### Operations Workspace
 
-## Remaining gate
+- Header, action buttons, section tabs, seven KPI cards, forecast/advisory/task row, operational snapshot row, and bottom activity/action row match the approved hierarchy and density.
+- Emerald, blue, amber, rose, and violet icon treatments preserve the approved visual grouping.
+- `Customize layout`, task, incident, housekeeping, revenue, security, and recommendation surfaces are links or controls rather than a static image.
+- Commit `403f6b48` tightens the recommendation card so title and rationale remain inside the approved-height bottom row. It is deployed and verified in production.
 
-Sign into the local preview, capture all three screens at the approved dimensions, compare source and implementation together, fix remaining material differences, then deploy and verify all three production routes.
+### Guest Calls
 
-final result: blocked
+- Production commit `22cfac3c` was inspected live. The summary cards now begin after the responsive Guest Calls sidebar; the previously clipped `Active Line` label and status are fully visible.
+- The four summary cards form the approved single horizontal row, followed by dial pad/recent calls and guest context columns.
+- Dial-pad keys 0–9, `*`, and `#`, keyboard entry, backspace, clear, empty-call validation, and provider-unavailable feedback have focused test coverage. The implementation does not fake successful calls.
+- Guest portrait, call/message/email actions, contact details, recent-interaction state, notes, and quick-call panels are present.
+
+### Guest Directory
+
+- The approved header, five KPI cards, filters, guest table, right insights rail, pagination, portraits, flags, badges, and action icons are present in the live authenticated page.
+- Search/filter controls, VIP selection, pagination, guest actions, import, and add-guest surfaces remain functional.
+- Commit `0f0271a8` limits the approved Recently Added preview to three real records and compacts Priority Follow-ups, keeping all three right-rail panels and Ask LaFlo Shortcuts visible inside the approved desktop viewport.
+- Monetary totals and guest records reflect the current tenant rather than the approved fixture's static sample values.
+
+## Focused-region evidence and comparison history
+
+1. P1 — Guest Experience Ticket Insights reserved an empty upper-left grid region. Fixed by assigning ticket status/timeline and suggestion/response cards to contiguous rows; production comparison shows live content filling the region.
+2. P1 — Staff messages lacked sender portraits and the issue timeline lacked a connected vertical sequence. Fixed and verified in the authenticated conversation view.
+3. P1 — Guest Calls summary cards were positioned from a fixed offset, causing `Active Line` to sit underneath the responsive sidebar. Fixed with a sidebar-relative `calc(23% + 18px)` offset and matching available width; verified live in production.
+4. P2 — Guest Calls dial-pad controls did not update the number field. Fixed with controlled input handlers, keyboard handling, clear/backspace behavior, validation, and honest provider feedback; focused suite passes 5/5.
+5. P2 — Operations middle and bottom rows clipped Room Readiness, Security Snapshot, and recommendation content. Row sizing was corrected; the final recommendation compaction is committed in `403f6b48` and awaits production deployment.
+6. P2 — Operations `Customize layout` was visual-only. It now links to `/settings?tab=appearance` and has focused regression coverage.
+7. P2 — Directory title/KPI icon alignment and insights rail differed from the approved composition. Those surfaces were aligned and verified in the live page.
+8. P2 — Directory live data made the Recently Added and Priority Follow-ups panels taller than the approved rail, clipping Ask LaFlo Shortcuts below the viewport. The preview was limited to three real records and the follow-up controls compacted; the final 1672 × 942 production capture shows the complete rail.
+
+## Verification
+
+- `npm run check`: passed on 2026-09-07, including Prisma client generation, API TypeScript checking, web TypeScript compilation, Vite production build, and PWA generation.
+- Guest Calls focused suite: 5/5 passed.
+- Operations approved-layout focused test: 1/1 passed (14 unrelated tests skipped by the focused selector).
+- Guest Calls production overlap fix: visually verified at `/calls?verify=22cfac3c` in the authenticated in-app browser.
+- Guest Directory focused suite: 7/7 passed.
+- Railway deployment `84f96627-c3c5-4e5e-b535-8b813519fb88`: `SUCCESS` for the final Operations fit.
+- Railway deployment `e60f5f77-52d1-44aa-97c6-e3c895f24998`: `SUCCESS` for the final Guest Directory rail fit.
+- All four final production routes were reloaded at 1672 × 942 in the authenticated in-app browser. No console errors were present in the final captures.
+
+## Final assessment
+
+The approved hierarchy, spacing, color system, icons, portraits, status treatments, desktop composition, and core controls are present across all four pages. Live tenant records, counts, dates, selected guest/conversation, and unavailable integration states intentionally differ from the static approved fixtures; the implementation does not fabricate successful calls, linked tickets, reservations, occupancy, or revenue data to mimic the screenshots.
+
+No actionable P0, P1, or P2 visual-fidelity findings remain at the approved desktop viewport.
+
+final result: passed
 
 ---
 
