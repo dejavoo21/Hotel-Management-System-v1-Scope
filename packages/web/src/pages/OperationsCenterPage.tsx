@@ -992,22 +992,22 @@ function QuickAction({
   href: string;
   restricted?: boolean;
 }) {
-  if (restricted) return <div title="Permission required" aria-disabled="true" className="flex cursor-not-allowed items-center gap-3 rounded-xl border border-border p-3 opacity-60"><span className="theme-kpi-icon grid h-9 w-9 shrink-0 place-items-center rounded-xl"><Icon className="h-4 w-4" /></span><span><span className="block text-sm font-semibold text-text-main">{title}</span><span className="block text-xs text-text-muted">Permission required</span></span></div>;
+  if (restricted) return <div title="Permission required" aria-disabled="true" className="flex min-w-0 cursor-not-allowed items-center gap-2 rounded-xl border border-border p-2 opacity-60"><span className="theme-kpi-icon grid h-8 w-8 shrink-0 place-items-center rounded-lg"><Icon className="h-4 w-4" /></span><span className="min-w-0"><span className="block truncate text-[11px] font-semibold text-text-main">{title}</span><span className="block truncate text-[9px] text-text-muted">Permission required</span></span></div>;
   return (
     <Link
       to={href}
-      className="flex items-center gap-3 rounded-xl border border-border p-3 transition-colors hover:border-primary-300 hover:bg-bg/50"
+      className="flex min-w-0 items-center gap-2 rounded-xl border border-border p-2 transition-colors hover:border-primary-300 hover:bg-bg/50"
     >
-      <span className="theme-kpi-icon grid h-9 w-9 shrink-0 place-items-center rounded-xl">
+      <span className="theme-kpi-icon grid h-8 w-8 shrink-0 place-items-center rounded-lg">
         <Icon className="h-4 w-4" />
       </span>
       <span className="min-w-0">
-        <span className="block text-sm font-semibold text-text-main">
+        <span className="block truncate text-[11px] font-semibold text-text-main">
           {title}
         </span>
-        <span className="block truncate text-xs text-text-muted">{detail}</span>
+        <span className="block truncate text-[9px] text-text-muted">{detail}</span>
       </span>
-      <ArrowRight className="ml-auto h-4 w-4 text-text-muted" />
+      <ArrowRight className="ml-auto h-3.5 w-3.5 shrink-0 text-text-muted" />
     </Link>
   );
 }
