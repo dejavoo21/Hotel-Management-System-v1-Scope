@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   ArrowRight,
   BedDouble,
-  Bot,
   CheckCircle2,
   ClipboardList,
   DollarSign,
@@ -37,7 +36,6 @@ import {
 import type { DailyGMBriefing, DailyBriefingItem } from "@/services/aiBriefing";
 import type { OperationsContext } from "@/services/operations";
 import { useAuthStore } from "@/stores/authStore";
-import { openLafloAssistant } from "@/lib/assistantEvents";
 
 type OperationsFocus =
   | "overview"
@@ -925,7 +923,7 @@ function OperationsWorkspaceGrid({
       <div className="grid gap-3 2xl:grid-cols-[1fr_1.15fr_1fr] 2xl:[&>section]:p-3">
         <section className="rounded-xl border border-border bg-card p-4 shadow-sm"><div className="flex justify-between"><h2 className="text-sm font-semibold">Recent Activity</h2><button type="button" onClick={onActivity} className="text-[10px] font-semibold text-primary-700">View all activity</button></div><div className="mt-2 divide-y divide-border">{activityItems.slice(0, 4).map((item, index) => <Link key={`${item.title}-${index}`} to={item.href} className="grid grid-cols-[80px_1fr_auto] gap-2 py-2 text-[10px]"><strong>{item.actor}</strong><span className="truncate text-text-muted">{item.title}</span><span className="text-text-muted">{item.detail}</span></Link>)}</div></section>
         <section className="rounded-xl border border-border bg-card p-4 shadow-sm"><div className="flex justify-between"><div><h2 className="text-sm font-semibold">Recommended Actions</h2><p className="text-[9px] text-text-muted">Authorised recommendations based on current operations.</p></div><Link to="/hotel-insights?tab=recommendations" className="text-[10px] font-semibold text-primary-700">Review</Link></div><div className="mt-3 grid gap-2 sm:grid-cols-3">{(briefing?.recommendedActions || []).slice(0, 3).map((item, index) => <Link key={`${item.title}-${index}`} to={canGovernance ? "/hotel-insights?tab=recommendations" : "#"} aria-disabled={!canGovernance} className={`rounded-lg border border-primary-100 bg-primary-50 p-3 ${!canGovernance ? "pointer-events-none opacity-50" : ""}`}><CheckCircle2 className="h-4 w-4 text-primary-700" /><strong className="mt-2 block text-[10px]">{item.title}</strong><span className="mt-1 block text-[9px] text-text-muted">{item.rationale}</span></Link>)}</div>{briefingLoading ? <p className="py-5 text-center text-xs text-text-muted">Loading recommendations…</p> : null}</section>
-        <section className="rounded-xl border border-border bg-card p-4 shadow-sm"><h2 className="text-sm font-semibold">Quick Actions</h2><div className="mt-3 grid grid-cols-2 gap-2"><QuickAction icon={ClipboardList} title="Assign task" detail="Open task queue" href="/operations/tasks-advisories?tab=tasks" restricted={!canTasks} /><QuickAction icon={AlertTriangle} title="Open incidents" detail="Review active" href="/incident-center?tab=active" /><QuickAction icon={BedDouble} title="Room readiness" detail="Integration status" href="/settings?tab=integrations" /><QuickAction icon={Gauge} title="Revenue guidance" detail="Review signal" href="/operations/operational-intelligence/revenue-guidance" restricted={!canRevenue} /></div><button type="button" onClick={() => openLafloAssistant({ mode: "operations", prompt: "Summarise the Operations Center and recommend the next authorised action.", context: { page: "Operations Center", arrivalsNext24h: context?.ops?.arrivalsNext24h || 0, departuresNext24h: context?.ops?.departuresNext24h || 0, openAdvisories: advisories.length, highPriorityRisks: high.length + critical.length, demandSignal: demand, forecastFresh } })} className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-primary-solid py-2 text-xs font-semibold text-primary-contrast"><Bot className="h-4 w-4" />Ask LaFlo</button></section>
+        <section className="rounded-xl border border-border bg-card p-4 shadow-sm"><h2 className="text-sm font-semibold">Quick Actions</h2><div className="mt-3 grid grid-cols-2 gap-2 2xl:grid-cols-4"><QuickAction icon={ClipboardList} title="Assign task" detail="Open task queue" href="/operations/tasks-advisories?tab=tasks" restricted={!canTasks} /><QuickAction icon={AlertTriangle} title="Open incidents" detail="Review active" href="/incident-center?tab=active" /><QuickAction icon={BedDouble} title="Room readiness" detail="Integration status" href="/settings?tab=integrations" /><QuickAction icon={Gauge} title="Revenue guidance" detail="Review signal" href="/operations/operational-intelligence/revenue-guidance" restricted={!canRevenue} /></div></section>
       </div>
       <span className="sr-only">Today’s Operational Focus Department Snapshot Operational Indicators Operations Quick Actions</span>
     </>
