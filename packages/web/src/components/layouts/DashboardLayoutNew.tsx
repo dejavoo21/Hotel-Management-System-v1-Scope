@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { usePresenceStore, getPresenceLabel } from '@/stores/presenceStore';
@@ -21,6 +21,7 @@ import { useSocketPresence } from '@/hooks/useSocketPresence';
 import type { PresenceStatus } from '@/types';
 import { SidebarRail, SidebarFlyout, useSidebarNav, navSections } from './navigation';
 import type { NavGroup, NavItem, NavSection } from './navigation';
+import { useProfileAvatar } from '@/hooks/useProfileAvatar';
 
 type GlobalSearchTarget = {
   id: string;
@@ -104,7 +105,7 @@ export default function DashboardLayout() {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [commandSearchQuery, setCommandSearchQuery] = useState('');
   const [commandActiveIndex, setCommandActiveIndex] = useState(0);
-  const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
+  const { profileAvatar, onAvatarChange, removeAvatar } = useProfileAvatar();
   
   const { user, logout } = useAuthStore();
   const { getEffectiveStatus, isConnected } = usePresenceStore();
@@ -182,53 +183,13 @@ export default function DashboardLayout() {
   const notificationsRef = useRef<HTMLDivElement | null>(null);
   const [accessRequestAck, setAccessRequestAck] = useState(() => loadAccessRequestAckMap());
 
-  const avatarStorageKey = `laflo-profile-avatar:${user?.id || 'guest'}`;
-
   useEffect(() => onAccessRequestAckChanged(() => setAccessRequestAck(loadAccessRequestAckMap())), []);
-
-  useEffect(() => {
-    try {
-      const value = localStorage.getItem(avatarStorageKey);
-      setProfileAvatar(value || null);
-    } catch {
-      setProfileAvatar(null);
-    }
-  }, [avatarStorageKey]);
-
-  const onAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === 'string' ? reader.result : null;
-      if (!result) return;
-      try {
-        localStorage.setItem(avatarStorageKey, result);
-      } catch {
-        toast.error('Failed to save profile picture');
-        return;
-      }
-      setProfileAvatar(result);
-      toast.success('Profile picture updated');
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const removeAvatar = () => {
-    try {
-      localStorage.removeItem(avatarStorageKey);
-      setProfileAvatar(null);
-      toast.success('Profile picture removed');
-    } catch {
-      toast.error('Failed to remove profile picture');
-    }
-  };
 
   const { data: accessRequests } = useQuery({
     queryKey: ['accessRequests', 'badge'],
     queryFn: accessRequestService.list,
-    enabled: isAdmin,
-    refetchInterval: isAdmin ? 30000 : false,
+    enabled: user?.role === 'ADMIN',
+    refetchInterval: user?.role === 'ADMIN' ? 30000 : false,
   });
 
   const queryClient = useQueryClient();
@@ -288,7 +249,7 @@ export default function DashboardLayout() {
   }, [accessRequests, accessRequestAck]);
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin || !accessRequests) return;
     if (lastPendingCount.current === null) {
       lastPendingCount.current = pendingAccessCount;
       return;
@@ -297,10 +258,10 @@ export default function DashboardLayout() {
       toast.success('New access request received');
     }
     lastPendingCount.current = pendingAccessCount;
-  }, [pendingAccessCount, isAdmin]);
+  }, [accessRequests, pendingAccessCount, isAdmin]);
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin || !accessRequests) return;
     if (lastInfoReceivedCount.current === null) {
       lastInfoReceivedCount.current = infoReceivedCount;
       return;
@@ -309,7 +270,7 @@ export default function DashboardLayout() {
       toast.success('Access request response received');
     }
     lastInfoReceivedCount.current = infoReceivedCount;
-  }, [infoReceivedCount, isAdmin]);
+  }, [accessRequests, infoReceivedCount, isAdmin]);
 
   useEffect(() => {
     if (!showUserMenu) return;
@@ -468,14 +429,13 @@ export default function DashboardLayout() {
   );
 
   const workspaceLabel = getWorkspaceLabel(user?.role);
-
   // Close flyout when navigating
   useEffect(() => {
     sidebarNav.closeFlyout();
   }, [location.pathname]);
 
   return (
-    <div className="flex min-h-screen w-full bg-slate-50">
+    <div className="app-workspace-background flex min-h-screen w-full bg-bg">
       {/* Mobile sidebar backdrop */}
       {sidebarNav.isMobileOpen && (
         <div
@@ -500,7 +460,6 @@ export default function DashboardLayout() {
       {/* Sidebar Flyout */}
       <SidebarFlyout
         openSection={sidebarNav.openSection}
-        isLocked={sidebarNav.isLocked}
         onFlyoutEnter={sidebarNav.handleFlyoutEnter}
         onFlyoutLeave={sidebarNav.handleFlyoutLeave}
         onItemClick={sidebarNav.closeFlyout}
@@ -635,7 +594,7 @@ export default function DashboardLayout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 bg-white border-b border-slate-200" role="banner">
+        <header className="app-header sticky top-0 z-30 border-b" role="banner">
           <div className="mx-auto grid h-16 w-full max-w-none grid-cols-[auto_1fr_auto] items-center gap-3 px-4 lg:px-6">
             <div className="flex items-center">
               <button
@@ -650,7 +609,7 @@ export default function DashboardLayout() {
             </div>
 
             {/* Search */}
-            <div className="flex justify-center">
+            <div className="hidden justify-center sm:flex">
               <div className="w-full max-w-xl">
                 <div ref={globalSearchRef} className="relative">
                   <label htmlFor="global-search" className="sr-only">Search</label>
@@ -769,6 +728,17 @@ export default function DashboardLayout() {
 
             {/* Right side */}
             <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCommandPalette(true)}
+                className="rounded-xl p-2 text-slate-600 transition-colors hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-400 sm:hidden"
+                aria-label="Open global search"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </button>
+
               {/* User avatar */}
               <div ref={userMenuRef} className="relative flex items-center">
                 <button
@@ -1084,8 +1054,20 @@ export default function DashboardLayout() {
         </header>
 
         {/* Page content */}
-        <main id="main-content" className="min-w-0 flex-1 overflow-x-auto p-4 lg:p-6" tabIndex={-1}>
-          <Outlet />
+        <main id="main-content" className="app-workspace-background min-w-0 flex-1 overflow-x-clip p-4 lg:p-5" tabIndex={-1}>
+          <Suspense
+            fallback={
+              <div
+                className="flex min-h-[40vh] items-center justify-center"
+                role="status"
+                aria-label="Loading workspace"
+              >
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-600 border-t-transparent" />
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </main>
       </div>
       <CommandPalette
@@ -1104,7 +1086,7 @@ export default function DashboardLayout() {
           navigate(item.href);
         }}
       />
-      {!location.pathname.startsWith('/calls') && !location.pathname.startsWith('/operations') ? <AppChatbot /> : null}
+      <AppChatbot />
     </div>
   );
 }

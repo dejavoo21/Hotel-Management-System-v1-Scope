@@ -11,19 +11,58 @@ export async function getAllGuests(
 ): Promise<void> {
   try {
     const hotelId = req.user!.hotelId;
-    const { search, vipStatus, page = '1', limit = '20' } = req.query;
+    const {
+      search,
+      vipStatus,
+      status,
+      country,
+      returning,
+      contactable,
+      needsAttention,
+      lastStayDays,
+      page = '1',
+      limit = '20',
+    } = req.query;
 
     const where: Record<string, unknown> = {
       hotelId,
       isDeleted: false,
     };
     if (vipStatus === 'true') where.vipStatus = true;
-    if (search) {
+    if (country) where.country = { equals: country as string, mode: 'insensitive' };
+    if (returning === 'true') where.totalStays = { gt: 1 };
+    if (contactable === 'true') {
       where.OR = [
+        { email: { not: null } },
+        { phone: { not: null } },
+      ];
+    }
+    if (needsAttention === 'true') where.notes = { not: null };
+    const bookingFilter: Record<string, unknown> = {};
+    if (status === 'IN_HOUSE') bookingFilter.status = 'CHECKED_IN';
+    if (status === 'CHECKED_OUT') bookingFilter.status = 'CHECKED_OUT';
+    if (lastStayDays) {
+      const since = new Date();
+      since.setUTCDate(since.getUTCDate() - Number(lastStayDays));
+      bookingFilter.checkInDate = { gte: since };
+    }
+    if (Object.keys(bookingFilter).length) where.bookings = { some: bookingFilter };
+    if (search) {
+      const searchConditions = [
         { firstName: { contains: search as string, mode: 'insensitive' } },
         { lastName: { contains: search as string, mode: 'insensitive' } },
         { email: { contains: search as string, mode: 'insensitive' } },
+        { phone: { contains: search as string } },
+        { bookings: { some: { bookingRef: { contains: search as string, mode: 'insensitive' } } } },
+        { bookings: { some: { room: { number: { contains: search as string, mode: 'insensitive' } } } } },
       ];
+      const existingOr = Array.isArray(where.OR) ? where.OR : [];
+      if (existingOr.length) {
+        where.AND = [{ OR: existingOr }, { OR: searchConditions }];
+        delete where.OR;
+      } else {
+        where.OR = searchConditions;
+      }
     }
 
     const [guests, total] = await Promise.all([
@@ -32,7 +71,21 @@ export async function getAllGuests(
         skip: (parseInt(page as string) - 1) * parseInt(limit as string),
         take: parseInt(limit as string),
         orderBy: { lastName: 'asc' },
-        include: { _count: { select: { bookings: true } } },
+        include: {
+          _count: { select: { bookings: true } },
+          bookings: {
+            orderBy: { checkInDate: 'desc' },
+            take: 1,
+            select: {
+              id: true,
+              bookingRef: true,
+              status: true,
+              checkInDate: true,
+              checkOutDate: true,
+              room: { select: { number: true } },
+            },
+          },
+        },
       }),
       prisma.guest.count({ where }),
     ]);
@@ -46,6 +99,50 @@ export async function getAllGuests(
         total,
         totalPages: Math.ceil(total / parseInt(limit as string)),
         hasMore: parseInt(page as string) * parseInt(limit as string) < total,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getGuestDirectorySummary(
+  req: AuthenticatedRequest,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const hotelId = req.user!.hotelId;
+    const base = { hotelId, isDeleted: false };
+    const [total, vip, inHouse, returning, contactable, needsFollowUp, spend, recentlyAdded] = await Promise.all([
+      prisma.guest.count({ where: base }),
+      prisma.guest.count({ where: { ...base, vipStatus: true } }),
+      prisma.guest.count({ where: { ...base, bookings: { some: { status: 'CHECKED_IN' } } } }),
+      prisma.guest.count({ where: { ...base, totalStays: { gt: 1 } } }),
+      prisma.guest.count({ where: { ...base, OR: [{ email: { not: null } }, { phone: { not: null } }] } }),
+      prisma.guest.count({ where: { ...base, notes: { not: null } } }),
+      prisma.guest.aggregate({ where: base, _sum: { totalSpent: true }, _avg: { totalSpent: true } }),
+      prisma.guest.findMany({
+        where: base,
+        orderBy: { createdAt: 'desc' },
+        take: 4,
+        select: { id: true, firstName: true, lastName: true, createdAt: true, vipStatus: true },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        total,
+        vip,
+        inHouse,
+        returning,
+        contactable,
+        needsFollowUp,
+        totalLifetimeSpend: Number(spend._sum.totalSpent || 0),
+        averageSpend: Number(spend._avg.totalSpent || 0),
+        repeatStayRate: total ? Math.round((returning / total) * 1000) / 10 : 0,
+        recentlyAdded,
       },
     });
   } catch (error) {

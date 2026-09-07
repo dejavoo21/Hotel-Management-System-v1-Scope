@@ -173,7 +173,7 @@ export async function getReviewsList({
   timeRange: TimeRange;
   search: string;
 }): Promise<
-  Array<{ id: string; guest: string; country: string; rating: number; date: string; comment: string; responded: boolean }>
+  Array<{ id: string; guest: string; country: string; rating: number; date: string; comment: string; responded: boolean; source: string }>
 > {
   const { startDate, endDate } = timeRangeToDateRange(timeRange);
   const q = normalizeSearch(search);
@@ -185,22 +185,23 @@ export async function getReviewsList({
         return `${r.guest} ${r.comment} ${r.country}`.toLowerCase().includes(q);
       })
       .sort((a, b) => b.date.localeCompare(a.date))
-      .map((r) => ({ id: r.id, guest: r.guest, country: r.country, rating: r.rating, date: r.date, comment: r.comment, responded: r.responded }));
+      .map((r) => ({ id: r.id, guest: r.guest, country: r.country, rating: r.rating, date: r.date, comment: r.comment, responded: r.responded, source: 'Direct' }));
   }
 
   const list = (await reviewService.list()) as Review[];
   return list
     .map((r) => {
-      const guest = r.guest ? `${r.guest.firstName} ${r.guest.lastName}` : 'Guest';
+      const guest = r.reviewerName || (r.guest ? `${r.guest.firstName} ${r.guest.lastName}` : 'Guest');
       const date = String(r.createdAt || '').split('T')[0] || toISODate(new Date());
       return {
         id: r.id,
         guest,
-        country: 'Unknown',
+        country: r.reviewerCountry || 'Unknown',
         rating: Number(r.rating) || 0,
         date,
         comment: r.comment || '',
         responded: Boolean(r.response?.length),
+        source: r.source === 'GOOGLE' ? 'Google' : r.source === 'BOOKING_COM' ? 'Booking.com' : r.source === 'TRIPADVISOR' ? 'TripAdvisor' : r.source === 'EXPEDIA' ? 'Expedia' : r.source === 'AIRBNB' ? 'Airbnb' : 'Direct',
       };
     })
     .filter((r) => inRange(r.date, startDate, endDate))
@@ -226,8 +227,8 @@ export async function getReviewStats({ timeRange }: { timeRange: TimeRange }) {
             id: String((r as any).id),
             date,
             rating,
-            country: 'Unknown',
-            guest: (r as any).guest ? `${(r as any).guest.firstName} ${(r as any).guest.lastName}` : 'Guest',
+            country: (r as any).reviewerCountry || 'Unknown',
+            guest: (r as any).reviewerName || ((r as any).guest ? `${(r as any).guest.firstName} ${(r as any).guest.lastName}` : 'Guest'),
             comment: String((r as any).comment || ''),
             responded: Boolean((r as any).response?.length),
             categories: {
@@ -300,7 +301,7 @@ export async function getReviewsByCountry({ timeRange }: { timeRange: TimeRange 
       ? MOCK_REVIEWS
       : (await reviewService.list()).map((r) => {
           const date = String((r as any).createdAt || '').split('T')[0] || toISODate(new Date());
-          return { id: String((r as any).id), date, rating: Number((r as any).rating) || 0, country: 'Unknown' } as any;
+          return { id: String((r as any).id), date, rating: Number((r as any).rating) || 0, country: (r as any).reviewerCountry || 'Unknown' } as any;
         });
 
   const filtered = list.filter((r: any) => inRange(r.date, startDate, endDate));

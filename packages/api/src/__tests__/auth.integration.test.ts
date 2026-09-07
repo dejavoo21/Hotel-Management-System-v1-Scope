@@ -268,4 +268,52 @@ describe('Authentication API Integration', () => {
       expect(refreshResponse.body.success).toBe(false);
     });
   });
+
+  describe('active session management', () => {
+    it('lists real sessions and revokes other devices without ending the current session', async () => {
+      const firstLogin = await request(app)
+        .post('/api/auth/login')
+        .set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0) Chrome/126.0')
+        .send({ email: 'authtest@test.com', password: 'TestPassword123!' })
+        .expect(200);
+      const secondLogin = await request(app)
+        .post('/api/auth/login')
+        .set('User-Agent', 'Mozilla/5.0 (iPhone) Safari/605.1')
+        .send({ email: 'authtest@test.com', password: 'TestPassword123!' })
+        .expect(200);
+
+      const currentAccessToken = secondLogin.body.data.accessToken;
+      const currentRefreshToken = secondLogin.body.data.refreshToken;
+      const listResponse = await request(app)
+        .post('/api/auth/sessions/list')
+        .set('Authorization', `Bearer ${currentAccessToken}`)
+        .send({ refreshToken: currentRefreshToken })
+        .expect(200);
+
+      expect(listResponse.body.data).toHaveLength(2);
+      expect(listResponse.body.data.filter((session: { isCurrent: boolean }) => session.isCurrent)).toHaveLength(1);
+      expect(listResponse.body.data.find((session: { isCurrent: boolean }) => session.isCurrent).userAgent).toContain('iPhone');
+
+      const revokeResponse = await request(app)
+        .post('/api/auth/sessions/revoke-others')
+        .set('Authorization', `Bearer ${currentAccessToken}`)
+        .send({ refreshToken: currentRefreshToken })
+        .expect(200);
+      expect(revokeResponse.body.data.count).toBe(1);
+
+      await request(app)
+        .post('/api/auth/refresh')
+        .send({ refreshToken: firstLogin.body.data.refreshToken })
+        .expect(401);
+      await request(app)
+        .post('/api/auth/refresh')
+        .send({ refreshToken: currentRefreshToken })
+        .expect(200);
+
+      const audit = await prisma.activityLog.findFirst({
+        where: { userId: testUserId, action: 'SESSIONS_REVOKED' },
+      });
+      expect(audit).not.toBeNull();
+    });
+  });
 });

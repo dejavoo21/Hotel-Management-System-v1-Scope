@@ -27,7 +27,7 @@ function canGovernRecommendations(req: AuthenticatedRequest): boolean {
 
 function requireGovernanceAccess(req: AuthenticatedRequest, res: Response): boolean {
   if (canGovernRecommendations(req)) return true;
-  res.status(403).json({ success: false, error: 'AI recommendation governance requires Admin, Manager, or Operations access' });
+  res.status(403).json({ success: false, error: 'AI recommendation review requires Admin, Manager, or Operations access' });
   return false;
 }
 

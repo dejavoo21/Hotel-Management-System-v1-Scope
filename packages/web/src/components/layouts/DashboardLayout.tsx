@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { usePresenceStore } from '@/stores/presenceStore';
@@ -17,6 +17,7 @@ import {
 import AppChatbot from '@/components/support/AppChatbot';
 import { PresenceDot, PresenceMenu } from '@/components/presence';
 import { useSocketPresence } from '@/hooks/useSocketPresence';
+import { useProfileAvatar } from '@/hooks/useProfileAvatar';
 
 type NavigationItem = {
   name: string;
@@ -232,7 +233,7 @@ export default function DashboardLayout() {
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [globalSearchActiveIndex, setGlobalSearchActiveIndex] = useState(0);
-  const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
+  const { profileAvatar, onAvatarChange, removeAvatar } = useProfileAvatar();
   const [openSections, setOpenSections] = useState({
     operations: true,
     guest: true,
@@ -275,53 +276,13 @@ export default function DashboardLayout() {
   const settingsFlyoutRef = useRef<HTMLDivElement | null>(null);
   const [accessRequestAck, setAccessRequestAck] = useState(() => loadAccessRequestAckMap());
 
-  const avatarStorageKey = `laflo-profile-avatar:${user?.id || 'guest'}`;
-
   useEffect(() => onAccessRequestAckChanged(() => setAccessRequestAck(loadAccessRequestAckMap())), []);
-
-  useEffect(() => {
-    try {
-      const value = localStorage.getItem(avatarStorageKey);
-      setProfileAvatar(value || null);
-    } catch {
-      setProfileAvatar(null);
-    }
-  }, [avatarStorageKey]);
-
-  const onAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === 'string' ? reader.result : null;
-      if (!result) return;
-      try {
-        localStorage.setItem(avatarStorageKey, result);
-      } catch {
-        toast.error('Failed to save profile picture');
-        return;
-      }
-      setProfileAvatar(result);
-      toast.success('Profile picture updated');
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const removeAvatar = () => {
-    try {
-      localStorage.removeItem(avatarStorageKey);
-      setProfileAvatar(null);
-      toast.success('Profile picture removed');
-    } catch {
-      toast.error('Failed to remove profile picture');
-    }
-  };
 
   const { data: accessRequests } = useQuery({
     queryKey: ['accessRequests', 'badge'],
     queryFn: accessRequestService.list,
-    enabled: isAdmin,
-    refetchInterval: isAdmin ? 30000 : false,
+    enabled: user?.role === 'ADMIN',
+    refetchInterval: user?.role === 'ADMIN' ? 30000 : false,
   });
 
   // System notifications query
@@ -382,21 +343,24 @@ export default function DashboardLayout() {
   }, [accessRequests, accessRequestAck]);
 
   const settingsFlyoutItems = useMemo(
-    () => [
-      { label: 'Hotel Info', href: '/settings?tab=hotel' },
-      { label: 'Room Types', href: '/settings?tab=room-types' },
-      { label: 'Security', href: '/settings?tab=security' },
-      { label: 'Notifications', href: '/settings?tab=notifications' },
-      { label: 'Appearance', href: '/settings?tab=appearance' },
-      { label: 'Integrations', href: '/settings?tab=integrations' },
-      { label: 'Audit Trail', href: '/settings?tab=audit-trail' },
-      { label: 'Access Requests', href: '/settings?tab=access-requests' },
-    ],
-    []
+    () => {
+      const items = [
+        { label: 'Hotel Info', href: '/settings?tab=hotel' },
+        { label: 'Room Types', href: '/settings?tab=room-types' },
+        { label: 'Security', href: '/settings?tab=security' },
+        { label: 'Notifications', href: '/settings?tab=notifications' },
+        { label: 'Appearance', href: '/settings?tab=appearance' },
+        { label: 'Integrations', href: '/settings?tab=integrations' },
+        { label: 'Audit Trail', href: '/settings?tab=audit-trail' },
+        { label: 'Access Requests', href: '/settings?tab=access-requests' },
+      ];
+      return user?.role === 'ADMIN' ? items : items.filter((item) => item.label !== 'Access Requests');
+    },
+    [user?.role]
   );
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin || !accessRequests) return;
     if (lastPendingCount.current === null) {
       lastPendingCount.current = pendingAccessCount;
       return;
@@ -405,10 +369,10 @@ export default function DashboardLayout() {
       toast.success('New access request received');
     }
     lastPendingCount.current = pendingAccessCount;
-  }, [pendingAccessCount, isAdmin]);
+  }, [accessRequests, pendingAccessCount, isAdmin]);
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin || !accessRequests) return;
     if (lastInfoReceivedCount.current === null) {
       lastInfoReceivedCount.current = infoReceivedCount;
       return;
@@ -417,7 +381,7 @@ export default function DashboardLayout() {
       toast.success('Access request response received');
     }
     lastInfoReceivedCount.current = infoReceivedCount;
-  }, [infoReceivedCount, isAdmin]);
+  }, [accessRequests, infoReceivedCount, isAdmin]);
 
   useEffect(() => {
     if (!showUserMenu) return;
@@ -877,7 +841,7 @@ export default function DashboardLayout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 bg-white border-b border-slate-200" role="banner">
+        <header className="app-header sticky top-0 z-30 border-b" role="banner">
           <div className="mx-auto grid h-16 w-full max-w-none grid-cols-[auto_1fr_auto] items-center gap-3 px-4 lg:px-6">
             <div className="flex items-center">
               <button
@@ -1250,7 +1214,7 @@ export default function DashboardLayout() {
           <Outlet />
         </main>
       </div>
-      {!location.pathname.startsWith('/calls') && !location.pathname.startsWith('/operations') ? <AppChatbot /> : null}
+      <AppChatbot />
     </div>
   );
 }

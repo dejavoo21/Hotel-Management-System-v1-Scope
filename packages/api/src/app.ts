@@ -2,6 +2,7 @@ import express, { Application } from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import { createHash } from 'node:crypto';
 import { config } from './config/index.js';
 import { requestLoggerFormat, logger } from './config/logger.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
@@ -144,6 +145,17 @@ export function createApp(): Application {
     message: { success: false, error: 'Too many auth attempts. Please wait and try again.' },
     standardHeaders: true,
     legacyHeaders: false,
+    skipSuccessfulRequests: true,
+    keyGenerator: (req) => {
+      const email = typeof req.body?.email === 'string'
+        ? req.body.email.trim().toLowerCase()
+        : 'anonymous';
+      const networkKey = createHash('sha256')
+        .update(req.ip || req.socket.remoteAddress || 'unknown')
+        .digest('hex')
+        .slice(0, 16);
+      return `${networkKey}:${email}`;
+    },
   });
 
   const apiLimiter = rateLimit({
@@ -156,7 +168,12 @@ export function createApp(): Application {
   });
 
   app.use('/api', apiLimiter);
-  app.use('/api/auth', authLimiter);
+  app.use(
+    '/api/auth',
+    express.json({ limit: '100kb' }),
+    express.urlencoded({ extended: true, limit: '100kb' }),
+    authLimiter
+  );
 
   // Body parsing
   app.use(express.json({ limit: '10mb' }));

@@ -10,11 +10,12 @@ export function getOpenAIClient(): OpenAI | null {
 
 export const openai = getOpenAIClient();
 
-export const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4.1-nano';
+export const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5-mini';
+export const OPENAI_COMPLEX_MODEL = process.env.OPENAI_COMPLEX_MODEL || 'gpt-5';
 
 console.log(
   '[AI]',
   openai
-    ? `OpenAI enabled (model=${OPENAI_MODEL})`
+    ? `OpenAI enabled (default=${OPENAI_MODEL}, complex=${OPENAI_COMPLEX_MODEL})`
     : 'OpenAI disabled - check ASSISTANT_PROVIDER and OPENAI_API_KEY'
 );

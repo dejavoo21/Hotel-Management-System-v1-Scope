@@ -1,0 +1,34 @@
+.git
+.github
+.artifacts
+.portfolio-agent
+.deploy
+.env
+node_modules
+**/node_modules
+**/dist
+**/.cache
+**/__pycache__
+*.log
+*.zip
+*.rar
+*.docx
+*.pdf
+deliverables
+docs
+docx-render-qa
+logs
+New folder
+railway error logs
+Sample ICONS
+Sample Rooms
+test-screenshots
+tests
+400
+{console.error*
+Transcripts
+ui-prototype
+weather architecture
+design-qa.md
+dashboard-design-qa.md
+audit-trail-page-audit.md

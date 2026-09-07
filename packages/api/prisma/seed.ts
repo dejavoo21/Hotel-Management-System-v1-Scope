@@ -197,7 +197,7 @@ async function main() {
   const users = await Promise.all([
     prisma.user.upsert({
       where: { email: 'admin@demo.hotel' },
-      update: {},
+      update: { isActive: false },
       create: {
         email: 'admin@demo.hotel',
         passwordHash,
@@ -205,7 +205,7 @@ async function main() {
         lastName: 'User',
         role: 'ADMIN',
         hotelId: hotel.id,
-        isActive: true,
+        isActive: false,
       },
     }),
     prisma.user.upsert({

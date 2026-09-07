@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth.js';
-import { openai, OPENAI_MODEL } from '../config/openai.js';
+import { openai, OPENAI_COMPLEX_MODEL, OPENAI_MODEL } from '../config/openai.js';
 
 const router = Router();
 
@@ -16,6 +16,7 @@ router.get('/health', (_req, res) => {
       enabled,
       provider: provider || 'openai',
       model: OPENAI_MODEL,
+      advancedModel: OPENAI_COMPLEX_MODEL,
       reason: enabled
         ? null
         : !process.env.OPENAI_API_KEY
@@ -28,4 +29,3 @@ router.get('/health', (_req, res) => {
 });
 
 export default router;
-

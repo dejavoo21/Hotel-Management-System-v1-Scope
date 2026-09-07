@@ -6,6 +6,8 @@ import { logger } from '../config/logger.js';
 import { Role } from '@prisma/client';
 import twilio from 'twilio';
 import { ensureTicketForConversation, recordFirstResponse } from '../services/ticket.service.js';
+import { sendEmail } from '../services/email.service.js';
+import { renderLiveSupportRequestEmail } from '../utils/emailTemplates.js';
 
 const LIVE_SUPPORT_SUBJECT = 'Live Support';
 const SUPPORT_HEARTBEAT_ACTION = 'SUPPORT_HEARTBEAT';
@@ -13,6 +15,82 @@ const ASSIGNMENT_PREFIX = '[SUPPORT_ASSIGNED]';
 const BOT_HANDOFF_CONNECTING = 'I am now connecting you with one of our live Customer Support Agents for further assistance.';
 const BOT_HANDOFF_WAITING = 'Hi, thank you for requesting to chat with an agent. Our agent will be with you shortly.';
 const VOICE_TOKEN_TTL_SECONDS = 60 * 60;
+const MAX_MESSAGE_ATTACHMENTS = 4;
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+// Base64 expands payloads by roughly one third; keep the JSON request under
+// the application's 10 MB parser limit.
+const MAX_TOTAL_ATTACHMENT_BYTES = 7 * 1024 * 1024;
+const ALLOWED_ATTACHMENT_TYPES = new Set([
+  'image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf',
+  'text/plain', 'text/csv',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+]);
+
+type MessageAttachmentPayload = {
+  filename: string;
+  contentType: string;
+  size: number;
+  contentBase64: string;
+};
+
+function validateMessageAttachments(value: unknown): MessageAttachmentPayload[] | string {
+  if (value == null) return [];
+  if (!Array.isArray(value) || value.length > MAX_MESSAGE_ATTACHMENTS) {
+    return `A maximum of ${MAX_MESSAGE_ATTACHMENTS} attachments is allowed`;
+  }
+  let total = 0;
+  const attachments: MessageAttachmentPayload[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object') return 'Invalid attachment';
+    const candidate = item as Partial<MessageAttachmentPayload>;
+    const filename = typeof candidate.filename === 'string' ? candidate.filename.trim().slice(0, 180) : '';
+    const contentType = typeof candidate.contentType === 'string' ? candidate.contentType : '';
+    const size = Number(candidate.size);
+    const contentBase64 = typeof candidate.contentBase64 === 'string' ? candidate.contentBase64 : '';
+    if (!filename || !ALLOWED_ATTACHMENT_TYPES.has(contentType)) return 'Unsupported attachment type';
+    if (!Number.isInteger(size) || size < 1 || size > MAX_ATTACHMENT_BYTES) return 'Attachment exceeds the 5 MB limit';
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(contentBase64)) return 'Invalid attachment data';
+    const decodedBytes = Buffer.from(contentBase64, 'base64').byteLength;
+    if (decodedBytes !== size) return 'Attachment size does not match its data';
+    total += size;
+    if (total > MAX_TOTAL_ATTACHMENT_BYTES) return 'Attachments exceed the 7 MB total limit';
+    attachments.push({ filename, contentType, size, contentBase64 });
+  }
+  return attachments;
+}
+
+type LiveSupportEmailParams = {
+  conversationId: string;
+  hotelName: string;
+  requesterName: string;
+  handoffSummary: string;
+  initialMessage: string;
+};
+
+async function notifyLiveSupportMailbox(params: LiveSupportEmailParams) {
+  const threadUrl = `${config.appUrl}/messages?thread=${encodeURIComponent(params.conversationId)}`;
+  const recipients = config.supportNotifyEmails;
+  if (recipients.length === 0) return { emailSent: false, recipientCount: 0, threadUrl };
+  const context = [params.handoffSummary, params.initialMessage].filter(Boolean).join('\n\n').slice(0, 2000);
+  const rendered = renderLiveSupportRequestEmail({
+    hotelName: params.hotelName,
+    requesterName: params.requesterName,
+    conversationId: params.conversationId,
+    handoffContext: context,
+    threadUrl,
+  });
+  await sendEmail({
+    to: recipients.join(','),
+    subject: `[LaFlo Support] Live chat requested by ${params.requesterName}`,
+    html: rendered.html,
+    text: rendered.text,
+    mailbox: 'support',
+  });
+  return { emailSent: true, recipientCount: recipients.length, threadUrl };
+}
 
 const sanitizePhone = (value?: string) => (value || '').replace(/[^\d+]/g, '');
 const sanitizeVideoRoom = (value?: string) =>
@@ -86,7 +164,7 @@ const serializeThreadSummary = (
       body: string;
       senderType: string;
       createdAt: Date;
-      senderUser: { firstName: string; lastName: string; role: string } | null;
+      senderUser: { firstName: string; lastName: string; role: string; avatarUrl: string | null } | null;
       guest: { firstName: string; lastName: string } | null;
     }>;
   }
@@ -189,7 +267,7 @@ export async function listThreads(
           orderBy: { createdAt: 'desc' },
           take: 10,
           include: {
-            senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
+            senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
             guest: { select: { firstName: true, lastName: true } },
           },
         },
@@ -221,7 +299,7 @@ export async function getThread(
         messages: {
           orderBy: { createdAt: 'asc' },
           include: {
-            senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
+            senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
             guest: { select: { firstName: true, lastName: true } },
           },
         },
@@ -266,6 +344,7 @@ export async function getThread(
           createdAt: message.createdAt,
           senderUser: message.senderUser,
           guest: message.guest,
+          attachments: message.attachments || undefined,
         })),
       },
     });
@@ -284,9 +363,15 @@ export async function getOrCreateLiveSupportThread(
     const userId = req.user!.id;
     const userName = `${req.user!.firstName} ${req.user!.lastName}`.trim();
     const { initialMessage, handoffSummary } = req.body as { initialMessage?: string; handoffSummary?: string };
+    const liveSupportSubject = `${LIVE_SUPPORT_SUBJECT} — ${userName}`;
 
     let conversation = await prisma.conversation.findFirst({
-      where: { hotelId, subject: LIVE_SUPPORT_SUBJECT, status: { in: ['OPEN', 'RESOLVED'] } },
+      where: {
+        hotelId,
+        subject: liveSupportSubject,
+        status: { in: ['OPEN', 'RESOLVED'] },
+        messages: { some: { senderUserId: userId } },
+      },
       orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }],
       include: {
         guest: { select: { firstName: true, lastName: true, email: true, phone: true } },
@@ -295,7 +380,7 @@ export async function getOrCreateLiveSupportThread(
           orderBy: { createdAt: 'desc' },
           take: 20,
           include: {
-            senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
+            senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
             guest: { select: { firstName: true, lastName: true } },
           },
         },
@@ -306,12 +391,13 @@ export async function getOrCreateLiveSupportThread(
       conversation = await prisma.conversation.create({
         data: {
           hotelId,
-          subject: LIVE_SUPPORT_SUBJECT,
+          subject: liveSupportSubject,
           status: 'OPEN',
           lastMessageAt: new Date(),
           messages: {
             create: {
               senderType: 'SYSTEM',
+              senderUserId: userId,
               body: `${userName} opened live support chat.`,
             },
           },
@@ -323,7 +409,7 @@ export async function getOrCreateLiveSupportThread(
             orderBy: { createdAt: 'desc' },
             take: 20,
             include: {
-              senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
+              senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
               guest: { select: { firstName: true, lastName: true } },
             },
           },
@@ -338,6 +424,9 @@ export async function getOrCreateLiveSupportThread(
     if (initialMessage?.trim()) {
       notes.push(initialMessage.trim());
     }
+    let handoffNotification:
+      | { emailSent: boolean; recipientCount: number; threadUrl: string; deliveryWarning?: string }
+      | undefined;
     if (notes.length > 0) {
       const created = await prisma.$transaction(async (tx) => {
         const createdMessages = await Promise.all([
@@ -349,7 +438,7 @@ export async function getOrCreateLiveSupportThread(
               body: notes.join('\n'),
             },
             include: {
-              senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
+              senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
               guest: { select: { firstName: true, lastName: true } },
             },
           }),
@@ -360,7 +449,7 @@ export async function getOrCreateLiveSupportThread(
               body: BOT_HANDOFF_CONNECTING,
             },
             include: {
-              senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
+              senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
               guest: { select: { firstName: true, lastName: true } },
             },
           }),
@@ -371,7 +460,7 @@ export async function getOrCreateLiveSupportThread(
               body: BOT_HANDOFF_WAITING,
             },
             include: {
-              senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
+              senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
               guest: { select: { firstName: true, lastName: true } },
             },
           }),
@@ -385,9 +474,49 @@ export async function getOrCreateLiveSupportThread(
       });
 
       conversation = { ...conversation, status: 'OPEN', lastMessageAt: created.createdAt };
+
+      try {
+        await ensureTicketForConversation(conversation.id, userId);
+      } catch (ticketError) {
+        logger.error('Failed to create ticket for live support handoff', {
+          conversationId: conversation.id,
+          error: ticketError,
+        });
+      }
+
+      try {
+        const hotel = await prisma.hotel.findUnique({
+          where: { id: hotelId },
+          select: { name: true },
+        });
+        handoffNotification = await notifyLiveSupportMailbox({
+          conversationId: conversation.id,
+          hotelName: hotel?.name || 'Unknown hotel',
+          requesterName: userName || 'Unknown user',
+          handoffSummary: handoffSummary?.trim() || '',
+          initialMessage: initialMessage?.trim() || '',
+        });
+      } catch (emailError) {
+        logger.error('Failed to notify support mailbox for live chat', {
+          conversationId: conversation.id,
+          error: emailError,
+        });
+        handoffNotification = {
+          emailSent: false,
+          recipientCount: config.supportNotifyEmails.length,
+          threadUrl: `${config.appUrl}/messages?thread=${encodeURIComponent(conversation.id)}`,
+          deliveryWarning: 'The support conversation was created, but the mailbox notification could not be delivered.',
+        };
+      }
     }
 
-    res.json({ success: true, data: serializeThreadSummary(conversation) });
+    res.json({
+      success: true,
+      data: {
+        ...serializeThreadSummary(conversation),
+        ...(handoffNotification ? { handoffNotification } : {}),
+      },
+    });
   } catch (error) {
     next(error);
   }
@@ -624,6 +753,7 @@ export async function listSupportAgents(
         id: true,
         firstName: true,
         lastName: true,
+        avatarUrl: true,
         role: true,
         lastLoginAt: true,
       },
@@ -690,6 +820,7 @@ export async function listSupportAgents(
         id: agent.id,
         firstName: agent.firstName,
         lastName: agent.lastName,
+        avatarUrl: agent.avatarUrl,
         role: agent.role,
         online:
           agent.id === req.user!.id ||
@@ -761,7 +892,7 @@ export async function assignSupportAgent(
           body: `${ASSIGNMENT_PREFIX} ${assignmentPayload}`,
         },
         include: {
-          senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
+          senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
           guest: { select: { firstName: true, lastName: true } },
         },
       });
@@ -777,6 +908,15 @@ export async function assignSupportAgent(
       return assignment;
     });
 
+    // Joining the conversation satisfies the live-support response target and
+    // prevents the 10/15-minute escalation job from sending stale alerts.
+    try {
+      const ticket = await ensureTicketForConversation(conversation.id, req.user!.id);
+      await recordFirstResponse(ticket.id, agent.id);
+    } catch (ticketError) {
+      logger.error('Failed to record live support assignment response', { error: ticketError });
+    }
+
     await prisma.conversation.update({
       where: { id: conversation.id },
       data: { status: 'OPEN', lastMessageAt: assignmentMessage.createdAt },
@@ -791,7 +931,7 @@ export async function assignSupportAgent(
           orderBy: { createdAt: 'desc' },
           take: 20,
           include: {
-            senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
+            senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
             guest: { select: { firstName: true, lastName: true } },
           },
         },
@@ -812,10 +952,16 @@ export async function createMessage(
   try {
     const hotelId = req.user!.hotelId;
     const { id } = req.params;
-    const { body } = req.body as { body?: string };
+    const { body, attachments: rawAttachments } = req.body as { body?: string; attachments?: unknown };
+    const attachments = validateMessageAttachments(rawAttachments);
 
-    if (!body || !body.trim()) {
-      res.status(400).json({ success: false, error: 'Message body is required' });
+    if (typeof attachments === 'string') {
+      res.status(400).json({ success: false, error: attachments });
+      return;
+    }
+
+    if ((!body || !body.trim()) && attachments.length === 0) {
+      res.status(400).json({ success: false, error: 'Message body or attachment is required' });
       return;
     }
 
@@ -833,10 +979,11 @@ export async function createMessage(
         conversationId: conversation.id,
         senderType: 'STAFF',
         senderUserId: req.user!.id,
-        body: body.trim(),
+        body: (body || '').trim(),
+        attachments: attachments.length ? attachments : undefined,
       },
       include: {
-        senderUser: { select: { id: true, firstName: true, lastName: true, role: true } },
+        senderUser: { select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true } },
       },
     });
 
@@ -862,6 +1009,7 @@ export async function createMessage(
         senderType: message.senderType,
         createdAt: message.createdAt,
         senderUser: message.senderUser,
+        attachments: message.attachments || undefined,
       },
       message: 'Message sent',
     });

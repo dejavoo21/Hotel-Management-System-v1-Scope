@@ -19,6 +19,7 @@ function buildReceiptPdfBuffer(receipt: {
   roomLabel?: string;
   paymentId: string;
   amount: number;
+  currency: string;
   method: string;
   reference?: string | null;
   processedAt: Date;
@@ -32,7 +33,7 @@ function buildReceiptPdfBuffer(receipt: {
     doc.on('error', reject);
 
     const formatMoney = (value: number) =>
-      new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+      new Intl.NumberFormat(undefined, { style: 'currency', currency: receipt.currency }).format(value);
 
     doc.fontSize(28).font('Helvetica-Bold').fillColor('#1e293b').text(receipt.hotelName, 48, 44);
     doc.fontSize(13).font('Helvetica').fillColor('#64748b').text('PAYMENT RECEIPT', 48, 76);
@@ -232,7 +233,7 @@ export async function downloadReceiptPdf(
           include: {
             guest: true,
             room: { include: { roomType: true } },
-            hotel: { select: { name: true } },
+            hotel: { select: { name: true, currency: true } },
           },
         },
       },
@@ -249,11 +250,11 @@ export async function downloadReceiptPdf(
         : undefined,
       paymentId: payment.id,
       amount: Number(payment.amount),
+      currency: payment.booking.hotel.currency || 'USD',
       method: payment.method,
       reference: payment.reference,
       processedAt: payment.processedAt || payment.createdAt,
     });
-
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="receipt-${payment.id}.pdf"`);
     res.send(receiptBuffer);
@@ -279,7 +280,7 @@ export async function emailReceipt(
           include: {
             guest: true,
             room: { include: { roomType: true } },
-            hotel: { select: { name: true } },
+            hotel: { select: { name: true, currency: true } },
           },
         },
       },
@@ -302,6 +303,7 @@ export async function emailReceipt(
         : undefined,
       paymentId: payment.id,
       amount: Number(payment.amount),
+      currency: payment.booking.hotel.currency || 'USD',
       method: payment.method,
       reference: payment.reference,
       processedAt: payment.processedAt || payment.createdAt,
@@ -315,7 +317,13 @@ export async function emailReceipt(
       meta: [
         { label: 'Booking', value: payment.booking.bookingRef },
         { label: 'Payment ID', value: payment.id },
-        { label: 'Amount', value: Number(payment.amount).toFixed(2) },
+        {
+          label: 'Amount',
+          value: new Intl.NumberFormat(undefined, {
+            style: 'currency',
+            currency: payment.booking.hotel.currency || 'USD',
+          }).format(Number(payment.amount)),
+        },
       ],
       footerNote: 'Thank you for staying with LaFlo.',
     });

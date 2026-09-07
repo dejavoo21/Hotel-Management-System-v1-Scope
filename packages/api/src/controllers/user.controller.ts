@@ -22,6 +22,7 @@ export async function getAllUsers(
         email: true,
         firstName: true,
         lastName: true,
+        avatarUrl: true,
         role: true,
         isActive: true,
         lastLoginAt: true,
@@ -53,6 +54,7 @@ export async function getUserById(
         email: true,
         firstName: true,
         lastName: true,
+        avatarUrl: true,
         role: true,
         isActive: true,
         lastLoginAt: true,
@@ -99,6 +101,7 @@ export async function createUser(
         email: true,
         firstName: true,
         lastName: true,
+        avatarUrl: true,
         role: true,
         isActive: true,
         createdAt: true,
@@ -162,6 +165,7 @@ export async function updateUser(
         email: true,
         firstName: true,
         lastName: true,
+        avatarUrl: true,
         role: true,
         isActive: true,
         updatedAt: true,
@@ -169,6 +173,24 @@ export async function updateUser(
     });
 
     res.json({ success: true, data: updated, message: 'User updated' });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateOwnAvatar(
+  req: AuthenticatedRequest,
+  res: Response<ApiResponse>,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const updated = await prisma.user.update({
+      where: { id: req.user!.id },
+      data: { avatarUrl: req.body.avatarUrl },
+      select: { id: true, avatarUrl: true, updatedAt: true },
+    });
+
+    res.json({ success: true, data: updated, message: 'Profile picture updated' });
   } catch (error) {
     next(error);
   }

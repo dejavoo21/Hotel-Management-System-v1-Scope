@@ -10,6 +10,13 @@ export const config = {
   port: parseInt(process.env.PORT || '4010', 10),
   apiUrl: process.env.API_URL || 'http://localhost:4010',
   appUrl: process.env.APP_URL || 'http://localhost:4212',
+  reviewIntegrations: {
+    google: {
+      clientId: process.env.GOOGLE_BUSINESS_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_BUSINESS_CLIENT_SECRET || '',
+      redirectUri: process.env.GOOGLE_BUSINESS_REDIRECT_URI || '',
+    },
+  },
   // Demo mode is permanently disabled; all environments use real data.
   demoMode: false,
 
@@ -36,17 +43,25 @@ export const config = {
 
   // Email (Resend)
   email: {
+    provider: (process.env.EMAIL_PROVIDER || 'auto').toLowerCase(),
     resendApiKey: process.env.RESEND_API_KEY || '',
     brevoApiKey: process.env.BREVO_API_KEY || '',
     fromName: process.env.EMAIL_FROM_NAME || 'LaFlo',
     fromAddress: process.env.EMAIL_FROM || 'noreply@hotelos.com',
+    microsoft365: {
+      tenantId: process.env.M365_TENANT_ID || '',
+      clientId: process.env.M365_CLIENT_ID || '',
+      clientSecret: process.env.M365_CLIENT_SECRET || '',
+      onboardingMailbox: process.env.M365_ONBOARDING_MAILBOX || 'onboarding@laflogroup.com',
+      supportMailbox: process.env.M365_SUPPORT_MAILBOX || 'support@laflogroup.com',
+    },
   },
   accessRequestNotifyEmails: process.env.ACCESS_REQUEST_NOTIFY_EMAILS
     ? process.env.ACCESS_REQUEST_NOTIFY_EMAILS.split(',').map((email) => email.trim()).filter(Boolean)
-    : [],
+    : ['onboarding@laflogroup.com'],
   supportNotifyEmails: process.env.SUPPORT_NOTIFY_EMAILS
     ? process.env.SUPPORT_NOTIFY_EMAILS.split(',').map((email) => email.trim()).filter(Boolean)
-    : [],
+    : ['support@laflogroup.com'],
   supportNotifyPhones: process.env.SUPPORT_NOTIFY_PHONES
     ? process.env.SUPPORT_NOTIFY_PHONES.split(',').map((phone) => phone.trim()).filter(Boolean)
     : [],

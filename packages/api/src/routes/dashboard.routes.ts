@@ -15,6 +15,7 @@ router.get('/departures', dashboardController.getTodayDepartures);
 router.get('/housekeeping-summary', dashboardController.getHousekeepingSummary);
 router.get('/priorities', dashboardController.getPriorities);
 router.get('/occupancy-trend', dashboardController.getOccupancyTrend);
-router.get('/booking-mix', dashboardController.getBookingMix);
+router.get('/revenue-trend', requireModuleAccess('financials'), dashboardController.getRevenueTrend);
+router.get('/booking-mix', requireModuleAccess('bookings'), dashboardController.getBookingMix);
 
 export default router;

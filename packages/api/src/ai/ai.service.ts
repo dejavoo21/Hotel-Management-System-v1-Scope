@@ -9,6 +9,7 @@ export type AIRecommendationRequest = {
   context?: AIHotelContext | Record<string, unknown> | null;
   contextOptions?: AIContextOptions;
   temperature?: number;
+  model?: string;
 };
 
 export type AIRecommendationResult = {
@@ -35,9 +36,10 @@ export async function generateAIRecommendation(input: AIRecommendationRequest): 
     'Do not mention AI, model names, training, or internal implementation details.',
   ].join('\n');
 
+  const model = input.model || OPENAI_MODEL || 'gpt-5-mini';
   const response = await openai.chat.completions.create({
-    model: OPENAI_MODEL || 'gpt-4.1-nano',
-    temperature: input.temperature ?? 0.2,
+    model,
+    ...(model.startsWith('gpt-5') ? {} : { temperature: input.temperature ?? 0.2 }),
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'system', content: `Structured hotel context:\n${JSON.stringify(context).slice(0, 12000)}` },
@@ -47,7 +49,7 @@ export async function generateAIRecommendation(input: AIRecommendationRequest): 
 
   return {
     content: response.choices?.[0]?.message?.content?.trim() || 'No recommendation generated.',
-    model: OPENAI_MODEL || 'gpt-4.1-nano',
+    model,
     context,
     generatedAtUtc: new Date().toISOString(),
   };

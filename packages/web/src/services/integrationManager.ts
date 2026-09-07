@@ -9,6 +9,7 @@ export type IntegrationManagerCategory =
   | 'WEATHER'
   | 'PAYMENTS'
   | 'BOOKING_CHANNELS'
+  | 'REVIEW_PLATFORMS'
   | 'MICROSOFT_365'
   | 'AI_PROVIDERS'
   | 'OTHER_PROVIDERS';
@@ -70,6 +71,21 @@ export type IntegrationManagerOverview = {
   recentLogs: IntegrationManagerLog[];
 };
 
+export type ReviewConnectorStatus = {
+  google: {
+    provider: string;
+    credentialsConfigured: boolean;
+    redirectUri: string;
+    requiredScope: string;
+    setupMessage: string;
+    status: string;
+    accountName?: string | null;
+    locationName?: string | null;
+    lastSyncAt?: string | null;
+    lastError?: string | null;
+  };
+};
+
 const integrationManagerService = {
   async overview(): Promise<IntegrationManagerOverview> {
     const response = await api.get('/integration-manager/overview', { params: { _ts: Date.now() } });
@@ -93,6 +109,21 @@ const integrationManagerService = {
 
   async publishEvent(eventType: string, integrationId?: string, payload?: Record<string, unknown>): Promise<unknown> {
     const response = await api.post('/integration-manager/events', { eventType, integrationId, payload });
+    return response.data.data;
+  },
+
+  async reviewConnectorStatus(): Promise<ReviewConnectorStatus> {
+    const response = await api.get('/integration-manager/review-platforms/status');
+    return response.data.data;
+  },
+
+  async connectGoogleReviews(): Promise<{ authorizationUrl: string }> {
+    const response = await api.post('/integration-manager/review-platforms/google/connect');
+    return response.data.data;
+  },
+
+  async syncGoogleReviews(): Promise<{ imported: number }> {
+    const response = await api.post('/integration-manager/review-platforms/google/sync');
     return response.data.data;
   },
 };

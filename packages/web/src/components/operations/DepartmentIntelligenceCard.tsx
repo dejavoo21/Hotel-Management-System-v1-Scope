@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { Brain, RefreshCcw } from 'lucide-react';
 import { departmentIntelligenceService } from '@/services';
 import { getApiError } from '@/services/api';
@@ -62,6 +63,11 @@ export default function DepartmentIntelligenceCard({
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
+  const refresh = async () => {
+    const result = await query.refetch();
+    if (result.error) toast.error(getApiError(result.error).message || `${departmentLabels[department]} intelligence could not be refreshed`);
+    else toast.success(`${departmentLabels[department]} intelligence refreshed`);
+  };
 
   if (query.isLoading) {
     return (
@@ -93,7 +99,7 @@ export default function DepartmentIntelligenceCard({
           </div>
           <button
             type="button"
-            onClick={() => query.refetch()}
+            onClick={() => void refresh()}
             className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-slate-700 ring-1 ring-slate-200"
           >
             Retry
@@ -143,7 +149,7 @@ export default function DepartmentIntelligenceCard({
         </div>
         <button
           type="button"
-          onClick={() => query.refetch()}
+          onClick={() => void refresh()}
           disabled={query.isFetching}
           className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
         >
@@ -198,7 +204,7 @@ export default function DepartmentIntelligenceCard({
                 </div>
                 {action.supportsTask ? (
                   <p className="mt-2 text-xs font-semibold text-slate-500">
-                    Review in AI Governance to create task.
+                    Review Recommendation to create task.
                   </p>
                 ) : null}
               </div>

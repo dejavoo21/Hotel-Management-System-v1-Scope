@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest, ApiResponse } from '../types/index.js';
 import { prisma } from '../config/database.js';
+import { currencyForCountry } from '../utils/countryCurrency.js';
 
 export async function getMyHotel(
   req: AuthenticatedRequest,
@@ -52,6 +53,9 @@ export async function updateMyHotel(
       (incomingAddress !== undefined && incomingAddress !== existingAddress) ||
       (incomingAddressLine1 !== undefined && incomingAddressLine1 !== existingAddressLine1);
 
+    const requestedCurrency = normalize(req.body.currency)?.toUpperCase();
+    const locationCurrency = currencyForCountry(incomingCountry ?? existingCountry);
+
     const latProvided = req.body.latitude !== undefined;
     const lonProvided = req.body.longitude !== undefined;
 
@@ -77,7 +81,7 @@ export async function updateMyHotel(
           email: req.body.email,
           website: req.body.website,
           timezone: req.body.timezone,
-          currency: req.body.currency,
+          currency: locationCurrency || requestedCurrency || undefined,
           latitude: latProvided ? req.body.latitude : locationFieldChanged ? null : undefined,
           longitude: lonProvided ? req.body.longitude : locationFieldChanged ? null : undefined,
           locationUpdatedAt:

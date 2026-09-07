@@ -5,7 +5,7 @@
     "buildCommand": "npm install && npm run build"
   },
   "deploy": {
-    "startCommand": "npm start",
+    "startCommand": "npm run db:migrate:prod && npm start",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 30,
     "numReplicas": 1,

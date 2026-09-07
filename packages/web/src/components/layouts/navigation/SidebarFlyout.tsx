@@ -7,7 +7,6 @@ import { useAuthStore } from '@/stores/authStore';
 
 type SidebarFlyoutProps = {
   openSection: string | null;
-  isLocked: boolean;
   onFlyoutEnter: () => void;
   onFlyoutLeave: () => void;
   onItemClick: () => void;
@@ -17,7 +16,6 @@ type SidebarFlyoutProps = {
 
 export const SidebarFlyout = memo(function SidebarFlyout({
   openSection,
-  isLocked,
   onFlyoutEnter,
   onFlyoutLeave,
   onItemClick,
@@ -72,7 +70,7 @@ export const SidebarFlyout = memo(function SidebarFlyout({
 
   // Click outside handler
   useEffect(() => {
-    if (!openSection || !isLocked) return;
+    if (!openSection) return;
 
 
     const handleClickOutside = (event: MouseEvent) => {
@@ -89,16 +87,17 @@ export const SidebarFlyout = memo(function SidebarFlyout({
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [openSection, isLocked, onClickOutside]);
+  }, [openSection, onClickOutside]);
 
   if (!openSection || !currentSection) {
     return null;
   }
 
   const isHrefActive = (href: string): boolean => {
-    if (href === '/') return location.pathname === '/';
-    if (href === '/operations-center') return location.pathname === '/operations-center';
-    return location.pathname === href || location.pathname.startsWith(`${href}/`);
+    const pathname = href.split('?')[0];
+    if (pathname === '/') return location.pathname === '/';
+    if (pathname === '/operations-center') return location.pathname === '/operations-center';
+    return location.pathname === pathname || location.pathname.startsWith(`${pathname}/`);
   };
 
   const isItemActive = (item: NavItem): boolean => {
@@ -121,7 +120,7 @@ export const SidebarFlyout = memo(function SidebarFlyout({
           focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400
           ${nested ? 'px-3 py-2 pl-8' : 'px-3 py-2.5'}
           ${isActive
-            ? 'bg-slate-800 text-white shadow-sm'
+            ? 'app-sidebar-nav-active shadow-sm'
             : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
           }
         `}
@@ -188,7 +187,7 @@ export const SidebarFlyout = memo(function SidebarFlyout({
           transition-all duration-150
           focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400
           ${groupIsActive
-            ? 'bg-slate-800 text-white shadow-sm'
+            ? 'app-sidebar-nav-active shadow-sm'
             : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
           }
         `}
@@ -202,14 +201,7 @@ export const SidebarFlyout = memo(function SidebarFlyout({
   return (
     <div
       ref={flyoutRef}
-      className={`
-        absolute left-[68px] top-0 h-full w-72 bg-white
-        border-r border-slate-200/80
-        shadow-xl shadow-slate-200/50
-        transform transition-transform duration-200 ease-out
-        ${openSection ? 'translate-x-0' : '-translate-x-full'}
-        z-40
-      `}
+      className="app-sidebar fixed bottom-0 left-[68px] top-16 z-50 hidden w-72 flex-col overflow-hidden border-r shadow-xl shadow-slate-900/10 lg:flex"
       style={{
         backdropFilter: 'blur(8px)',
       }}
@@ -217,27 +209,24 @@ export const SidebarFlyout = memo(function SidebarFlyout({
       onMouseLeave={onFlyoutLeave}
       role="menu"
       aria-label={`${currentSection.label} navigation`}
+      data-sidebar-flyout
+      data-positioning="overlay"
     >
       {/* Section header */}
-      <div className="flex items-center gap-3 h-16 px-5 border-b border-slate-100">
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 text-slate-600">
+      <div className="flex h-16 items-center gap-3 border-b border-slate-100 px-5">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
           <NavIcon name={currentSection.icon} className="h-4 w-4" />
         </div>
-        <h2 className="text-sm font-semibold text-slate-800 tracking-tight">
+        <h2 className="text-sm font-semibold tracking-tight text-slate-800">
           {currentSection.label}
         </h2>
-        {isLocked && (
-          <span className="ml-auto px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 bg-emerald-50 rounded">
-            Pinned
-          </span>
-        )}
       </div>
 
       {/* Navigation items */}
-      <nav className="flex flex-col gap-0.5 overflow-y-auto p-3" aria-label={`${currentSection.label} menu`}>
+      <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-3" aria-label={`${currentSection.label} menu`}>
         {visibleGroups.length > 0
           ? visibleGroups.map((group) => (
-              <div key={group.id} className="mb-2 last:mb-0">
+              <div key={group.id} className="mb-3 last:mb-0">
                 {renderGroupHeader(group)}
                 {group.items.length > 0 ? (
                   <div className="mt-1 space-y-0.5">

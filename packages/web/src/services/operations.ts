@@ -5,9 +5,17 @@ export type OperationsContext = {
   generatedAtUtc: string;
   weather?: {
     syncedAtUtc: string | null;
+    city?: string | null;
+    country?: string | null;
     timezone?: string | null;
     location?: { lat: number | null; lon: number | null };
     daysAvailable: number;
+    current?: {
+      temperatureC?: number | null;
+      feelsLikeC?: number | null;
+      summary?: string | null;
+      observedAtUtc?: string | null;
+    } | null;
     next24h?: { summary?: string | null; highC?: number | null; lowC?: number | null; rainRisk?: 'low' | 'medium' | 'high' | 'unknown' | null };
     isFresh: boolean;
     stale?: boolean;
@@ -98,7 +106,7 @@ export type OperationsContext = {
     reason: string;
     priority: 'low' | 'medium' | 'high';
     department?: 'FRONT_DESK' | 'HOUSEKEEPING' | 'MAINTENANCE' | 'CONCIERGE' | 'BILLING' | 'MANAGEMENT';
-    source: 'WEATHER_ACTIONS' | 'PRICING' | 'ARRIVALS';
+    source: 'WEATHER_ACTIONS' | 'PRICING' | 'ARRIVALS' | 'ENTERPRISE_SEARCH' | 'SMART_BUILDING';
     createdTicket?: {
       ticketId: string;
       conversationId: string;
@@ -113,11 +121,12 @@ export type CreateAdvisoryTicketInput = {
   reason: string;
   priority: 'low' | 'medium' | 'high';
   department: 'FRONT_DESK' | 'HOUSEKEEPING' | 'CONCIERGE' | 'MAINTENANCE' | 'BILLING' | 'MANAGEMENT';
-  source?: 'WEATHER_ACTIONS' | 'PRICING' | 'ARRIVALS';
+  source?: 'WEATHER_ACTIONS' | 'PRICING' | 'ARRIVALS' | 'ENTERPRISE_SEARCH' | 'SMART_BUILDING';
   meta?: {
     weatherSyncedAtUtc?: string | null;
     generatedAtUtc?: string | null;
     departmentIntelligence?: string;
+    dueDate?: string;
   };
 };
 

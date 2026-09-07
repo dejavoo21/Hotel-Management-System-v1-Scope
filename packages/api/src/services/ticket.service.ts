@@ -20,6 +20,9 @@ import {
 } from '@prisma/client';
 import * as notificationService from './notification.service.js';
 import { eventBus } from '../platform/event-bus/eventBus.service.js';
+import { config } from '../config/index.js';
+import { sendEmail } from './email.service.js';
+import { escapeEmailText, renderLafloEmail } from '../utils/emailTemplates.js';
 
 // ============================================
 // Configuration & Constants
@@ -111,6 +114,80 @@ const ESCALATION_LEVELS = [
   { level: 2, afterMinutes: 120, notifyRoles: ['MANAGER', 'ADMIN'] },  // Level 2: after 2 hours - notify ops manager
   { level: 3, afterMinutes: 240, notifyRoles: ['ADMIN'] },  // Level 3: after 4 hours - notify senior manager
 ];
+
+const LIVE_SUPPORT_ESCALATION_LEVELS = [
+  { level: 1, afterMinutes: 10, label: 'Assistance required' },
+  { level: 2, afterMinutes: 15, label: 'Urgent assistance required' },
+];
+
+async function sendLiveSupportEscalationEmail(params: {
+  conversationId: string;
+  hotelName: string;
+  level: number;
+  waitingMinutes: number;
+}) {
+  if (config.supportNotifyEmails.length === 0) return;
+  const step = LIVE_SUPPORT_ESCALATION_LEVELS.find((item) => item.level === params.level);
+  const urgent = params.level >= 2;
+  const threadUrl = `${config.appUrl}/messages?thread=${encodeURIComponent(params.conversationId)}`;
+  const rendered = renderLafloEmail({
+    preheader: `A live support conversation has waited ${params.waitingMinutes} minutes without an agent.`,
+    title: step?.label || 'Live support escalation',
+    intro: urgent
+      ? 'No support agent has joined this conversation after 15 minutes. Immediate assistance is required.'
+      : 'No support agent has joined this conversation after 10 minutes. Please assist or coordinate coverage.',
+    bodyHtml: `
+      <div style="margin: 18px 0; padding: 16px; border-left: 4px solid ${urgent ? '#dc2626' : '#f59e0b'}; border-radius: 0 12px 12px 0; background: ${urgent ? '#fef2f2' : '#fffbeb'};">
+        <p style="margin: 0 0 10px; color: ${urgent ? '#991b1b' : '#92400e'}; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;">Escalation level ${params.level}</p>
+        <p style="margin: 0 0 6px; color: #0f172a;"><strong>Hotel:</strong> ${escapeEmailText(params.hotelName)}</p>
+        <p style="margin: 0 0 6px; color: #0f172a;"><strong>Waiting time:</strong> ${params.waitingMinutes} minutes</p>
+        <p style="margin: 0; color: #475569; font-family: Consolas, Monaco, monospace; font-size: 12px; word-break: break-all;"><strong>Conversation:</strong> ${escapeEmailText(params.conversationId)}</p>
+      </div>
+    `,
+    cta: { label: 'Open and assign conversation', url: threadUrl },
+    footerNote: 'This escalation stops automatically when a support agent joins or replies.',
+  });
+
+  await sendEmail({
+    to: config.supportNotifyEmails.join(','),
+    subject: `[LaFlo Support][Level ${params.level}] No agent joined after ${params.waitingMinutes} minutes`,
+    html: rendered.html,
+    text: rendered.text,
+    mailbox: 'support',
+  });
+}
+
+async function logSystemActivity(params: {
+  hotelId?: string;
+  entity: string;
+  entityId?: string;
+  action: string;
+  details: Prisma.InputJsonValue;
+}) {
+  const actor = await prisma.user.findFirst({
+    where: {
+      ...(params.hotelId ? { hotelId: params.hotelId } : {}),
+      isActive: true,
+    },
+    orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
+    select: { id: true },
+  });
+
+  if (!actor) {
+    console.warn(`[SLA] Skipped ${params.action} audit log because no active user exists`);
+    return;
+  }
+
+  await prisma.activityLog.create({
+    data: {
+      userId: actor.id,
+      entity: params.entity,
+      entityId: params.entityId,
+      action: params.action,
+      details: params.details,
+    },
+  });
+}
 
 // ============================================
 // Core Ticket Functions
@@ -311,22 +388,20 @@ export async function applySlaPolicy(
   };
 
   // Log SLA_POLICY_APPLIED event
-  await prisma.activityLog.create({
-    data: {
-      userId: 'system',
-      entity: 'SLA_POLICY',
-      entityId: policy?.id || 'default',
-      action: 'SLA_POLICY_APPLIED',
-      details: {
-        hotelId,
-        category,
-        policyId: policy?.id || null,
-        policyName: policy ? `${policy.category}-${policy.department}` : 'DEFAULT',
-        responseMinutes,
-        resolutionMinutes,
-        responseDueAtUtc: dueDates.responseDueAtUtc.toISOString(),
-        resolutionDueAtUtc: dueDates.resolutionDueAtUtc.toISOString(),
-      },
+  await logSystemActivity({
+    hotelId,
+    entity: 'SLA_POLICY',
+    entityId: policy?.id || 'default',
+    action: 'SLA_POLICY_APPLIED',
+    details: {
+      hotelId,
+      category,
+      policyId: policy?.id || null,
+      policyName: policy ? `${policy.category}-${policy.department}` : 'DEFAULT',
+      responseMinutes,
+      resolutionMinutes,
+      responseDueAtUtc: dueDates.responseDueAtUtc.toISOString(),
+      resolutionDueAtUtc: dueDates.resolutionDueAtUtc.toISOString(),
     },
   });
 
@@ -383,6 +458,50 @@ export async function processSlaEscalations(): Promise<{
       const ticketAge = now.getTime() - ticket.createdAtUtc.getTime();
       const ticketAgeMinutes = ticketAge / (60 * 1000);
 
+      // Live support uses a dedicated rapid escalation matrix. The job only
+      // selects tickets without a first response, so assignment/reply stops it.
+      if (ticket.conversation.subject.startsWith('Live Support')) {
+        const escalation = [...LIVE_SUPPORT_ESCALATION_LEVELS]
+          .reverse()
+          .find((step) => ticketAgeMinutes >= step.afterMinutes);
+
+        if (escalation && ticket.escalatedLevel < escalation.level) {
+          const waitingMinutes = Math.max(escalation.afterMinutes, Math.floor(ticketAgeMinutes));
+          await prisma.ticket.update({
+            where: { id: ticket.id },
+            data: {
+              escalatedLevel: escalation.level,
+              lastEscalationAtUtc: now,
+            },
+          });
+
+          await logSystemActivity({
+            hotelId: ticket.hotelId,
+            entity: 'TICKET',
+            entityId: ticket.id,
+            action: 'LIVE_SUPPORT_ESCALATION',
+            details: {
+              ticketId: ticket.id,
+              conversationId: ticket.conversationId,
+              previousLevel: ticket.escalatedLevel,
+              newLevel: escalation.level,
+              waitingMinutes,
+              escalatedAt: now.toISOString(),
+            },
+          });
+
+          await sendLiveSupportEscalationEmail({
+            conversationId: ticket.conversationId,
+            hotelName: ticket.conversation.hotel.name,
+            level: escalation.level,
+            waitingMinutes,
+          });
+          result.escalationsTriggered++;
+        }
+
+        continue;
+      }
+
       // Check if response SLA is breached (no first response yet)
       if (ticket.responseDueAtUtc && now > ticket.responseDueAtUtc && !ticket.firstResponseAtUtc) {
         // Response SLA breached - mark as breached
@@ -395,20 +514,18 @@ export async function processSlaEscalations(): Promise<{
         result.overdueResponse++;
 
         // Log SLA_BREACH to audit trail
-        await prisma.activityLog.create({
-          data: {
-            userId: 'system',
-            entity: 'TICKET',
-            entityId: ticket.id,
-            action: 'SLA_BREACH',
-            details: {
-              ticketId: ticket.id,
-              conversationId: ticket.conversationId,
-              category: ticket.category,
-              responseDueAt: ticket.responseDueAtUtc?.toISOString(),
-              breachedAt: now.toISOString(),
-              delayMinutes: Math.round((now.getTime() - ticket.responseDueAtUtc.getTime()) / (60 * 1000)),
-            },
+        await logSystemActivity({
+          hotelId: ticket.hotelId,
+          entity: 'TICKET',
+          entityId: ticket.id,
+          action: 'SLA_BREACH',
+          details: {
+            ticketId: ticket.id,
+            conversationId: ticket.conversationId,
+            category: ticket.category,
+            responseDueAt: ticket.responseDueAtUtc?.toISOString(),
+            breachedAt: now.toISOString(),
+            delayMinutes: Math.round((now.getTime() - ticket.responseDueAtUtc.getTime()) / (60 * 1000)),
           },
         });
 
@@ -452,21 +569,19 @@ export async function processSlaEscalations(): Promise<{
         });
 
         // Log ESCALATION_TRIGGERED to audit trail
-        await prisma.activityLog.create({
-          data: {
-            userId: 'system',
-            entity: 'TICKET',
-            entityId: ticket.id,
-            action: 'ESCALATION_TRIGGERED',
-            details: {
-              ticketId: ticket.id,
-              conversationId: ticket.conversationId,
-              category: ticket.category,
-              previousLevel: ticket.escalatedLevel,
-              newLevel,
-              ticketAgeMinutes: Math.round(ticketAgeMinutes),
-              escalatedAt: now.toISOString(),
-            },
+        await logSystemActivity({
+          hotelId: ticket.hotelId,
+          entity: 'TICKET',
+          entityId: ticket.id,
+          action: 'ESCALATION_TRIGGERED',
+          details: {
+            ticketId: ticket.id,
+            conversationId: ticket.conversationId,
+            category: ticket.category,
+            previousLevel: ticket.escalatedLevel,
+            newLevel,
+            ticketAgeMinutes: Math.round(ticketAgeMinutes),
+            escalatedAt: now.toISOString(),
           },
         });
 
@@ -523,21 +638,19 @@ export async function processSlaEscalations(): Promise<{
         result.overdueResolution++;
 
         // Log resolution breach to audit trail if not already logged
-        await prisma.activityLog.create({
-          data: {
-            userId: 'system',
-            entity: 'TICKET',
-            entityId: ticket.id,
-            action: 'SLA_BREACH',
-            details: {
-              ticketId: ticket.id,
-              conversationId: ticket.conversationId,
-              category: ticket.category,
-              breachType: 'resolution',
-              resolutionDueAt: ticket.resolutionDueAtUtc?.toISOString(),
-              breachedAt: now.toISOString(),
-              delayMinutes: Math.round((now.getTime() - ticket.resolutionDueAtUtc.getTime()) / (60 * 1000)),
-            },
+        await logSystemActivity({
+          hotelId: ticket.hotelId,
+          entity: 'TICKET',
+          entityId: ticket.id,
+          action: 'SLA_BREACH',
+          details: {
+            ticketId: ticket.id,
+            conversationId: ticket.conversationId,
+            category: ticket.category,
+            breachType: 'resolution',
+            resolutionDueAt: ticket.resolutionDueAtUtc?.toISOString(),
+            breachedAt: now.toISOString(),
+            delayMinutes: Math.round((now.getTime() - ticket.resolutionDueAtUtc.getTime()) / (60 * 1000)),
           },
         });
 
@@ -562,22 +675,19 @@ export async function processSlaEscalations(): Promise<{
 
   // Log SLA_JOB_RUN to audit trail
   const jobEndTime = new Date();
-  await prisma.activityLog.create({
-    data: {
-      userId: 'system',
-      entity: 'SLA_JOB',
-      entityId: `run-${jobStartTime.toISOString()}`,
-      action: 'SLA_JOB_RUN',
-      details: {
-        startedAt: jobStartTime.toISOString(),
-        completedAt: jobEndTime.toISOString(),
-        runtimeMs: jobEndTime.getTime() - jobStartTime.getTime(),
-        checkedTickets: result.checkedTickets,
-        escalationsTriggered: result.escalationsTriggered,
-        overdueResponse: result.overdueResponse,
-        overdueResolution: result.overdueResolution,
-        errors: result.errors.length,
-      },
+  await logSystemActivity({
+    entity: 'SLA_JOB',
+    entityId: `run-${jobStartTime.toISOString()}`,
+    action: 'SLA_JOB_RUN',
+    details: {
+      startedAt: jobStartTime.toISOString(),
+      completedAt: jobEndTime.toISOString(),
+      runtimeMs: jobEndTime.getTime() - jobStartTime.getTime(),
+      checkedTickets: result.checkedTickets,
+      escalationsTriggered: result.escalationsTriggered,
+      overdueResponse: result.overdueResponse,
+      overdueResolution: result.overdueResolution,
+      errors: result.errors.length,
     },
   });
 

@@ -1,23 +1,8 @@
 {
-  "$schema": "https://railway.app/railway.schema.json",
+  "$schema": "https://railway.com/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS",
-    "nixpacksPlan": {
-      "phases": {
-        "install": {
-          "cmds": [
-            "npm install --legacy-peer-deps",
-            "npm install --workspace=@hotelos/web serve"
-          ]
-        },
-        "build": {
-          "cmds": [
-            "cd packages/api && npx prisma generate",
-            "npm run build --workspace=@hotelos/web"
-          ]
-        }
-      }
-    }
+    "builder": "RAILPACK",
+    "buildCommand": "npm run build"
   },
   "deploy": {
     "startCommand": "node scripts/railway-start.js",

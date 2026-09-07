@@ -1,48 +1,233 @@
+import { useEffect, useRef, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import {
-  ArrowLeftOnRectangleIcon,
-  ArrowRightOnRectangleIcon,
-  CalendarDaysIcon,
-  ChatBubbleLeftRightIcon,
-  CheckCircleIcon,
-  HomeModernIcon,
-  WrenchScrewdriverIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  GlobeAltIcon,
+  MoonIcon,
+  SunIcon,
 } from '@heroicons/react/24/outline';
+import AuthInsightsCarousel from '@/components/auth/AuthInsightsCarousel';
+import { useTheme } from '@/theme/ThemeProvider';
 
-const operationCards = [
-  { label: 'Reservations', value: '42', detail: 'Today', icon: CalendarDaysIcon, tone: 'bg-cyan-300/20 text-cyan-100' },
-  { label: 'Check-ins', value: '18', detail: '12 completed', icon: ArrowRightOnRectangleIcon, tone: 'bg-emerald-300/20 text-emerald-100' },
-  { label: 'Check-outs', value: '11', detail: '3 remaining', icon: ArrowLeftOnRectangleIcon, tone: 'bg-teal-300/20 text-teal-100' },
-  { label: 'Room occupancy', value: '86%', detail: '124 of 144 rooms', icon: HomeModernIcon, tone: 'bg-sky-300/20 text-sky-100' },
-  { label: 'Room readiness', value: '31', detail: 'Ready for arrival', icon: CheckCircleIcon, tone: 'bg-lime-300/20 text-lime-100' },
-  { label: 'Housekeeping', value: '9', detail: 'Rooms in progress', icon: HomeModernIcon, tone: 'bg-emerald-300/20 text-emerald-100' },
-  { label: 'Guest requests', value: '6', detail: '2 high priority', icon: ChatBubbleLeftRightIcon, tone: 'bg-cyan-300/20 text-cyan-100' },
-  { label: 'Maintenance alerts', value: '3', detail: 'Needs attention', icon: WrenchScrewdriverIcon, tone: 'bg-amber-300/20 text-amber-100' },
-];
+export type AuthLanguage = 'en-GB' | 'fr-FR';
+
+export interface AuthOutletContext {
+  language: AuthLanguage;
+}
 
 export default function AuthLayout() {
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
+  const [language, setLanguage] = useState<AuthLanguage>(() => {
+    try {
+      return localStorage.getItem('laflo:auth-language') === 'fr-FR' ? 'fr-FR' : 'en-GB';
+    } catch {
+      return 'en-GB';
+    }
+  });
+  const { theme, setTheme } = useTheme();
+  const languageSelectorRef = useRef<HTMLDivElement>(null);
+  const isDark = theme === 'midnight-dark' || theme === 'warm-charcoal';
+
+  const isFrench = language === 'fr-FR';
+  const languageLabel = isFrench ? 'Français' : 'English (UK)';
+
+  const selectLanguage = (nextLanguage: AuthLanguage) => {
+    setLanguage(nextLanguage);
+    setLanguageMenuOpen(false);
+    try {
+      localStorage.setItem('laflo:auth-language', nextLanguage);
+    } catch {
+      // The selector still works when browser storage is unavailable.
+    }
+  };
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
+
+  useEffect(() => {
+    if (!languageMenuOpen) return undefined;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!languageSelectorRef.current?.contains(event.target as Node)) {
+        setLanguageMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setLanguageMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [languageMenuOpen]);
+
   return (
-    <div className="flex min-h-screen bg-white">
-      <aside className="relative hidden min-h-screen overflow-hidden bg-gradient-to-br from-[#063d3a] via-[#075f58] to-[#078c7d] lg:flex lg:w-[55%] lg:flex-col" aria-label="LaFlo hotel operations overview">
-        <div className="absolute -left-24 top-[26%] h-80 w-80 rounded-full bg-emerald-300/10 blur-3xl" aria-hidden="true" />
-        <div className="absolute -right-20 -top-20 h-96 w-96 rounded-full bg-cyan-200/10 blur-3xl" aria-hidden="true" />
-        <div className="relative z-10 flex h-full min-h-screen flex-col px-12 py-10 xl:px-16 xl:py-12">
-          <img src="/laflo-logo.png" alt="LaFlo" className="h-20 w-auto max-w-[220px] self-start object-contain object-left brightness-0 invert xl:h-24" />
-          <h1 className="mt-10 max-w-xl text-4xl font-bold leading-[1.08] tracking-[-0.035em] text-white xl:mt-12 xl:text-[3.35rem]">Modern Hotel Management, Simplified.</h1>
-          <div className="relative mt-10 grid grid-cols-2 gap-3 xl:mt-12 xl:gap-4" aria-label="Hotel operations preview">
-            {operationCards.map(({ label, value, detail, icon: Icon, tone }) => (
-              <article key={label} className="rounded-2xl border border-white/15 bg-white/[0.09] p-4 shadow-[0_18px_45px_rgba(0,35,32,0.16)] backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/[0.13] xl:p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div><p className="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-50/70">{label}</p><p className="mt-2 text-2xl font-bold tracking-tight text-white xl:text-3xl">{value}</p><p className="mt-1 text-xs text-emerald-50/70 xl:text-sm">{detail}</p></div>
-                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tone}`}><Icon className="h-5 w-5" aria-hidden="true" /></span>
-                </div>
-              </article>
-            ))}
+    <div
+      className={`min-h-dvh lg:grid lg:grid-cols-[minmax(0,62fr)_minmax(0,38fr)] ${
+        isDark ? 'bg-[#081923]' : 'bg-[#d7ece5]'
+      }`}
+    >
+      <aside
+        className="relative hidden min-h-dvh overflow-hidden bg-[#eaf5f0] lg:flex lg:flex-col"
+        aria-label="LaFlo hotel operations overview"
+      >
+        <img
+          src="/assets/auth/laflo-hotel-login-bg-v3.png"
+          alt=""
+          className="auth-hotel-visual absolute inset-0 h-full w-full object-cover object-center"
+          aria-hidden="true"
+        />
+        <div
+          className="auth-hotel-light-sweep absolute inset-0"
+          aria-hidden="true"
+        />
+
+        <div className="relative z-10 flex min-h-dvh flex-col px-12 py-9 xl:px-[52px] xl:pb-10 xl:pt-14">
+          <img
+            src="/laflo-logo.png"
+            alt="LaFlo"
+            className="h-10 w-auto max-w-[154px] object-contain object-left xl:h-12 xl:max-w-[172px]"
+          />
+
+          <div className="mt-16 max-w-[510px] xl:mt-20">
+            <h1 className="text-[2.8rem] font-extrabold leading-[1.08] tracking-[-0.045em] text-[#07132b] xl:text-[3.25rem]">
+              {isFrench ? 'Gestion hôtelière' : 'Modern Hotel'}
+              <br />
+              {isFrench ? 'moderne,' : 'Management,'}
+              <br />
+              <span className="text-[#079887]">{isFrench ? 'Simplifiée.' : 'Simplified.'}</span>
+            </h1>
+            <p className="mt-6 max-w-[430px] text-lg font-medium leading-8 text-[#334568] xl:text-xl">
+              {isFrench
+                ? 'Tout ce dont vous avez besoin pour gérer vos opérations,'
+                : 'Everything you need to run operations,'}
+              <br />
+              {isFrench
+                ? 'satisfaire vos clients et développer votre activité.'
+                : 'delight guests, and grow your business.'}
+            </p>
           </div>
-          <div className="mt-auto flex items-center justify-between gap-4 pt-8 text-xs text-emerald-50/65"><p>© {new Date().getFullYear()} LaFlo. All rights reserved.</p><div className="flex items-center gap-2" aria-label="Live operations status"><span className="h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_0_4px_rgba(110,231,183,0.12)]" /><span>Operations online</span></div></div>
+
+          <div className="absolute bottom-[68px] left-[34%] w-[64%] max-w-[500px] xl:left-[44%] xl:w-[52%]">
+            <AuthInsightsCarousel language={language} />
+          </div>
+          <div className="absolute bottom-8 left-12 z-20 text-[0.7rem] font-medium text-[#294b58]/80">
+            <p>© {new Date().getFullYear()} LaFlo. {isFrench ? 'Tous droits réservés.' : 'All rights reserved.'}</p>
+          </div>
         </div>
       </aside>
-      <section className="flex w-full items-center justify-center bg-white px-7 py-10 lg:w-[45%] lg:items-start lg:px-12 lg:pt-[108px] xl:px-20 xl:pt-[128px]" aria-label="Authentication"><div className="w-full max-w-[600px]"><Outlet /></div></section>
+
+      <section
+        className={`relative min-h-dvh p-0 transition-colors duration-200 lg:p-4 ${
+          isDark ? 'bg-[#081923]' : 'bg-[#d7ece5]'
+        }`}
+        aria-label="Authentication"
+      >
+        <div
+          className={`auth-panel relative min-h-dvh overflow-y-auto px-7 pb-10 pt-6 transition-colors duration-200 lg:h-[calc(100dvh-2rem)] lg:min-h-0 lg:rounded-[26px] lg:px-10 lg:pb-10 lg:pt-8 xl:px-12 ${
+            isDark ? 'bg-[#0f202a]' : 'bg-white'
+          }`}
+        >
+          <div className="relative z-40 flex h-12 w-full items-center justify-end gap-4 text-sm font-semibold text-[#1f3154]">
+            <div
+              ref={languageSelectorRef}
+              className="relative"
+            >
+              <button
+                type="button"
+                onClick={() => setLanguageMenuOpen((open) => !open)}
+                aria-expanded={languageMenuOpen}
+                aria-haspopup="listbox"
+                aria-controls="auth-language-menu"
+                className={`flex h-12 min-w-[180px] items-center gap-3 rounded-xl border px-4 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[#079887] ${
+                  isDark
+                    ? 'border-[#36515f] bg-[#152c37] text-slate-100 hover:border-[#5c7987]'
+                    : 'border-[#c9d4e5] bg-white text-[#1f3154] hover:border-[#95a9c7]'
+                }`}
+              >
+                <GlobeAltIcon className="h-5 w-5" aria-hidden="true" />
+                <span className="flex-1 text-left">{languageLabel}</span>
+                {languageMenuOpen ? (
+                  <ChevronUpIcon className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <ChevronDownIcon className="h-4 w-4" aria-hidden="true" />
+                )}
+              </button>
+
+              {languageMenuOpen && (
+                <div
+                  id="auth-language-menu"
+                  role="listbox"
+                  aria-label="Language"
+                  className={`absolute right-0 top-[calc(100%+8px)] z-50 w-[190px] rounded-xl border p-2 shadow-[0_12px_30px_rgba(15,23,42,0.18)] ${
+                    isDark
+                      ? 'border-[#36515f] bg-[#152c37] text-slate-100'
+                      : 'border-[#d7dfeb] bg-white text-[#1f3154]'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={language === 'en-GB'}
+                    onClick={() => selectLanguage('en-GB')}
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition focus:outline-none focus:ring-2 focus:ring-[#079887] ${
+                      isDark ? 'hover:bg-white/10' : 'hover:bg-slate-50'
+                    }`}
+                  >
+                    <GlobeAltIcon className="h-5 w-5" aria-hidden="true" />
+                    <span className="flex-1">English (UK)</span>
+                    {language === 'en-GB' && <CheckIcon className="h-5 w-5" aria-hidden="true" />}
+                  </button>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={language === 'fr-FR'}
+                    onClick={() => selectLanguage('fr-FR')}
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition focus:outline-none focus:ring-2 focus:ring-[#079887] ${
+                      isDark ? 'hover:bg-white/10' : 'hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="flex h-5 w-5 items-center justify-center rounded bg-[#eef2ff] text-[0.58rem] font-extrabold text-[#294b8d]">FR</span>
+                    <span className="flex-1">Français</span>
+                    {language === 'fr-FR' && <CheckIcon className="h-5 w-5" aria-hidden="true" />}
+                  </button>
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setTheme(isDark ? 'laflo-professional' : 'midnight-dark')}
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              aria-pressed={isDark}
+              className={`flex h-11 w-11 items-center justify-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-[#079887] ${
+                isDark ? 'bg-[#152c37] text-amber-300 hover:bg-[#1c3743]' : 'text-[#25385f] hover:bg-slate-100'
+              }`}
+            >
+              {!isDark ? (
+                <MoonIcon className="h-5 w-5" aria-hidden="true" />
+              ) : (
+                <SunIcon className="h-5 w-5" aria-hidden="true" />
+              )}
+            </button>
+          </div>
+
+          <div
+            className={`mx-auto w-full max-w-[600px] transition-[margin] duration-200 ${
+              languageMenuOpen ? 'mt-[132px]' : 'mt-16'
+            }`}
+          >
+            <Outlet context={{ language } satisfies AuthOutletContext} />
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

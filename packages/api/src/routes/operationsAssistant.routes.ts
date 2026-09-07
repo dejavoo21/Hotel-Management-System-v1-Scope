@@ -37,7 +37,7 @@ async function handleOperationsAssistantChat(req: AuthenticatedRequest, res: Res
       mode: body.mode ?? 'operations',
       context: body.context ?? null,
       conversationId: body.conversationId ?? null,
-      subjectPrefix: 'Operations Assistant',
+      subjectPrefix: 'Ask LaFlo',
     });
 
     res.json({ success: true, data: result });
@@ -62,7 +62,7 @@ router.post('/ops', async (req: AuthenticatedRequest, res: Response, next: NextF
       mode: 'operations',
       context: body.context ?? null,
       conversationId: body.conversationId ?? null,
-      subjectPrefix: 'Operations Assistant',
+      subjectPrefix: 'Ask LaFlo',
     });
 
     res.json({ success: true, data: result });
@@ -95,7 +95,7 @@ router.post('/conversations/:id/email', requireModuleAccess('bookings'), async (
     const hotelId = req.user!.hotelId;
     const conversationId = String(req.params.id ?? '').trim();
     const to = String(req.body?.to ?? '').trim();
-    const subject = String(req.body?.subject ?? 'LaFlo Ops Assistant Transcript').trim();
+    const subject = String(req.body?.subject ?? 'Ask LaFlo Transcript').trim();
 
     if (!conversationId) {
       res.status(400).json({ success: false, error: 'Conversation id is required' });
@@ -150,7 +150,7 @@ router.post('/transcript/email', requireModuleAccess('bookings'), async (req: Au
     const hotelId = req.user!.hotelId;
     const conversationId = String(req.body?.conversationId ?? '').trim();
     const to = String(req.body?.toEmail ?? req.body?.to ?? '').trim();
-    const subject = String(req.body?.subject ?? 'LaFlo Ops Assistant Transcript').trim();
+    const subject = String(req.body?.subject ?? 'Ask LaFlo Transcript').trim();
 
     if (!conversationId || !to) {
       res.status(400).json({ success: false, error: 'conversationId and toEmail are required' });

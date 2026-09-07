@@ -11,14 +11,27 @@ import {
   getAuditLogs,
   getAuditSettings,
   saveAuditSettings,
+  sanitizeAuditEntry,
   type AuditLogEntry,
 } from '@/utils/auditLog';
 import toast from 'react-hot-toast';
-import { formatEnumLabel } from '@/utils';
 import { ackAccessRequest } from '@/utils/accessRequestAck';
-import ThemeSwitcher from '@/components/theme/ThemeSwitcher';
 import { useTheme } from '@/theme/ThemeProvider';
+import AppearancePanel from '@/components/settings/AppearancePanel';
+import {
+  DEFAULT_APPEARANCE,
+  readAppearancePreferences,
+  saveAppearancePreferences,
+  type AppearancePreferences,
+} from '@/theme/appearance';
 import IntegrationManagerPanel from '@/components/settings/IntegrationManagerPanel';
+import AccessRequestsPanel from '@/components/settings/AccessRequestsPanel';
+import AuditTrailPanel from '@/components/settings/AuditTrailPanel';
+import NotificationPreferencesPanel, { DEFAULT_NOTIFICATION_PREFERENCES, type NotificationPreferences } from '@/components/settings/NotificationPreferencesPanel';
+import RoomTypesPanel from '@/components/settings/RoomTypesPanel';
+import HotelInfoPanel, { type HotelInfoForm } from '@/components/settings/HotelInfoPanel';
+import SecurityPanel from '@/components/settings/SecurityPanel';
+import { currencyForCountry } from '@/utils/countryCurrency';
 
 type SettingsTab =
   | 'hotel'
@@ -34,7 +47,6 @@ export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<SettingsTab>('hotel');
-  const [showAddRoomTypeModal, setShowAddRoomTypeModal] = useState(false);
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [qrCode, setQrCode] = useState('');
   const [twoFASecret, setTwoFASecret] = useState('');
@@ -51,25 +63,33 @@ export default function SettingsPage() {
     replies: AccessRequestReply[];
     baseUrl: string;
   } | null>(null);
-  const [replyLoading, setReplyLoading] = useState(false);
+  const [, setReplyLoading] = useState(false);
   const [actionSubmitting, setActionSubmitting] = useState(false);
-  const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null);
-  const [notificationPrefs, setNotificationPrefs] = useState({
-    newBookings: true,
-    checkIns: true,
-    housekeepingUpdates: false,
-    dailyReports: true,
-  });
-  const [appearancePrefs, setAppearancePrefs] = useState({
-    background: 'mist',
-  });
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
+  const [savedNotificationPrefs, setSavedNotificationPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
+  const [appearancePrefs, setAppearancePrefs] = useState<AppearancePreferences>(() =>
+    readAppearancePreferences()
+  );
+  const [savedAppearance, setSavedAppearance] = useState<AppearancePreferences>(() =>
+    readAppearancePreferences()
+  );
   const [auditSettings, setAuditSettings] = useState(getAuditSettings());
+  const [savedAuditSettings, setSavedAuditSettings] = useState(getAuditSettings());
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
-  const [auditFilter, setAuditFilter] = useState('');
-  const { user, setUser } = useAuthStore();
-  const { theme } = useTheme();
+  const { user, setUser, refreshToken } = useAuthStore();
+  const isAdmin = user?.role === 'ADMIN';
+  const { setTheme, setBackground } = useTheme();
   const queryClient = useQueryClient();
-  const [hotelForm, setHotelForm] = useState({
+  const [hotelForm, setHotelForm] = useState<HotelInfoForm>({
+    name: '',
+    address: '',
+    addressLine1: '',
+    city: '',
+    country: '',
+    currency: 'USD',
+    timezone: 'UTC',
+  });
+  const [savedHotelForm, setSavedHotelForm] = useState<HotelInfoForm>({
     name: '',
     address: '',
     addressLine1: '',
@@ -89,45 +109,19 @@ export default function SettingsPage() {
     []
   );
 
-  const backgroundOptions = [
-    { value: 'mist', label: 'Mist Gradient' },
-    { value: 'linen', label: 'Linen Pattern' },
-    { value: 'glow', label: 'Soft Glow' },
-    { value: 'dusk', label: 'Dusk Horizon' },
-    { value: 'sand', label: 'Sand Wash' },
-    { value: 'tide', label: 'Tide Lines' },
-  ];
-
-  const filteredAuditLogs = useMemo(() => {
-    if (!auditFilter.trim()) return auditLogs;
-    const query = auditFilter.trim().toLowerCase();
-    return auditLogs.filter((log) =>
-      [log.action, log.actorName, log.targetLabel, log.targetId]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query))
-    );
-  }, [auditFilter, auditLogs]);
-
-  const normalizeRole = (role?: string | null) => {
-    if (!role) return 'RECEPTIONIST';
-    const value = role.trim().toUpperCase().replace(/\s+/g, '_');
-    if (roleOptions.some((option) => option.value === value)) {
-      return value;
-    }
-    return 'RECEPTIONIST';
-  };
-
   useEffect(() => {
     if (user?.hotel) {
-      setHotelForm({
+      const nextHotelForm: HotelInfoForm = {
         name: user.hotel.name || '',
         address: user.hotel.address || '',
         addressLine1: user.hotel.addressLine1 || '',
         city: user.hotel.city || '',
         country: user.hotel.country || '',
-        currency: user.hotel.currency || 'USD',
+        currency: currencyForCountry(user.hotel.country) || user.hotel.currency || 'USD',
         timezone: user.hotel.timezone || 'UTC',
-      });
+      };
+      setHotelForm(nextHotelForm);
+      setSavedHotelForm(nextHotelForm);
     }
   }, [user]);
 
@@ -136,19 +130,9 @@ export default function SettingsPage() {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        setNotificationPrefs((prev) => ({ ...prev, ...parsed }));
-      } catch {
-        // Ignore malformed values.
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    const stored = localStorage.getItem('laflo:appearance');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as Partial<typeof appearancePrefs> & { theme?: string };
-        setAppearancePrefs((prev) => ({ ...prev, background: parsed.background ?? prev.background }));
+        const next = { ...DEFAULT_NOTIFICATION_PREFERENCES, ...parsed };
+        setNotificationPrefs(next);
+        setSavedNotificationPrefs(next);
       } catch {
         // Ignore malformed values.
       }
@@ -157,13 +141,14 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setAuditLogs(getAuditLogs());
-    setAuditSettings(getAuditSettings());
+    const storedAuditSettings = getAuditSettings();
+    const normalizedAuditSettings = {
+      ...storedAuditSettings,
+      forwardingEnabled: storedAuditSettings.forwardingEnabled && Boolean(storedAuditSettings.forwardingUrl?.trim()),
+    };
+    setAuditSettings(normalizedAuditSettings);
+    setSavedAuditSettings(normalizedAuditSettings);
   }, []);
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    document.body.dataset.bg = appearancePrefs.background;
-  }, [appearancePrefs]);
 
   useEffect(() => {
     const tab = searchParams.get('tab') as SettingsTab | null;
@@ -176,35 +161,76 @@ export default function SettingsPage() {
         'appearance',
         'integrations',
         'audit-trail',
-        'access-requests',
+        ...(isAdmin ? (['access-requests'] as SettingsTab[]) : []),
       ];
       if (allowedTabs.includes(tab)) {
         setActiveTab(tab);
       }
     }
-  }, [activeTab, searchParams]);
+  }, [activeTab, isAdmin, searchParams]);
 
-  const { data: roomTypes, isLoading: roomTypesLoading } = useQuery({
+  const { data: roomTypes, isLoading: roomTypesLoading, isError: roomTypesError, refetch: refetchRoomTypes } = useQuery({
     queryKey: ['roomTypes'],
     queryFn: roomService.getRoomTypes,
     enabled: activeTab === 'room-types',
   });
 
+  const { data: roomInventory } = useQuery({
+    queryKey: ['rooms', 'room-type-counts'],
+    queryFn: () => roomService.getRooms(),
+    enabled: activeTab === 'room-types',
+  });
+
+  const sessionsQuery = useQuery({
+    queryKey: ['auth', 'sessions', user?.id],
+    queryFn: () => authService.listSessions(refreshToken as string),
+    enabled: activeTab === 'security' && Boolean(refreshToken),
+  });
+
+  const revokeOtherSessionsMutation = useMutation({
+    mutationFn: () => authService.revokeOtherSessions(refreshToken as string),
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ['auth', 'sessions', user?.id] });
+      toast.success(count === 1 ? '1 other session signed out' : `${count} other sessions signed out`);
+    },
+    onError: () => toast.error('Other sessions could not be signed out. Please try again.'),
+  });
+
+  const revokeSessionMutation = useMutation({
+    mutationFn: (sessionId: string) => authService.revokeSession(refreshToken as string, sessionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['auth', 'sessions', user?.id] });
+      toast.success('Session signed out');
+    },
+    onError: () => toast.error('Session could not be signed out. Please try again.'),
+  });
+
+  const roomCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const room of roomInventory?.data || []) {
+      counts[room.roomType.id] = (counts[room.roomType.id] || 0) + 1;
+    }
+    return counts;
+  }, [roomInventory]);
+
   const {
     data: accessRequests,
     isLoading: accessRequestsLoading,
+    isError: accessRequestsError,
+    refetch: refetchAccessRequests,
   } = useQuery({
     queryKey: ['accessRequests'],
     queryFn: accessRequestService.list,
-    enabled: activeTab === 'access-requests',
+    enabled: activeTab === 'access-requests' && isAdmin,
   });
 
   const createRoomTypeMutation = useMutation({
     mutationFn: roomService.createRoomType,
-    onSuccess: () => {
+    onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ['roomTypes'] });
+      appendAuditLog({ action: 'ROOM_TYPE_CREATED', actorId: user?.id, actorName: user ? `${user.firstName} ${user.lastName}` : 'System', targetId: created.id, targetLabel: created.name, details: { baseRate: created.baseRate, maxGuests: created.maxGuests, isActive: created.isActive } });
+      refreshAuditLogs();
       toast.success('Room type created');
-      setShowAddRoomTypeModal(false);
     },
     onError: () => {
       toast.error('Failed to create room type');
@@ -357,10 +383,34 @@ export default function SettingsPage() {
         variables.country !== undefined ||
         variables.address !== undefined ||
         variables.addressLine1 !== undefined;
+      const currencyChanged = Boolean(
+        previousHotel &&
+          (updatedHotel.currency ?? previousHotel.currency) !== previousHotel.currency
+      );
 
-      toast.success('Hotel settings updated');
+      setSavedHotelForm({ ...hotelForm });
+      appendAuditLog({
+        action: 'HOTEL_INFO_UPDATED',
+        actorId: user?.id,
+        actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
+        targetId: updatedHotel.id,
+        targetLabel: updatedHotel.name,
+        details: {
+          city: updatedHotel.city,
+          country: updatedHotel.country,
+          currency: updatedHotel.currency,
+          timezone: updatedHotel.timezone,
+        },
+      });
+      refreshAuditLogs();
+      toast.success('Hotel information updated successfully.');
       if (user) {
         setUser({ ...user, hotel: { ...user.hotel, ...updatedHotel } });
+      }
+
+      if (currencyChanged) {
+        await queryClient.invalidateQueries({ refetchType: 'active' });
+        toast.success(`Platform currency updated to ${updatedHotel.currency}`);
       }
 
       if (updatedHotel.id) {
@@ -374,8 +424,61 @@ export default function SettingsPage() {
       }
     },
     onError: () => {
-      toast.error('Failed to update hotel settings');
+      toast.error('Hotel information could not be updated. Please try again.');
     },
+  });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) =>
+      authService.changePassword(currentPassword, newPassword),
+    onSuccess: () => {
+      appendAuditLog({
+        action: 'PASSWORD_CHANGED',
+        actorId: user?.id,
+        actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
+        targetId: user?.id,
+        targetLabel: 'Account security',
+        details: { source: 'Settings > Security' },
+      });
+      refreshAuditLogs();
+      toast.success('Password updated successfully');
+    },
+    onError: (error) => {
+      const message = (error as any)?.response?.data?.error || 'Password could not be updated. Please try again.';
+      toast.error(message);
+    },
+  });
+  const updateRoomTypeMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof roomService.updateRoomType>[1] }) => roomService.updateRoomType(id, data),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['roomTypes'] });
+      appendAuditLog({ action: updated.isActive ? 'ROOM_TYPE_UPDATED' : 'ROOM_TYPE_DISABLED', actorId: user?.id, actorName: user ? `${user.firstName} ${user.lastName}` : 'System', targetId: updated.id, targetLabel: updated.name, details: { baseRate: updated.baseRate, maxGuests: updated.maxGuests, isActive: updated.isActive } });
+      refreshAuditLogs();
+      toast.success(updated.isActive ? 'Room type updated' : 'Room type disabled');
+    },
+    onError: () => toast.error('Failed to update room type'),
+  });
+
+  const resendAccessSetupMutation = useMutation({
+    mutationFn: ({ id, role }: { id: string; role?: string }) =>
+      accessRequestService.resendSetup(id, role),
+    onSuccess: (result, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['accessRequests'] });
+      appendAuditLog({
+        action: 'ACCESS_REQUEST_SETUP_RESENT',
+        actorId: user?.id,
+        actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
+        targetId: variables.id,
+        details: { role: variables.role },
+      });
+      refreshAuditLogs();
+      if (result.inviteEmailSent) {
+        toast.success('Password setup invite resent');
+      } else {
+        toast.error(result.deliveryWarning || 'Access remains approved, but the setup email was not delivered');
+      }
+    },
+    onError: () => toast.error('Failed to resend password setup invite'),
   });
 
   const syncWeatherMutation = useMutation({
@@ -564,39 +667,137 @@ export default function SettingsPage() {
   };
 
   const saveNotificationPrefs = () => {
-    localStorage.setItem('laflo:notificationPrefs', JSON.stringify(notificationPrefs));
-    appendAuditLog({
-      action: 'NOTIFICATION_PREFS_UPDATED',
-      actorId: user?.id,
-      actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
-      details: notificationPrefs,
-    });
-    refreshAuditLogs();
-    toast.success('Preferences saved');
+    if (!isAdmin) return;
+    try {
+      localStorage.setItem('laflo:notificationPrefs', JSON.stringify(notificationPrefs));
+      setSavedNotificationPrefs({ ...notificationPrefs });
+      appendAuditLog({
+        action: 'NOTIFICATION_PREFS_UPDATED',
+        actorId: user?.id,
+        actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
+        details: notificationPrefs,
+      });
+      refreshAuditLogs();
+      toast.success('Preferences saved');
+    } catch {
+      toast.error('Notification preferences could not be saved. Please try again.');
+    }
   };
 
   const saveAppearancePrefs = () => {
-    localStorage.setItem('laflo:appearance', JSON.stringify(appearancePrefs));
+    const nextAppearance = { ...appearancePrefs };
+    saveAppearancePreferences(nextAppearance);
+    setTheme(nextAppearance.theme);
+    setBackground(nextAppearance.background);
+    setSavedAppearance(nextAppearance);
     appendAuditLog({
       action: 'APPEARANCE_UPDATED',
       actorId: user?.id,
       actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
-      details: { ...appearancePrefs, theme },
+      details: nextAppearance,
     });
     refreshAuditLogs();
     toast.success('Appearance saved');
   };
 
+  const resetAppearancePrefs = () => {
+    setTheme(DEFAULT_APPEARANCE.theme);
+    setBackground(DEFAULT_APPEARANCE.background);
+    setAppearancePrefs(DEFAULT_APPEARANCE);
+    saveAppearancePreferences(DEFAULT_APPEARANCE);
+    setSavedAppearance(DEFAULT_APPEARANCE);
+    appendAuditLog({
+      action: 'APPEARANCE_RESET',
+      actorId: user?.id,
+      actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
+      details: DEFAULT_APPEARANCE,
+    });
+    refreshAuditLogs();
+    toast.success('Appearance reset to default');
+  };
+
   const saveAuditPrefs = () => {
+    if (auditSettings.forwardingEnabled && !auditSettings.forwardingUrl?.trim()) {
+      toast.error('Add an external log destination before enabling forwarding');
+      return;
+    }
     saveAuditSettings(auditSettings);
-      appendAuditLog({
-        action: 'AUDIT_SETTINGS_UPDATED',
-        actorId: user?.id,
-        actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
-        details: { ...auditSettings },
-      });
+    setSavedAuditSettings({ ...auditSettings });
+    appendAuditLog({
+      action: 'AUDIT_SETTINGS_UPDATED',
+      actorId: user?.id,
+      actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
+      details: {
+        retentionDays: auditSettings.retentionDays,
+        forwardingEnabled: auditSettings.forwardingEnabled,
+        forwardingUrl: auditSettings.forwardingUrl || '',
+        forwardingConfigured: Boolean(auditSettings.forwardingUrl?.trim()),
+      },
+    });
     refreshAuditLogs();
     toast.success('Audit settings saved');
+  };
+
+  const recordAuditExport = (format: 'JSON' | 'CSV' | 'COMPLIANCE_REPORT', count: number) => {
+    appendAuditLog({
+      action: format === 'COMPLIANCE_REPORT' ? 'COMPLIANCE_REPORT_GENERATED' : 'AUDIT_EXPORT_GENERATED',
+      actorId: user?.id,
+      actorName: user ? `${user.firstName} ${user.lastName}` : 'System',
+      targetLabel: format === 'COMPLIANCE_REPORT' ? 'Compliance report' : `Audit export (${format})`,
+      details: { format, recordCount: count },
+    });
+    refreshAuditLogs();
+  };
+
+  const exportAuditJson = (entries: AuditLogEntry[]) => {
+    downloadTextFile(
+      JSON.stringify(entries.map(sanitizeAuditEntry), null, 2),
+      'audit-log.json',
+      'application/json'
+    );
+    recordAuditExport('JSON', entries.length);
+    toast.success('Audit JSON exported');
+  };
+
+  const exportAuditCsv = (entries: AuditLogEntry[]) => {
+    const header = ['Timestamp', 'Action', 'Actor', 'Target', 'Details'];
+    const rows = entries.map((entry) => {
+      const safeEntry = sanitizeAuditEntry(entry);
+      return [
+        safeEntry.createdAt,
+        safeEntry.action,
+        safeEntry.actorName || '',
+        safeEntry.targetLabel || safeEntry.targetId || '',
+        safeEntry.details ? JSON.stringify(safeEntry.details) : '',
+      ];
+    });
+    const csv = [header, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    downloadTextFile(csv, 'audit-log.csv', 'text/csv');
+    recordAuditExport('CSV', entries.length);
+    toast.success('Audit CSV exported');
+  };
+
+  const generateComplianceReport = (entries: AuditLogEntry[]) => {
+    const latest = entries[0]?.createdAt || 'N/A';
+    const report = [
+      'LaFlo Compliance Snapshot',
+      `Generated: ${new Date().toISOString()}`,
+      `Retention: ${auditSettings.retentionDays} days`,
+      `Forwarding Enabled: ${auditSettings.forwardingEnabled ? 'Yes' : 'No'}`,
+      `Forwarding URL: ${auditSettings.forwardingUrl || 'Not configured'}`,
+      `Included Audit Events: ${entries.length}`,
+      `Latest Included Entry: ${latest}`,
+      '',
+      'Review items:',
+      '- Access requests audited',
+      '- User management changes logged',
+      '- Notification settings tracked',
+    ].join('\n');
+    downloadTextFile(report, 'compliance-report.txt');
+    recordAuditExport('COMPLIANCE_REPORT', entries.length);
+    toast.success('Compliance report generated');
   };
 
   const tabs: { id: SettingsTab; name: string; icon: JSX.Element }[] = [
@@ -713,27 +914,29 @@ export default function SettingsPage() {
       ),
     },
   ];
+  const visibleTabs = isAdmin ? tabs : tabs.filter((tab) => tab.id !== 'access-requests');
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-[calc(100vh-7rem)] space-y-4">
       {/* Page header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Settings</h1>
         <p className="mt-1 text-sm text-slate-500">Manage your hotel and account settings</p>
       </div>
 
-      <div className="flex flex-col gap-6 lg:flex-row">
+      <div className="flex flex-col gap-4 lg:flex-row">
         {/* Sidebar */}
-        <div className="w-full lg:w-64 shrink-0">
-          <nav className="space-y-1">
-              {tabs.map((tab) => (
+        <div className="w-full shrink-0 lg:sticky lg:top-20 lg:h-fit lg:w-60">
+          <nav className="space-y-1 rounded-2xl border border-border bg-card p-3 shadow-sm" aria-label="Settings sections">
+              {visibleTabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => handleTabChange(tab.id)}
+                  aria-current={activeTab === tab.id ? 'page' : undefined}
                   className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     activeTab === tab.id
                       ? 'bg-primary-50 text-primary-700'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      : 'bg-transparent text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 focus-visible:bg-transparent'
                   }`}
               >
                 {tab.icon}
@@ -744,479 +947,81 @@ export default function SettingsPage() {
         </div>
 
         {/* Content */}
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           {/* Hotel Info */}
           {activeTab === 'hotel' && (
-            <div className="card">
-              <h2 className="text-lg font-semibold text-slate-900">Hotel Information</h2>
-              <p className="text-sm text-slate-500">Update your hotel's basic information</p>
-
-              <form
-                className="mt-6 space-y-4"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const payload = {
-                    name: hotelForm.name,
-                    currency: hotelForm.currency,
-                    timezone: hotelForm.timezone,
-                    ...(hotelForm.address.trim() ? { address: hotelForm.address.trim() } : {}),
-                    ...(hotelForm.addressLine1.trim() ? { addressLine1: hotelForm.addressLine1.trim() } : {}),
-                    ...(hotelForm.city.trim() ? { city: hotelForm.city.trim() } : {}),
-                    ...(hotelForm.country.trim() ? { country: hotelForm.country.trim() } : {}),
-                  };
-                  updateHotelMutation.mutate({
-                    ...payload,
-                  });
-                }}
-              >
-                <div>
-                  <label className="label">Hotel Name</label>
-                  <input
-                    type="text"
-                    value={hotelForm.name}
-                    onChange={(e) => setHotelForm((prev) => ({ ...prev, name: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="label">City</label>
-                    <input
-                      type="text"
-                      value={hotelForm.city}
-                      onChange={(e) => setHotelForm((prev) => ({ ...prev, city: e.target.value }))}
-                      className="input"
-                      placeholder="e.g. Lagos"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="label">Country</label>
-                    <input
-                      type="text"
-                      value={hotelForm.country}
-                      onChange={(e) => setHotelForm((prev) => ({ ...prev, country: e.target.value }))}
-                      className="input"
-                      placeholder="e.g. Nigeria"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="label">Address (optional)</label>
-                    <input
-                      type="text"
-                      value={hotelForm.address}
-                      onChange={(e) => setHotelForm((prev) => ({ ...prev, address: e.target.value }))}
-                      className="input"
-                      placeholder="Full address"
-                    />
-                  </div>
-                  <div>
-                    <label className="label">Address Line 1 (optional)</label>
-                    <input
-                      type="text"
-                      value={hotelForm.addressLine1}
-                      onChange={(e) => setHotelForm((prev) => ({ ...prev, addressLine1: e.target.value }))}
-                      className="input"
-                      placeholder="Street / building"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="label">Currency</label>
-                    <select
-                      value={hotelForm.currency}
-                      onChange={(e) => setHotelForm((prev) => ({ ...prev, currency: e.target.value }))}
-                      className="input"
-                    >
-                      {currencyOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label">Timezone</label>
-                    <select
-                      value={hotelForm.timezone}
-                      onChange={(e) => setHotelForm((prev) => ({ ...prev, timezone: e.target.value }))}
-                      className="input"
-                    >
-                      {timezoneOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="pt-4">
-                  <button type="submit" className="btn-primary" disabled={updateHotelMutation.isPending}>
-                    {updateHotelMutation.isPending ? 'Saving...' : 'Save Changes'}
-                  </button>
-                </div>
-              </form>
-
-              {Boolean(user) && (
-                <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900">Operational Forecast Signals</div>
-                      <div className="mt-1 text-sm text-slate-600">
-                        Weather signals are used in Operations Center for advisories, demand tracking, and task creation.
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => navigate('/operations')}
-                      className="inline-flex items-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-                    >
-                      Open Operations Center
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <HotelInfoPanel
+              values={hotelForm}
+              savedValues={savedHotelForm}
+              currencyOptions={currencyOptions}
+              timezoneOptions={timezoneOptions}
+              canEdit={isAdmin}
+              saving={updateHotelMutation.isPending}
+              onChange={setHotelForm}
+              onReset={() => setHotelForm({ ...savedHotelForm })}
+              onSave={async () => {
+                await updateHotelMutation.mutateAsync({
+                  name: hotelForm.name.trim(),
+                  currency: hotelForm.currency,
+                  timezone: hotelForm.timezone,
+                  ...(hotelForm.address.trim() ? { address: hotelForm.address.trim() } : {}),
+                  ...(hotelForm.addressLine1.trim() ? { addressLine1: hotelForm.addressLine1.trim() } : {}),
+                  city: hotelForm.city.trim(),
+                  country: hotelForm.country.trim(),
+                });
+              }}
+              onOpenOperations={() => navigate('/operations')}
+            />
           )}
 
           {/* Room Types */}
           {activeTab === 'room-types' && (
-            <div className="space-y-6">
-              <div className="card">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold text-slate-900">Room Types</h2>
-                    <p className="text-sm text-slate-500">Manage your room categories and rates</p>
-                  </div>
-                  <button
-                    onClick={() => setShowAddRoomTypeModal(true)}
-                    className="btn-primary"
-                  >
-                    Add Room Type
-                  </button>
-                </div>
-
-                <div className="mt-6">
-                  {roomTypesLoading ? (
-                    <div className="space-y-3">
-                      {[...Array(3)].map((_, i) => (
-                        <div key={i} className="h-20 animate-shimmer rounded-lg" />
-                      ))}
-                    </div>
-                  ) : roomTypes && roomTypes.length > 0 ? (
-                    <div className="space-y-3">
-                      {roomTypes.map((roomType) => (
-                        <div
-                          key={roomType.id}
-                          className="flex items-center justify-between rounded-lg border border-slate-200 p-4"
-                        >
-                          <div>
-                            <h3 className="font-medium text-slate-900">{roomType.name}</h3>
-                            <p className="text-sm text-slate-500">
-                              {roomType.description || 'No description'}
-                            </p>
-                            <div className="mt-1 flex items-center gap-4 text-sm text-slate-500">
-                              <span>Base rate: ${roomType.baseRate}/night</span>
-                              <span>Max guests: {roomType.maxGuests}</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button className="btn-ghost text-sm">Edit</button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-slate-500">No room types configured</p>
-                  )}
-                </div>
-              </div>
-            </div>
+            <RoomTypesPanel roomTypes={roomTypes || []} roomCounts={roomCounts} currency={currencyForCountry(hotelForm.country) || hotelForm.currency || 'USD'} loading={roomTypesLoading} error={roomTypesError} canEdit={isAdmin} saving={createRoomTypeMutation.isPending || updateRoomTypeMutation.isPending} onRetry={() => { void refetchRoomTypes(); }} onCreate={async (input) => { await createRoomTypeMutation.mutateAsync(input); }} onUpdate={async (id, input) => { await updateRoomTypeMutation.mutateAsync({ id, data: input }); }} />
           )}
 
           {/* Security */}
           {activeTab === 'security' && (
-            <div className="space-y-6">
-              {/* Change Password */}
-              <div className="card">
-                <h2 className="text-lg font-semibold text-slate-900">Change Password</h2>
-                <p className="text-sm text-slate-500">Update your account password</p>
-
-                <form className="mt-6 space-y-4">
-                  <div>
-                    <label className="label">Current Password</label>
-                    <input type="password" className="input" />
-                  </div>
-                  <div>
-                    <label className="label">New Password</label>
-                    <input type="password" className="input" />
-                  </div>
-                  <div>
-                    <label className="label">Confirm New Password</label>
-                    <input type="password" className="input" />
-                  </div>
-                  <div className="pt-2">
-                    <button type="submit" className="btn-primary">
-                      Update Password
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-              {/* Two-Factor Authentication */}
-              <div className="card">
-                <h2 className="text-lg font-semibold text-slate-900">Two-Factor Authentication</h2>
-                <p className="text-sm text-slate-500">
-                  Add an extra layer of security to your account
-                </p>
-
-                <div className="mt-6">
-                  {user?.twoFactorEnabled ? (
-                    <div className="flex items-center justify-between rounded-lg bg-emerald-50 p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-                          <svg
-                            className="h-5 w-5 text-emerald-600"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                            />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="font-medium text-emerald-900">2FA is enabled</p>
-                          <p className="text-sm text-emerald-700">
-                            Your account is protected with two-factor authentication
-                          </p>
-                        </div>
-                      </div>
-                      <button className="btn-outline text-sm">Disable</button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between rounded-lg bg-amber-50 p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
-                          <svg
-                            className="h-5 w-5 text-amber-600"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                            />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="font-medium text-amber-900">2FA is not enabled</p>
-                          <p className="text-sm text-amber-700">
-                            Enable two-factor authentication for better security
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setup2FAMutation.mutate()}
-                        disabled={setup2FAMutation.isPending}
-                        className="btn-primary text-sm"
-                      >
-                        {setup2FAMutation.isPending ? 'Setting up...' : 'Enable 2FA'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Authentication Options (Roadmap) */}
-              <div className="card">
-                <h2 className="text-lg font-semibold text-slate-900">Authentication Options</h2>
-                <p className="text-sm text-slate-500">
-                  Additional sign-in methods (biometric/passphrase) can be added after 2FA is stable.
-                </p>
-
-                <div className="mt-6 space-y-3">
-                  <div className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
-                    <div>
-                      <p className="font-medium text-slate-900">Passkey (biometric)</p>
-                      <p className="text-sm text-slate-500">Sign in with Face ID / Touch ID (WebAuthn).</p>
-                    </div>
-                    <button type="button" className="btn-outline text-sm" disabled>
-                      Coming soon
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
-                    <div>
-                      <p className="font-medium text-slate-900">Passphrase sign-in</p>
-                      <p className="text-sm text-slate-500">Use a human-friendly passphrase instead of a password.</p>
-                    </div>
-                    <button type="button" className="btn-outline text-sm" disabled>
-                      Coming soon
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <SecurityPanel
+              twoFactorEnabled={Boolean(user?.twoFactorEnabled)}
+              passwordLoading={changePasswordMutation.isPending}
+              twoFactorLoading={setup2FAMutation.isPending}
+              sessions={sessionsQuery.data || []}
+              sessionsLoading={sessionsQuery.isLoading}
+              sessionsError={sessionsQuery.isError}
+              sessionActionLoading={revokeOtherSessionsMutation.isPending || revokeSessionMutation.isPending}
+              onPasswordChange={async (currentPassword, newPassword) => {
+                await changePasswordMutation.mutateAsync({ currentPassword, newPassword });
+              }}
+              onEnableTwoFactor={() => setup2FAMutation.mutate()}
+              onRetrySessions={() => sessionsQuery.refetch()}
+              onRevokeOtherSessions={() => revokeOtherSessionsMutation.mutateAsync()}
+              onRevokeSession={(sessionId) => revokeSessionMutation.mutateAsync(sessionId)}
+            />
           )}
 
           {/* Notifications */}
           {activeTab === 'notifications' && (
-            <div className="card">
-              <h2 className="text-lg font-semibold text-slate-900">Notification Preferences</h2>
-              <p className="text-sm text-slate-500">Choose what notifications you receive</p>
-
-              <div className="mt-6 space-y-4">
-                  <label className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
-                    <div>
-                      <p className="font-medium text-slate-900">New Bookings</p>
-                      <p className="text-sm text-slate-500">
-                        Get notified when a new booking is made
-                      </p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={notificationPrefs.newBookings}
-                      onChange={(event) =>
-                        setNotificationPrefs((prev) => ({
-                          ...prev,
-                          newBookings: event.target.checked,
-                        }))
-                      }
-                      className="h-5 w-5 rounded border-slate-300 text-primary-600"
-                    />
-                  </label>
-
-                  <label className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
-                    <div>
-                      <p className="font-medium text-slate-900">Check-ins</p>
-                      <p className="text-sm text-slate-500">
-                        Get notified when guests check in
-                      </p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={notificationPrefs.checkIns}
-                      onChange={(event) =>
-                        setNotificationPrefs((prev) => ({
-                          ...prev,
-                          checkIns: event.target.checked,
-                        }))
-                      }
-                      className="h-5 w-5 rounded border-slate-300 text-primary-600"
-                    />
-                  </label>
-
-                  <label className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
-                    <div>
-                      <p className="font-medium text-slate-900">Housekeeping Updates</p>
-                      <p className="text-sm text-slate-500">
-                        Get notified when room status changes
-                      </p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={notificationPrefs.housekeepingUpdates}
-                      onChange={(event) =>
-                        setNotificationPrefs((prev) => ({
-                          ...prev,
-                          housekeepingUpdates: event.target.checked,
-                        }))
-                      }
-                      className="h-5 w-5 rounded border-slate-300 text-primary-600"
-                    />
-                  </label>
-
-                  <label className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
-                    <div>
-                      <p className="font-medium text-slate-900">Daily Reports</p>
-                      <p className="text-sm text-slate-500">
-                        Receive daily summary reports via email
-                      </p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={notificationPrefs.dailyReports}
-                      onChange={(event) =>
-                        setNotificationPrefs((prev) => ({
-                          ...prev,
-                          dailyReports: event.target.checked,
-                        }))
-                      }
-                      className="h-5 w-5 rounded border-slate-300 text-primary-600"
-                    />
-                  </label>
-                </div>
-
-                <div className="mt-6">
-                  <button className="btn-primary" onClick={saveNotificationPrefs}>
-                    Save Preferences
-                  </button>
-                </div>
-              </div>
+            <NotificationPreferencesPanel values={notificationPrefs} savedValues={savedNotificationPrefs} canEdit={isAdmin} onChange={setNotificationPrefs} onSave={saveNotificationPrefs} onReset={() => setNotificationPrefs({ ...savedNotificationPrefs })} />
             )}
 
           {/* Appearance */}
           {activeTab === 'appearance' && (
-            <div className="card">
-              <h2 className="text-lg font-semibold text-slate-900">Appearance</h2>
-              <p className="text-sm text-slate-500">Choose a theme and background style.</p>
-
-              <div className="mt-6 space-y-6">
-                <div>
-                  <label className="label">Theme</label>
-                  <ThemeSwitcher />
-                  <p className="mt-2 text-xs text-slate-500">
-                    Active theme: <span className="font-medium capitalize">{theme}</span>
-                  </p>
-                </div>
-
-                <div>
-                  <label className="label">Background</label>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    {backgroundOptions.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() =>
-                          setAppearancePrefs((prev) => ({ ...prev, background: option.value }))
-                        }
-                        className={`rounded-lg border px-3 py-3 text-left text-sm transition-colors ${
-                          appearancePrefs.background === option.value
-                            ? 'border-primary-500 bg-primary-50 text-primary-700'
-                            : 'border-slate-200 bg-white text-slate-600 hover:border-primary-300'
-                        }`}
-                      >
-                        <div className="font-medium text-slate-900">{option.label}</div>
-                        <div className="mt-1 text-xs text-slate-500">Page background</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <button className="btn-primary" onClick={saveAppearancePrefs}>
-                    Save Appearance
-                  </button>
-                </div>
-              </div>
-            </div>
+            <AppearancePanel
+              theme={appearancePrefs.theme}
+              background={appearancePrefs.background}
+              isDirty={
+                appearancePrefs.theme !== savedAppearance.theme ||
+                appearancePrefs.background !== savedAppearance.background
+              }
+              onThemeChange={(nextTheme) => {
+                setAppearancePrefs((current) => ({ ...current, theme: nextTheme }));
+              }}
+              onBackgroundChange={(background) =>
+                setAppearancePrefs((current) => ({ ...current, background }))
+              }
+              onSave={saveAppearancePrefs}
+              onReset={resetAppearancePrefs}
+            />
           )}
 
           {/* Integrations */}
@@ -1224,514 +1029,54 @@ export default function SettingsPage() {
 
           {/* Audit Trail */}
           {activeTab === 'audit-trail' && (
-            <div className="space-y-6">
-              <div className="card">
-                <h2 className="text-lg font-semibold text-slate-900">Audit Trail</h2>
-                <p className="text-sm text-slate-500">
-                  Track critical changes and keep an operational record.
-                </p>
-
-                <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="label">Retention (days)</label>
-                    <input
-                      type="number"
-                      min={14}
-                      max={365}
-                      className="input"
-                      value={auditSettings.retentionDays}
-                      onChange={(event) =>
-                        setAuditSettings((prev) => ({
-                          ...prev,
-                          retentionDays: Number(event.target.value || 0),
-                        }))
-                      }
-                    />
-                    <p className="mt-1 text-xs text-slate-500">
-                      Recommended: 90 days for operational audit needs.
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
-                    <div>
-                      <p className="font-medium text-slate-900">External log forwarding</p>
-                      <p className="text-xs text-slate-500">
-                        Send copies to your log monitoring tool.
-                      </p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={auditSettings.forwardingEnabled}
-                      onChange={(event) =>
-                        setAuditSettings((prev) => ({
-                          ...prev,
-                          forwardingEnabled: event.target.checked,
-                        }))
-                      }
-                      className="h-5 w-5 rounded border-slate-300 text-primary-600"
-                    />
-                  </div>
-                </div>
-
-                {auditSettings.forwardingEnabled && (
-                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="label">Forwarding URL</label>
-                      <input
-                        className="input"
-                        placeholder="https://logs.example.com/ingest"
-                        value={auditSettings.forwardingUrl || ''}
-                        onChange={(event) =>
-                          setAuditSettings((prev) => ({
-                            ...prev,
-                            forwardingUrl: event.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className="label">API Key</label>
-                      <input
-                        className="input"
-                        placeholder="Optional"
-                        value={auditSettings.forwardingApiKey || ''}
-                        onChange={(event) =>
-                          setAuditSettings((prev) => ({
-                            ...prev,
-                            forwardingApiKey: event.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <button className="btn-primary" onClick={saveAuditPrefs}>
-                    Save Audit Settings
-                  </button>
-                  <button
-                    className="btn-outline"
-                    onClick={() =>
-                      downloadTextFile(
-                        JSON.stringify(auditLogs, null, 2),
-                        'audit-log.json',
-                        'application/json'
-                      )
-                    }
-                  >
-                    Export JSON
-                  </button>
-                  <button
-                    className="btn-outline"
-                    onClick={() => {
-                      const header = ['Timestamp', 'Action', 'Actor', 'Target', 'Details'];
-                      const rows = auditLogs.map((log) => [
-                        log.createdAt,
-                        log.action,
-                        log.actorName || '',
-                        log.targetLabel || log.targetId || '',
-                        log.details ? JSON.stringify(log.details) : '',
-                      ]);
-                      const csv = [header, ...rows]
-                        .map((row) =>
-                          row
-                            .map((cell) => `"${String(cell).replace(/\"/g, '""')}"`)
-                            .join(',')
-                        )
-                        .join('\n');
-                      downloadTextFile(csv, 'audit-log.csv', 'text/csv');
-                    }}
-                  >
-                    Export CSV
-                  </button>
-                  <button
-                    className="btn-outline"
-                    onClick={() => {
-                      const latest = auditLogs[0]?.createdAt || 'N/A';
-                      const report = [
-                        'LaFlo Compliance Snapshot',
-                        `Generated: ${new Date().toISOString()}`,
-                        `Retention: ${auditSettings.retentionDays} days`,
-                        `Forwarding Enabled: ${auditSettings.forwardingEnabled ? 'Yes' : 'No'}`,
-                        `Forwarding URL: ${auditSettings.forwardingUrl || 'Not configured'}`,
-                        `Latest Log Entry: ${latest}`,
-                        '',
-                        'Review items:',
-                        '- Access requests audited',
-                        '- User management changes logged',
-                        '- Notification settings tracked',
-                      ].join('\n');
-                      downloadTextFile(report, 'compliance-report.txt');
-                    }}
-                  >
-                    Generate Compliance Report
-                  </button>
-                </div>
-              </div>
-
-              <div className="card">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="text-lg font-semibold text-slate-900">Recent Activity</h3>
-                  <input
-                    value={auditFilter}
-                    onChange={(event) => setAuditFilter(event.target.value)}
-                    placeholder="Filter audit entries..."
-                    className="input max-w-xs"
-                  />
-                </div>
-
-                <div className="mt-4">
-                  {filteredAuditLogs.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-                      No audit entries yet.
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {filteredAuditLogs.map((entry) => (
-                        <div
-                          key={entry.id}
-                          className="rounded-lg border border-slate-200 px-4 py-3 text-sm"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="font-semibold text-slate-900">{entry.action}</span>
-                            <span className="text-xs text-slate-500">
-                              {new Date(entry.createdAt).toLocaleString()}
-                            </span>
-                          </div>
-                          <div className="mt-2 text-xs text-slate-600">
-                            Actor: {entry.actorName || 'System'}
-                          </div>
-                          {entry.targetLabel || entry.targetId ? (
-                            <div className="text-xs text-slate-600">
-                              Target: {entry.targetLabel || entry.targetId}
-                            </div>
-                          ) : null}
-                          {entry.details && (
-                            <pre className="mt-2 max-h-32 overflow-auto rounded bg-slate-50 p-2 text-[11px] text-slate-500">
-                              {JSON.stringify(entry.details, null, 2)}
-                            </pre>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+            <AuditTrailPanel
+              settings={auditSettings}
+              savedSettings={savedAuditSettings}
+              logs={auditLogs}
+              onSettingsChange={setAuditSettings}
+              onSave={saveAuditPrefs}
+              onExportJson={exportAuditJson}
+              onExportCsv={exportAuditCsv}
+              onGenerateReport={generateComplianceReport}
+            />
           )}
 
           {/* Access Requests */}
-          {activeTab === 'access-requests' && (
-            <div className="card">
-              <h2 className="text-lg font-semibold text-slate-900">Access Requests</h2>
-              <p className="text-sm text-slate-500">
-                Review new access requests and send password setup invites.
-              </p>
-
-              <div className="mt-6">
-                {accessRequestsLoading ? (
-                  <div className="space-y-3">
-                    {[...Array(3)].map((_, i) => (
-                      <div key={i} className="h-16 animate-shimmer rounded-lg" />
-                    ))}
-                  </div>
-                ) : accessRequests && accessRequests.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full text-sm">
-                      <thead className="text-left text-slate-500">
-                        <tr>
-                          <th className="px-3 py-2">Requester</th>
-                          <th className="px-3 py-2">Company</th>
-                          <th className="px-3 py-2">Requested Role</th>
-                          <th className="px-3 py-2">Status</th>
-                          <th className="px-3 py-2">Requested</th>
-                          <th className="px-3 py-2 text-right">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        {accessRequests.map((request) => {
-                          const selectedRole =
-                            selectedRoles[request.id] || normalizeRole(request.role);
-                          return (
-                            <tr key={request.id}>
-                              <td className="px-3 py-3">
-                                <div className="font-medium text-slate-900">{request.fullName}</div>
-                                <div className="text-slate-500">{request.email}</div>
-                              </td>
-                              <td className="px-3 py-3 text-slate-600">
-                                {request.company || '-'}
-                              </td>
-                              <td className="px-3 py-3">
-                                {request.status === 'PENDING' ? (
-                                  <select
-                                    className="input h-9"
-                                    value={selectedRole}
-                                    onChange={(event) =>
-                                      setSelectedRoles((prev) => ({
-                                        ...prev,
-                                        [request.id]: event.target.value,
-                                      }))
-                                    }
-                                  >
-                                    {roleOptions.map((option) => (
-                                      <option key={option.value} value={option.value}>
-                                        {option.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <span className="text-slate-700">
-                                    {normalizeRole(request.role)}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-3 py-3">
-                                <span
-                                  className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                                    request.status === 'APPROVED'
-                                      ? 'bg-emerald-100 text-emerald-700'
-                                      : request.status === 'REJECTED'
-                                        ? 'bg-rose-100 text-rose-700'
-                                        : request.status === 'INFO_RECEIVED'
-                                          ? 'bg-indigo-100 text-indigo-700'
-                                          : request.status === 'NEEDS_INFO' || request.status === 'INFO_REQUESTED'
-                                            ? 'bg-blue-100 text-blue-700'
-                                            : 'bg-amber-100 text-amber-700'
-                                  }`}
-                                >
-                                  {formatEnumLabel(request.status)}
-                                </span>
-                                {request.adminNotes && (
-                                  <div className="mt-2 text-xs text-slate-500">
-                                    Notes: {request.adminNotes}
-                                  </div>
-                                )}
-                              </td>
-                              <td className="px-3 py-3 text-slate-600">
-                                {new Date(request.createdAt).toLocaleDateString()}
-                              </td>
-                              <td className="px-3 py-3 text-right">
-                                {request.status === 'PENDING' ||
-                                request.status === 'NEEDS_INFO' ||
-                                request.status === 'INFO_REQUESTED' ||
-                                request.status === 'INFO_RECEIVED' ? (
-                                  <div className="flex flex-wrap justify-end gap-2">
-                                    {(request.status === 'INFO_RECEIVED' ||
-                                      request.status === 'NEEDS_INFO' ||
-                                      request.status === 'INFO_REQUESTED') && (
-                                      <button
-                                        className="btn-outline text-sm"
-                                        onClick={() => openReplyModal(request)}
-                                        disabled={replyLoading}
-                                      >
-                                        {replyLoading ? 'Loading...' : 'View response'}
-                                      </button>
-                                    )}
-                                    <button
-                                      className="btn-outline text-sm"
-                                      onClick={() => {
-                                        setAccessRequestNotes('');
-                                        setAccessRequestAction({
-                                          id: request.id,
-                                          type: 'request-info',
-                                          name: request.fullName,
-                                        });
-                                      }}
-                                    >
-                                      Request info
-                                    </button>
-                                    <button
-                                      className="btn-outline text-sm text-rose-600"
-                                      onClick={() => {
-                                        setAccessRequestNotes('');
-                                        setAccessRequestAction({
-                                          id: request.id,
-                                          type: 'reject',
-                                          name: request.fullName,
-                                        });
-                                      }}
-                                    >
-                                      Reject
-                                    </button>
-                                    <button
-                                      className="btn-primary text-sm"
-                                      disabled={
-                                        approveAccessMutation.isPending &&
-                                        approvingRequestId === request.id
-                                      }
-                                      onClick={async () => {
-                                        setApprovingRequestId(request.id);
-                                        try {
-                                          await approveAccessMutation.mutateAsync({
-                                            id: request.id,
-                                            role: selectedRole,
-                                          });
-                                        } finally {
-                                          setApprovingRequestId((current) =>
-                                            current === request.id ? null : current
-                                          );
-                                        }
-                                      }}
-                                    >
-                                      {approveAccessMutation.isPending &&
-                                      approvingRequestId === request.id
-                                        ? 'Sending...'
-                                        : 'Approve'}
-                                    </button>
-                                    <button
-                                      className="btn-outline text-sm text-rose-600"
-                                      onClick={() => {
-                                        const confirmed = window.confirm(
-                                          'Delete this access request? This cannot be undone.'
-                                        );
-                                        if (confirmed) {
-                                          deleteAccessRequestMutation.mutate(request.id);
-                                        }
-                                      }}
-                                    >
-                                      Delete
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <div className="flex flex-wrap justify-end gap-2">
-                                    {request.status === 'APPROVED' && (
-                                      <button
-                                        className="btn-outline text-sm"
-                                        disabled={
-                                          approveAccessMutation.isPending &&
-                                          approvingRequestId === request.id
-                                        }
-                                        onClick={async () => {
-                                          setApprovingRequestId(request.id);
-                                          try {
-                                            await approveAccessMutation.mutateAsync({
-                                              id: request.id,
-                                              role: selectedRole,
-                                            });
-                                          } finally {
-                                            setApprovingRequestId((current) =>
-                                              current === request.id ? null : current
-                                            );
-                                          }
-                                        }}
-                                      >
-                                        {approveAccessMutation.isPending &&
-                                        approvingRequestId === request.id
-                                          ? 'Sending...'
-                                          : 'Resend setup'}
-                                      </button>
-                                    )}
-                                    <button
-                                      className="btn-outline text-sm text-rose-600"
-                                      onClick={() => {
-                                        const confirmed = window.confirm(
-                                          'Delete this access request? This cannot be undone.'
-                                        );
-                                        if (confirmed) {
-                                          deleteAccessRequestMutation.mutate(request.id);
-                                        }
-                                      }}
-                                    >
-                                      Delete
-                                    </button>
-                                  </div>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-sm text-slate-500">No access requests yet.</p>
-                )}
-              </div>
-            </div>
+          {activeTab === 'access-requests' && isAdmin && (
+            <AccessRequestsPanel
+              requests={accessRequests}
+              isLoading={accessRequestsLoading}
+              isError={accessRequestsError}
+              currentUserEmail={user?.email}
+              roleOptions={roleOptions}
+              selectedRoles={selectedRoles}
+              onRoleChange={(requestId, role) =>
+                setSelectedRoles((current) => ({ ...current, [requestId]: role }))
+              }
+              onRetry={() => { void refetchAccessRequests(); }}
+              onApprove={async (request, role) => {
+                await approveAccessMutation.mutateAsync({ id: request.id, role });
+              }}
+              onResend={async (request, role) => {
+                await resendAccessSetupMutation.mutateAsync({ id: request.id, role });
+              }}
+              onReject={(request) => {
+                setAccessRequestNotes('');
+                setAccessRequestAction({ id: request.id, type: 'reject', name: request.fullName });
+              }}
+              onRequestInfo={(request) => {
+                setAccessRequestNotes('');
+                setAccessRequestAction({ id: request.id, type: 'request-info', name: request.fullName });
+              }}
+              onViewResponse={(request) => { void openReplyModal(request); }}
+              onDelete={async (request) => {
+                await deleteAccessRequestMutation.mutateAsync(request.id);
+              }}
+            />
           )}
+
         </div>
       </div>
-
-      {/* Add Room Type Modal */}
-      {showAddRoomTypeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-slate-900/50"
-            onClick={() => setShowAddRoomTypeModal(false)}
-          />
-          <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h2 className="text-xl font-bold text-slate-900">Add Room Type</h2>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                createRoomTypeMutation.mutate({
-                  name: formData.get('name') as string,
-                  description: formData.get('description') as string || undefined,
-                  baseRate: Number(formData.get('baseRate')),
-                  maxGuests: Number(formData.get('maxGuests')),
-                  amenities: [],
-                  isActive: true,
-                });
-              }}
-              className="mt-6 space-y-4"
-            >
-              <div>
-                <label className="label">Name *</label>
-                <input name="name" required className="input" placeholder="e.g., Deluxe King" />
-              </div>
-
-              <div>
-                <label className="label">Description</label>
-                <textarea name="description" className="input" rows={2} />
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="label">Base Rate *</label>
-                  <input
-                    name="baseRate"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    required
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label className="label">Max Guests *</label>
-                  <input
-                    name="maxGuests"
-                    type="number"
-                    min="1"
-                    required
-                    className="input"
-                    defaultValue="2"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAddRoomTypeModal(false)}
-                  className="btn-outline flex-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createRoomTypeMutation.isPending}
-                  className="btn-primary flex-1"
-                >
-                  {createRoomTypeMutation.isPending ? 'Creating...' : 'Create'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* 2FA Setup Modal */}
       {show2FAModal && (

@@ -4,8 +4,9 @@ import { roomService } from '@/services';
 import type { Room } from '@/types';
 import toast from 'react-hot-toast';
 import { useSearchParams } from 'react-router-dom';
-import { PAGE_TITLE_CLASS } from '@/styles/typography';
 import { getRoomImage, getRoomTypeImage, setRoomImage, setRoomTypeImage } from '@/utils/mediaPrefs';
+import { BedDouble, CircleCheck, CircleOff, SprayCan } from 'lucide-react';
+import { ModuleMetricGrid, ModulePageHeader } from '@/components/core/ModuleLandingUi';
 
 type StatusFilter = 'all' | 'AVAILABLE' | 'OCCUPIED' | 'OUT_OF_SERVICE';
 type HousekeepingFilter = 'all' | 'CLEAN' | 'DIRTY' | 'INSPECTION' | 'OUT_OF_SERVICE';
@@ -179,6 +180,35 @@ export default function RoomsPage() {
   });
 
   const rooms = roomsData?.data || [];
+  const roomMetrics = [
+    {
+      label: 'Rooms in view',
+      value: rooms.length,
+      detail: floorFilter === 'all' ? 'Across all configured floors' : `Floor ${floorFilter}`,
+      icon: <BedDouble className="h-4 w-4" />,
+    },
+    {
+      label: 'Available',
+      value: rooms.filter((room) => room.status === 'AVAILABLE').length,
+      detail: 'Open for assignment',
+      icon: <CircleCheck className="h-4 w-4" />,
+      tone: 'blue' as const,
+    },
+    {
+      label: 'Needs attention',
+      value: rooms.filter((room) => room.housekeepingStatus === 'DIRTY' || room.housekeepingStatus === 'INSPECTION').length,
+      detail: 'Cleaning or inspection required',
+      icon: <SprayCan className="h-4 w-4" />,
+      tone: 'amber' as const,
+    },
+    {
+      label: 'Out of service',
+      value: rooms.filter((room) => room.status === 'OUT_OF_SERVICE' || room.housekeepingStatus === 'OUT_OF_SERVICE').length,
+      detail: 'Unavailable for guest assignment',
+      icon: <CircleOff className="h-4 w-4" />,
+      tone: 'rose' as const,
+    },
+  ];
   const sortedFloors = (floorsData || []).slice().sort((a, b) => a.number - b.number);
 
   const displayGroups = useMemo(() => {
@@ -401,9 +431,14 @@ export default function RoomsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className={PAGE_TITLE_CLASS}>Rooms</h1>
-      </div>
+      <ModulePageHeader
+        eyebrow="Inventory & readiness"
+        title="Rooms"
+        description="Review availability, room types, readiness, pricing, and service status."
+        action={<button onClick={() => setShowAddModal(true)} className="btn-primary">Add Room</button>}
+      />
+
+      <ModuleMetricGrid metrics={roomMetrics} />
 
       <div className="grid gap-4 xl:grid-cols-[1.08fr_1fr]">
         <div className="card p-4">
