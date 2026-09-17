@@ -289,6 +289,17 @@ describe("OperationsCenterPage", () => {
     expect(screen.getByLabelText("Operations summary")).not.toHaveClass("xl:grid-cols-7");
     expect(screen.getByText("Operational Advisories").closest(".operations-primary-grid")).toHaveClass("2xl:grid-cols-[1.45fr_1fr_.9fr]");
     expect(screen.getAllByText("Now")[0].closest(".operations-hour")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "°F" }));
+    expect(screen.getByText("61°F")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Critical" }));
+    expect(screen.getByText("No critical advisories.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Info" }));
+    expect(screen.getAllByText("Proceed with standard operations plan").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Due Today" }));
+    expect(screen.getByText("No tasks due today.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Revenue trend")).toHaveTextContent("connect pricing data");
     expect(
       screen.queryByPlaceholderText("Ask an operational question..."),
     ).not.toBeInTheDocument();

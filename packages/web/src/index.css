@@ -1142,6 +1142,11 @@
   background: transparent;
 }
 
+.operations-section-tabs > a {
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+}
+
 /* The approved Operations Workspace uses a neutral canvas even when a user
  * has selected a decorative app background. */
 .app-workspace-background:has(> .operations-command-center) {
