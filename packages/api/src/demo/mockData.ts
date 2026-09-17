@@ -58,7 +58,7 @@ export const mockUsers = [
     lastName: 'User',
     role: 'ADMIN',
     hotelId: 'hotel-1',
-    isActive: true,
+    isActive: false,
     twoFactorEnabled: false,
     twoFactorSecret: null,
     lastLoginAt: new Date(),

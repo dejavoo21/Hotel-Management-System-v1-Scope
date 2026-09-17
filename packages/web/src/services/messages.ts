@@ -1,6 +1,7 @@
 import api from './api';
 import type {
   ConversationMessage,
+  MessageAttachment,
   MessageThreadDetail,
   MessageThreadSummary,
   SupportVoiceToken,
@@ -27,8 +28,8 @@ export const messageService = {
     return response.data.data;
   },
 
-  async createMessage(threadId: string, body: string): Promise<ConversationMessage> {
-    const response = await api.post(`/messages/${threadId}/messages`, { body });
+  async createMessage(threadId: string, body: string, attachments: MessageAttachment[] = []): Promise<ConversationMessage> {
+    const response = await api.post(`/messages/${threadId}/messages`, { body, attachments });
     return response.data.data;
   },
 

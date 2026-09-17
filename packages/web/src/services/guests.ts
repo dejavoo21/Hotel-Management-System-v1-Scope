@@ -4,8 +4,27 @@ import type { Guest, PaginatedResponse } from '@/types';
 export interface GuestFilters {
   search?: string;
   vipStatus?: boolean;
+  status?: 'IN_HOUSE' | 'CHECKED_OUT';
+  country?: string;
+  returning?: boolean;
+  contactable?: boolean;
+  needsAttention?: boolean;
+  lastStayDays?: 30 | 90 | 365;
   page?: number;
   limit?: number;
+}
+
+export interface GuestDirectorySummary {
+  total: number;
+  vip: number;
+  inHouse: number;
+  returning: number;
+  contactable: number;
+  needsFollowUp: number;
+  totalLifetimeSpend: number;
+  averageSpend: number;
+  repeatStayRate: number;
+  recentlyAdded: Array<{ id: string; firstName: string; lastName: string; createdAt: string; vipStatus: boolean }>;
 }
 
 export interface CreateGuestData {
@@ -78,18 +97,23 @@ export interface GuestJourneyTimeline {
 }
 
 export const guestService = {
-  async getGuests(filters?: GuestFilters): Promise<PaginatedResponse<Guest>> {
+  async getGuests(filters?: GuestFilters): Promise<PaginatedResponse<Guest> & { data: Guest[] }> {
     const response = await api.get('/guests', {
       params: {
         ...filters,
         _ts: Date.now(),
       },
     });
-    return response.data;
+    return response.data as PaginatedResponse<Guest> & { data: Guest[] };
   },
 
   async getGuest(id: string): Promise<Guest> {
     const response = await api.get(`/guests/${id}`);
+    return response.data.data;
+  },
+
+  async getDirectorySummary(): Promise<GuestDirectorySummary> {
+    const response = await api.get('/guests/summary', { params: { _ts: Date.now() } });
     return response.data.data;
   },
 

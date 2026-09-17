@@ -66,8 +66,6 @@ const toneClasses: Record<Tone, { card: string; pill: string; text: string; dot:
   },
 };
 
-const currency = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
-
 const clamp = (value: number, min = 0, max = 100) => Math.min(max, Math.max(min, value));
 
 const formatStatus = (value?: string | null) =>
@@ -148,6 +146,11 @@ const RestrictedState = ({ moduleName }: { moduleName: string }) => (
 
 export default function EnterpriseCommandCenterPage() {
   const { user } = useAuthStore();
+  const currencyCode = user?.hotel?.currency || 'USD';
+  const currencyFormatter = useMemo(
+    () => new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode, maximumFractionDigits: 0 }),
+    [currencyCode]
+  );
   const canAccess = useModuleAccess();
   const hotelId = user?.hotel?.id || '';
 
@@ -400,8 +403,8 @@ export default function EnterpriseCommandCenterPage() {
         />
         <MetricCard
           label="Revenue Today"
-          value={canFinancials || canDashboard ? currency.format(dashboard?.todayRevenue || 0) : 'Restricted'}
-          detail={`Month ${currency.format(dashboard?.monthRevenue || 0)}`}
+          value={canFinancials || canDashboard ? currencyFormatter.format(dashboard?.todayRevenue || 0) : 'Restricted'}
+          detail={`Month ${currencyFormatter.format(dashboard?.monthRevenue || 0)}`}
           tone="emerald"
           icon={DollarSign}
         />
@@ -443,7 +446,7 @@ export default function EnterpriseCommandCenterPage() {
           <div className="grid gap-3">
             <MetricCard
               label="Today"
-              value={currency.format(dashboard?.todayRevenue || 0)}
+              value={currencyFormatter.format(dashboard?.todayRevenue || 0)}
               detail="Posted revenue"
               tone="emerald"
               icon={DollarSign}

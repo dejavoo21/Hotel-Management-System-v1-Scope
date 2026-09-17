@@ -8,6 +8,7 @@ import { AccessRequestStatus, Role } from '@prisma/client';
 import { createPasswordResetToken, hashPassword, requestPasswordReset } from '../services/auth.service.js';
 import { scanAttachment } from '../services/virusScan.service.js';
 import { renderLafloEmail, escapeEmailText } from '../utils/emailTemplates.js';
+import { recordAuditEvent } from '../platform/audit/auditEngine.service.js';
 
 type AccessRequestUpdateAction = 'APPROVED' | 'REJECTED' | 'NEEDS_INFO';
 
@@ -272,7 +273,16 @@ export async function approveAccessRequest(
       return;
     }
 
+    if (request.email.toLowerCase() === req.user!.email.toLowerCase()) {
+      res.status(403).json({
+        success: false,
+        error: 'You cannot approve or elevate your own access request.',
+      });
+      return;
+    }
+
     const normalizedRole = normalizeRole(role || request.role);
+    const wasAlreadyApproved = request.status === AccessRequestStatus.APPROVED;
     const { firstName, lastName } = parseName(request.fullName);
 
     let user = await prisma.user.findUnique({ where: { email: request.email } });
@@ -347,6 +357,24 @@ export async function approveAccessRequest(
       });
     }
 
+    await recordAuditEvent({
+      hotelId,
+      actor: {
+        userId: req.user!.id,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      },
+      action: wasAlreadyApproved ? 'ACCESS_REQUEST_SETUP_RESENT' : 'ACCESS_REQUEST_APPROVED',
+      entity: 'ACCESS_REQUEST',
+      entityId: request.id,
+      details: {
+        requesterEmail: request.email,
+        assignedRole: normalizedRole,
+        inviteEmailSent,
+      },
+      source: 'access-requests',
+    });
+
     res.json({
       success: true,
       message: inviteEmailSent ? 'Access approved and invite sent' : 'Access approved, email delivery pending',
@@ -381,6 +409,16 @@ export async function rejectAccessRequest(
       data: { status: 'REJECTED', adminNotes: notes || null },
     });
 
+    await recordAuditEvent({
+      hotelId: req.user!.hotelId,
+      actor: { userId: req.user!.id, ipAddress: req.ip, userAgent: req.get('user-agent') },
+      action: 'ACCESS_REQUEST_REJECTED',
+      entity: 'ACCESS_REQUEST',
+      entityId: request.id,
+      details: { requesterEmail: request.email, notes: notes || null },
+      source: 'access-requests',
+    });
+
     await sendRequesterUpdate(request.email, request.fullName, 'REJECTED', request.id, notes);
 
     res.json({ success: true, message: 'Access request rejected' });
@@ -409,6 +447,16 @@ export async function requestAccessInfo(
       data: { status: 'NEEDS_INFO', adminNotes: notes || null },
     });
 
+    await recordAuditEvent({
+      hotelId: req.user!.hotelId,
+      actor: { userId: req.user!.id, ipAddress: req.ip, userAgent: req.get('user-agent') },
+      action: 'ACCESS_REQUEST_INFO_REQUESTED',
+      entity: 'ACCESS_REQUEST',
+      entityId: request.id,
+      details: { requesterEmail: request.email, notes: notes || null },
+      source: 'access-requests',
+    });
+
     await sendRequesterUpdate(request.email, request.fullName, 'NEEDS_INFO', request.id, notes);
 
     res.json({ success: true, message: 'Requested additional information' });
@@ -432,6 +480,18 @@ export async function deleteAccessRequest(
     }
 
     await prisma.accessRequest.delete({ where: { id } });
+    await recordAuditEvent({
+      hotelId: req.user!.hotelId,
+      actor: { userId: req.user!.id, ipAddress: req.ip, userAgent: req.get('user-agent') },
+      action: 'ACCESS_REQUEST_DELETED',
+      entity: 'ACCESS_REQUEST',
+      entityId: request.id,
+      details: {
+        requesterEmail: request.email,
+        previousStatus: request.status,
+      },
+      source: 'access-requests',
+    });
     res.json({ success: true, message: 'Access request deleted' });
   } catch (error) {
     next(error);

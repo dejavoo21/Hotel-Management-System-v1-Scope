@@ -78,7 +78,7 @@ export default function CollaborationHeader({
   statusLabel = 'Collaborative workspace',
   statusTone = 'live',
   actions,
-  toolbar = {},
+  toolbar = false,
 }: CollaborationHeaderProps) {
   const meta = workspaceMeta[workspace];
   const Icon = meta.icon;

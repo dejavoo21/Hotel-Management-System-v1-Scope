@@ -1,43 +1,55 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  BACKGROUNDS,
+  THEMES,
+  readAppearancePreferences,
+  type BackgroundName,
+  type ThemeName,
+} from './appearance';
 
-export const THEMES = ['laflo', 'ocean', 'amber', 'dark'] as const;
-export type ThemeName = (typeof THEMES)[number];
-
-const THEME_STORAGE_KEY = 'laflo:theme';
+export { THEMES, type ThemeName } from './appearance';
 
 type ThemeContextValue = {
   theme: ThemeName;
   setTheme: (theme: ThemeName) => void;
+  background: BackgroundName;
+  setBackground: (background: BackgroundName) => void;
   themes: readonly ThemeName[];
+  backgrounds: readonly BackgroundName[];
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-const isThemeName = (value: string | null): value is ThemeName =>
-  !!value && THEMES.includes(value as ThemeName);
-
 const resolveInitialTheme = (): ThemeName => {
-  if (typeof window === 'undefined') return 'laflo';
-  const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-  if (isThemeName(storedTheme)) return storedTheme;
-  return 'laflo';
+  if (typeof window === 'undefined') return 'laflo-professional';
+  return readAppearancePreferences().theme;
 };
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<ThemeName>(() => resolveInitialTheme());
+  const [background, setBackground] = useState<BackgroundName>(() =>
+    readAppearancePreferences().background
+  );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
+
+  useLayoutEffect(() => {
+    document.documentElement.setAttribute('data-background', background);
+    document.body.dataset.background = background;
+  }, [background]);
 
   const value = useMemo(
     () => ({
       theme,
       setTheme,
+      background,
+      setBackground,
       themes: THEMES,
+      backgrounds: BACKGROUNDS,
     }),
-    [theme]
+    [background, theme]
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

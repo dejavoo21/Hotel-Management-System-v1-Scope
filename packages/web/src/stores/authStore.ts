@@ -2,6 +2,14 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { authService } from '@/services/auth';
 import type { User, LoginCredentials, LoginResponse } from '@/types';
+import { currencyForCountry } from '@/utils/countryCurrency';
+
+const normalizeUserCurrency = (user?: User | null): User | null => {
+  if (!user) return null;
+  const inferredCurrency = currencyForCountry(user.hotel?.country);
+  if (!inferredCurrency || !user.hotel || user.hotel.currency === inferredCurrency) return user;
+  return { ...user, hotel: { ...user.hotel, currency: inferredCurrency } };
+};
 
 const TRUSTED_DEVICE_KEY_PREFIX = 'laflo:trusted-device:';
 const getTrustedDeviceKey = (email: string) =>
@@ -91,7 +99,7 @@ export const useAuthStore = create<AuthState>()(
 
         if (response.requiresPasswordChange) {
           set({
-            user: response.user || null,
+            user: normalizeUserCurrency(response.user),
             accessToken: response.accessToken || null,
             refreshToken: response.refreshToken || null,
             isAuthenticated: Boolean(response.accessToken),
@@ -104,7 +112,7 @@ export const useAuthStore = create<AuthState>()(
         }
 
         set({
-          user: response.user,
+          user: normalizeUserCurrency(response.user),
           accessToken: response.accessToken,
           refreshToken: response.refreshToken,
           isAuthenticated: true,
@@ -137,7 +145,7 @@ export const useAuthStore = create<AuthState>()(
         }
 
         set({
-          user: response.user || null,
+          user: normalizeUserCurrency(response.user),
           accessToken: response.accessToken || null,
           refreshToken: response.refreshToken || null,
           isAuthenticated: Boolean(response.accessToken),
@@ -173,7 +181,7 @@ export const useAuthStore = create<AuthState>()(
         }
 
         set({
-          user: response.user,
+          user: normalizeUserCurrency(response.user),
           accessToken: response.accessToken,
           refreshToken: response.refreshToken,
           isAuthenticated: true,
@@ -232,7 +240,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      setUser: (user: User) => set({ user }),
+      setUser: (user: User) => set({ user: normalizeUserCurrency(user) }),
 
       initialize: async () => {
         const { accessToken, refreshToken } = get();
@@ -245,14 +253,14 @@ export const useAuthStore = create<AuthState>()(
         try {
           // Try to get current user
           const user = await authService.getCurrentUser();
-          set({ user, isAuthenticated: true, isLoading: false });
+          set({ user: normalizeUserCurrency(user), isAuthenticated: true, isLoading: false });
         } catch {
           // Try to refresh tokens
           if (refreshToken) {
             try {
               await get().refreshTokens();
               const user = await authService.getCurrentUser();
-              set({ user, isAuthenticated: true, isLoading: false });
+              set({ user: normalizeUserCurrency(user), isAuthenticated: true, isLoading: false });
             } catch {
               set({
                 user: null,

@@ -5,8 +5,9 @@ import { housekeepingService } from '@/services';
 import { getHousekeepingFloors, getHousekeepingRooms } from '@/data/dataSource';
 import type { Room } from '@/types';
 import { formatEnumLabel } from '@/utils';
-import { PAGE_TITLE_CLASS } from '@/styles/typography';
 import DepartmentIntelligenceCard from '@/components/operations/DepartmentIntelligenceCard';
+import { CircleCheck, ClipboardCheck, DoorOpen, SprayCan } from 'lucide-react';
+import { ModuleFilterPanel, ModuleMetricGrid, ModulePageHeader } from '@/components/core/ModuleLandingUi';
 
 type StatusFilter = 'all' | Room['housekeepingStatus'];
 type PriorityFilter = 'all' | 'HIGH' | 'MEDIUM' | 'LOW';
@@ -99,6 +100,34 @@ export default function HousekeepingPage() {
     const withPriorityFilter = list.filter((r) => (priority === 'all' ? true : derivePriority(r) === priority));
     return withPriorityFilter.sort((a, b) => Number(a.number) - Number(b.number));
   }, [rooms, priority]);
+  const housekeepingMetrics = [
+    {
+      label: 'Rooms in view',
+      value: rooms?.length ?? 0,
+      detail: floor === 'all' ? 'Across all housekeeping floors' : `Floor ${floor}`,
+      icon: <DoorOpen className="h-4 w-4" />,
+    },
+    {
+      label: 'Ready',
+      value: (rooms ?? []).filter((room) => room.housekeepingStatus === 'CLEAN').length,
+      detail: 'Released for guest arrival',
+      icon: <CircleCheck className="h-4 w-4" />,
+    },
+    {
+      label: 'Needs cleaning',
+      value: (rooms ?? []).filter((room) => room.housekeepingStatus === 'DIRTY').length,
+      detail: 'Priority turnover work',
+      icon: <SprayCan className="h-4 w-4" />,
+      tone: 'rose' as const,
+    },
+    {
+      label: 'Needs inspection',
+      value: (rooms ?? []).filter((room) => room.housekeepingStatus === 'INSPECTION').length,
+      detail: 'Awaiting final readiness check',
+      icon: <ClipboardCheck className="h-4 w-4" />,
+      tone: 'amber' as const,
+    },
+  ];
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -118,14 +147,18 @@ export default function HousekeepingPage() {
   };
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className={PAGE_TITLE_CLASS}>Housekeeping</h1>
-      </div>
+    <div className="space-y-6">
+      <ModulePageHeader
+        eyebrow="Room operations"
+        title="Housekeeping"
+        description="Prioritise room turns, inspections, and readiness updates for today’s operation."
+      />
+
+      <ModuleMetricGrid metrics={housekeepingMetrics} />
 
       <DepartmentIntelligenceCard department="housekeeping" />
 
-      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+      <ModuleFilterPanel>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full max-w-md">
             <svg
@@ -194,7 +227,7 @@ export default function HousekeepingPage() {
             </select>
           </div>
         </div>
-      </div>
+      </ModuleFilterPanel>
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
         {isLoading ? (

@@ -15,6 +15,9 @@ export type OpsChatResponse = {
   mode: string;
   generatedAtUtc: string;
   conversationId: string;
+  needsHumanSupport: boolean;
+  supportReason: string | null;
+  suggestedPrompts: string[];
 };
 
 export type AssistantStatusResponse = {
@@ -47,6 +50,9 @@ export const assistantService = {
         mode: args.mode ?? 'operations',
         conversationId: args.conversationId ?? '',
         generatedAtUtc: new Date().toISOString(),
+        needsHumanSupport: false,
+        supportReason: null,
+        suggestedPrompts: [],
       }
     );
   },
@@ -59,6 +65,9 @@ export const assistantService = {
           mode: args.mode ?? 'operations',
           conversationId: args.conversationId ?? '',
           generatedAtUtc: new Date().toISOString(),
+          needsHumanSupport: false,
+          supportReason: null,
+          suggestedPrompts: [],
         }
       );
     } catch (error: unknown) {

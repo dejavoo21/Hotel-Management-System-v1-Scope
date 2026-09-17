@@ -5,10 +5,24 @@ export type OperationsContext = {
   generatedAtUtc: string;
   weather?: {
     syncedAtUtc: string | null;
+    city?: string | null;
+    country?: string | null;
     timezone?: string | null;
     location?: { lat: number | null; lon: number | null };
     daysAvailable: number;
+    current?: {
+      temperatureC?: number | null;
+      feelsLikeC?: number | null;
+      summary?: string | null;
+      observedAtUtc?: string | null;
+    } | null;
     next24h?: { summary?: string | null; highC?: number | null; lowC?: number | null; rainRisk?: 'low' | 'medium' | 'high' | 'unknown' | null };
+    hourly?: Array<{
+      forecastAtUtc: string;
+      temperatureC: number | null;
+      precipitationProbabilityPct: number | null;
+      summary: string | null;
+    }>;
     isFresh: boolean;
     stale?: boolean;
     staleHours?: number | null;
@@ -19,6 +33,16 @@ export type OperationsContext = {
     inhouseNow?: number;
     windowStartUtc?: string;
     windowEndUtc?: string;
+  };
+  roomReadiness?: {
+    totalRooms: number;
+    serviceableRooms: number;
+    occupiedRooms: number;
+    occupancyPct: number | null;
+    ready: number;
+    dirty: number;
+    inspection: number;
+    outOfService: number;
   };
   pricingSignal?: {
     demandTrend?: 'down' | 'flat' | 'up';
@@ -98,7 +122,7 @@ export type OperationsContext = {
     reason: string;
     priority: 'low' | 'medium' | 'high';
     department?: 'FRONT_DESK' | 'HOUSEKEEPING' | 'MAINTENANCE' | 'CONCIERGE' | 'BILLING' | 'MANAGEMENT';
-    source: 'WEATHER_ACTIONS' | 'PRICING' | 'ARRIVALS';
+    source: 'WEATHER_ACTIONS' | 'PRICING' | 'ARRIVALS' | 'ENTERPRISE_SEARCH' | 'SMART_BUILDING';
     createdTicket?: {
       ticketId: string;
       conversationId: string;
@@ -113,11 +137,12 @@ export type CreateAdvisoryTicketInput = {
   reason: string;
   priority: 'low' | 'medium' | 'high';
   department: 'FRONT_DESK' | 'HOUSEKEEPING' | 'CONCIERGE' | 'MAINTENANCE' | 'BILLING' | 'MANAGEMENT';
-  source?: 'WEATHER_ACTIONS' | 'PRICING' | 'ARRIVALS';
+  source?: 'WEATHER_ACTIONS' | 'PRICING' | 'ARRIVALS' | 'ENTERPRISE_SEARCH' | 'SMART_BUILDING';
   meta?: {
     weatherSyncedAtUtc?: string | null;
     generatedAtUtc?: string | null;
     departmentIntelligence?: string;
+    dueDate?: string;
   };
 };
 

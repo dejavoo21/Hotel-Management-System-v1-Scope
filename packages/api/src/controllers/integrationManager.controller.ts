@@ -20,6 +20,7 @@ const categorySchema = z.enum([
   'WEATHER',
   'PAYMENTS',
   'BOOKING_CHANNELS',
+  'REVIEW_PLATFORMS',
   'MICROSOFT_365',
   'AI_PROVIDERS',
   'OTHER_PROVIDERS',

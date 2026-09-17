@@ -86,6 +86,7 @@ function buildInvoicePdfBuffer(invoice: {
   subtotal: number;
   tax: number;
   total: number;
+  currency: string;
   hotelName: string;
   guestName: string;
   bookingRef: string;
@@ -102,7 +103,7 @@ function buildInvoicePdfBuffer(invoice: {
     doc.on('error', reject);
 
     const formatMoney = (value: number) =>
-      new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+      new Intl.NumberFormat(undefined, { style: 'currency', currency: invoice.currency }).format(value);
 
     doc.fontSize(28).font('Helvetica-Bold').fillColor('#1e293b').text(invoice.hotelName, 48, 44);
     doc.fontSize(13).font('Helvetica').fillColor('#64748b').text('INVOICE', 48, 76);
@@ -372,6 +373,7 @@ export async function generatePdf(
       subtotal: safeNumber(invoice.subtotal),
       tax: safeNumber(invoice.tax),
       total: safeNumber(invoice.total),
+      currency: invoice.hotel.currency || 'USD',
       hotelName: invoice.hotel.name,
       guestName: `${booking.guest.firstName} ${booking.guest.lastName}`,
       bookingRef: booking.bookingRef,
@@ -379,7 +381,6 @@ export async function generatePdf(
       stayLabel: details.stayLabel,
       lineItems: details.lineItems,
     });
-
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoice.invoiceNo}.pdf"`);
     res.send(pdfBuffer);
@@ -457,6 +458,7 @@ export async function sendInvoiceEmail(
       subtotal: safeNumber(invoice.subtotal),
       tax: safeNumber(invoice.tax),
       total: safeNumber(invoice.total),
+      currency: invoice.hotel.currency || 'USD',
       hotelName: invoice.hotel.name,
       guestName: `${booking.guest.firstName} ${booking.guest.lastName}`,
       bookingRef: booking.bookingRef,
@@ -477,7 +479,13 @@ export async function sendInvoiceEmail(
       meta: [
         { label: 'Booking', value: booking.bookingRef },
         { label: 'Invoice', value: invoice.invoiceNo },
-        { label: 'Total', value: Number(invoice.total).toFixed(2) },
+        {
+          label: 'Total',
+          value: new Intl.NumberFormat(undefined, {
+            style: 'currency',
+            currency: invoice.hotel.currency || 'USD',
+          }).format(Number(invoice.total)),
+        },
       ],
       footerNote: 'Thank you for staying with LaFlo.',
     });

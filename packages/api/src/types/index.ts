@@ -82,6 +82,7 @@ export interface DateRangeQuery {
 
 // Dashboard types
 export interface DashboardSummary {
+  todayBookings: number;
   todayArrivals: number;
   todayDepartures: number;
   currentOccupancy: number;
@@ -96,6 +97,7 @@ export interface DashboardSummary {
 
 // Role-filtered dashboard response (financial data stripped for non-managers)
 export interface DashboardSummaryFiltered {
+  todayBookings: number;
   todayArrivals: number;
   todayDepartures: number;
   currentOccupancy: number;

@@ -42,6 +42,12 @@ const updateGuestSchema = z.object({
 const querySchema = z.object({
   search: z.string().optional(),
   vipStatus: z.enum(['true', 'false']).optional(),
+  status: z.enum(['IN_HOUSE', 'CHECKED_OUT']).optional(),
+  country: z.string().optional(),
+  returning: z.enum(['true', 'false']).optional(),
+  contactable: z.enum(['true', 'false']).optional(),
+  needsAttention: z.enum(['true', 'false']).optional(),
+  lastStayDays: z.enum(['30', '90', '365']).optional(),
   page: z.string().optional(),
   limit: z.string().optional(),
 });
@@ -52,6 +58,7 @@ router.use(requireModuleAccess('guests'));
 
 // Routes
 router.get('/', validate(querySchema, 'query'), guestController.getAllGuests);
+router.get('/summary', guestController.getGuestDirectorySummary);
 router.get('/search', guestController.searchGuests);
 router.get('/:id/journey', guestController.getGuestJourney);
 router.get('/:id/history', guestController.getGuestHistory);

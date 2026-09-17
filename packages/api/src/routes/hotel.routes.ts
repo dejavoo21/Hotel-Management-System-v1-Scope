@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
-import { authenticate, requireManager } from '../middleware/auth.js';
+import { authenticate, requireAdmin } from '../middleware/auth.js';
 import * as hotelController from '../controllers/hotel.controller.js';
 
 const router = Router();
@@ -16,7 +16,7 @@ const updateSchema = z.object({
   email: z.string().email().optional(),
   website: z.string().url().optional(),
   timezone: z.string().min(1).optional(),
-  currency: z.string().min(1).optional(),
+  currency: z.string().trim().length(3).transform((value) => value.toUpperCase()).optional(),
   latitude: z.number().finite().optional(),
   longitude: z.number().finite().optional(),
 });
@@ -24,6 +24,6 @@ const updateSchema = z.object({
 router.use(authenticate);
 
 router.get('/me', hotelController.getMyHotel);
-router.patch('/me', requireManager, validate(updateSchema), hotelController.updateMyHotel);
+router.patch('/me', requireAdmin, validate(updateSchema), hotelController.updateMyHotel);
 
 export default router;

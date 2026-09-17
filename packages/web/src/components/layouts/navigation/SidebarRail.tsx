@@ -82,9 +82,10 @@ export const SidebarRail = memo(function SidebarRail({
   // Check if current route is within a section
   const isRouteInSection = (section: NavSection): boolean => {
     return getSectionTargets(section).some(item => {
-      if (item.href === '/') return location.pathname === '/';
-      if (item.href === '/operations-center') return location.pathname === '/operations-center';
-      return location.pathname === item.href || location.pathname.startsWith(`${item.href}/`);
+      const pathname = item.href.split('?')[0];
+      if (pathname === '/') return location.pathname === '/';
+      if (pathname === '/operations-center') return location.pathname === '/operations-center';
+      return location.pathname === pathname || location.pathname.startsWith(`${pathname}/`);
     });
   };
 
@@ -109,12 +110,12 @@ export const SidebarRail = memo(function SidebarRail({
         className={`
           relative flex items-center justify-center w-11 h-11 rounded-xl
           transition-all duration-200 ease-out
-          focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2
+          focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2
           ${isActive || isLocked
-            ? 'bg-slate-800 text-white shadow-lg scale-105'
+            ? 'app-sidebar-nav-active shadow-lg scale-105'
             : hasActiveRoute
-            ? 'bg-slate-100 text-slate-700'
-            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+            ? 'app-sidebar-nav-current'
+            : 'app-sidebar-nav-idle'
           }
         `}
         onMouseEnter={() => onIconHover(section.id)}
@@ -133,11 +134,6 @@ export const SidebarRail = memo(function SidebarRail({
       >
         <NavIcon name={section.icon} className="h-5 w-5" />
         
-        {/* Lock indicator */}
-        {isLocked && (
-          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full" />
-        )}
-        
         {/* Badge */}
         {showBadge && (
           <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
@@ -149,7 +145,7 @@ export const SidebarRail = memo(function SidebarRail({
   };
 
   return (
-    <div className="flex flex-col h-full w-[68px] bg-white border-r border-slate-200/80 shrink-0">
+    <div className="app-sidebar flex flex-col h-full w-[68px] border-r shrink-0">
       {/* Logo */}
       <div className="flex items-center justify-center h-16 border-b border-slate-100">
         <img 
