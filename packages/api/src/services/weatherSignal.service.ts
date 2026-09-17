@@ -56,6 +56,12 @@ type DailyAggregate = {
   rawJson: {
     entries: number;
     forecastTimesUtc: string[];
+    hourly: Array<{
+      forecastAtUtc: string;
+      temperatureC: number | null;
+      precipitationProbabilityPct: number | null;
+      summary: string | null;
+    }>;
   };
 };
 
@@ -224,6 +230,7 @@ export function aggregateForecastByHotelDate(
       weatherMain: Array<string | undefined>;
       weatherDesc: Array<string | undefined>;
       utcTimes: string[];
+      hourly: DailyAggregate['rawJson']['hourly'];
     }
   >();
 
@@ -241,6 +248,7 @@ export function aggregateForecastByHotelDate(
         weatherMain: [],
         weatherDesc: [],
         utcTimes: [],
+        hourly: [],
       };
 
     if (typeof entry.main?.temp_min === 'number') bucket.tempMin.push(entry.main.temp_min);
@@ -251,6 +259,12 @@ export function aggregateForecastByHotelDate(
     bucket.weatherMain.push(entry.weather?.[0]?.main);
     bucket.weatherDesc.push(entry.weather?.[0]?.description);
     bucket.utcTimes.push(dt.toISOString());
+    bucket.hourly.push({
+      forecastAtUtc: dt.toISOString(),
+      temperatureC: typeof entry.main?.temp === 'number' ? Number(entry.main.temp.toFixed(2)) : null,
+      precipitationProbabilityPct: typeof entry.pop === 'number' ? Number((entry.pop * 100).toFixed(2)) : null,
+      summary: entry.weather?.[0]?.description || entry.weather?.[0]?.main || null,
+    });
 
     buckets.set(dateLocal, bucket);
   }
@@ -277,6 +291,7 @@ export function aggregateForecastByHotelDate(
       rawJson: {
         entries: bucket.utcTimes.length,
         forecastTimesUtc: bucket.utcTimes,
+        hourly: bucket.hourly,
       },
     }));
 }

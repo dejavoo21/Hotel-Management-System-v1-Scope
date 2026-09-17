@@ -24,6 +24,12 @@ export interface WeatherContext {
     lowC: number | null;
     rainRisk: RainRisk;
   } | null;
+  hourly: Array<{
+    forecastAtUtc: string;
+    temperatureC: number | null;
+    precipitationProbabilityPct: number | null;
+    summary: string | null;
+  }>;
 }
 
 function normalizeNumber(value: unknown): number | null {
@@ -78,6 +84,7 @@ export async function getWeatherContextForHotel(hotelId: string): Promise<Weathe
       staleHours: null,
       current: null,
       next24h: null,
+      hourly: [],
     };
   }
 
@@ -92,6 +99,7 @@ export async function getWeatherContextForHotel(hotelId: string): Promise<Weathe
     select: {
       dateLocal: true,
       metricsJson: true,
+      rawJson: true,
     },
   });
 
@@ -120,6 +128,22 @@ export async function getWeatherContextForHotel(hotelId: string): Promise<Weathe
         : null;
   const currentObservedAtUtc =
     typeof metrics.currentObservedAtUtc === 'string' ? metrics.currentObservedAtUtc : null;
+  const nowMs = Date.now();
+  const hourly = forecastRows
+    .flatMap((row) => {
+      const raw = (row.rawJson || {}) as Record<string, unknown>;
+      return Array.isArray(raw.hourly) ? raw.hourly : [];
+    })
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object')
+    .map((entry) => ({
+      forecastAtUtc: typeof entry.forecastAtUtc === 'string' ? entry.forecastAtUtc : '',
+      temperatureC: normalizeNumber(entry.temperatureC),
+      precipitationProbabilityPct: normalizeNumber(entry.precipitationProbabilityPct),
+      summary: typeof entry.summary === 'string' ? entry.summary : null,
+    }))
+    .filter((entry) => entry.forecastAtUtc && new Date(entry.forecastAtUtc).getTime() >= nowMs - 30 * 60 * 1000)
+    .sort((a, b) => a.forecastAtUtc.localeCompare(b.forecastAtUtc))
+    .slice(0, 8);
 
   return {
     syncedAtUtc,
@@ -150,5 +174,6 @@ export async function getWeatherContextForHotel(hotelId: string): Promise<Weathe
           rainRisk: computeRainRisk(rainProb),
         }
       : null,
+    hourly,
   };
 }

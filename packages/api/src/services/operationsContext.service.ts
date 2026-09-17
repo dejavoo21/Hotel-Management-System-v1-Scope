@@ -64,6 +64,41 @@ export interface OpsContext {
   windowEndUtc: string;
 }
 
+export interface RoomReadinessContext {
+  totalRooms: number;
+  serviceableRooms: number;
+  occupiedRooms: number;
+  occupancyPct: number | null;
+  ready: number;
+  dirty: number;
+  inspection: number;
+  outOfService: number;
+}
+
+async function getRoomReadinessForHotel(hotelId: string): Promise<RoomReadinessContext> {
+  const rooms = await prisma.room.findMany({
+    where: { hotelId, isActive: true },
+    select: { status: true, housekeepingStatus: true },
+  });
+  const outOfService = rooms.filter(
+    (room) => room.status === 'OUT_OF_SERVICE' || room.housekeepingStatus === 'OUT_OF_SERVICE'
+  ).length;
+  const serviceableRooms = Math.max(0, rooms.length - outOfService);
+  const occupiedRooms = rooms.filter((room) => room.status === 'OCCUPIED').length;
+  return {
+    totalRooms: rooms.length,
+    serviceableRooms,
+    occupiedRooms,
+    occupancyPct: serviceableRooms > 0 ? Number(((occupiedRooms / serviceableRooms) * 100).toFixed(1)) : null,
+    ready: rooms.filter(
+      (room) => room.status !== 'OUT_OF_SERVICE' && room.housekeepingStatus === 'CLEAN'
+    ).length,
+    dirty: rooms.filter((room) => room.housekeepingStatus === 'DIRTY').length,
+    inspection: rooms.filter((room) => room.housekeepingStatus === 'INSPECTION').length,
+    outOfService,
+  };
+}
+
 const PRICING_SNAPSHOT_STALE_MINUTES = 90;
 
 function isSnapshotStale(generatedAtUtc: Date, maxAgeMinutes: number): boolean {
@@ -347,10 +382,21 @@ export async function getOperationsContext(hotelId: string) {
     windowStartUtc: now.toISOString(),
     windowEndUtc: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
   };
+  const defaultRoomReadiness: RoomReadinessContext = {
+    totalRooms: 0,
+    serviceableRooms: 0,
+    occupiedRooms: 0,
+    occupancyPct: null,
+    ready: 0,
+    dirty: 0,
+    inspection: 0,
+    outOfService: 0,
+  };
 
-  const [weather, ops, pricingForecast] = await Promise.all([
+  const [weather, ops, roomReadiness, pricingForecast] = await Promise.all([
     getWeatherContextWithRefresh(hotelId),
     getOpsContextForHotel(hotelId).catch(() => defaultOps),
+    getRoomReadinessForHotel(hotelId).catch(() => defaultRoomReadiness),
     resolvePricingForecast(hotelId).catch(() => ({
       mode: 'LIVE_FALLBACK' as const,
       generatedAtUtc: now.toISOString(),
@@ -441,8 +487,10 @@ export async function getOperationsContext(hotelId: string) {
           staleHours: weather.staleHours,
           current: weather.current,
           next24h: weather.next24h,
+          hourly: weather.hourly,
         }
       : null,
+    roomReadiness,
     pricingForecast: {
       mode: pricingForecast.mode,
       generatedAtUtc: pricingForecast.generatedAtUtc,

@@ -102,9 +102,33 @@ const context = {
       summary: "clear sky",
       observedAtUtc: "2026-08-16T10:00:00Z",
     },
+    hourly: [
+      {
+        forecastAtUtc: "2026-08-16T12:00:00Z",
+        temperatureC: 18,
+        precipitationProbabilityPct: 10,
+        summary: "clear sky",
+      },
+      {
+        forecastAtUtc: "2026-08-16T15:00:00Z",
+        temperatureC: 19,
+        precipitationProbabilityPct: 35,
+        summary: "light rain",
+      },
+    ],
     next24h: { summary: "clear sky", lowC: 13.2, highC: 18.2, rainRisk: "low" },
   },
   ops: { arrivalsNext24h: 3, departuresNext24h: 2, inhouseNow: 12 },
+  roomReadiness: {
+    totalRooms: 16,
+    serviceableRooms: 16,
+    occupiedRooms: 10,
+    occupancyPct: 62.5,
+    ready: 11,
+    dirty: 3,
+    inspection: 2,
+    outOfService: 0,
+  },
   pricingSignal: {
     demandTrend: "down",
     marketCoveragePct: 0,
@@ -284,13 +308,16 @@ describe("OperationsCenterPage", () => {
     expect(screen.getByRole("link", { name: "Open Active Alerts" })).toHaveAttribute("href", "/security-center?tab=alerts");
     expect(screen.getByRole("link", { name: "Open Pending Tasks" })).toHaveAttribute("href", "/operations/tasks-advisories?tab=tasks");
     expect(screen.getByRole("link", { name: "Open Revenue Signal" })).toHaveAttribute("href", "/operations/operational-intelligence/revenue-guidance");
-    expect(screen.getByText("PMS room inventory not connected")).toBeInTheDocument();
+    expect(screen.getByText("62.5%")).toBeInTheDocument();
+    expect(screen.getByText("16", { selector: "strong" })).toBeInTheDocument();
+    expect(screen.getByText("10% rain")).toBeInTheDocument();
     expect(screen.getByLabelText("Operations summary")).toHaveClass("operations-summary-grid", "2xl:grid-cols-7");
     expect(screen.getByLabelText("Operations summary")).not.toHaveClass("xl:grid-cols-7");
     expect(screen.getByText("Operational Advisories").closest(".operations-primary-grid")).toHaveClass("2xl:grid-cols-[1.45fr_1fr_.9fr]");
     expect(screen.getAllByText("Now")[0].closest(".operations-hour")).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "°F" }));
     expect(screen.getByText("61°F")).toBeInTheDocument();
+    expect(screen.getByText("64°F")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Critical" }));
     expect(screen.getByText("No critical advisories.")).toBeInTheDocument();
@@ -325,7 +352,7 @@ describe("OperationsCenterPage", () => {
   it("shows a durable refresh outcome and updates the visible timestamp", async () => {
     renderPage();
     await screen.findByRole("heading", { name: "Operations Workspace" });
-    fireEvent.click(screen.getByRole("button", { name: "Refresh forecast" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Refresh forecast" }));
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Forecast refreshed successfully"));
     expect(serviceMocks.syncWeather).toHaveBeenCalledWith("hotel-1");
   });

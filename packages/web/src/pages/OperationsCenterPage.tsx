@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Cloud,
+  CloudRain,
   DollarSign,
   DoorOpen,
   Eye,
@@ -21,12 +22,16 @@ import {
   RefreshCcw,
   Settings2,
   ShieldAlert,
+  Sun,
   ThermometerSun,
   UsersRound,
 } from "lucide-react";
 import {
   Area,
   AreaChart,
+  Cell,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -862,6 +867,8 @@ function OperationsWorkspaceGrid({
   const high = risks.filter((item) => item.severity === "HIGH");
   const weatherSummary = context?.weather?.next24h?.summary || "Forecast unavailable";
   const marketCoverage = context?.pricingSignal?.marketCoveragePct || 0;
+  const roomReadiness = context?.roomReadiness;
+  const hasRoomInventory = Boolean(roomReadiness?.totalRooms);
   const advisoryRows = (advisories.length ? advisories : briefing?.recommendedActions || []).map((item: any) => ({
     ...item,
     visualSeverity: item.priority === "high" || item.severity === "CRITICAL"
@@ -880,6 +887,29 @@ function OperationsWorkspaceGrid({
     : temperatureUnit === "C"
       ? `${Math.round(currentTemperature)}°C`
       : `${Math.round((currentTemperature * 9) / 5 + 32)}°F`;
+  const formatTemperature = (temperatureC: number | null) => {
+    if (temperatureC == null) return "—";
+    return temperatureUnit === "C"
+      ? `${Math.round(temperatureC)}°C`
+      : `${Math.round((temperatureC * 9) / 5 + 32)}°F`;
+  };
+  const formatForecastTime = (forecastAtUtc: string) => {
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        hour: "numeric",
+        timeZone: context?.weather?.timezone || undefined,
+      }).format(new Date(forecastAtUtc));
+    } catch {
+      return new Date(forecastAtUtc).toLocaleTimeString([], { hour: "numeric" });
+    }
+  };
+  const hourlyForecast = (context?.weather?.hourly || []).slice(0, 8);
+  const roomSegments = [
+    { name: "Ready", value: roomReadiness?.ready || 0, color: "#65a30d" },
+    { name: "Dirty", value: roomReadiness?.dirty || 0, color: "#f59e0b" },
+    { name: "Inspection", value: roomReadiness?.inspection || 0, color: "#60a5fa" },
+    { name: "Out of service", value: roomReadiness?.outOfService || 0, color: "#334155" },
+  ];
   const pricingTrend = (context?.pricingForecast?.calendar || [])
     .filter((item) => item.adrEstimate != null)
     .slice(0, 7)
@@ -890,7 +920,7 @@ function OperationsWorkspaceGrid({
   const kpis = [
     { label: "Arrivals (Today)", value: context?.ops?.arrivalsNext24h || 0, detail: "Next 24 hours", icon: UsersRound, href: "/operations/tasks-advisories?view=arrivals", tone: "bg-emerald-50 text-emerald-700" },
     { label: "Departures (Today)", value: context?.ops?.departuresNext24h || 0, detail: "Next 24 hours", icon: DoorOpen, href: "/operations/tasks-advisories?view=departures", tone: "bg-sky-50 text-sky-700" },
-    { label: "Occupancy", value: "Unavailable", detail: "PMS room inventory not connected", icon: BedDouble, href: "", tone: "bg-emerald-50 text-emerald-700" },
+    { label: "Occupancy", value: roomReadiness?.occupancyPct == null ? "Unavailable" : `${roomReadiness.occupancyPct}%`, detail: hasRoomInventory ? `${roomReadiness?.occupiedRooms || 0} occupied · ${roomReadiness?.serviceableRooms || 0} serviceable` : "Room inventory unavailable", icon: BedDouble, href: hasRoomInventory ? "/rooms" : "", tone: "bg-emerald-50 text-emerald-700" },
     { label: "Open Incidents", value: risks.length, detail: `${critical.length} critical · ${high.length} high`, icon: AlertTriangle, href: "/incident-center?tab=active", tone: "bg-orange-50 text-orange-700" },
     { label: "Active Alerts", value: risks.length, detail: `${critical.length} critical · ${high.length} high`, icon: ShieldAlert, href: canSecurity ? "/security-center?tab=alerts" : "", tone: "bg-rose-50 text-rose-700" },
     { label: "Pending Tasks", value: advisories.length, detail: "Open operational actions", icon: ClipboardList, href: canTasks ? "/operations/tasks-advisories?tab=tasks" : "", tone: "bg-violet-50 text-violet-700" },
@@ -936,11 +966,15 @@ function OperationsWorkspaceGrid({
         <section className="rounded-xl border border-border bg-card p-3 shadow-sm">
           <div className="flex items-center justify-between"><div><h2 className="text-sm font-semibold text-text-main">24-Hour Weather Forecast</h2><p className="text-[10px] text-text-muted">Operational outlook for proactive planning.</p></div><div className="flex items-center rounded-lg border border-border p-0.5 text-[10px] font-semibold" aria-label="Temperature unit">{(["C", "F"] as const).map((unit) => <button key={unit} type="button" aria-pressed={temperatureUnit === unit} onClick={() => setTemperatureUnit(unit)} className={`rounded-md px-2 py-1 ${temperatureUnit === unit ? "bg-primary-50 text-primary-700" : "text-text-muted"}`}>°{unit}</button>)}</div></div>
           <div className="operations-hourly-forecast mt-2 grid grid-cols-4 gap-2 sm:grid-cols-6 2xl:grid-cols-12">
-            {["Now", "12 PM", "2 PM", "4 PM", "6 PM", "8 PM", "10 PM", "12 AM", "2 AM", "4 AM", "6 AM", "8 AM"].map((time, index) => (
-              <div key={time} className="operations-hour rounded-lg border border-border bg-bg/60 p-1.5 text-center"><p className="text-[9px] font-bold text-text-main">{time}</p>{index === 0 ? <ThermometerSun className="mx-auto my-1 h-4 w-4 text-amber-500" /> : <Cloud className="mx-auto my-1 h-4 w-4 text-slate-300" />}<p className="text-[10px] font-semibold">{index === 0 ? displayTemperature : "—"}</p><p className="mt-0.5 truncate text-[9px] text-text-muted">{index === 0 ? "Current" : "No hourly data"}</p></div>
-            ))}
+            <div className="operations-hour rounded-lg border border-border bg-bg/60 p-1.5 text-center"><p className="text-[9px] font-bold text-text-main">Now</p><ThermometerSun className="mx-auto my-1 h-4 w-4 text-amber-500" /><p className="text-[10px] font-semibold">{displayTemperature}</p><p className="mt-0.5 truncate text-[9px] text-text-muted">{context?.weather?.current?.summary || "Current"}</p></div>
+            {hourlyForecast.map((hour) => {
+              const summary = (hour.summary || "Forecast").toLowerCase();
+              const ForecastIcon = summary.includes("rain") || summary.includes("drizzle") ? CloudRain : summary.includes("clear") ? Sun : Cloud;
+              return <div key={hour.forecastAtUtc} className="operations-hour rounded-lg border border-border bg-bg/60 p-1.5 text-center"><p className="text-[9px] font-bold text-text-main">{formatForecastTime(hour.forecastAtUtc)}</p><ForecastIcon className={`mx-auto my-1 h-4 w-4 ${summary.includes("clear") ? "text-amber-500" : summary.includes("rain") ? "text-sky-500" : "text-slate-400"}`} /><p className="text-[10px] font-semibold">{formatTemperature(hour.temperatureC)}</p><p className="mt-0.5 truncate text-[9px] text-text-muted">{hour.precipitationProbabilityPct == null ? hour.summary || "Forecast" : `${Math.round(hour.precipitationProbabilityPct)}% rain`}</p></div>;
+            })}
+            {!hourlyForecast.length ? <div className="col-span-3 grid min-h-[69px] place-items-center rounded-lg border border-dashed border-border px-3 text-center text-[10px] text-text-muted sm:col-span-5 2xl:col-span-11">Hourly forecast has not synced yet. Refresh the forecast to request current provider data.</div> : null}
           </div>
-          <p className="mt-2 text-[10px] text-text-muted">{weatherSummary} · {forecastFresh ? "Connected forecast is current." : "Hourly values are unavailable from the connected summary feed."}</p>
+          <p className="mt-2 text-[10px] text-text-muted">{weatherSummary} · {hourlyForecast.length ? `${hourlyForecast.length} upcoming provider observations.` : forecastFresh ? "Current conditions are connected; hourly observations are pending." : "Forecast refresh required."}</p>
           <Link to="/operations/operational-intelligence/weather-forecast" className="mt-2 inline-flex text-[10px] font-semibold text-primary-700">Open operational forecast <ArrowRight className="ml-1 h-3 w-3" /></Link>
         </section>
         <section className="rounded-xl border border-border bg-card p-3 shadow-sm">
@@ -962,8 +996,8 @@ function OperationsWorkspaceGrid({
       </div>
       <div className="operations-secondary-grid grid gap-3 xl:grid-cols-2 2xl:h-[198px] 2xl:grid-cols-[1.3fr_.72fr_1.05fr_1fr] 2xl:[&>section]:overflow-hidden 2xl:[&>section]:p-3">
         <section className="rounded-xl border border-border bg-card p-4 shadow-sm"><div className="flex justify-between"><h2 className="text-sm font-semibold">Incident Overview</h2><Link to="/incident-center?tab=active" className="text-[10px] font-semibold text-primary-700">View all incidents <ArrowRight className="inline h-3 w-3" /></Link></div><div className="mt-2 flex gap-1 text-[9px]"><span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">Open ({risks.length})</span><span className="rounded-full border px-2 py-1">Critical ({critical.length})</span><span className="rounded-full border px-2 py-1">High ({high.length})</span></div><div className="mt-2 grid grid-cols-[62px_1fr_52px_36px] gap-2 border-b border-border pb-1 text-[9px] font-semibold text-text-muted"><span>Severity</span><span>Incident</span><span>Status</span><span>Actions</span></div><div className="divide-y divide-border">{risks.slice(0, 4).map((item, index) => <Link key={`${item.title}-${index}`} to="/incident-center?tab=active" className="grid grid-cols-[62px_1fr_52px_36px] items-center gap-2 py-1.5 text-[9px]"><span className={`font-bold ${item.severity === "CRITICAL" ? "text-red-600" : "text-amber-600"}`}>{item.severity || "INFO"}</span><span className="truncate">{item.title}</span><span className="text-text-muted">Open</span><span className="flex items-center gap-1 text-text-muted"><Eye className="h-3 w-3" /><MessageSquare className="h-3 w-3" /></span></Link>)}</div>{!risks.length ? <p className="py-5 text-center text-xs text-text-muted">No active incidents identified.</p> : null}</section>
-        <section className="rounded-xl border border-border bg-card p-4 shadow-sm"><h2 className="text-sm font-semibold">Room Readiness</h2><div className="mt-4 grid place-items-center"><div className="grid h-24 w-24 place-items-center rounded-full border-[12px] border-slate-200 text-center"><span><strong className="block text-sm">Unavailable</strong><span className="text-[9px] text-text-muted">PMS disconnected</span></span></div></div><Link to="/settings?tab=integrations" className="mt-4 block rounded-lg border border-border py-2 text-center text-[10px] font-semibold">Review room integration</Link></section>
-        <section className="rounded-xl border border-border bg-card p-4 shadow-sm"><div className="flex justify-between"><h2 className="text-sm font-semibold">Market & Revenue Snapshot</h2><Link to="/operations/operational-intelligence/revenue-guidance" className="text-[10px] font-semibold text-primary-700">View market report <ArrowRight className="inline h-3 w-3" /></Link></div><div className="mt-3 grid grid-cols-3 gap-2"><Metric label="Demand" value={demand === "up" ? "Rising" : demand === "down" ? "Softening" : "Stable"} /><Metric label="Coverage" value={`${marketCoverage}%`} /><Metric label="Pricing" value={context?.pricingSignal?.suggestion || "Monitor"} /></div><div className="mt-2 h-[72px] rounded-lg bg-emerald-50/60 p-1" aria-label="Revenue trend">{pricingTrend.length > 1 ? <ResponsiveContainer width="100%" height="100%"><AreaChart data={pricingTrend} margin={{ top: 6, right: 4, bottom: 0, left: 4 }}><defs><linearGradient id="revenueTrendFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#65a30d" stopOpacity={0.28} /><stop offset="100%" stopColor="#65a30d" stopOpacity={0.02} /></linearGradient></defs><XAxis dataKey="date" hide /><YAxis hide domain={["dataMin - 10", "dataMax + 10"]} /><Tooltip contentStyle={{ fontSize: 10, borderRadius: 8 }} formatter={(value) => [`${value}`, "ADR"]} /><Area type="monotone" dataKey="value" stroke="#65a30d" strokeWidth={2} fill="url(#revenueTrendFill)" /></AreaChart></ResponsiveContainer> : <div className="grid h-full place-items-center text-[10px] text-text-muted">Revenue trend unavailable · connect pricing data</div>}</div></section>
+        <section className="rounded-xl border border-border bg-card p-4 shadow-sm"><div className="flex justify-between"><h2 className="text-sm font-semibold">Room Readiness</h2><Link to="/housekeeping" className="text-[10px] font-semibold text-primary-700">View housekeeping <ArrowRight className="inline h-3 w-3" /></Link></div>{hasRoomInventory ? <div className="mt-2 grid grid-cols-[112px_1fr] items-center gap-2"><div className="relative h-28"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={roomSegments} dataKey="value" innerRadius={34} outerRadius={49} paddingAngle={1} stroke="none">{roomSegments.map((segment) => <Cell key={segment.name} fill={segment.color} />)}</Pie></PieChart></ResponsiveContainer><div className="pointer-events-none absolute inset-0 grid place-items-center text-center"><span><strong className="block text-base">{roomReadiness?.totalRooms}</strong><span className="text-[9px] text-text-muted">Total rooms</span></span></div></div><div className="space-y-1.5">{roomSegments.map((segment) => <div key={segment.name} className="flex items-center gap-1.5 text-[9px]"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: segment.color }} /><span className="min-w-0 flex-1 truncate text-text-muted">{segment.name}</span><strong>{segment.value}</strong></div>)}</div></div> : <div className="mt-4 rounded-lg border border-dashed border-border p-5 text-center"><strong className="block text-sm">Room inventory unavailable</strong><span className="text-[9px] text-text-muted">Add active rooms or connect a PMS to populate readiness.</span></div>}</section>
+        <section className="rounded-xl border border-border bg-card p-4 shadow-sm"><div className="flex justify-between"><h2 className="text-sm font-semibold">Market & Revenue Snapshot</h2><Link to="/operations/operational-intelligence/revenue-guidance" className="text-[10px] font-semibold text-primary-700">View market report <ArrowRight className="inline h-3 w-3" /></Link></div><div className="mt-3 grid grid-cols-3 gap-2"><Metric label="Pick-up (Rooms)" value={`${(context?.ops?.arrivalsNext24h || 0) > 0 ? "+" : ""}${context?.ops?.arrivalsNext24h || 0}`} /><Metric label="ADR" value={context?.pricingForecast?.summary?.adrBaseEstimate == null ? "Unavailable" : `$${context.pricingForecast.summary.adrBaseEstimate.toFixed(2)}`} /><Metric label="RevPAR" value={context?.pricingForecast?.summary?.adrBaseEstimate == null || roomReadiness?.occupancyPct == null ? "Unavailable" : `$${(context.pricingForecast.summary.adrBaseEstimate * roomReadiness.occupancyPct / 100).toFixed(2)}`} /></div><div className="mt-2 h-[72px] rounded-lg bg-emerald-50/60 p-1" aria-label="Revenue trend">{pricingTrend.length > 1 ? <ResponsiveContainer width="100%" height="100%"><AreaChart data={pricingTrend} margin={{ top: 6, right: 4, bottom: 0, left: 4 }}><defs><linearGradient id="revenueTrendFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#65a30d" stopOpacity={0.28} /><stop offset="100%" stopColor="#65a30d" stopOpacity={0.02} /></linearGradient></defs><XAxis dataKey="date" hide /><YAxis hide domain={["dataMin - 10", "dataMax + 10"]} /><Tooltip contentStyle={{ fontSize: 10, borderRadius: 8 }} formatter={(value) => [`${value}`, "ADR"]} /><Area type="monotone" dataKey="value" stroke="#65a30d" strokeWidth={2} fill="url(#revenueTrendFill)" /></AreaChart></ResponsiveContainer> : <div className="grid h-full place-items-center text-[10px] text-text-muted">Revenue trend unavailable · connect pricing data</div>}</div></section>
         <section className="rounded-xl border border-border bg-card p-4 shadow-sm"><div className="flex justify-between"><h2 className="text-sm font-semibold">Security Snapshot</h2><Link to="/security-center" className="text-[10px] font-semibold text-primary-700">View security center <ArrowRight className="inline h-3 w-3" /></Link></div><div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3"><Indicator icon={ShieldAlert} label="Active alerts" value={`${risks.length} signals`} href="/security-center?tab=alerts" restricted={!canSecurity} /><Indicator icon={Activity} label="Critical" value={`${critical.length} issues`} href="/security-center?tab=alerts" restricted={!canSecurity} /><Indicator icon={UsersRound} label="Visitors" value="Unavailable" href="/security-center?tab=visitors" restricted={!canSecurity} /><Indicator icon={House} label="Smart building" value="Open workspace" href="/smart-building" /></div></section>
       </div>
       <div className="operations-footer-grid grid gap-3 2xl:h-[150px] 2xl:grid-cols-[1fr_1.15fr_1fr] 2xl:[&>section]:overflow-hidden 2xl:[&>section]:p-3">

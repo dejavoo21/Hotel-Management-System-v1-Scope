@@ -17,6 +17,12 @@ export type OperationsContext = {
       observedAtUtc?: string | null;
     } | null;
     next24h?: { summary?: string | null; highC?: number | null; lowC?: number | null; rainRisk?: 'low' | 'medium' | 'high' | 'unknown' | null };
+    hourly?: Array<{
+      forecastAtUtc: string;
+      temperatureC: number | null;
+      precipitationProbabilityPct: number | null;
+      summary: string | null;
+    }>;
     isFresh: boolean;
     stale?: boolean;
     staleHours?: number | null;
@@ -27,6 +33,16 @@ export type OperationsContext = {
     inhouseNow?: number;
     windowStartUtc?: string;
     windowEndUtc?: string;
+  };
+  roomReadiness?: {
+    totalRooms: number;
+    serviceableRooms: number;
+    occupiedRooms: number;
+    occupancyPct: number | null;
+    ready: number;
+    dirty: number;
+    inspection: number;
+    outOfService: number;
   };
   pricingSignal?: {
     demandTrend?: 'down' | 'flat' | 'up';
